@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}คำถามเป้าหมาย — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
+    <h1 style="margin:0">คำถามเป้าหมาย</h1>
+  </div>
+  <form method="post" action="/brands/{{ brand['id'] }}/questions/generate"
+        data-loading="⏳ กำลัง Generate คำถามด้วย AI…">
+    <button class="outline sm" type="submit">✨ Generate ด้วย AI</button>
+  </form>
+</div>
+<p class="muted">คำถามที่ลูกค้ามักถาม AI — ระบบจะวัดว่าแบรนด์ปรากฏในคำตอบบ้างไหม</p>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div class="card">
+  {% if questions %}
+  <table>
+    <thead><tr><th>#</th><th>คำถาม</th><th>ภาษา</th><th></th></tr></thead>
+    <tbody>
+    {% for q in questions %}
+    <tr>
+      <td class="muted">{{ loop.index }}</td>
+      <td>{{ q['question'] }}</td>
+      <td class="muted">{{ 'ไทย' if q['lang'] == 'th' else 'English' }}</td>
+      <td>
+        <form method="post" action="/questions/{{ q['id'] }}/delete">
+          <input type="hidden" name="brand_id" value="{{ brand['id'] }}">
+          <button class="danger" type="submit">ลบ</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted" style="text-align:center;padding:20px 0">ยังไม่มีคำถาม — เพิ่มด้านล่างได้เลย</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ เพิ่มคำถามใหม่</h2>
+  <form method="post" action="/brands/{{ brand['id'] }}/questions">
+    <div class="row">
+      <div style="flex:3">
+        <label>คำถาม</label>
+        <input name="question" required placeholder="เช่น โกดังให้เช่า สมุทรปราการ" autofocus>
+      </div>
+      <div style="flex:1">
+        <label>ภาษา</label>
+        <select name="lang">
+          <option value="th">ไทย</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px"><button type="submit">＋ เพิ่มคำถาม</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}ประวัติมอนิเตอร์ — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
+    <h1 style="margin:0">ประวัติมอนิเตอร์</h1>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="/brands/{{ brand['id'] }}/impact" class="btn outline sm">📊 SoV Impact</a>
+    <form method="post" action="/brands/{{ brand['id'] }}/run">
+      <button class="alt sm" type="submit">▶ รันมอนิเตอร์</button>
+    </form>
+  </div>
+</div>
+
+<!-- ตั้งเวลา auto-run -->
+<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="flex:1;min-width:200px">
+    <div style="font-weight:600;font-size:14px">⏰ ตั้งเวลารันอัตโนมัติ</div>
+    <div class="muted" style="font-size:12px">ระบบจะรันมอนิเตอร์ให้เองตามรอบ+เวลาที่เลือก (เวลาไทย) แล้วอัปเดต gap ในแดชบอร์ด</div>
+  </div>
+  {% set cur = brand['auto_run_days'] if brand['auto_run_days'] is not none else 7 %}
+  {% set curt = brand['auto_run_time'] or '08:00' %}
+  <form method="post" action="/brands/{{ brand['id'] }}/schedule" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select name="auto_run_days" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+      {% for days, label in schedule_choices %}
+      <option value="{{ days }}" {% if days == cur %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <input type="time" name="auto_run_time" value="{{ curt }}"
+           style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+    <span class="muted" style="font-size:12px">น. (ไทย)</span>
+    <button type="submit" class="sm">บันทึก</button>
+  </form>
+</div>
+
+{% if runs %}
+<div class="card" style="padding:0;overflow:hidden">
+  <table>
+    <thead>
+      <tr>
+        <th>วันที่รัน</th>
+        <th>Share of Voice</th>
+        <th>พบ/ทั้งหมด</th>
+        <th>สถานะ</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in runs %}
+    <tr>
+      <td class="muted" style="white-space:nowrap">{{ r['started_at'][:16] }}</td>
+      <td>
+        {% if r['share_of_voice'] is not none %}
+          {% set pct = (r['share_of_voice']*100)|round(0)|int %}
+          <span style="font-weight:700;color:{{ '#149e61' if pct > 0 else '#d92d20' }}">{{ pct }}%</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td><b>{{ r['brand_hits'] }}</b>/{{ r['questions_total'] }}</td>
+      <td>
+        {% if r['status'] == 'done' %}<span class="pill ok">เสร็จ</span>
+        {% elif r['status'] == 'running' %}<span class="pill admin">กำลังรัน</span>
+        {% else %}<span class="muted">{{ r['status'] }}</span>{% endif %}
+      </td>
+      <td><a class="btn ghost sm" href="/runs/{{ r['id'] }}">ดูรายงาน</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="muted">ยังไม่เคยรัน — กด "รันมอนิเตอร์" เพื่อเริ่มวัด SoV</p>
+  <form method="post" action="/brands/{{ brand['id'] }}/run" style="margin-top:14px">
+    <button class="alt" type="submit">▶ รันมอนิเตอร์ตอนนี้</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

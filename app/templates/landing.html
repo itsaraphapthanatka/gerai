@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เจอ.AI — ให้แบรนด์คุณโผล่ในคำตอบ AI (GEO Platform)</title>
+<meta name="description" content="เจอ.AI วัดว่าแบรนด์คุณปรากฏในคำตอบของ ChatGPT, Claude, Perplexity แค่ไหน หา gap แล้วสร้างคอนเทนต์ + Schema ปิดช่องว่างให้อัตโนมัติ — ติดตั้งได้ทุกเว็บ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="เจอ.AI">
+<meta property="og:title" content="เจอ.AI — ให้แบรนด์คุณโผล่ในคำตอบ AI">
+<meta property="og:description" content="แพลตฟอร์ม GEO สำหรับแบรนด์ไทย — วัด Share of Voice + สร้างคอนเทนต์ปิด gap อัตโนมัติ">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --primary:#0a0a0a; --on-primary:#fff; --charcoal:#222; --slate:#45515e; --steel:#5f5f5f; --stone:#8e8e93; --muted:#a8aab2;
+    --canvas:#fff; --surface:#f7f8fa; --surface-soft:#f2f3f5; --hairline:#e5e7eb; --hairline-soft:#eaecf0;
+    --coral:#ff5530; --magenta:#ea5ec1; --blue:#1456f0; --purple:#a855f7; --cyan:#3daeff; --success-bg:#e8ffea; --success-text:#1ba673;
+    --font:'DM Sans','IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--font);color:var(--primary);background:var(--canvas);line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:15px;font-weight:600;
+    border-radius:9999px;padding:13px 26px;cursor:pointer;border:1px solid transparent;transition:.15s;white-space:nowrap}
+  .btn-primary{background:var(--primary);color:var(--on-primary)}
+  .btn-primary:hover{background:var(--charcoal)}
+  .btn-outline{background:transparent;color:var(--primary);border-color:var(--primary)}
+  .btn-outline:hover{background:var(--primary);color:#fff}
+  .btn-white{background:#fff;color:var(--primary)}
+  .btn-white:hover{opacity:.9}
+  .btn-sm{padding:9px 18px;font-size:14px}
+
+  /* promo banner */
+  .promo{background:var(--primary);color:#fff;font-size:13.5px;font-weight:500;text-align:center;padding:9px 16px}
+  .promo b{font-weight:600}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--hairline-soft)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .logo{font-size:21px;font-weight:700;letter-spacing:-.5px;display:flex;align-items:center;gap:7px}
+  .logo .dot{width:10px;height:10px;border-radius:9999px;background:var(--coral);display:inline-block}
+  .nav-links{display:flex;gap:30px;align-items:center}
+  .nav-links a{font-size:14.5px;font-weight:500;color:var(--slate)}
+  .nav-links a:hover{color:var(--primary)}
+  .nav-cta{display:flex;gap:10px;align-items:center}
+  @media(max-width:860px){.nav-links{display:none}}
+
+  /* hero */
+  .hero{padding:96px 0 80px;text-align:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--slate);
+    background:var(--surface);border:1px solid var(--hairline);border-radius:9999px;padding:6px 14px;margin-bottom:26px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:9999px;background:var(--coral)}
+  h1.hero-h{font-size:80px;font-weight:600;line-height:1.08;letter-spacing:-2px;margin:0 auto;max-width:14ch}
+  h1.hero-h .accent{color:var(--coral)}
+  .hero-sub{font-size:19px;font-weight:400;color:var(--steel);line-height:1.55;max-width:60ch;margin:24px auto 0}
+  .hero-cta{display:flex;gap:12px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+  .hero-note{font-size:13px;color:var(--stone);margin-top:16px}
+
+  /* hero mock */
+  .mock{max-width:680px;margin:60px auto 0;background:var(--canvas);border:1px solid var(--hairline);border-radius:20px;
+    box-shadow:rgba(0,0,0,.08) 0 12px 40px -8px;overflow:hidden;text-align:left}
+  .mock-bar{display:flex;align-items:center;gap:6px;padding:13px 16px;border-bottom:1px solid var(--hairline-soft);background:var(--surface)}
+  .mock-bar i{width:11px;height:11px;border-radius:9999px;background:var(--hairline);display:inline-block}
+  .mock-bar span{margin-left:10px;font-size:12.5px;color:var(--stone)}
+  .mock-body{padding:22px 24px}
+  .mock-q{font-size:14px;color:var(--slate);font-weight:500;margin-bottom:14px}
+  .mock-q .you{background:var(--surface);border-radius:9999px;padding:3px 11px;font-size:12px;color:var(--steel);margin-right:8px}
+  .mock-a{font-size:14.5px;color:var(--charcoal);line-height:1.7}
+  .mock-a mark{background:#fff0ec;color:#c8341a;font-weight:600;padding:1px 5px;border-radius:5px}
+  .mock-foot{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--hairline-soft)}
+  .sov-badge{font-size:12px;font-weight:600;color:var(--success-text);background:var(--success-bg);border-radius:9999px;padding:5px 12px}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:8px 0 0}
+  .stat .n{font-size:38px;font-weight:600;letter-spacing:-1px;line-height:1.1}
+  .stat .l{font-size:14px;color:var(--steel);margin-top:6px}
+  @media(max-width:760px){.stats{grid-template-columns:1fr 1fr;gap:28px 20px}}
+
+  /* sections */
+  section{padding:80px 0}
+  .sec-head{max-width:640px;margin:0 0 44px}
+  .sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+  .sec-eyebrow{font-size:13px;font-weight:600;color:var(--coral);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+  h2{font-size:46px;font-weight:600;line-height:1.12;letter-spacing:-1.5px}
+  .sec-sub{font-size:18px;color:var(--steel);line-height:1.55;margin-top:16px}
+  @media(max-width:760px){h2{font-size:32px;letter-spacing:-.5px}}
+
+  /* vibrant product cards */
+  .pcards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .pcard{border-radius:32px;padding:28px;color:#fff;min-height:300px;display:flex;flex-direction:column;
+    position:relative;overflow:hidden}
+  .pcard::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:9999px;
+    background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%)}
+  .pcard .pc-no{font-size:13px;font-weight:600;opacity:.85}
+  .pcard .pc-ico{font-size:30px;margin:6px 0 auto}
+  .pcard h3{font-size:23px;font-weight:600;line-height:1.25;margin-top:14px;letter-spacing:-.3px}
+  .pcard p{font-size:14px;line-height:1.55;opacity:.92;margin-top:10px}
+  .pc-coral{background:var(--coral)} .pc-blue{background:var(--blue)} .pc-purple{background:var(--purple)} .pc-magenta{background:var(--magenta)}
+  @media(max-width:980px){.pcards{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.pcards{grid-template-columns:1fr}}
+
+  /* how it works */
+  .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;counter-reset:s}
+  .step{background:var(--surface);border-radius:16px;padding:22px 20px}
+  .step .sn{width:30px;height:30px;border-radius:9999px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .step h4{font-size:16px;font-weight:600;letter-spacing:-.2px}
+  .step p{font-size:13px;color:var(--steel);line-height:1.55;margin-top:6px}
+  @media(max-width:980px){.steps{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.steps{grid-template-columns:1fr}}
+
+  /* install cards */
+  .inst{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .icard{background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;padding:30px 26px}
+  .icard .ico{font-size:26px}
+  .icard h3{font-size:20px;font-weight:600;margin:14px 0 4px;letter-spacing:-.2px}
+  .icard .tag{font-size:12px;font-weight:600;color:var(--success-text);background:var(--success-bg);border-radius:9999px;padding:3px 10px;display:inline-block;margin-bottom:6px}
+  .icard p{font-size:14px;color:var(--steel);line-height:1.6}
+  .icard ul{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .icard li{font-size:13.5px;color:var(--slate);padding-left:22px;position:relative}
+  .icard li::before{content:"✓";position:absolute;left:0;color:var(--blue);font-weight:700}
+  @media(max-width:860px){.inst{grid-template-columns:1fr}}
+
+  /* feature tiles */
+  .ftiles{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .ftile{background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;padding:24px}
+  .ftile .ico{font-size:24px;margin-bottom:12px}
+  .ftile h4{font-size:16px;font-weight:600;letter-spacing:-.2px}
+  .ftile p{font-size:13.5px;color:var(--steel);line-height:1.55;margin-top:7px}
+  @media(max-width:860px){.ftiles{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.ftiles{grid-template-columns:1fr}}
+
+  /* promo cta */
+  .cta-card{background:var(--coral);color:#fff;border-radius:32px;padding:64px 48px;text-align:center;position:relative;overflow:hidden}
+  .cta-card::after{content:"";position:absolute;left:-60px;bottom:-80px;width:300px;height:300px;border-radius:9999px;
+    background:radial-gradient(circle,rgba(255,255,255,.16),transparent 70%)}
+  .cta-card h2{font-size:44px;letter-spacing:-1px;position:relative}
+  .cta-card p{font-size:18px;opacity:.95;margin-top:14px;position:relative}
+  .cta-card .hero-cta{margin-top:30px;position:relative}
+
+  /* footer */
+  footer{background:var(--primary);color:#fff;padding:64px 0 32px;margin-top:8px}
+  .foot-top{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;padding-bottom:40px;border-bottom:1px solid #1f1f1f}
+  .foot-brand{max-width:300px}
+  .foot-brand .logo{color:#fff;margin-bottom:12px}
+  .foot-brand p{font-size:14px;color:var(--muted);line-height:1.6}
+  .foot-cols{display:flex;gap:64px;flex-wrap:wrap}
+  .foot-col h5{font-size:13px;font-weight:600;color:#fff;margin-bottom:14px}
+  .foot-col a{display:block;font-size:14px;color:var(--muted);padding:5px 0}
+  .foot-col a:hover{color:#fff}
+  .foot-bot{font-size:13px;color:var(--muted);padding-top:24px}
+  @media(max-width:760px){.foot-top{flex-direction:column;gap:32px}}
+</style>
+</head>
+<body>
+
+<div class="promo">🚀 <b>เจอ.AI</b> — แพลตฟอร์ม GEO สำหรับแบรนด์ไทย · ดันแบรนด์ขึ้นคำตอบของ AI</div>
+
+<nav>
+  <div class="wrap nav-in">
+    <a href="/" class="logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
+    <div class="nav-links">
+      <a href="#features">ฟีเจอร์</a>
+      <a href="#how">วิธีทำงาน</a>
+      <a href="#install">ติดตั้ง</a>
+    </div>
+    <div class="nav-cta">
+      {% if request.session.get('tenant_id') %}
+      <a href="/app" class="btn btn-primary btn-sm">แดชบอร์ด →</a>
+      {% else %}
+      <a href="/login" class="btn btn-primary btn-sm">เข้าสู่ระบบ</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span>Generative Engine Optimization</div>
+    <h1 class="hero-h">ให้แบรนด์คุณ<br>โผล่ใน<span class="accent">คำตอบ AI</span></h1>
+    <p class="hero-sub">คนหันไปถาม ChatGPT, Claude, Perplexity แทน Google — เจอ.AI วัดว่าแบรนด์คุณถูกพูดถึงแค่ไหน หาช่องว่าง แล้วสร้างคอนเทนต์ + Schema ปิดให้อัตโนมัติ ติดตั้งได้ทุกเว็บ</p>
+    <div class="hero-cta">
+      <a href="/login" class="btn btn-primary">เริ่มใช้งาน →</a>
+      <a href="#how" class="btn btn-outline">ดูวิธีทำงาน</a>
+    </div>
+    <div class="hero-note">ไม่ต้องใช้บัตรเครดิต · ติดตั้งครั้งเดียว ทำงานอัตโนมัติ</div>
+
+    <!-- mock -->
+    <div class="mock">
+      <div class="mock-bar"><i></i><i></i><i></i><span>คำตอบจาก AI</span></div>
+      <div class="mock-body">
+        <div class="mock-q"><span class="you">ผู้ใช้</span>แนะนำทนายความด้านกฎหมายธุรกิจในกรุงเทพหน่อย</div>
+        <div class="mock-a">สำหรับกฎหมายธุรกิจและการร่างสัญญา <mark>Tanawat Lawyer</mark> เป็นตัวเลือกที่ดี — ให้บริการครบทั้งจดทะเบียนบริษัท ร่างสัญญา และที่ปรึกษากฎหมายสำหรับธุรกิจไทยและต่างชาติ…</div>
+        <div class="mock-foot">
+          <span class="sov-badge">● Share of Voice +38%</span>
+          <span style="font-size:12.5px;color:var(--stone)">แบรนด์ถูกอ้างใน 7 จาก 10 คำถาม</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section style="padding-top:40px">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="n">4+</div><div class="l">AI engines ที่วัด (GPT/Claude/Perplexity/Google)</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">ช่องทางติดตั้ง — ทุกชนิดเว็บ</div></div>
+      <div class="stat"><div class="n">100%</div><div class="l">อัตโนมัติ ตั้งแต่วัดถึงเผยแพร่</div></div>
+      <div class="stat"><div class="n">24/7</div><div class="l">มอนิเตอร์ตามรอบที่ตั้งเอง</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">ความสามารถหลัก</div>
+      <h2>ครบทั้งวงจร GEO ในที่เดียว</h2>
+      <p class="sec-sub">ตั้งแต่วัดว่าแบรนด์อยู่ตรงไหนในคำตอบ AI ไปจนถึงสร้างคอนเทนต์ปิดช่องว่างและเผยแพร่</p>
+    </div>
+    <div class="pcards">
+      <div class="pcard pc-coral">
+        <div class="pc-no">01</div><div class="pc-ico">📊</div>
+        <h3>วัด Share of Voice</h3>
+        <p>รู้ว่าแบรนด์คุณถูก AI พูดถึงกี่ % เทียบคู่แข่ง ในคำถามที่ลูกค้าถามจริง</p>
+      </div>
+      <div class="pcard pc-blue">
+        <div class="pc-no">02</div><div class="pc-ico">🎯</div>
+        <h3>หา Gap อัตโนมัติ</h3>
+        <p>ชี้ชัดว่าคำถามไหนที่ AI ยังไม่พูดถึงคุณ — โอกาสที่ต้องรีบปิด</p>
+      </div>
+      <div class="pcard pc-purple">
+        <div class="pc-no">03</div><div class="pc-ico">✍️</div>
+        <h3>สร้างคอนเทนต์ GEO</h3>
+        <p>เขียนบทความ + ฝัง Schema JSON-LD ที่ AI อ่านได้ ปิด gap ให้อัตโนมัติ</p>
+      </div>
+      <div class="pcard pc-magenta">
+        <div class="pc-no">04</div><div class="pc-ico">🚀</div>
+        <h3>เผยแพร่อัตโนมัติ</h3>
+        <p>ลงเว็บให้เอง มีช่วงให้ review ก่อน แล้ววัดผลซ้ำว่า SoV ขึ้นจริง</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--surface)">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="sec-eyebrow">วิธีทำงาน</div>
+      <h2>ลูปที่หมุนเองไม่ต้องดูแล</h2>
+      <p class="sec-sub">ตั้งครั้งเดียว ระบบวัด–เขียน–เผยแพร่–วัดซ้ำ ให้อัตโนมัติตามรอบที่คุณกำหนด</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="sn">1</div><h4>ตั้งคำถามเป้าหมาย</h4><p>คำถามที่ลูกค้าถาม AI — หรือให้ AI generate ให้</p></div>
+      <div class="step"><div class="sn">2</div><h4>วัด SoV</h4><p>ระบบถาม AI จริงแล้ววัดว่าแบรนด์โผล่ไหม</p></div>
+      <div class="step"><div class="sn">3</div><h4>เจอ gap</h4><p>คำถามที่ยังไม่โผล่ เด้งเตือนในแดชบอร์ด</p></div>
+      <div class="step"><div class="sn">4</div><h4>สร้าง + เผยแพร่</h4><p>เขียนคอนเทนต์ + schema แล้วลงเว็บ</p></div>
+      <div class="step"><div class="sn">5</div><h4>วัดซ้ำ</h4><p>เทียบก่อน/หลังว่า SoV ขึ้นจริงแค่ไหน</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">ติดตั้ง</div>
+      <h2>ใช้ได้กับทุกเว็บ</h2>
+      <p class="sec-sub">ไม่ว่าเว็บคุณเป็นแบบไหน ติดตั้งครั้งเดียวแล้ว schema + คอนเทนต์อัปเดตเอง</p>
+    </div>
+    <div class="inst">
+      <div class="icard">
+        <div class="ico">🔌</div>
+        <span class="tag">ดีสุดสำหรับ GEO</span>
+        <h3>WordPress</h3>
+        <p>ติดตั้งปลั๊กอิน เจอ.AI Connector แล้วระบบ publish คอนเทนต์ + ฝัง schema ฝั่งเซิร์ฟเวอร์ให้เอง</p>
+        <ul><li>schema อยู่ใน HTML จริง</li><li>เผยแพร่อัตโนมัติ</li><li>ใช้ได้กับ Nginx/Plesk</li></ul>
+      </div>
+      <div class="icard">
+        <div class="ico">🧩</div>
+        <h3>เว็บสำเร็จรูป / No-code</h3>
+        <p>Wix, Squarespace, Shopify, Webflow — วาง <code>&lt;script&gt;</code> เดียวในช่อง header ก็เริ่มได้</p>
+        <ul><li>ไม่ต้องแตะโค้ด</li><li>ฝัง schema อัตโนมัติ</li><li>วางครั้งเดียว</li></ul>
+      </div>
+      <div class="icard">
+        <div class="ico">⚙️</div>
+        <h3>เว็บเขียนเอง / Dev</h3>
+        <p>แพลตฟอร์มโฮสต์หน้าบทความจริง (เนื้อหา + schema) ให้ — proxy path เดียวก็ขึ้นใต้โดเมนคุณ</p>
+        <ul><li>หน้า crawl ได้จริง</li><li>content.json feed</li><li>ไม่ต้องเขียนโค้ด</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><div class="sec-eyebrow">มาตรฐาน GEO ครบ</div><h2>เครื่องมือที่ AI เข้าใจ</h2></div>
+    <div class="ftiles">
+      <div class="ftile"><div class="ico">🔖</div><h4>Schema JSON-LD</h4><p>Organization + FAQPage ที่ AI/Google parse ได้ ฝังตรงหน้า</p></div>
+      <div class="ftile"><div class="ico">📄</div><h4>llms.txt</h4><p>ไฟล์มาตรฐานใหม่ บอก AI ว่าเนื้อหาสำคัญอยู่ตรงไหน</p></div>
+      <div class="ftile"><div class="ico">🤖</div><h4>robots.txt</h4><p>เปิดทาง GPTBot · ClaudeBot · PerplexityBot เข้าเว็บ</p></div>
+      <div class="ftile"><div class="ico">📈</div><h4>รายงาน SoV Impact</h4><p>กราฟก่อน/หลัง พิสูจน์ว่าคอนเทนต์ดัน SoV ขึ้นจริง</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta-card">
+      <h2>พร้อมให้ AI เจอแบรนด์คุณ?</h2>
+      <p>เริ่มวัด Share of Voice วันนี้ แล้วปล่อยให้ระบบทำงานเอง</p>
+      <div class="hero-cta">
+        <a href="/login" class="btn btn-white">เริ่มใช้งาน →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div class="logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></div>
+        <p>แพลตฟอร์ม GEO สำหรับแบรนด์ไทย — ให้ AI พูดถึงแบรนด์คุณในคำตอบ</p>
+      </div>
+      <div class="foot-cols">
+        <div class="foot-col">
+          <h5>ผลิตภัณฑ์</h5>
+          <a href="#features">ฟีเจอร์</a>
+          <a href="#how">วิธีทำงาน</a>
+          <a href="#install">ติดตั้ง</a>
+        </div>
+        <div class="foot-col">
+          <h5>เริ่มต้น</h5>
+          <a href="/login">เข้าสู่ระบบ</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bot">© 2026 เจอ.AI · Generative Engine Optimization Platform</div>
+  </div>
+</footer>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+</body>
+</html>

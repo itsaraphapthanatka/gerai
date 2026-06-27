@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}คอนเทนต์ GEO — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+  <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
+  <h1 style="margin:0">คอนเทนต์ GEO</h1>
+</div>
+<p class="muted">สร้างบทความ + Schema JSON-LD จากคำถามเป้าหมาย แล้วเผยแพร่เข้า WordPress</p>
+
+{% if limit_msg %}<div class="err">{{ limit_msg }}</div>{% endif %}
+
+<!-- auto สร้างร่าง + โหมดเผยแพร่ -->
+<div class="card" style="margin-bottom:12px;border-color:var(--purple)">
+  <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 auto สร้างคอนเทนต์ปิด gap</div>
+  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ</div>
+
+  <div style="display:flex;gap:20px;flex-wrap:wrap">
+    {% set curw = brand['auto_content_weekly'] or 0 %}
+    <form method="post" action="/brands/{{ brand['id'] }}/auto-content" style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:600">1. ความถี่สร้างร่าง</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select name="weekly" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+          {% for n, label in auto_content_choices %}
+          <option value="{{ n }}" {% if n == curw %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="sm">บันทึก</button>
+      </div>
+    </form>
+
+    {% set curp = brand['auto_publish_days'] if brand['auto_publish_days'] is not none else -1 %}
+    <form method="post" action="/brands/{{ brand['id'] }}/auto-publish" style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:600">2. เมื่อสร้างร่างแล้ว</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select name="days" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+          {% for n, label in auto_publish_choices %}
+          <option value="{{ n }}" {% if n == curp %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="sm">บันทึก</button>
+      </div>
+    </form>
+  </div>
+  {% if curp >= 0 %}
+  <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#fff6e6;border:1px solid #ffe2a8;border-radius:8px;padding:8px 11px">
+    ⚠️ โหมดนี้จะ<b>เผยแพร่ร่าง auto ขึ้นเว็บเองโดยไม่ต้องรอคน</b>{% if curp > 0 %} (หลัง {{ curp }} วัน — มีเวลาเข้ามาแก้/ลบก่อน){% else %} ทันที{% endif %} · AI ถูกสั่งไม่ให้แต่งตัวเลข/ราคา แต่ควรเข้ามาตรวจเป็นระยะ
+  </div>
+  {% endif %}
+</div>
+
+<!-- สร้างคอนเทนต์ -->
+<div class="card">
+  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ สร้างคอนเทนต์ใหม่</h2>
+  {% if questions %}
+  <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="⏳ กำลังสร้างคอนเทนต์ด้วย AI…">
+    <div class="row">
+      <div style="flex:3">
+        <label>คำถามเป้าหมาย</label>
+        <select name="question_id" required>
+          {% for q in questions %}
+          <option value="{{ q['id'] }}">{{ q['question'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="flex:1">
+        <label>ภาษา</label>
+        <select name="lang">
+          <option value="th">ไทย</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="alt" type="submit" {% if not can_generate %}disabled{% endif %}>สร้าง</button>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <p class="muted">ยังไม่มีคำถาม — <a href="/brands/{{ brand['id'] }}/questions" class="link">เพิ่มคำถามก่อน</a></p>
+  {% endif %}
+  <p style="margin:14px 0 0"><a class="link" href="/brands/{{ brand['id'] }}/assets">→ ชุดติดตั้ง on-site (llms.txt · robots · schema องค์กร)</a></p>
+</div>
+
+<!-- รายการคอนเทนต์ -->
+{% if content %}
+<div class="card" style="padding:0;overflow:hidden;margin-top:4px">
+  <table>
+    <thead><tr><th>หัวข้อ</th><th>ภาษา</th><th>ที่มา</th><th>สถานะ</th><th></th></tr></thead>
+    <tbody>
+    {% for ci in content %}
+    <tr>
+      <td style="max-width:280px">{{ ci['title'] }}</td>
+      <td class="muted">{{ 'ไทย' if ci['lang'] == 'th' else 'EN' }}</td>
+      <td class="muted">{{ '🤖 auto' if ci['source'] == 'auto' else ci['source'] }}</td>
+      <td>
+        {% if ci['status'] == 'published' %}<span class="pill ok">เผยแพร่แล้ว</span>
+        {% else %}<span class="pill admin">ร่าง</span>
+          {% if ci['id'] in publish_eta %}
+            {% set d = publish_eta[ci['id']] %}
+            <div class="muted" style="font-size:11px;margin-top:3px">⏳ เผยแพร่อัตโนมัติใน {{ 'เร็วๆ นี้' if d < 1 else (d|round(0)|int|string) + ' วัน' }}</div>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td><a class="btn ghost sm" href="/content/{{ ci['id'] }}">เปิด</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted" style="margin-top:14px">ยังไม่มีคอนเทนต์ — สร้างจากฟอร์มด้านบน</p>
+{% endif %}
+{% endblock %}

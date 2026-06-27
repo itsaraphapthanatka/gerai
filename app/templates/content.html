@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}คอนเทนต์ — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>{{ item['title'] }}</h1>
+<p class="muted">{{ brand['name'] }} · ภาษา {{ item['lang'] }} · ที่มา {{ item['source'] }} · {{ item['created_at'] }}</p>
+
+<h2>Meta (SEO/GEO)</h2>
+<div class="card">
+  <label>Title</label><div class="copybox">{{ item['meta_title'] }}</div>
+  <label>Description</label><div class="copybox">{{ item['meta_desc'] }}</div>
+</div>
+
+<h2>เนื้อหา (Markdown) <span class="muted">— คัดลอกไปใช้ได้ทุกแพลตฟอร์ม</span></h2>
+<div class="card">
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ item['body_md'] }}</pre>
+</div>
+
+<h2>Schema JSON-LD <span class="muted">— วางใน &lt;head&gt; ของหน้านั้น</span></h2>
+<div class="card">
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ item['schema_json'] }}</pre>
+</div>
+
+<h2>เผยแพร่{% if wp %}เข้า WordPress{% else %}บทความ{% endif %}</h2>
+<div class="card">
+  {% if notice %}<div class="{% if notice.ok %}ok-banner{% else %}err{% endif %}">{{ notice.msg }}</div>{% endif %}
+
+  {% if item['status'] == 'published' %}
+  <p><span class="pill ok">เผยแพร่แล้ว</span>
+    {% if wp and item['wp_post_id'] %} · post #{{ item['wp_post_id'] }}{% endif %}
+    {% if item['wp_link'] %} · <a class="link" href="{{ item['wp_link'] }}" target="_blank">เปิดหน้า ↗</a>{% endif %}
+  </p>
+  {% endif %}
+
+  {% if wp %}
+  <div class="muted" style="font-size:12.5px;line-height:1.6;margin-bottom:10px">
+    💡 <b>เพื่อให้ AI เห็น ต้องเป็น "เผยแพร่ (public)"</b> — "ร่าง (draft)" ไว้รีวิวใน WordPress ก่อน แต่ AI/Google จะยังมองไม่เห็น
+  </div>
+  <form method="post" action="/content/{{ item['id'] }}/publish" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="alt" type="submit" name="status" value="publish">🚀 เผยแพร่เลย (public)</button>
+    <button class="ghost sm" type="submit" name="status" value="draft">บันทึกเป็นร่าง</button>
+    <span class="muted" style="font-size:12px">— {{ wp['site_url'] }}{% if wp['mode'] == 'connector' %} · ผ่าน Connector (พร้อม schema){% endif %}</span>
+  </form>
+  {% else %}
+  <div class="muted" style="font-size:12.5px;line-height:1.6;margin-bottom:10px">
+    💡 เว็บนี้ไม่ได้เชื่อม WordPress — เผยแพร่แล้วบทความจะขึ้นเป็น<b>หน้า hosted</b> (เนื้อหา + schema ที่ AI อ่านได้) ที่ <code>{{ hosted_url }}</code>
+  </div>
+  <form method="post" action="/content/{{ item['id'] }}/publish" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="alt" type="submit" name="status" value="publish">🚀 เผยแพร่ (public)</button>
+    <button class="ghost sm" type="submit" name="status" value="draft">เก็บเป็นร่าง</button>
+  </form>
+  <p class="muted" style="font-size:12px;margin-top:10px">
+    อยากให้ขึ้นใต้โดเมนคุณ (<code>โดเมน/geo/…</code>)? ตั้ง proxy ครั้งเดียวที่
+    <a class="link" href="/brands/{{ brand['id'] }}">หน้าแบรนด์ → แท็บ "เว็บเขียนเอง / Dev"</a>
+  </p>
+  {% endif %}
+</div>
+
+<form method="post" action="/content/{{ item['id'] }}/delete" onsubmit="return confirm('ลบคอนเทนต์นี้?')" style="margin-top:8px">
+  <button class="danger" type="submit">ลบคอนเทนต์นี้</button>
+</form>
+{% endblock %}

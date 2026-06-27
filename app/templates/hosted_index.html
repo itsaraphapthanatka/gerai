@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทความ — {{ brand_name }}</title>
+<meta name="description" content="รวมบทความและคำแนะนำจาก {{ brand_name }}">
+<style>
+  body { font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+    max-width: 760px; margin: 0 auto; padding: 40px 22px; line-height: 1.7;
+    color: #1c1c2b; background: #fff; }
+  h1 { font-size: 26px; margin: 0 0 20px; }
+  ul { list-style: none; padding: 0; }
+  li { margin: 0 0 12px; }
+  a { color: #7132f5; font-size: 17px; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer { border-top: 1px solid #ececf1; margin-top: 32px; padding-top: 16px; color: #6b6b7b; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>บทความ — {{ brand_name }}</h1>
+{% if articles %}
+<ul>
+  {% for a in articles %}<li><a href="{{ a.url }}">{{ a.title }}</a></li>{% endfor %}
+</ul>
+{% else %}
+<p>ยังไม่มีบทความที่เผยแพร่</p>
+{% endif %}
+<footer><a href="{{ site_url }}">← กลับ {{ domain }}</a></footer>
+</body>
+</html>

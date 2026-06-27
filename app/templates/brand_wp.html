@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}WordPress — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+  <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
+  <h1 style="margin:0">เชื่อมต่อ WordPress</h1>
+</div>
+<p class="muted">เผยแพร่คอนเทนต์ GEO เข้าเว็บ WordPress อัตโนมัติ</p>
+
+{% if notice %}
+  <div class="{{ 'ok-banner' if notice.ok else 'err' }}">{{ notice.msg }}</div>
+{% endif %}
+
+{% set wp_ok = wp and (wp['status'] or '').startswith(('เชื่อมต่อสำเร็จ', 'Connector เชื่อมต่อแล้ว')) %}
+{% if wp %}
+<!-- สถานะการเชื่อมต่อ -->
+<div class="card" style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+  <div style="flex:1;min-width:240px">
+    {% if wp_ok %}
+      <span class="pill ok" style="margin-bottom:8px;display:inline-block">✓ เชื่อมต่อแล้ว</span>
+    {% else %}
+      <span class="pill" style="background:#fdecec;color:#b42318;margin-bottom:8px;display:inline-block">⚠ ยังเชื่อมต่อไม่สำเร็จ</span>
+    {% endif %}
+    <div style="font-weight:600;margin-bottom:2px">{{ wp['site_url'] }}</div>
+    <div class="muted">ผู้ใช้: {{ wp['auth_user'] }} ·
+      {% if wp['mode'] == 'connector' %}<span class="pill admin" style="font-size:10px">Connector</span> push schema ได้
+      {% else %}REST API{% endif %}
+    </div>
+    <div class="muted" style="margin-top:6px;line-height:1.6"><b>สถานะ:</b> {{ wp['status'] }}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    {% if wp['mode'] == 'connector' %}
+    <form method="post" action="/brands/{{ brand['id'] }}/wp/sync">
+      <button type="submit" style="white-space:nowrap">🔄 ซิงค์ schema + llms.txt</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/brands/{{ brand['id'] }}/wp/delete">
+      <button class="danger" type="submit" style="width:100%">ยกเลิกการเชื่อมต่อ</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if not wp_ok %}
+<!-- ฟอร์มเชื่อมต่อ (แสดงเฉพาะตอนยังไม่เชื่อมต่อสำเร็จ) -->
+<div class="card" style="margin-top:8px">
+  <h2 style="margin-top:0;border:none;padding:0 0 14px;font-size:15px">
+    {{ 'อัปเดตการเชื่อมต่อ' if wp else 'ตั้งค่าการเชื่อมต่อ' }}
+  </h2>
+
+  <form method="post" action="/brands/{{ brand['id'] }}/wp">
+    <label>URL เว็บไซต์</label>
+    <input name="site_url" required placeholder="https://example.com" value="{{ wp['site_url'] if wp else '' }}">
+
+    <!-- วิธีที่ 1 — Connector plugin -->
+    <div style="margin-top:18px;border:1px solid var(--purple);border-radius:12px;padding:14px 16px;background:var(--purple-tint)">
+      <div style="font-weight:700;font-size:14px;color:var(--purple);margin-bottom:2px">
+        วิธีที่ 1 — Connector plugin <span style="font-size:11px;background:var(--purple);color:#fff;padding:2px 7px;border-radius:6px;margin-left:4px">แนะนำ</span>
+      </div>
+      <p class="muted" style="font-size:12px;margin:4px 0 12px;line-height:1.6">
+        ฝัง schema ฝั่งเซิร์ฟเวอร์ (AI bot ทุกตัวเห็น) + เสิร์ฟ llms.txt/robots.txt จริง — <b>ใช้ได้กับ Nginx/Plesk</b> ไม่ต้องแก้ .htaccess
+      </p>
+      <ol style="font-size:12.5px;line-height:1.9;margin:0 0 12px;padding-left:18px">
+        <li><a href="/plugin/jor-ai-connector.zip" class="btn-dl">⬇ ดาวน์โหลดปลั๊กอิน (.zip)</a></li>
+        <li>WP Admin → ปลั๊กอิน → เพิ่มใหม่ → อัปโหลดปลั๊กอิน → เลือกไฟล์ → ติดตั้ง → <b>เปิดใช้งาน</b></li>
+        <li>ไปที่ Settings → <b>เจอ.AI Connector</b> → คัดลอก API Key ที่ระบบแนะนำ (หรือตั้งเอง) → บันทึก</li>
+        <li>วาง API Key เดียวกันในช่องนี้:</li>
+      </ol>
+      <input type="password" name="api_key" placeholder="วาง API Key จากปลั๊กอินที่นี่"
+             style="background:#fff">
+    </div>
+
+    <!-- วิธีที่ 2 — REST -->
+    <details style="margin-top:14px" {% if wp and wp['mode'] != 'connector' %}open{% endif %}>
+      <summary style="cursor:pointer;font-size:13px;color:var(--cool);font-weight:600">
+        วิธีที่ 2 — REST API (Application Password)
+      </summary>
+      <div style="margin-top:10px">
+        <div class="muted" style="background:var(--canvas);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.6">
+          ⚠️ ต้องการให้เซิร์ฟเวอร์ส่ง Authorization header ถึง PHP — เว็บ <b>Nginx/Plesk</b> มักใช้ไม่ได้ (แนะนำวิธีที่ 1)<br>
+          สร้างรหัสที่ <b>Users → Profile → Application Passwords</b> (คนละตัวกับรหัส login)
+        </div>
+        <div class="row">
+          <div>
+            <label>ชื่อผู้ใช้ WordPress</label>
+            <input name="user" placeholder="admin" value="{{ wp['auth_user'] if wp and wp['mode'] != 'connector' else '' }}">
+          </div>
+          <div>
+            <label>Application Password</label>
+            <input type="password" name="app_password" placeholder="xxxx xxxx xxxx xxxx">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div style="margin-top:18px">
+      <button type="submit">{{ 'อัปเดตการเชื่อมต่อ' if wp else '🔌 เชื่อมต่อ + ทดสอบ' }}</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<!-- ล็อกเมื่อเชื่อมต่อสำเร็จ -->
+<div class="card" style="margin-top:8px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:18px">🔒</span>
+    <div class="muted" style="font-size:13px;line-height:1.6">
+      เชื่อมต่อเรียบร้อยและล็อกการตั้งค่าไว้แล้ว — ต้องการเปลี่ยน URL หรือ API Key? กด
+      <b>"ยกเลิกการเชื่อมต่อ"</b> ด้านบนก่อน แล้วค่อยตั้งค่าใหม่
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <a href="/plugin/jor-ai-connector.zip" class="btn-dl">⬇ ดาวน์โหลดปลั๊กอินเวอร์ชันล่าสุด</a>
+    <span class="muted" style="font-size:12px">อัปเดตปลั๊กอินบนเว็บ แล้วกด 🔄 ซิงค์ ด้านบน (ไม่ต้องยกเลิกการเชื่อมต่อ)</span>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.btn-dl { display:inline-block;background:var(--purple);color:#fff;padding:7px 14px;border-radius:8px;
+  text-decoration:none;font-size:13px;font-weight:600; }
+.btn-dl:hover { opacity:.9; }
+</style>
+{% endblock %}

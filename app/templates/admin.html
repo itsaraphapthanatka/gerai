@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}ผู้ดูแลระบบ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>แผงผู้ดูแล</h1>
+<p class="muted">มุมมองรวมทุกลูกค้าและแบรนด์ในระบบ</p>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<!-- ภาพรวม -->
+<div class="astats">
+  <div class="astat"><div class="n">{{ stats.customers }}</div><div class="l">ลูกค้า</div></div>
+  <div class="astat"><div class="n">{{ stats.brands }}</div><div class="l">แบรนด์</div></div>
+  <div class="astat"><div class="n">{{ stats.brands_run }}</div><div class="l">รันมอนิเตอร์แล้ว</div></div>
+  <div class="astat"><div class="n">{{ stats.admins }}</div><div class="l">ผู้ดูแล</div></div>
+</div>
+
+<!-- สร้างบัญชีลูกค้า -->
+<div class="card" style="border-color:var(--purple)">
+  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ สร้างบัญชีลูกค้าใหม่</h2>
+  <form method="post" action="/admin/tenants">
+    <div class="row">
+      <div><label>อีเมล</label><input type="email" name="email" required placeholder="customer@example.com"></div>
+      <div><label>ชื่อ / บริษัท</label><input name="name" placeholder="เช่น JKP Property"></div>
+      <div><label>รหัสผ่านเริ่มต้น</label><input name="password" required placeholder="ตั้งรหัสให้ลูกค้า"></div>
+    </div>
+    <div style="margin-top:14px"><button type="submit">สร้างบัญชี</button></div>
+  </form>
+</div>
+
+<!-- ลูกค้า -->
+<h2>ลูกค้า ({{ tenants|length }})</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>อีเมล</th><th>ชื่อ / บริษัท</th><th>บทบาท</th><th>แบรนด์</th><th>แผน</th><th>สมัคร</th></tr></thead>
+    <tbody>
+    {% for t in tenants %}
+    <tr>
+      <td><b>{{ t['email'] }}</b></td>
+      <td class="muted">{{ t['name'] or '—' }}</td>
+      <td>{% if t['is_admin'] %}<span class="pill admin">ADMIN</span>{% else %}<span class="pill ok">ลูกค้า</span>{% endif %}</td>
+      <td style="text-align:center">{{ t['brand_count'] }}</td>
+      <td>
+        <form method="post" action="/admin/tenants/{{ t['id'] }}/plan">
+          <select name="plan" onchange="this.form.submit()" style="padding:6px 9px;font-size:13px;width:auto;min-width:110px">
+            {% for k, p in plans.items() %}<option value="{{ k }}" {% if (t['plan'] or 'free') == k %}selected{% endif %}>{{ p.label }}</option>{% endfor %}
+          </select>
+        </form>
+      </td>
+      <td class="muted" style="white-space:nowrap">{{ t['created_at'][:10] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- แบรนด์ -->
+<h2>แบรนด์ทั้งหมด ({{ all_brands|length }})</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if all_brands %}
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>แบรนด์</th><th>เจ้าของ</th><th>SoV ล่าสุด</th><th>รันเมื่อ</th><th></th></tr></thead>
+    <tbody>
+    {% for b in all_brands %}
+    <tr>
+      <td><b>{{ b['name'] }}</b><br><span class="muted" style="font-size:12px">{{ b['domain'] }}</span></td>
+      <td class="muted" style="white-space:nowrap">{{ b['owner_email'] }}</td>
+      <td>
+        {% if b['last_total'] %}
+          {% set pct = (b['last_sov']*100)|round(0)|int if b['last_sov'] is not none else 0 %}
+          <span class="pill {{ 'ok' if pct > 0 else 'no' }}">{{ pct }}%</span>
+          <span class="muted" style="font-size:12px">{{ b['last_hits'] }}/{{ b['last_total'] }}</span>
+        {% else %}<span class="muted">ยังไม่รัน</span>{% endif %}
+      </td>
+      <td class="muted" style="white-space:nowrap">{{ b['last_run_at'][:10] if b['last_run_at'] else '—' }}</td>
+      <td><a class="btn ghost sm" href="/brands/{{ b['id'] }}" style="white-space:nowrap">เปิด →</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted" style="padding:20px">ยังไม่มีแบรนด์ในระบบ</p>{% endif %}
+</div>
+
+<style>
+.astats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:16px 0; }
+.astat { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+.astat .n { font-family:var(--font-display); font-size:30px; font-weight:700; letter-spacing:-1px; color:var(--purple); line-height:1; }
+.astat .l { font-size:13px; color:var(--cool); margin-top:5px; }
+@media (max-width:640px){ .astats { grid-template-columns:1fr 1fr; } }
+</style>
+{% endblock %}

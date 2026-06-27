@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}สมัครใช้งาน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>สมัครใช้งาน</h1>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<div class="card" style="max-width:420px">
+  <form method="post" action="/register">
+    <label>ชื่อ</label><input type="text" name="name">
+    <label>อีเมล</label><input type="email" name="email" required>
+    <label>รหัสผ่าน</label><input type="password" name="password" required>
+    <div style="margin-top:14px"><button type="submit">สมัครและเริ่มใช้งาน</button></div>
+  </form>
+</div>
+<p class="muted">มีบัญชีแล้ว? <a class="link" href="/login">เข้าสู่ระบบ</a></p>
+{% endblock %}

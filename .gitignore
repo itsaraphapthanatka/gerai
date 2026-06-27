@@ -1,0 +1,20 @@
+# secrets & local config
+.env
+.claude/
+
+# database
+*.db
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# logs & tmp
+*.log
+*.bak
+
+# personal context dump (มีรหัสจริง)
+geo.md

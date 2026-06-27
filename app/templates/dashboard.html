@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}หน้าหลัก — เจอ.AI{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+  <h1 style="margin:0">แบรนด์ของคุณ</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span class="pill admin">{{ plan.label }}</span>
+    <span class="muted" style="font-size:12px">แบรนด์ {{ usage.brands }}/{{ plan.brands }} · รัน {{ usage.runs }}/{{ plan.runs_month }} · คอนเทนต์ {{ usage.content }}/{{ plan.content_month }}</span>
+  </div>
+</div>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<!-- รายการแบรนด์ -->
+{% if brands %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:24px">
+  {% for b in brands %}
+  <a href="/brands/{{ b['id'] }}" style="display:block;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;text-decoration:none;color:var(--ink);transition:border-color .15s,box-shadow .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.boxShadow='0 0 0 3px var(--purple-subtle)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">{{ b['name'] }}</div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">{{ b['domain'] }}</div>
+    {% if b['last_sov'] is not none %}
+      {% set pct = (b['last_sov']*100)|round(0)|int %}
+      <div style="font-size:22px;font-weight:700;color:{{ '#149e61' if pct > 0 else '#d92d20' }}">{{ pct }}%</div>
+      <div class="muted" style="font-size:11px">SoV ล่าสุด</div>
+    {% else %}
+      <div class="muted" style="font-size:12px">ยังไม่ได้รัน</div>
+    {% endif %}
+    {% set bg = brand_gaps[b['id']] %}
+    {% if bg.critical > 0 %}
+      <div style="margin-top:10px;font-size:11px;font-weight:600;color:#b42318;background:#fdecec;border-radius:8px;padding:5px 9px;display:inline-block">🎯 {{ bg.critical }} คำถามควรเขียน</div>
+    {% elif bg.has_run and bg.total_gaps == 0 %}
+      <div style="margin-top:10px;font-size:11px;font-weight:600;color:#149e61;background:#f0fdf4;border-radius:8px;padding:5px 9px;display:inline-block">✓ ครอบคลุมครบ</div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:32px 20px;margin-bottom:20px">
+  <p style="font-size:16px;font-weight:600;margin:0 0 6px">ยังไม่มีแบรนด์</p>
+  <p class="muted">เพิ่มแบรนด์แรก หรือลองใส่ข้อมูลตัวอย่างเพื่อดูว่าระบบทำงานอย่างไร</p>
+</div>
+{% endif %}
+
+<!-- เพิ่มแบรนด์ -->
+<div class="card">
+  <h2 style="margin-top:0;border:none;padding:0 0 14px;font-size:16px">＋ เพิ่มแบรนด์ใหม่</h2>
+  <form method="post" action="/brands">
+    <div class="row">
+      <div style="flex:2">
+        <label>ชื่อแบรนด์ / ชื่อบริษัท</label>
+        <input name="name" required placeholder="เช่น บริษัท ABC จำกัด">
+      </div>
+      <div style="flex:2">
+        <label>โดเมนเว็บไซต์</label>
+        <input name="domain" required placeholder="เช่น abc-company.com">
+      </div>
+    </div>
+    <label>ตลาด / ธุรกิจ <span class="muted">(ใส่คร่าวๆ เพื่อช่วยจัดหมวดหมู่)</span></label>
+    <input name="market" placeholder="เช่น อสังหาริมทรัพย์ กรุงเทพ · ร้านอาหารไทย · บริการรักษาความปลอดภัย">
+    <div style="margin-top:16px"><button type="submit">＋ เพิ่มแบรนด์</button></div>
+  </form>
+</div>
+
+<!-- ตัวอย่าง -->
+<div class="card" style="margin-top:8px">
+  <h2 style="margin-top:0;border:none;padding:0 0 10px;font-size:14px;color:var(--cool)">หรือลองด้วยข้อมูลตัวอย่าง</h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <form method="post" action="/seed-demo">
+      <input type="hidden" name="industry" value="property">
+      <button class="ghost sm" type="submit">🏭 อสังหาริมทรัพย์</button>
+    </form>
+    <form method="post" action="/seed-demo">
+      <input type="hidden" name="industry" value="restaurant">
+      <button class="ghost sm" type="submit">🍜 ร้านอาหาร</button>
+    </form>
+    <form method="post" action="/seed-demo">
+      <input type="hidden" name="industry" value="service">
+      <button class="ghost sm" type="submit">🧹 ธุรกิจบริการ</button>
+    </form>
+  </div>
+  <p class="muted" style="margin:10px 0 0;font-size:12px">สร้างแบรนด์ตัวอย่างพร้อมคำถามสำเร็จรูป — ลบได้ทีหลัง</p>
+</div>
+{% endblock %}

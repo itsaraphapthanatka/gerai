@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}รายงาน — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>รายงานการมองเห็นบน AI</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} · {{ run['started_at'] }}</p>
+
+<div class="card" style="display:flex;align-items:center;gap:22px">
+  <div class="sov {% if run['brand_hits'] == 0 %}no{% else %}pos{% endif %}">
+    {{ run['brand_hits'] }}/{{ run['questions_total'] }}
+  </div>
+  <div>
+    <b>Share of Voice</b>{% if run['share_of_voice'] is not none %} — {{ (run['share_of_voice']*100)|round(0)|int }}%{% endif %}<br>
+    <span class="muted">จำนวนคำถามที่แบรนด์โผล่ในผลการค้นหา (สิ่งที่ AI หยิบไปตอบ)</span>
+  </div>
+</div>
+
+<h2>ผลรายคำถาม</h2>
+<div class="card">
+  <table>
+    <tr><th>คำถาม</th><th>โผล่ไหม</th><th>อันดับ</th><th>เว็บที่ครองพื้นที่</th></tr>
+    {% for item in results %}
+    <tr>
+      <td>{{ item.row['question'] }}</td>
+      <td>{% if item.row['brand_present'] %}<span class="pill ok">โผล่</span>{% else %}<span class="pill no">ไม่โผล่</span>{% endif %}</td>
+      <td>{{ item.row['position'] if item.row['position'] else '—' }}</td>
+      <td class="muted">{{ item.domains|join(', ') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<h2>คู่แข่ง/เว็บที่ครองพื้นที่บ่อยสุด</h2>
+<div class="card">
+  {% if top_comp %}
+  <table>
+    <tr><th>โดเมน</th><th>โผล่กี่คำถาม</th></tr>
+    {% for d, n in top_comp %}<tr><td>{{ d }}</td><td>{{ n }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="muted">—</p>{% endif %}
+</div>
+{% endblock %}

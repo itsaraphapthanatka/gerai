@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}SoV Impact — {{ brand.name }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+  <a href="/brands/{{ brand.id }}" class="btn ghost sm">← กลับ</a>
+  <div>
+    <h1 style="margin:0">ผลกระทบ SoV — {{ brand.name }}</h1>
+    <p class="muted" style="margin:4px 0 0">เปรียบเทียบ Share of Voice ก่อนและหลังเผยแพร่คอนเทนต์</p>
+  </div>
+</div>
+
+{% if not runs %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="muted">ยังไม่มีข้อมูล monitoring — รันมอนิเตอร์ก่อนอย่างน้อย 1 ครั้ง</p>
+  <a href="/brands/{{ brand.id }}" class="btn sm" style="margin-top:12px">ไปหน้าแบรนด์</a>
+</div>
+{% else %}
+
+<!-- SoV Timeline -->
+<div class="card">
+  <h2 style="margin-top:0;border:none;padding:0 0 10px">Timeline Share of Voice</h2>
+  {% if not publishes %}
+  <p class="muted" style="font-size:13px">ยังไม่มีคอนเทนต์ที่เผยแพร่ — เส้นสีม่วงจะปรากฏหลังเผยแพร่ครั้งแรก</p>
+  {% endif %}
+  <div style="position:relative;height:220px;margin-top:12px">
+    <canvas id="sovChart"></canvas>
+  </div>
+</div>
+
+<!-- สรุปเลข -->
+{% set first_sov = runs[0].share_of_voice if runs[0].share_of_voice is not none else 0 %}
+{% set last_sov  = runs[-1].share_of_voice if runs[-1].share_of_voice is not none else 0 %}
+{% set delta = ((last_sov - first_sov) * 100) | round(1) %}
+<div style="display:flex;gap:14px;flex-wrap:wrap;margin:14px 0">
+  <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">SoV เริ่มต้น</div>
+    <div class="sov {% if first_sov > 0 %}pos{% else %}no{% endif %}">{{ (first_sov*100)|round(1) }}%</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">Run แรก</div>
+  </div>
+  <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">SoV ล่าสุด</div>
+    <div class="sov {% if last_sov > 0 %}pos{% else %}no{% endif %}">{{ (last_sov*100)|round(1) }}%</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">Run ล่าสุด</div>
+  </div>
+  <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">การเปลี่ยนแปลง</div>
+    <div class="sov {% if delta >= 0 %}pos{% else %}no{% endif %}">{% if delta >= 0 %}+{% endif %}{{ delta }}%</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">Run แรก → ล่าสุด</div>
+  </div>
+  <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">คอนเทนต์เผยแพร่</div>
+    <div class="sov" style="color:var(--purple)">{{ publishes|length }}</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">ชิ้น</div>
+  </div>
+</div>
+
+<!-- ตารางเทียบรายคำถาม -->
+{% if runs|length >= 2 %}
+<div class="card" style="margin-top:4px">
+  <h2 style="margin-top:0;border:none;padding-bottom:10px">รายละเอียดรายคำถาม</h2>
+  <p class="muted" style="font-size:12px;margin-top:-6px">เปรียบเทียบ Run แรก กับ Run ล่าสุด</p>
+  <div id="qTable"></div>
+</div>
+{% endif %}
+
+<!-- คอนเทนต์ที่เผยแพร่ -->
+{% if publishes %}
+<div class="card" style="margin-top:4px">
+  <h2 style="margin-top:0;border:none;padding-bottom:10px">คอนเทนต์ที่เผยแพร่</h2>
+  <table>
+    <thead><tr><th>ชื่อ</th><th>เผยแพร่เมื่อ</th><th>ลิงก์</th></tr></thead>
+    <tbody>
+    {% for p in publishes %}
+    <tr>
+      <td>{{ p.title or "(ไม่มีชื่อ)" }}</td>
+      <td class="muted" style="white-space:nowrap">{{ (p.published_at or "")[:16] }}</td>
+      <td>{% if p.wp_link %}<a href="{{ p.wp_link }}" target="_blank" class="link" style="font-size:12px">เปิดใน WP ↗</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+(function() {
+  const runs = {{ runs | tojson }};
+  const publishes = {{ publishes | tojson }};
+  const qResults = {{ question_results | safe }};
+
+  /* ---- Chart ---- */
+  const canvas = document.getElementById('sovChart');
+  if (!canvas || runs.length === 0) return;
+
+  const labels = runs.map(r => r.started_at ? r.started_at.slice(0,10) : '');
+  const sovData = runs.map(r => r.share_of_voice != null ? Math.round(r.share_of_voice * 1000) / 10 : null);
+
+  const W = canvas.parentElement.offsetWidth || 600;
+  const H = 220;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const PAD = {top:16, right:20, bottom:36, left:44};
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const nonNull = sovData.filter(v => v !== null);
+  const maxV = nonNull.length ? Math.max(...nonNull, 5) : 100;
+  const minV = 0;
+
+  function xPos(i) { return PAD.left + (runs.length <= 1 ? cW/2 : i / (runs.length-1) * cW); }
+  function yPos(v) { return PAD.top + (1 - (v - minV)/(maxV - minV)) * cH; }
+
+  // grid lines
+  ctx.strokeStyle = '#dedee5'; ctx.lineWidth = 1;
+  [0, 25, 50, 75, 100].filter(v => v <= maxV + 10).forEach(v => {
+    const y = yPos(v);
+    if (y < PAD.top || y > PAD.top + cH) return;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillStyle = '#9497a9'; ctx.font = '10px IBM Plex Sans Thai, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v + '%', PAD.left - 6, y + 3.5);
+  });
+
+  // publish markers (vertical lines)
+  publishes.forEach(p => {
+    if (!p.published_at) return;
+    const pubDate = p.published_at.slice(0,10);
+    // หา run ที่ใกล้ที่สุดหลัง publish
+    const idx = runs.findIndex(r => (r.started_at||'').slice(0,10) >= pubDate);
+    const x = idx >= 0 ? xPos(idx) : xPos(runs.length - 1);
+    ctx.strokeStyle = 'rgba(113,50,245,0.35)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'var(--purple,#7132f5)'; ctx.font = 'bold 9px IBM Plex Sans Thai, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('📄', x, PAD.top + 10);
+  });
+
+  // SoV line
+  ctx.strokeStyle = '#7132f5'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+  let started = false;
+  sovData.forEach((v, i) => {
+    if (v === null) return;
+    const x = xPos(i), y = yPos(v);
+    if (!started) { ctx.beginPath(); ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // dots + x labels
+  sovData.forEach((v, i) => {
+    const x = xPos(i);
+    if (v !== null) {
+      ctx.beginPath(); ctx.arc(x, yPos(v), 4, 0, Math.PI*2);
+      ctx.fillStyle = '#7132f5'; ctx.fill();
+    }
+    if (i === 0 || i === runs.length-1 || runs.length <= 6) {
+      ctx.fillStyle = '#9497a9'; ctx.font = '10px IBM Plex Sans Thai, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(labels[i], x, H - 8);
+    }
+  });
+
+  /* ---- Per-question table ---- */
+  const tbl = document.getElementById('qTable');
+  if (!tbl || runs.length < 2) return;
+
+  const firstRunId = runs[0].id;
+  const lastRunId  = runs[runs.length-1].id;
+
+  // group by question_id
+  const qMap = {};
+  qResults.forEach(r => {
+    const key = r.question_id != null ? r.question_id : r.question;
+    if (!qMap[key]) qMap[key] = {question: r.question, first: null, last: null};
+    if (r.run_id === firstRunId) qMap[key].first = r.brand_present;
+    if (r.run_id === lastRunId)  qMap[key].last  = r.brand_present;
+  });
+
+  const rows = Object.values(qMap);
+  if (!rows.length) { tbl.innerHTML = '<p class="muted" style="font-size:13px">ไม่มีข้อมูลรายคำถาม</p>'; return; }
+
+  let html = '<table><thead><tr><th>คำถาม</th><th style="text-align:center">Run แรก</th><th style="text-align:center">Run ล่าสุด</th><th style="text-align:center">เปลี่ยนแปลง</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const f = r.first; const l = r.last;
+    let change = '—', cls = '';
+    if (f !== null && l !== null) {
+      if (l > f)       { change = '▲ ดีขึ้น'; cls = 'color:var(--green)'; }
+      else if (l < f)  { change = '▼ ลดลง';   cls = 'color:var(--danger)'; }
+      else             { change = '= คงเดิม';  cls = 'color:var(--silver)'; }
+    }
+    const fPill = f === null ? '—' : (f ? '<span class="pill ok">พบ</span>' : '<span class="pill no">ไม่พบ</span>');
+    const lPill = l === null ? '—' : (l ? '<span class="pill ok">พบ</span>' : '<span class="pill no">ไม่พบ</span>');
+    html += `<tr><td style="max-width:320px">${r.question}</td><td style="text-align:center">${fPill}</td><td style="text-align:center">${lPill}</td><td style="text-align:center;font-size:12px;font-weight:600;${cls}">${change}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  tbl.innerHTML = html;
+})();
+</script>
+{% endblock %}

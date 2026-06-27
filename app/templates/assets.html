@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}ชุดติดตั้ง on-site — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>ชุดติดตั้ง on-site (Phase A)</h1>
+<p class="muted">ไฟล์/โค้ดสำเร็จรูปสำหรับวางในเว็บลูกค้า — เปิดทางให้ AI เห็นและเข้าใจแบรนด์</p>
+
+<h2>llms.txt <span class="muted">— วางที่ราก: {{ brand['domain'] }}/llms.txt</span></h2>
+<div class="card">
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ llms_txt }}</pre>
+</div>
+
+<h2>robots.txt <span class="muted">— เปิดทาง AI crawler</span></h2>
+<div class="card">
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ robots }}</pre>
+</div>
+
+<h2>Schema องค์กร (JSON-LD) <span class="muted">— วางใน &lt;head&gt; ทุกหน้า หรือผ่าน Connector</span></h2>
+<div class="card">
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ org_schema }}</pre>
+</div>
+{% endblock %}

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}GEO Platform{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="เจอ.AI">
+<style>
+  :root {
+    /* Kraken palette */
+    --purple: #7132f5;
+    --purple-dark: #5741d8;
+    --purple-deep: #5b1ecf;
+    --purple-subtle: rgba(133,91,251,0.16);
+    --purple-tint: rgba(133,91,251,0.06);
+    --ink: #101114;
+    --cool: #686b82;
+    --silver: #9497a9;
+    --border: #dedee5;
+    --green: #149e61;
+    --green-dark: #026b3f;
+    --green-subtle: rgba(20,158,97,0.16);
+    --danger: #d92d20;
+    --danger-text: #b42318;
+    --danger-subtle: rgba(217,45,32,0.12);
+    --surface: #ffffff;
+    --canvas: #f7f7fb;
+    --shadow: rgba(0,0,0,0.03) 0px 4px 24px;
+    --font-ui: "IBM Plex Sans Thai","IBM Plex Sans","Leelawadee UI","Sarabun","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --font-display: "IBM Plex Sans Thai","IBM Plex Sans","Leelawadee UI","Sarabun",Helvetica,Arial,sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: var(--font-ui); margin: 0; color: var(--ink); background: var(--canvas); font-size: 16px; line-height: 1.38; -webkit-font-smoothing: antialiased; display: flex; min-height: 100vh; }
+  a { color: var(--purple); }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px; min-width: 220px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; overflow-y: auto;
+  }
+  .sidebar .logo {
+    padding: 20px 18px 14px; font-family: var(--font-display); font-weight: 700;
+    font-size: 18px; letter-spacing: -0.4px; color: var(--ink);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .sidebar .logo .dot { color: var(--purple); }
+  .sidebar .logo .sub { font-size: 10px; font-weight: 400; color: var(--silver); display: block; margin-top: 1px; letter-spacing: 0; }
+
+  .sidebar nav { flex: 1; padding: 10px 10px; }
+  .sidebar nav .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .8px; color: var(--silver);
+    text-transform: uppercase; padding: 14px 8px 4px; display: block;
+  }
+  .sidebar nav a {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 10px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    color: var(--cool); text-decoration: none; transition: background .12s, color .12s;
+    margin-bottom: 1px;
+  }
+  .sidebar nav a:hover { background: var(--canvas); color: var(--ink); }
+  .sidebar nav a.active { background: var(--purple-tint); color: var(--purple); font-weight: 600; }
+  .sidebar nav a .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+  .sidebar nav .sub-nav { margin: 0 0 4px 14px; border-left: 2px solid var(--border); padding-left: 8px; }
+  .sidebar nav .sub-nav a { font-size: 13px; padding: 6px 8px; color: var(--cool); }
+  .sidebar nav .sub-nav a:hover { color: var(--ink); background: var(--canvas); }
+  .sidebar nav .sub-nav a.active { color: var(--purple); background: var(--purple-tint); }
+
+  .sidebar .user-box {
+    padding: 12px 14px; border-top: 1px solid var(--border); font-size: 13px;
+    flex-shrink: 0;
+  }
+  .sidebar .user-box .name { font-weight: 600; color: var(--ink); }
+  .sidebar .user-box a { color: var(--cool); text-decoration: none; font-size: 12px; }
+  .sidebar .user-box a:hover { color: var(--purple); }
+  .badge-admin { background: var(--purple-subtle); color: var(--purple); padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: .3px; margin-left: 4px; }
+
+  /* ── Main area ── */
+  .page-wrap { margin-left: 220px; flex: 1; min-width: 0; padding: 28px 32px; max-width: 980px; }
+  main { width: 100%; }
+  h1 { font-family: var(--font-display); font-size: 28px; font-weight: 700; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 6px; }
+  h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.3px; color: var(--ink); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 28px; }
+
+  /* ── Mobile top bar + drawer (ซ่อนบน desktop) ── */
+  .mtopbar { display: none; }
+  .scrim { display: none; }
+  @media (max-width: 860px) {
+    body { display: block; }
+    .sidebar { transform: translateX(-100%); transition: transform .25s ease; box-shadow: rgba(0,0,0,.18) 0 0 40px; }
+    body.nav-open .sidebar { transform: none; }
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 95; }
+    body.nav-open .scrim { display: block; }
+    .mtopbar { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 80;
+      height: 54px; padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .mtopbar .hamb { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border);
+      background: #fff; color: var(--ink); font-size: 19px; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .mtopbar .mlogo { font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: -0.4px; color: var(--ink); }
+    .page-wrap { margin-left: 0; padding: 16px; max-width: 100%; }
+    pre.code, table { max-width: 100%; }
+  }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin: 14px 0; box-shadow: var(--shadow); }
+
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--cool); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; font-family: inherit; color: var(--ink); background: #fff; transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-subtle); }
+  input::placeholder { color: var(--silver); }
+
+  button, .btn { background: var(--purple); color: #fff; border: 0; border-radius: 12px; padding: 13px 18px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; text-decoration: none; display: inline-block; transition: filter .15s, background .15s; }
+  button:hover, .btn:hover { filter: brightness(1.08); }
+  button.alt, .btn.alt { background: var(--green); }
+  button.ghost, .btn.ghost { background: rgba(148,151,169,0.10); color: var(--ink); }
+  button.ghost:hover, .btn.ghost:hover { background: rgba(148,151,169,0.18); filter: none; }
+  button.outline, .btn.outline { background: #fff; color: var(--purple-dark); border: 1px solid var(--purple-dark); }
+  button.danger, .btn.danger { background: transparent; color: var(--danger); padding: 5px 9px; font-size: 12px; font-weight: 600; }
+  button.danger:hover { background: var(--danger-subtle); filter: none; }
+  .btn.sm, button.sm { padding: 7px 13px; font-size: 13px; border-radius: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th { background: var(--purple-tint); color: var(--purple-dark); text-align: left; padding: 9px 11px; font-weight: 600; font-size: 12px; }
+  th:first-child { border-top-left-radius: 8px; }
+  th:last-child { border-top-right-radius: 8px; }
+  td { padding: 9px 11px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; }
+  .pill.ok { background: var(--green-subtle); color: var(--green-dark); }
+  .pill.no { background: var(--danger-subtle); color: var(--danger-text); }
+  .pill.admin { background: var(--purple-subtle); color: var(--purple); }
+
+  .muted { color: var(--silver); font-size: 13px; }
+  .err { background: var(--danger-subtle); color: var(--danger-text); padding: 10px 14px; border-radius: 10px; font-size: 14px; margin: 10px 0; }
+  .ok-banner { background: var(--green-subtle); color: var(--green-dark); padding: 10px 14px; border-radius: 10px; font-size: 14px; margin: 10px 0; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .row > div { flex: 1; min-width: 150px; }
+  .sov { font-family: var(--font-display); font-size: 46px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; }
+  .sov.pos { color: var(--green); }
+  .sov.no { color: var(--danger); }
+  a.link { color: var(--purple); text-decoration: none; font-weight: 500; }
+  a.link:hover { text-decoration: underline; }
+  pre.code { white-space: pre-wrap; word-break: break-word; font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 12.5px; line-height: 1.55; background: var(--canvas); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 8px 0 0; overflow: auto; color: var(--ink); }
+  .copybox { background: var(--canvas); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 13px; margin-top: 2px; }
+</style>
+</head>
+<body>
+{% set _tid = request.session.get('tenant_id') %}
+{% set _path = request.url.path %}
+{% if _tid %}
+<header class="mtopbar">
+  <button class="hamb" onclick="document.body.classList.toggle('nav-open')" aria-label="เมนู">☰</button>
+  <span class="mlogo">เจอ<span style="color:var(--purple)">.AI</span></span>
+</header>
+<div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+<aside class="sidebar">
+  <div class="logo">
+    เจอ<span class="dot">.AI</span>
+    <span class="sub">GEO Platform</span>
+  </div>
+  <nav>
+    <span class="section-label">หลัก</span>
+    <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> หน้าหลัก</a>
+    {% if request.session.get('is_admin') %}
+    <a href="/admin" class="{{ 'active' if _path.startswith('/admin') }}"><span class="icon">⚙️</span> ผู้ดูแลระบบ</a>
+    {% endif %}
+
+    <span class="section-label">แบรนด์</span>
+    {% set _brands = sidebar_brands(request) %}
+    {% if _brands %}
+      {% for b in _brands %}
+        {% set _bid = b['id'] | string %}
+        {% set _on_brand = _path.startswith('/brands/' ~ _bid) or _path.startswith('/runs/') %}
+        <a href="/brands/{{ b['id'] }}" class="{{ 'active' if _path == '/brands/' ~ _bid }}">
+          <span class="icon">🏷️</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b['name'] }}</span>
+        </a>
+        {% if _path.startswith('/brands/' ~ _bid) %}
+        <div class="sub-nav">
+          <a href="/brands/{{ b['id'] }}/questions" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/questions' }}"><span class="icon">❓</span> คำถาม</a>
+          <a href="/brands/{{ b['id'] }}/monitor" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/monitor' }}"><span class="icon">📡</span> มอนิเตอร์</a>
+          <a href="/brands/{{ b['id'] }}/content" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/content' }}"><span class="icon">📝</span> คอนเทนต์</a>
+          <a href="/brands/{{ b['id'] }}/wp" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/wp' }}"><span class="icon">🔗</span> WordPress</a>
+          <a href="/brands/{{ b['id'] }}/impact" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/impact' }}"><span class="icon">📊</span> SoV Impact</a>
+          <a href="/brands/{{ b['id'] }}/assets" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/assets' }}"><span class="icon">🛡️</span> ชุดติดตั้ง</a>
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <a href="/app" style="opacity:.5;font-size:13px"><span class="icon">＋</span> เพิ่มแบรนด์</a>
+    {% endif %}
+  </nav>
+  <div class="user-box">
+    <div class="name">
+      {{ request.session.get('name') or 'ผู้ใช้' }}
+      {% if request.session.get('is_admin') %}<span class="badge-admin">ADMIN</span>{% endif %}
+    </div>
+    <a href="/logout">ออกจากระบบ</a>
+  </div>
+</aside>
+{% endif %}
+<div class="page-wrap">
+<main>{% block content %}{% endblock %}</main>
+</div>
+
+<!-- AI loading overlay (โผล่ตอน submit ฟอร์มที่มี data-loading) -->
+<div id="ai-loading">
+  <div class="ai-spin"></div>
+  <div id="ai-loading-msg" class="ai-load-title">⏳ กำลังสร้างด้วย AI…</div>
+  <div class="ai-load-sub">ใช้เวลา ~45 วิ – 2 นาที · กรุณารอสักครู่ อย่าปิดหน้านี้</div>
+</div>
+<style>
+#ai-loading{display:none;position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.9);
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
+#ai-loading.show{display:flex}
+.ai-spin{width:44px;height:44px;border:4px solid var(--border);border-top-color:var(--purple);
+  border-radius:50%;animation:aispin .8s linear infinite}
+@keyframes aispin{to{transform:rotate(360deg)}}
+.ai-load-title{font-weight:700;font-size:15px;color:var(--ink)}
+.ai-load-sub{font-size:12px;color:var(--silver)}
+</style>
+<script>
+document.addEventListener('submit',function(e){
+  var f=e.target;
+  if(f&&f.matches&&f.matches('[data-loading]')){
+    var m=f.getAttribute('data-loading');
+    if(m){var el=document.getElementById('ai-loading-msg');if(el)el.textContent=m;}
+    document.getElementById('ai-loading').classList.add('show');
+  }
+},true);
+window.addEventListener('pageshow',function(){
+  var ov=document.getElementById('ai-loading');if(ov)ov.classList.remove('show');
+});
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+</body>
+</html>
