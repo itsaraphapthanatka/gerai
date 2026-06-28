@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}อัปเกรดแผน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>อัปเกรดแผน</h1>
+<p class="muted">เลือกแผนที่เหมาะกับธุรกิจคุณ — โควตามากขึ้น ปลดล็อกฟีเจอร์ AI เต็มรูปแบบ</p>
+
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% set cur = plans[current] %}
+{% if is_admin %}
+<div class="card" style="display:flex;align-items:center;gap:10px;border-color:var(--purple);background:var(--purple-tint)">
+  <span style="font-size:20px">👑</span>
+  <div style="font-size:13.5px">คุณเป็น <b>ผู้ดูแลระบบ</b> — ใช้งานได้ <b>ไม่จำกัด</b> ทุกฟีเจอร์ · หน้านี้แสดงแผนไว้อ้างอิงราคาสำหรับลูกค้า</div>
+</div>
+{% else %}
+{% if requested and requested != current %}
+<div class="card" style="border-color:var(--purple);background:var(--purple-tint);display:flex;align-items:center;gap:10px">
+  <span style="font-size:18px">⏳</span>
+  <div style="font-size:13.5px">ส่งคำขอแผน <b>{{ plans[requested].label if requested in plans else requested }}</b> ไว้แล้ว — ทีมงานกำลังดำเนินการ</div>
+</div>
+{% endif %}
+<!-- แผนปัจจุบัน + การใช้งาน -->
+<div class="card" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+  <div>
+    <div class="muted" style="font-size:12px">แผนปัจจุบัน</div>
+    <div style="font-size:22px;font-weight:700;color:var(--purple)">{{ cur.label }}</div>
+  </div>
+  <div style="display:flex;gap:22px;flex-wrap:wrap">
+    <div><div class="muted" style="font-size:11px">แบรนด์</div><b>{{ usage.brands }}/{{ cur.brands }}</b></div>
+    <div><div class="muted" style="font-size:11px">มอนิเตอร์/เดือน</div><b>{{ usage.runs }}/{{ cur.runs_month }}</b></div>
+    <div><div class="muted" style="font-size:11px">คอนเทนต์/เดือน</div><b>{{ usage.content }}/{{ cur.content_month }}</b></div>
+  </div>
+</div>
+{% endif %}
+
+<!-- แผน -->
+<div class="plans">
+  {% for key, p in plans.items() %}
+  <div class="plan {{ 'rec' if key == 'pro' }} {{ 'ent' if p.get('hidden') }} {{ 'cur' if key == current and not is_admin }}">
+    {% if key == 'pro' %}<div class="ribbon">แนะนำ</div>{% endif %}
+    {% if p.get('hidden') %}<div class="ribbon ent-rb">Enterprise</div>{% endif %}
+    <div class="p-label">{{ p.label }}</div>
+    <div class="p-tag">{{ p.tagline }}</div>
+    <div class="p-price">{% if p.get('hidden') %}<span style="font-size:21px">ติดต่อเรา</span>{% elif p.price %}฿{{ '{:,}'.format(p.price) }}{% else %}ฟรี{% endif %}<span>{{ p.period }}</span></div>
+    <ul class="p-perks">
+      {% for f in p.perks %}<li>{{ f }}</li>{% endfor %}
+    </ul>
+    {% if is_admin %}
+      <div class="muted" style="text-align:center;font-size:12px;padding:10px 0">แผนสำหรับลูกค้า</div>
+    {% elif key == current %}
+      <button class="p-btn cur-btn" disabled>✓ แผนปัจจุบัน</button>
+    {% elif p.get('hidden') %}
+      <form method="post" action="/upgrade"><input type="hidden" name="plan" value="{{ key }}">
+        <button class="p-btn" type="submit">ติดต่อทีมงาน</button>
+      </form>
+    {% elif p.price %}
+      <a class="p-btn" href="/upgrade/pay/{{ key }}">เลือก & ชำระเงิน →</a>
+    {% else %}
+      <form method="post" action="/upgrade"><input type="hidden" name="plan" value="{{ key }}">
+        <button class="p-btn" type="submit">ใช้ฟรี</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- add-on -->
+<h2>แพ็กเกจเสริม</h2>
+<div class="addons">
+  {% for a in addons %}
+  <div class="addon">
+    <div class="a-top">
+      <div class="a-label">{{ a.label }}</div>
+      <div class="a-price">฿{{ '{:,}'.format(a.price) }} <span>{{ a.period }}</span></div>
+    </div>
+    <div class="a-desc">{{ a.desc }}</div>
+    {% if not is_admin %}<a href="/upgrade/pay/{{ a.key }}" class="a-buy">ซื้อ →</a>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<p class="muted" style="margin-top:18px;font-size:12.5px">
+  💡 ราคายังไม่รวม VAT · กด "เลือก & ชำระเงิน" หรือ "ซื้อ" → สแกน PromptPay + แนบสลิป → ทีมงานยืนยันและเปิดใช้ให้ (ปกติภายในไม่กี่ชั่วโมง)
+</p>
+
+<style>
+.plans { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:16px 0 8px; }
+.plan { position:relative; background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:24px 22px; display:flex; flex-direction:column; }
+.plan.rec { border:2px solid var(--purple); box-shadow:0 0 0 4px var(--purple-subtle); }
+.plan.ent { border:2px solid var(--ink); background:#fbfbfd; }
+.plan.cur { background:var(--purple-tint); }
+.ribbon { position:absolute; top:-11px; left:22px; background:var(--purple); color:#fff; font-size:11px; font-weight:700; padding:3px 12px; border-radius:9999px; }
+.ribbon.ent-rb { background:var(--ink); }
+.p-label { font-size:20px; font-weight:700; letter-spacing:-.3px; }
+.p-tag { font-size:12.5px; color:var(--cool); margin-top:2px; min-height:34px; }
+.p-price { font-size:30px; font-weight:700; letter-spacing:-1px; color:var(--ink); margin:8px 0 14px; }
+.p-price span { font-size:13px; font-weight:500; color:var(--silver); letter-spacing:0; }
+.p-perks { list-style:none; padding:0; margin:0 0 18px; display:flex; flex-direction:column; gap:9px; flex:1; }
+.p-perks li { font-size:13px; color:var(--ink); padding-left:22px; position:relative; line-height:1.4; }
+.p-perks li::before { content:"✓"; position:absolute; left:0; color:var(--green); font-weight:700; }
+.p-btn { display:block; width:100%; box-sizing:border-box; text-align:center; text-decoration:none; padding:12px; border-radius:10px; font-size:14px; font-weight:600; border:0; cursor:pointer; background:var(--purple); color:#fff; }
+.p-btn:hover { filter:brightness(1.08); }
+.cur-btn, .req-btn { background:rgba(148,151,169,.15); color:var(--cool); cursor:default; }
+.addons { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.addon { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+.a-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.a-label { font-size:15px; font-weight:600; }
+.a-price { font-size:15px; font-weight:700; color:var(--purple); white-space:nowrap; }
+.a-price span { font-size:11px; font-weight:500; color:var(--silver); }
+.a-desc { font-size:12.5px; color:var(--cool); line-height:1.55; margin-top:8px; }
+.a-buy { display:inline-block; margin-top:12px; background:var(--purple); color:#fff; text-decoration:none; font-size:13px; font-weight:600; padding:8px 16px; border-radius:9999px; }
+.a-buy:hover { filter:brightness(1.08); }
+@media (max-width:1000px){ .plans { grid-template-columns:1fr 1fr; } }
+@media (max-width:560px){ .plans, .addons { grid-template-columns:1fr; } }
+@media (max-width:760px){ .addons { grid-template-columns:1fr; } }
+</style>
+{% endblock %}

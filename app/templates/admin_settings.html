@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}ตั้งค่า — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ตั้งค่า</h1>
+<p class="muted">บัญชีรับเงิน PromptPay — ใช้สร้าง QR ให้ลูกค้าสแกนจ่ายในหน้าอัปเกรดแผน/แพ็กเกจเสริม</p>
+
+{% if saved %}<div class="ok-banner">บันทึกบัญชีรับเงินแล้ว ✓ QR ของลูกค้าจะอัปเดตทันที</div>{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:300px;max-width:480px">
+    <h2 style="margin-top:0;font-size:17px">🏦 บัญชีรับเงิน PromptPay</h2>
+    <form method="post" action="/admin/settings">
+      <label>พร้อมเพย์ — เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ภาษี 13 หลัก</label>
+      <input type="text" name="promptpay_id" value="{{ ppid }}" placeholder="0812345678" inputmode="numeric" autocomplete="off">
+      <label style="margin-top:14px">ชื่อผู้รับเงิน (แสดงใต้ QR)</label>
+      <input type="text" name="promptpay_name" value="{{ ppname }}" placeholder="เจอ.AI" autocomplete="off">
+      <div style="margin-top:18px"><button type="submit">บันทึก</button></div>
+    </form>
+    {% if from_env %}
+    <p class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">ℹ️ ขณะนี้ใช้ค่าจากไฟล์ <code>.env</code> — บันทึกที่นี่จะเก็บลง DB และใช้แทน (ไม่ต้องแก้ .env อีก)</p>
+    {% endif %}
+    {% if not ppid %}
+    <p class="muted" style="font-size:12px;margin-top:14px;line-height:1.6;color:var(--danger)">⚠️ ยังไม่ได้ตั้งบัญชี — ลูกค้าจะยังสแกนจ่ายไม่ได้ จนกว่าจะใส่เลขพร้อมเพย์</p>
+    {% endif %}
+    <p class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">💡 ปล่อยช่องว่างแล้วบันทึก = ล้างค่า (ปิดการจ่ายชั่วคราว)</p>
+  </div>
+
+  <div class="card" style="flex:0 0 auto;text-align:center">
+    <div class="muted" style="font-size:12px;margin-bottom:8px">ตัวอย่าง QR (ยอด ฿100)</div>
+    {% if qr %}
+    <img src="{{ qr }}" alt="ตัวอย่าง PromptPay QR" style="width:200px;height:200px;max-width:100%">
+    <div class="muted" style="font-size:12px;margin-top:8px">ผู้รับ: {{ ppname }}</div>
+    {% else %}
+    <div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:12px;color:var(--silver);font-size:13px">ยังไม่มี QR</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

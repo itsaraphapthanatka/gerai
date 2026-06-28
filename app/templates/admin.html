@@ -13,6 +13,34 @@
   <div class="astat"><div class="n">{{ stats.admins }}</div><div class="l">ผู้ดูแล</div></div>
 </div>
 
+<!-- รอยืนยันชำระเงิน -->
+{% if pending_payments %}
+<h2>💳 รอยืนยันชำระเงิน ({{ pending_payments|length }})</h2>
+<div class="card" style="padding:0;overflow:hidden;border-color:var(--green)">
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>ลูกค้า</th><th>แผน</th><th>ยอด</th><th>สลิป</th><th>เมื่อ</th><th></th></tr></thead>
+    <tbody>
+    {% for pay in pending_payments %}
+    <tr>
+      <td><b>{{ pay['tenant_email'] }}</b></td>
+      <td>{{ plans[pay['plan']].label if pay['plan'] in plans else (addon_labels[pay['plan']] if pay['plan'] in addon_labels else pay['plan']) }}{% if pay['plan'] not in plans %} <span class="muted" style="font-size:10px">(เสริม)</span>{% endif %}</td>
+      <td><b>฿{{ '{:,}'.format(pay['amount']) }}</b></td>
+      <td>{% if pay['slip_path'] %}<a class="link" href="/admin/slip/{{ pay['id'] }}" target="_blank">ดูสลิป ↗</a>{% else %}<span class="muted">ไม่มี</span>{% endif %}</td>
+      <td class="muted" style="white-space:nowrap">{{ pay['created_at'][:16] }}</td>
+      <td>
+        <form method="post" action="/admin/payments/{{ pay['id'] }}/confirm" onsubmit="return confirm('ยืนยันว่าได้รับเงินแล้ว? ระบบจะเปิดแผน {{ pay['plan'] }} ให้ลูกค้าทันที')">
+          <button class="alt sm" type="submit" style="white-space:nowrap">✓ ยืนยัน+เปิดแผน</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- สร้างบัญชีลูกค้า -->
 <div class="card" style="border-color:var(--purple)">
   <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ สร้างบัญชีลูกค้าใหม่</h2>
@@ -31,7 +59,7 @@
 <div class="card" style="padding:0;overflow:hidden">
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>อีเมล</th><th>ชื่อ / บริษัท</th><th>บทบาท</th><th>แบรนด์</th><th>แผน</th><th>สมัคร</th></tr></thead>
+    <thead><tr><th>อีเมล</th><th>ชื่อ / บริษัท</th><th>บทบาท</th><th>แบรนด์</th><th>แผน</th><th>บริการเสริม</th><th>สมัคร</th></tr></thead>
     <tbody>
     {% for t in tenants %}
     <tr>
@@ -40,11 +68,21 @@
       <td>{% if t['is_admin'] %}<span class="pill admin">ADMIN</span>{% else %}<span class="pill ok">ลูกค้า</span>{% endif %}</td>
       <td style="text-align:center">{{ t['brand_count'] }}</td>
       <td>
+        {% set sel = 'unlimited' if t['is_admin'] else (t['plan'] or 'free') %}
         <form method="post" action="/admin/tenants/{{ t['id'] }}/plan">
           <select name="plan" onchange="this.form.submit()" style="padding:6px 9px;font-size:13px;width:auto;min-width:110px">
-            {% for k, p in plans.items() %}<option value="{{ k }}" {% if (t['plan'] or 'free') == k %}selected{% endif %}>{{ p.label }}</option>{% endfor %}
+            {% for k, p in plans.items() %}<option value="{{ k }}" {% if sel == k %}selected{% endif %}>{{ p.label }}</option>{% endfor %}
           </select>
         </form>
+        {% if not t['is_admin'] and t['requested_plan'] and t['requested_plan'] != (t['plan'] or 'free') %}
+        <div style="margin-top:5px"><span class="pill admin" style="background:#fff0e6;color:#b4530b">⏳ ขอ {{ plans[t['requested_plan']].label if t['requested_plan'] in plans else t['requested_plan'] }}</span></div>
+        {% endif %}
+      </td>
+      <td style="min-width:130px">
+        {% set addons = addon_summary.get(t['id']) %}
+        {% if addons %}
+          {% for a in addons %}<span class="pill ok" style="background:#e8f7ee;color:#1c7a44;margin:0 3px 3px 0;display:inline-block;font-weight:600">🎁 {{ a }}</span>{% endfor %}
+        {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td class="muted" style="white-space:nowrap">{{ t['created_at'][:10] }}</td>
     </tr>

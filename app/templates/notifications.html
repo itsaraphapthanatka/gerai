@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}การแจ้งเตือน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>การแจ้งเตือน</h1>
+<p class="muted">รายการแจ้งเตือนล่าสุด</p>
+
+{% if items %}
+<div class="card" style="padding:0;overflow:hidden">
+  {% for n in items %}
+  <a href="{{ n['link'] or '#' }}" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}text-decoration:none;color:var(--ink);{% if not n['is_read'] %}background:var(--purple-tint);{% endif %}">
+    <span style="font-size:18px;flex-shrink:0">{{ {'payment':'💳','request':'⭐','plan':'✅','addon':'🎁'}.get(n['type'],'🔔') }}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;line-height:1.5">{{ n['message'] }}</div>
+      <div class="muted" style="font-size:11.5px;margin-top:3px">
+        {{ (n['created_at'][:16]).replace('T',' ') }}{% if not n['is_read'] %} · <span style="color:var(--purple);font-weight:600">ใหม่</span>{% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:36px"><p class="muted">ยังไม่มีการแจ้งเตือน</p></div>
+{% endif %}
+{% endblock %}

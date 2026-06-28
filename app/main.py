@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 # โหลด .env ก่อน import db (db อ่าน GEO_DB_PATH ตอน import)
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, PlainTextResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay
 
 
 def hash_pw(password: str) -> str:
@@ -36,6 +36,18 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 
+@app.middleware("http")
+async def _no_cache_html(request: Request, call_next):
+    """หน้า HTML ที่เป็น dynamic (ไม่ได้ตั้ง Cache-Control เอง) → no-cache กัน browser โชว์ของเก่า
+    (หน้า hosted/landing ที่ตั้ง max-age ไว้แล้วจะไม่โดน)"""
+    resp = await call_next(request)
+    ct = resp.headers.get("content-type", "")
+    if ct.startswith("text/html") and "cache-control" not in resp.headers:
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.on_event("startup")
 def _startup():
     db.init_db()
@@ -43,6 +55,9 @@ def _startup():
     # Jinja2 global: sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
     templates.env.globals["sidebar_brands"] = lambda req: (
         db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []
+    )
+    templates.env.globals["unread_count"] = lambda req: (
+        db.count_unread(req.session["tenant_id"]) if req.session.get("tenant_id") else 0
     )
 
 
@@ -306,7 +321,7 @@ def pwa_manifest():
 
 
 _SW_JS = """
-const CACHE = 'geo-v1';
+const CACHE = 'geo-v2';
 const ASSETS = ['/static/icon-192.png', '/static/icon-512.png', '/manifest.webmanifest'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -342,6 +357,124 @@ def dashboard(request: Request):
     if not _tid(request):
         return _redirect("/login")
     return templates.TemplateResponse(request, "dashboard.html", _dashboard_ctx(request))
+
+
+def _item_label(item: str) -> str:
+    if item in billing.PLANS:
+        return billing.PLANS[item]["label"]
+    for a in billing.ADDONS:
+        if a["key"] == item:
+            return a["label"]
+    return item
+
+
+@app.get("/notifications")
+def notifications_page(request: Request):
+    tid = _tid(request)
+    if not tid:
+        return _redirect("/login")
+    items = db.list_notifications(tid)
+    db.mark_all_read(tid)  # เปิดดู = อ่านแล้ว
+    return templates.TemplateResponse(request, "notifications.html", {"items": items})
+
+
+def _upgrade_ctx(request, notice=None):
+    tid = _tid(request)
+    tenant = db.get_tenant(tid)
+    return {"plans": billing.PLANS, "addons": billing.ADDONS, "current": billing.plan_key(tenant),
+            "usage": billing.usage(tid), "requested": tenant["requested_plan"], "notice": notice,
+            "is_admin": bool(tenant and tenant["is_admin"])}
+
+
+@app.get("/upgrade")
+def upgrade_page(request: Request):
+    if not _tid(request):
+        return _redirect("/login")
+    return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request))
+
+
+def _pay_item(item: str):
+    """คืน dict {label, price, period, sub, is_plan} สำหรับ plan หรือ add-on — None ถ้าไม่พบ"""
+    if item in billing.PLANS and item != "free" and not billing.PLANS[item].get("hidden"):
+        p = billing.PLANS[item]
+        return {"label": "แผน " + p["label"], "price": p["price"], "period": p["period"],
+                "sub": p["tagline"], "is_plan": True}
+    for a in billing.ADDONS:
+        if a["key"] == item:
+            return {"label": a["label"], "price": a["price"], "period": a["period"],
+                    "sub": a["desc"], "is_plan": False}
+    return None
+
+
+def _promptpay_config():
+    """บัญชีรับเงิน: ใช้ค่าจาก DB (ตั้งผ่านหน้า admin) ก่อน ถ้าไม่มี fallback ไป .env"""
+    ppid = (db.get_setting("promptpay_id") or os.getenv("PROMPTPAY_ID", "")).strip()
+    ppname = db.get_setting("promptpay_name") or os.getenv("PROMPTPAY_NAME", "เจอ.AI")
+    return ppid, ppname
+
+
+@app.get("/upgrade/pay/{item}")
+def pay_page(request: Request, item: str):
+    if not _tid(request):
+        return _redirect("/login")
+    it = _pay_item(item)
+    if not it:
+        return _redirect("/upgrade")
+    ppid, ppname = _promptpay_config()
+    return templates.TemplateResponse(request, "pay.html", {
+        "item": item, "p": it, "ppid": ppid, "ppname": ppname,
+        "qr": promptpay.qr_data_uri(ppid, it["price"]) if ppid else None,
+        "notice": None,
+    })
+
+
+@app.post("/upgrade/pay/{item}")
+async def pay_submit(request: Request, item: str, slip: UploadFile = File(None)):
+    tid = _tid(request)
+    if not tid:
+        return _redirect("/login")
+    it = _pay_item(item)
+    if not it:
+        return _redirect("/upgrade")
+    slip_path = None
+    if slip is not None and slip.filename:
+        data = await slip.read()
+        if data:
+            import secrets as _sec
+            ext = os.path.splitext(slip.filename)[1].lower()
+            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
+                ext = ".jpg"
+            up = BASE.parent / "uploads" / "slips"
+            up.mkdir(parents=True, exist_ok=True)
+            fname = f"{_sec.token_hex(8)}{ext}"
+            (up / fname).write_bytes(data[:8_000_000])
+            slip_path = f"slips/{fname}"
+    db.create_payment(tid, item, it["price"], slip_path)
+    if it["is_plan"]:
+        db.set_requested_plan(tid, item)
+    tn = db.get_tenant(tid)
+    db.notify_admins(f"💳 {tn['email']} แจ้งชำระเงิน {it['label']} ฿{it['price']:,}", "/admin", "payment")
+    msg = ("ได้รับแจ้งชำระเงินแล้ว ✓ ทีมงานจะตรวจสอบสลิปและเปิดใช้แผนให้"
+           if it["is_plan"] else
+           "ได้รับแจ้งชำระเงินแพ็กเกจเสริมแล้ว ✓ ทีมงานจะตรวจสอบและดำเนินการให้")
+    _ppid, _ppname = _promptpay_config()
+    return templates.TemplateResponse(request, "pay.html", {
+        "item": item, "p": it, "ppid": _ppid, "ppname": _ppname, "qr": None, "notice": msg,
+    })
+
+
+@app.post("/upgrade")
+def upgrade_request(request: Request, plan: str = Form(...)):
+    if not _tid(request):
+        return _redirect("/login")
+    notice = None
+    if plan in billing.PLANS:
+        tid = _tid(request)
+        db.set_requested_plan(tid, plan)
+        tn = db.get_tenant(tid)
+        db.notify_admins(f"⭐ {tn['email']} ขอแผน {billing.PLANS[plan]['label']}", "/admin", "request")
+        notice = f"ส่งคำขอแผน {billing.PLANS[plan]['label']} แล้ว — ทีมงานจะติดต่อกลับ"
+    return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request, notice=notice))
 
 
 @app.post("/brands")
@@ -477,8 +610,11 @@ def set_auto_publish(request: Request, brand_id: int, days: int = Form(-1)):
 
 @app.post("/brands/{brand_id}/auto-image")
 def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
-    if not _brand_for(request, brand_id):
+    brand = _brand_for(request, brand_id)
+    if not brand:
         return _redirect("/login")
+    if on and not billing.feature(db.get_tenant(brand["tenant_id"]), "images"):
+        return _redirect("/upgrade")  # แผนนี้ใช้รูปอัตโนมัติไม่ได้ → ชวนอัปเกรด
     db.set_auto_image(brand_id, on)
     return _redirect(f"/brands/{brand_id}/content")
 
@@ -530,6 +666,7 @@ def brand_content_list(request: Request, brand_id: int):
         {"brand": brand, "questions": questions, "content": content,
          "can_generate": ok, "limit_msg": limit_msg if not ok else None,
          "publish_eta": publish_eta,
+         "can_images": billing.feature(db.get_tenant(brand["tenant_id"]), "images"),
          "auto_content_choices": AUTO_CONTENT_CHOICES, "auto_publish_choices": AUTO_PUBLISH_CHOICES})
 
 
@@ -1016,8 +1153,21 @@ def brand_impact(request: Request, brand_id: int):
 def _admin_ctx(error=None):
     tenants = db.list_all_tenants()
     all_brands = db.list_all_brands()
+    # สรุปบริการเสริม (add-on ที่จ่าย+ยืนยันแล้ว) ต่อ tenant
+    from collections import Counter
+    addon_labels = {a["key"]: a["label"] for a in billing.ADDONS}
+    _raw = {}
+    for pay in db.list_confirmed_payments():
+        if pay["plan"] not in billing.PLANS:  # เป็น add-on ไม่ใช่แผน
+            _raw.setdefault(pay["tenant_id"], []).append(pay["plan"])
+    addon_summary = {}
+    for tid, keys in _raw.items():
+        addon_summary[tid] = [f"{addon_labels.get(k, k)}{(' ×' + str(n)) if n > 1 else ''}"
+                              for k, n in Counter(keys).items()]
     return {
         "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error,
+        "pending_payments": db.list_pending_payments(),
+        "addon_labels": addon_labels, "addon_summary": addon_summary,
         "stats": {
             "customers": sum(1 for t in tenants if not t["is_admin"]),
             "admins": sum(1 for t in tenants if t["is_admin"]),
@@ -1025,6 +1175,36 @@ def _admin_ctx(error=None):
             "brands_run": sum(1 for b in all_brands if b["last_run_at"]),
         },
     }
+
+
+@app.get("/admin/slip/{pid}")
+def admin_slip(request: Request, pid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    pay = db.get_payment(pid)
+    if not pay or not pay["slip_path"]:
+        return Response("not found", status_code=404)
+    f = BASE.parent / "uploads" / pay["slip_path"]
+    if not f.exists():
+        return Response("not found", status_code=404)
+    ext = f.suffix.lower()
+    ct = {".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf"}.get(ext, "image/jpeg")
+    return Response(f.read_bytes(), media_type=ct)
+
+
+@app.post("/admin/payments/{pid}/confirm")
+def admin_confirm_payment(request: Request, pid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    pay = db.get_payment(pid)
+    if pay and pay["status"] == "pending":
+        if pay["plan"] in billing.PLANS:        # แผน → เปิดให้อัตโนมัติ
+            db.set_plan(pay["tenant_id"], pay["plan"])
+            db.add_notification(pay["tenant_id"], f"✅ เปิดใช้แผน {_item_label(pay['plan'])} แล้ว — ขอบคุณที่ใช้บริการ", "/upgrade", "plan")
+        else:                                   # add-on → ยืนยัน (admin ทำให้เองตามแพ็กเกจ)
+            db.add_notification(pay["tenant_id"], f"✅ ยืนยันแพ็กเกจ {_item_label(pay['plan'])} แล้ว ทีมงานจะดำเนินการให้", "/app", "addon")
+        db.confirm_payment(pid)
+    return _redirect("/admin")
 
 
 @app.get("/admin")
@@ -1050,4 +1230,36 @@ def admin_set_plan(request: Request, tid: int, plan: str = Form(...)):
         return _redirect("/login")
     if plan in billing.PLANS:
         db.set_plan(tid, plan)
+        db.add_notification(tid, f"แผนของคุณถูกตั้งเป็น {billing.PLANS[plan]['label']}", "/upgrade", "plan")
     return _redirect("/admin")
+
+
+def _settings_ctx(request: Request, saved=False, error=None):
+    ppid, ppname = _promptpay_config()
+    return {
+        "ppid": ppid, "ppname": ppname,
+        "qr": promptpay.qr_data_uri(ppid, 100) if ppid else None,
+        "from_env": bool(not db.get_setting("promptpay_id") and os.getenv("PROMPTPAY_ID", "").strip()),
+        "saved": saved, "error": error,
+    }
+
+
+@app.get("/admin/settings")
+def admin_settings(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request))
+
+
+@app.post("/admin/settings")
+def admin_settings_save(request: Request, promptpay_id: str = Form(""), promptpay_name: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    raw = promptpay_id.strip().replace("-", "").replace(" ", "")
+    # ตรวจรูปแบบ: เบอร์มือถือ 10 หลัก หรือเลขบัตรปชช./taxid 13 หลัก (ว่าง = ล้างค่า)
+    if raw and not (raw.isdigit() and len(raw) in (10, 13)):
+        return templates.TemplateResponse(request, "admin_settings.html",
+            _settings_ctx(request, error="รูปแบบไม่ถูกต้อง — ใส่เบอร์พร้อมเพย์ 10 หลัก หรือเลขบัตรประชาชน/ภาษี 13 หลัก"))
+    db.set_setting("promptpay_id", raw)
+    db.set_setting("promptpay_name", promptpay_name.strip() or "เจอ.AI")
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))

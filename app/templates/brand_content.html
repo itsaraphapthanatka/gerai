@@ -42,13 +42,14 @@
     </form>
 
     <form method="post" action="/brands/{{ brand['id'] }}/auto-image" style="display:flex;flex-direction:column;gap:6px">
-      <label style="font-size:12px;font-weight:600">3. แนบรูปประกอบ</label>
+      <label style="font-size:12px;font-weight:600">3. แนบรูปประกอบ {% if not can_images %}<span class="pill admin" style="font-size:9px">Pro</span>{% endif %}</label>
       <div style="display:flex;gap:8px;align-items:center">
-        <select name="on" onchange="this.form.submit()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+        <select name="on" onchange="this.form.submit()" {% if not can_images %}disabled{% endif %} style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
           <option value="0" {% if not brand['auto_image'] %}selected{% endif %}>ปิด</option>
           <option value="1" {% if brand['auto_image'] %}selected{% endif %}>เปิด (AI หา/สร้างรูป)</option>
         </select>
       </div>
+      {% if not can_images %}<a href="/upgrade" class="link" style="font-size:11px">🔒 อัปเกรด Pro เพื่อใช้</a>{% endif %}
     </form>
   </div>
   {% if brand['auto_image'] %}

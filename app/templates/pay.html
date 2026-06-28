@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}ชำระเงิน — เจอ.AI{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/upgrade">← กลับเลือกแผน</a></p>
+<h1>ชำระเงิน · {{ p.label }}</h1>
+
+{% if notice %}
+<div class="ok-banner">{{ notice }}</div>
+<p style="margin-top:14px"><a class="btn" href="/app">→ กลับหน้าหลัก</a></p>
+{% else %}
+<div class="card" style="max-width:460px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+    <div>
+      <div style="font-size:15px;font-weight:600">{{ p.label }}</div>
+      <div class="muted" style="font-size:12.5px">{{ p.sub }}</div>
+    </div>
+    <div style="font-size:26px;font-weight:700;color:var(--purple);white-space:nowrap">฿{{ '{:,}'.format(p.price) }}<span style="font-size:13px;color:var(--silver);font-weight:500">{{ p.period }}</span></div>
+  </div>
+
+  {% if qr %}
+  <div style="text-align:center;background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 16px">
+    <div style="font-weight:700;font-size:14px;color:#003d6b;margin-bottom:10px">📱 สแกนจ่ายด้วย PromptPay</div>
+    <img src="{{ qr }}" alt="PromptPay QR" style="width:240px;height:240px;max-width:100%">
+    <div class="muted" style="font-size:12px;margin-top:10px">ผู้รับ: {{ ppname }} · ยอด ฿{{ '{:,}'.format(p.price) }}</div>
+  </div>
+  {% else %}
+  <div class="err">ยังไม่ได้ตั้งค่า PromptPay — ผู้ดูแลต้องตั้ง <code>PROMPTPAY_ID</code> ใน .env ก่อน (ติดต่อทีมงานเพื่อชำระเงิน)</div>
+  {% endif %}
+
+  <form method="post" action="/upgrade/pay/{{ item }}" enctype="multipart/form-data" style="margin-top:18px">
+    <label>อัปโหลดสลิปโอนเงิน (รูปหรือ PDF)</label>
+    <input type="file" name="slip" accept="image/*,application/pdf" required>
+    <div style="margin-top:14px"><button type="submit">✓ แจ้งชำระเงินแล้ว</button></div>
+  </form>
+  <p class="muted" style="font-size:12px;margin-top:10px;line-height:1.6">
+    โอนตามยอดด้านบน → แนบสลิป → ทีมงานตรวจสอบและเปิดใช้แผนให้ (ปกติภายในไม่กี่ชั่วโมง)
+  </p>
+</div>
+{% endif %}
+{% endblock %}

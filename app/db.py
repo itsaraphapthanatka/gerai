@@ -75,6 +75,29 @@ def _tables() -> list[str]:
             wp_post_id INTEGER, wp_link TEXT,
             created_at TEXT NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            val TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS notifications (
+            id {_PK},
+            tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            type TEXT,
+            message TEXT NOT NULL,
+            link TEXT,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS payments (
+            id {_PK},
+            tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            plan TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            slip_path TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            confirmed_at TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS wp_connections (
             id {_PK},
             brand_id INTEGER NOT NULL UNIQUE REFERENCES brands(id) ON DELETE CASCADE,
@@ -125,6 +148,7 @@ def init_db() -> None:
         # migrations สำหรับ DB เก่า (DB ใหม่มีคอลัมน์ครบตั้งแต่ CREATE แล้ว)
         _ensure_column(c, "tenants", "is_admin", "INTEGER NOT NULL DEFAULT 0")
         _ensure_column(c, "tenants", "plan", "TEXT NOT NULL DEFAULT 'free'")
+        _ensure_column(c, "tenants", "requested_plan", "TEXT")
         _ensure_column(c, "content_items", "wp_link", "TEXT")
         _ensure_column(c, "content_items", "published_at", "TEXT")
         _ensure_column(c, "wp_connections", "mode", "TEXT NOT NULL DEFAULT 'rest'")
@@ -181,7 +205,98 @@ def get_tenant(tenant_id: int):
 
 def set_plan(tenant_id: int, plan: str) -> None:
     with get_conn() as c:
-        c.execute(q("UPDATE tenants SET plan=? WHERE id=?"), (plan, tenant_id))
+        # ตั้งแผน = เคลียร์คำขออัปเกรด (admin จัดการแล้ว)
+        c.execute(q("UPDATE tenants SET plan=?, requested_plan=NULL WHERE id=?"), (plan, tenant_id))
+
+
+def set_requested_plan(tenant_id: int, plan) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET requested_plan=? WHERE id=?"), (plan, tenant_id))
+
+
+# ---- settings (key-value) ----
+def get_setting(key: str, default: str = None):
+    with get_conn() as c:
+        r = c.execute(q("SELECT val FROM settings WHERE key=?"), (key,)).fetchone()
+    return r["val"] if (r and r["val"] is not None) else default
+
+
+def set_setting(key: str, val: str) -> None:
+    with get_conn() as c:
+        exists = c.execute(q("SELECT 1 FROM settings WHERE key=?"), (key,)).fetchone()
+        if exists:
+            c.execute(q("UPDATE settings SET val=? WHERE key=?"), (val, key))
+        else:
+            c.execute(q("INSERT INTO settings(key,val) VALUES(?,?)"), (key, val))
+
+
+# ---- notifications ----
+def add_notification(tenant_id: int, message: str, link: str = None, type_: str = "info") -> None:
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO notifications(tenant_id,type,message,link,is_read,created_at) VALUES(?,?,?,?,0,?)"),
+            (tenant_id, type_, message, link, now()),
+        )
+
+
+def notify_admins(message: str, link: str = None, type_: str = "info") -> None:
+    with get_conn() as c:
+        ids = [r["id"] for r in c.execute("SELECT id FROM tenants WHERE is_admin=1").fetchall()]
+        for tid in ids:
+            c.execute(
+                q("INSERT INTO notifications(tenant_id,type,message,link,is_read,created_at) VALUES(?,?,?,?,0,?)"),
+                (tid, type_, message, link, now()),
+            )
+
+
+def count_unread(tenant_id: int) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM notifications WHERE tenant_id=? AND is_read=0"),
+                         (tenant_id,)).fetchone()["n"]
+
+
+def list_notifications(tenant_id: int, limit: int = 40):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM notifications WHERE tenant_id=? ORDER BY id DESC LIMIT ?"),
+                         (tenant_id, limit)).fetchall()
+
+
+def mark_all_read(tenant_id: int) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE notifications SET is_read=1 WHERE tenant_id=? AND is_read=0"), (tenant_id,))
+
+
+# ---- payments (PromptPay) ----
+def create_payment(tenant_id: int, plan: str, amount: int, slip_path) -> int:
+    with get_conn() as c:
+        cur = c.execute(
+            q("INSERT INTO payments(tenant_id,plan,amount,slip_path,status,created_at) VALUES(?,?,?,?,?,?) RETURNING id"),
+            (tenant_id, plan, amount, slip_path, "pending", now()),
+        )
+        return cur.fetchone()["id"]
+
+
+def get_payment(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM payments WHERE id=?"), (pid,)).fetchone()
+
+
+def list_pending_payments():
+    with get_conn() as c:
+        return c.execute(
+            "SELECT p.*, t.email AS tenant_email FROM payments p JOIN tenants t ON t.id=p.tenant_id "
+            "WHERE p.status='pending' ORDER BY p.id DESC"
+        ).fetchall()
+
+
+def confirm_payment(pid: int) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE payments SET status='confirmed', confirmed_at=? WHERE id=?"), (now(), pid))
+
+
+def list_confirmed_payments():
+    with get_conn() as c:
+        return c.execute("SELECT * FROM payments WHERE status='confirmed' ORDER BY id").fetchall()
 
 
 # ---- usage counters (billing) ----

@@ -21,3 +21,6 @@ geo.md
 
 # generated article images (runtime)
 app/static/gen/
+
+# uploaded slips (ข้อมูลลูกค้า)
+uploads/

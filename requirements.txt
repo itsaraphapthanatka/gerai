@@ -8,3 +8,5 @@ cryptography
 httpx
 psycopg[binary]
 ddgs
+pillow
+qrcode
