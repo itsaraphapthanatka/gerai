@@ -40,7 +40,22 @@
         <button type="submit" class="sm">บันทึก</button>
       </div>
     </form>
+
+    <form method="post" action="/brands/{{ brand['id'] }}/auto-image" style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;font-weight:600">3. แนบรูปประกอบ</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select name="on" onchange="this.form.submit()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+          <option value="0" {% if not brand['auto_image'] %}selected{% endif %}>ปิด</option>
+          <option value="1" {% if brand['auto_image'] %}selected{% endif %}>เปิด (AI หา/สร้างรูป)</option>
+        </select>
+      </div>
+    </form>
   </div>
+  {% if brand['auto_image'] %}
+  <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#eef6ff;border:1px solid #cfe3ff;border-radius:8px;padding:8px 11px">
+    🖼️ จะ<b>หารูปจากเว็บแบรนด์ก่อน</b> (AI ดูรูปจริงแล้วเลือกที่เกี่ยวข้อง) — ถ้าไม่มี <b>สร้างรูปประกอบให้ด้วย AI</b> · เพิ่มเวลา ~30-60 วิ/ชิ้น
+  </div>
+  {% endif %}
   {% if curp >= 0 %}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#fff6e6;border:1px solid #ffe2a8;border-radius:8px;padding:8px 11px">
     ⚠️ โหมดนี้จะ<b>เผยแพร่ร่าง auto ขึ้นเว็บเองโดยไม่ต้องรอคน</b>{% if curp > 0 %} (หลัง {{ curp }} วัน — มีเวลาเข้ามาแก้/ลบก่อน){% else %} ทันที{% endif %} · AI ถูกสั่งไม่ให้แต่งตัวเลข/ราคา แต่ควรเข้ามาตรวจเป็นระยะ

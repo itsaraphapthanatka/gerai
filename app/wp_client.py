@@ -89,8 +89,11 @@ def test_connection(site_url: str, user: str, app_password: str) -> dict:
 
 
 def _md_inline(s: str) -> str:
-    """escape HTML + แปลง inline markdown (ลิงก์, ตัวหนา)"""
+    """escape HTML + แปลง inline markdown (รูป, ลิงก์, ตัวหนา)"""
     s = _html.escape(s, quote=False)
+    # รูป ![alt](url) — ต้องก่อนลิงก์ เพราะมี [..](..) เหมือนกัน
+    s = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)",
+               r'<img src="\2" alt="\1" loading="lazy" style="max-width:100%;height:auto;border-radius:12px;margin:6px 0">', s)
     s = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", r'<a href="\2">\1</a>', s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
     return s

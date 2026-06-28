@@ -135,6 +135,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "auto_content_weekly", "INTEGER DEFAULT 0")
         _ensure_column(c, "brands", "last_auto_content_at", "TEXT")
         _ensure_column(c, "brands", "auto_publish_days", "INTEGER DEFAULT -1")
+        _ensure_column(c, "brands", "auto_image", "INTEGER DEFAULT 0")
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -287,6 +288,17 @@ def count_content_since(brand_id: int, ts: str) -> int:
         return c.execute(
             q("SELECT COUNT(*) AS n FROM content_items WHERE brand_id=? AND created_at >= ?"), (brand_id, ts)
         ).fetchone()["n"]
+
+
+def set_auto_image(brand_id: int, on: int) -> None:
+    """เปิด/ปิด แนบรูปอัตโนมัติเมื่อสร้างคอนเทนต์ (0/1)"""
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET auto_image=? WHERE id=?"), (1 if on else 0, brand_id))
+
+
+def update_content_body(content_id: int, body_md: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE content_items SET body_md=? WHERE id=?"), (body_md, content_id))
 
 
 def set_auto_publish(brand_id: int, days: int) -> None:

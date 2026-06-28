@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder
 
 
 def hash_pw(password: str) -> str:
@@ -73,10 +73,12 @@ def _auto_content_tick(b, weekly: int, now_local):
     g = crit[0]
     lang = g["lang"] or "th"
     data = geo_content.generate_content(b, g["question"], lang)
-    db.create_content_item(
+    cid = db.create_content_item(
         bid, g["question_id"], lang, data["title"], data["meta_title"],
         data["meta_desc"], data["body_md"], data["schema_json"], "auto",  # มาร์คเป็น auto สำหรับ auto-publish
     )
+    if b["auto_image"]:
+        _attach_image(b, cid, g["question"])
     db.touch_auto_content(bid, now_local.isoformat(timespec="seconds"))
 
 
@@ -213,6 +215,32 @@ def _brand_ctx(brand, error=None):
 
 def _redirect(url: str):
     return RedirectResponse(url, status_code=303)
+
+
+def _public_base() -> str:
+    return os.getenv("PUBLIC_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
+
+
+def _attach_image(brand, content_id: int, topic: str) -> None:
+    """หา/สร้างรูปประกอบ แล้วแปะหัวบทความ (เงียบ ถ้าไม่ได้ก็ข้าม)"""
+    try:
+        res = image_finder.image_for_article(brand, topic, geo_content._site_url(brand))
+        if not res:
+            return
+        if res["mode"] == "generated":
+            gen_dir = BASE / "static" / "gen"
+            gen_dir.mkdir(parents=True, exist_ok=True)
+            (gen_dir / f"c{content_id}.png").write_bytes(res["png"])
+            url = f"{_public_base()}/static/gen/c{content_id}.png"
+        else:
+            url = res["url"]
+        item = db.get_content(content_id)
+        if not item:
+            return
+        alt = (res.get("alt") or topic).replace("\n", " ").replace("]", "").replace(")", "").strip()
+        db.update_content_body(content_id, f"![{alt}]({url})\n\n{item['body_md']}")
+    except Exception:
+        pass
 
 
 # ---------- auth ----------
@@ -447,6 +475,14 @@ def set_auto_publish(request: Request, brand_id: int, days: int = Form(-1)):
     return _redirect(f"/brands/{brand_id}/content")
 
 
+@app.post("/brands/{brand_id}/auto-image")
+def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
+    if not _brand_for(request, brand_id):
+        return _redirect("/login")
+    db.set_auto_image(brand_id, on)
+    return _redirect(f"/brands/{brand_id}/content")
+
+
 def _valid_hm(t: str) -> str:
     """ตรวจ 'HH:MM' → คืนแบบ zero-pad, ถ้าผิดคืน '08:00'"""
     try:
@@ -655,6 +691,8 @@ def gen_content(request: Request, brand_id: int, question_id: int = Form(...), l
         brand_id, question_id, lang, data["title"], data["meta_title"],
         data["meta_desc"], data["body_md"], data["schema_json"], data["source"],
     )
+    if brand["auto_image"]:
+        _attach_image(brand, cid, q["question"])
     return _redirect(f"/content/{cid}")
 
 
