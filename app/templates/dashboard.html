@@ -4,8 +4,13 @@
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <h1 style="margin:0">แบรนด์ของคุณ</h1>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    {% if is_admin %}
+    <span class="pill admin">👑 ไม่จำกัด</span>
+    <span class="muted" style="font-size:12px">แบรนด์ {{ usage.brands }} · รัน {{ usage.runs }} · คอนเทนต์ {{ usage.content }}</span>
+    {% else %}
     <span class="pill admin">{{ plan.label }}</span>
     <span class="muted" style="font-size:12px">แบรนด์ {{ usage.brands }}/{{ plan.brands }} · รัน {{ usage.runs }}/{{ plan.runs_month }} · คอนเทนต์ {{ usage.content }}/{{ plan.content_month }}</span>
+    {% endif %}
   </div>
 </div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
@@ -55,10 +60,40 @@
       </div>
     </div>
     <label>ตลาด / ธุรกิจ <span class="muted">(ใส่คร่าวๆ เพื่อช่วยจัดหมวดหมู่)</span></label>
-    <input name="market" placeholder="เช่น อสังหาริมทรัพย์ กรุงเทพ · ร้านอาหารไทย · บริการรักษาความปลอดภัย">
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <input name="market" id="f-market" style="flex:1" placeholder="เช่น อสังหาริมทรัพย์ กรุงเทพ · ร้านอาหารไทย · บริการรักษาความปลอดภัย">
+      <button type="button" class="ghost sm" id="ai-market-btn" onclick="aiClassifyMarket()" style="white-space:nowrap;flex:0 0 auto">✨ AI Generate</button>
+    </div>
+    <div id="ai-market-msg" style="font-size:12px;margin-top:6px;display:none"></div>
     <div style="margin-top:16px"><button type="submit">＋ เพิ่มแบรนด์</button></div>
   </form>
 </div>
+
+<script>
+function aiClassifyMarket(){
+  var form = document.querySelector('form[action="/brands"]');
+  if(!form) return;
+  var domain = form.querySelector('[name=domain]').value.trim();
+  var nm = form.querySelector('[name=name]').value.trim();
+  var market = form.querySelector('[name=market]');
+  var btn = document.getElementById('ai-market-btn');
+  var msg = document.getElementById('ai-market-msg');
+  function show(c, t){ msg.style.display='block'; msg.style.color=c; msg.textContent=t; }
+  if(!domain){ show('var(--danger)','⚠️ กรอกโดเมนเว็บไซต์ก่อน แล้วกดอีกครั้ง'); return; }
+  var old = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ กำลังอ่าน...';
+  show('var(--silver)','🔎 AI กำลังอ่านเว็บไซต์ '+domain+' ... (อาจใช้เวลาสักครู่)');
+  fetch('/api/classify-market', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({url:domain, name:nm})})
+    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+    .then(function(res){
+      if(res.d && res.d.market){ market.value = res.d.market; show('var(--green)','✓ เติมให้แล้ว — แก้ไขเพิ่มได้ตามต้องการ'); }
+      else { show('var(--danger)', (res.d && res.d.error) || 'ไม่สำเร็จ ลองใหม่ หรือกรอกเอง'); }
+    })
+    .catch(function(){ show('var(--danger)','เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'); })
+    .finally(function(){ btn.disabled=false; btn.textContent=old; });
+}
+</script>
 
 <!-- ตัวอย่าง -->
 <div class="card" style="margin-top:8px">

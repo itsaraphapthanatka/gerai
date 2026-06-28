@@ -23,6 +23,62 @@ def _chat(messages: list[dict], max_tokens: int = 2048, timeout: int = 120) -> s
     return data["choices"][0]["message"]["content"].strip()
 
 
+def _fetch_text(url: str, timeout: int = 18) -> str:
+    """ดึงหน้าแรกของเว็บไซต์ → คืน title + meta description + headings + เนื้อหาย่อ"""
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    req = urllib.request.Request(url, headers={"User-Agent": "curl/8.5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        html = r.read(500_000).decode("utf-8", "ignore")
+
+    def _grp(pat):
+        m = re.search(pat, html, re.I | re.S)
+        return re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
+
+    title = _grp(r"<title[^>]*>(.*?)</title>")
+    desc = (re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)', html, re.I)
+            or re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)', html, re.I))
+    desc = desc.group(1).strip() if desc else ""
+    heads = [re.sub(r"<[^>]+>", "", h).strip()
+             for h in re.findall(r"<h[1-3][^>]*>(.*?)</h[1-3]>", html, re.I | re.S)]
+    heads = [h for h in heads if h][:10]
+    body = re.sub(r"<(script|style|nav|footer)[\s\S]*?</\1>", " ", html, flags=re.I)
+    body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
+    parts = [f"Title: {title}", f"Description: {desc}"]
+    if heads:
+        parts.append("Headings: " + " | ".join(heads))
+    parts.append("Content: " + body[:1500])
+    return "\n".join(p for p in parts if p.split(": ", 1)[-1])
+
+
+def classify_market(url: str, name: str = "") -> str:
+    """อ่านเว็บไซต์ → ระบุ 'ตลาด / ธุรกิจ' สั้นๆ เป็นภาษาไทย (คืน '' ถ้าทำไม่ได้)"""
+    try:
+        info = _fetch_text(url)
+    except Exception:
+        info = ""
+    prompt = f"""วิเคราะห์เว็บไซต์นี้แล้วระบุ "ตลาด / ธุรกิจ" แบบสั้นกระชับ เพื่อใช้จัดหมวดหมู่แบรนด์
+
+ชื่อแบรนด์: {name or '-'}
+เว็บไซต์: {url}
+ข้อมูลที่ดึงจากเว็บไซต์:
+{info or '(อ่านเนื้อหาไม่ได้ — ให้เดาจากชื่อ/โดเมน)'}
+
+ตอบเป็นภาษาไทย บรรทัดเดียว รูปแบบ "ประเภทธุรกิจ + ตลาด/พื้นที่" เช่น:
+อสังหาริมทรัพย์ กรุงเทพ
+ร้านอาหารไทย เชียงใหม่
+สำนักงานกฎหมาย ที่ปรึกษาธุรกิจ
+คลินิกสัตวแพทย์ และร้านสินค้าสัตว์เลี้ยง
+
+กฎ: ตอบเฉพาะข้อความหมวดหมู่ ไม่เกิน 12 คำ ไม่ต้องอธิบาย ไม่ต้องมีเครื่องหมายคำพูด"""
+    raw = _chat([{"role": "user", "content": prompt}], max_tokens=1500)
+    # เอาบรรทัดสุดท้ายที่มีเนื้อหา (โมเดล reasoning มักวางคำตอบไว้ท้าย) แล้วล้างสัญลักษณ์
+    lines = [ln.strip(" \t\"'`*-•·:") for ln in raw.splitlines() if ln.strip(" \t\"'`*-•·:")]
+    ans = lines[-1] if lines else raw.strip()
+    ans = re.sub(r"^(ตลาด|ธุรกิจ|หมวดหมู่|คำตอบ|ตลาด\s*/\s*ธุรกิจ)\s*[:：]\s*", "", ans).strip(" \"'`*")
+    return ans[:90]
+
+
 def generate_questions(brand_name: str, domain: str, market: str, n: int = 8) -> list[dict]:
     """สร้างคำถามเป้าหมาย GEO สำหรับแบรนด์ — คืน list of {question, lang}"""
     prompt = f"""คุณเป็นผู้เชี่ยวชาญ GEO (Generative Engine Optimization)

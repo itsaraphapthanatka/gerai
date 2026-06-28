@@ -219,7 +219,8 @@ def _dashboard_ctx(request: Request, error=None):
     brands = db.list_brands(tid)
     brand_gaps = {b["id"]: db.get_content_gaps(b["id"]) for b in brands}
     return {"brands": brands, "brand_gaps": brand_gaps, "name": request.session.get("name"),
-            "plan": billing.plan_of(tenant), "usage": billing.usage(tid), "error": error}
+            "plan": billing.plan_of(tenant), "usage": billing.usage(tid), "error": error,
+            "is_admin": bool(tenant and tenant["is_admin"])}
 
 
 def _brand_ctx(brand, error=None):
@@ -475,6 +476,27 @@ def upgrade_request(request: Request, plan: str = Form(...)):
         db.notify_admins(f"⭐ {tn['email']} ขอแผน {billing.PLANS[plan]['label']}", "/admin", "request")
         notice = f"ส่งคำขอแผน {billing.PLANS[plan]['label']} แล้ว — ทีมงานจะติดต่อกลับ"
     return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request, notice=notice))
+
+
+@app.post("/api/classify-market")
+async def api_classify_market(request: Request):
+    if not _tid(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    url = (body.get("url") or "").strip()
+    name = (body.get("name") or "").strip()
+    if not url:
+        return JSONResponse({"error": "กรอกโดเมนเว็บไซต์ก่อน แล้วกดอีกครั้ง"}, status_code=400)
+    try:
+        market = ai_client.classify_market(url, name)
+    except Exception:
+        return JSONResponse({"error": "วิเคราะห์ไม่สำเร็จ ลองใหม่ หรือกรอกเอง"}, status_code=502)
+    if not market:
+        return JSONResponse({"error": "อ่านเว็บไซต์ไม่ได้ — กรอกเองได้เลย"}, status_code=200)
+    return JSONResponse({"market": market})
 
 
 @app.post("/brands")
