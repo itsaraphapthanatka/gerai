@@ -79,6 +79,15 @@ def _tables() -> list[str]:
             key TEXT PRIMARY KEY,
             val TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS contacts (
+            id {_PK},
+            name TEXT NOT NULL,
+            contact TEXT NOT NULL,
+            plan TEXT,
+            message TEXT,
+            status TEXT NOT NULL DEFAULT 'new',
+            created_at TEXT NOT NULL
+        )""",
         f"""CREATE TABLE IF NOT EXISTS notifications (
             id {_PK},
             tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -228,6 +237,32 @@ def set_setting(key: str, val: str) -> None:
             c.execute(q("UPDATE settings SET val=? WHERE key=?"), (val, key))
         else:
             c.execute(q("INSERT INTO settings(key,val) VALUES(?,?)"), (key, val))
+
+
+# ---- contacts (leads จากหน้า landing) ----
+def add_contact(name: str, contact: str, plan: str = "", message: str = "") -> int:
+    with get_conn() as c:
+        row = c.execute(
+            q("INSERT INTO contacts(name,contact,plan,message,status,created_at) "
+              "VALUES(?,?,?,?,'new',?) RETURNING id"),
+            (name, contact, plan, message, now()),
+        ).fetchone()
+        return row["id"]
+
+
+def list_contacts(limit: int = 100):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM contacts ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def count_new_contacts() -> int:
+    with get_conn() as c:
+        return c.execute("SELECT COUNT(*) AS n FROM contacts WHERE status='new'").fetchone()["n"]
+
+
+def set_contact_status(cid: int, status: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE contacts SET status=? WHERE id=?"), (status, cid))
 
 
 # ---- notifications ----

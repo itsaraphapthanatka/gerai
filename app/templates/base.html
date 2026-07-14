@@ -65,6 +65,9 @@
     background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
     font-size: 19px; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
   .bell:hover { background: #fff; }
+  .menu-badge { margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 9999px; display: inline-flex; align-items: center;
+    justify-content: center; padding: 0 5px; }
   .bell-dot { position: absolute; top: -3px; right: -3px; background: var(--danger); color: #fff; font-size: 10px;
     font-weight: 700; min-width: 18px; height: 18px; border-radius: 9999px; display: flex; align-items: center;
     justify-content: center; padding: 0 4px; line-height: 1; }
@@ -180,6 +183,7 @@
     <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> อัปเกรดแผน</a>
     {% if request.session.get('is_admin') %}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> ผู้ดูแลระบบ</a>
+    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> ผู้ติดต่อ{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
     <a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> ตั้งค่า</a>
     {% endif %}
 

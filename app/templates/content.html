@@ -5,6 +5,20 @@
 <h1>{{ item['title'] }}</h1>
 <p class="muted">{{ brand['name'] }} · ภาษา {{ item['lang'] }} · ที่มา {{ item['source'] }} · {{ item['created_at'] }}</p>
 
+{% if aeo %}
+<div class="card" style="border-color:var(--purple)">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <b style="font-size:15px">✅ ความพร้อม AEO / GEO</b>
+    <span class="pill {{ 'ok' if aeo.score == aeo.max else 'admin' }}">{{ aeo.score }}/{{ aeo.max }}</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px">
+    {% for c in aeo['items'] %}
+    <span style="font-size:13px;color:{{ 'var(--cool)' if c.get('info') else ('#1c7a44' if c.ok else '#b4530b') }}">{{ '✓' if c.ok else ('•' if c.get('info') else '✗') }} {{ c.label }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <h2>Meta (SEO/GEO)</h2>
 <div class="card">
   <label>Title</label><div class="copybox">{{ item['meta_title'] }}</div>

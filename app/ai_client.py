@@ -94,6 +94,7 @@ def generate_questions(brand_name: str, domain: str, market: str, n: int = 8) ->
 - บางส่วนเป็นภาษาอังกฤษ (1-2 ข้อ)
 - เป็นคำถามที่คนจริงๆ จะถาม ไม่ใช่คำ keywords แห้งๆ
 - หลากหลาย: ถามหาบริการ, เปรียบเทียบ, ขอคำแนะนำ, ถามราคา
+- เน้นแนว People Also Ask / autocomplete ของ Google (ที่ไหน, ราคาเท่าไหร่, ดีไหม, เทียบกับ, วิธี/ขั้นตอน, ทำไม) — แบบ AEO
 
 ตอบเฉพาะ JSON array เท่านั้น รูปแบบ:
 [

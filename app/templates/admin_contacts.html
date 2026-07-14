@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}ผู้ติดต่อ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ผู้ติดต่อ</h1>
+<p class="muted">คำขอติดต่อจากหน้าเว็บ — ลูกค้าที่กรอกฟอร์มสนใจแพ็กเกจ</p>
+
+<div class="card" style="padding:0;overflow:hidden">
+  {% if contacts %}
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>ชื่อ</th><th>ช่องทางติดต่อ</th><th>สนใจ</th><th>ข้อความ</th><th>เมื่อ</th><th>สถานะ</th></tr></thead>
+    <tbody>
+    {% for c in contacts %}
+    <tr style="{% if c['status']=='new' %}background:var(--purple-tint){% endif %}">
+      <td><b>{{ c['name'] }}</b></td>
+      <td style="white-space:nowrap">{{ c['contact'] }}</td>
+      <td>{% if c['plan'] %}<span class="pill ok">{{ c['plan'] }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="muted" style="max-width:280px;white-space:normal">{{ c['message'] or '—' }}</td>
+      <td class="muted" style="white-space:nowrap">{{ (c['created_at'][:16]).replace('T',' ') }}</td>
+      <td>
+        {% if c['status'] == 'new' %}
+        <form method="post" action="/admin/contacts/{{ c['id'] }}/handled"><button class="btn ghost sm" type="submit" style="white-space:nowrap">✓ ติดต่อแล้ว</button></form>
+        {% else %}<span class="pill ok" style="background:#e8f7ee;color:#1c7a44">ติดต่อแล้ว</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีผู้ติดต่อ</p></div>
+  {% endif %}
+</div>
+{% endblock %}

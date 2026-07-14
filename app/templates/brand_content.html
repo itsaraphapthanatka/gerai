@@ -78,6 +78,14 @@
           {% endfor %}
         </select>
       </div>
+      <div style="flex:1.4">
+        <label>รูปแบบ <span class="muted">(AEO)</span></label>
+        <select name="ctype">
+          <option value="qa">ถาม-ตอบ (มาตรฐาน)</option>
+          <option value="comparison">⚖️ หน้าเปรียบเทียบ — ROI สูงสุด</option>
+          <option value="listicle">🔢 ลิสต์อันดับ (X ข้อ)</option>
+        </select>
+      </div>
       <div style="flex:1">
         <label>ภาษา</label>
         <select name="lang">
@@ -90,6 +98,7 @@
       </div>
     </div>
   </form>
+  <p class="muted" style="font-size:12px;margin:10px 0 0">💡 <b>เปรียบเทียบ</b> = เทียบตัวเลือก/ประเภทพร้อมตาราง (AI ชอบอ้างอิงสุด) · <b>ลิสต์อันดับ</b> = บทความแบบ "5 ข้อควรรู้" + ItemList schema</p>
   {% else %}
   <p class="muted">ยังไม่มีคำถาม — <a href="/brands/{{ brand['id'] }}/questions" class="link">เพิ่มคำถามก่อน</a></p>
   {% endif %}

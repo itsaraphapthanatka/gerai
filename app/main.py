@@ -59,6 +59,9 @@ def _startup():
     templates.env.globals["unread_count"] = lambda req: (
         db.count_unread(req.session["tenant_id"]) if req.session.get("tenant_id") else 0
     )
+    templates.env.globals["new_contacts_count"] = lambda req: (
+        db.count_new_contacts() if req.session.get("is_admin") else 0
+    )
 
 
 def _auto_content_tick(b, weekly: int, now_local):
@@ -297,7 +300,29 @@ def logout(request: Request):
 # ---------- landing (public) ----------
 @app.get("/")
 def landing(request: Request):
-    return templates.TemplateResponse(request, "landing.html", {})
+    return templates.TemplateResponse(request, "landing.html",
+                                      {"plans": billing.PLANS, "addons": billing.ADDONS})
+
+
+@app.post("/api/contact")
+async def api_contact(request: Request):
+    """ฟอร์มติดต่อจากหน้า landing (public) → เก็บ lead + แจ้ง admin"""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if (body.get("company") or "").strip():        # honeypot: บอทกรอก → เงียบ
+        return JSONResponse({"ok": True})
+    name = (body.get("name") or "").strip()[:120]
+    contact = (body.get("contact") or "").strip()[:160]
+    plan = (body.get("plan") or "").strip()[:60]
+    message = (body.get("message") or "").strip()[:1000]
+    if not name or not contact:
+        return JSONResponse({"error": "กรุณากรอกชื่อและช่องทางติดต่อ"}, status_code=400)
+    db.add_contact(name, contact, plan, message)
+    db.notify_admins(f"📩 ผู้ติดต่อใหม่: {name} ({contact})" + (f" · สนใจ {plan}" if plan else ""),
+                     "/admin/contacts", "contact")
+    return JSONResponse({"ok": True})
 
 
 # ---------- PWA (manifest + service worker) ----------
@@ -835,7 +860,8 @@ def brand_progress(request: Request, brand_id: int):
 
 # ---------- content (execution layer — Phase A) ----------
 @app.post("/brands/{brand_id}/content")
-def gen_content(request: Request, brand_id: int, question_id: int = Form(...), lang: str = Form("th")):
+def gen_content(request: Request, brand_id: int, question_id: int = Form(...), lang: str = Form("th"),
+                ctype: str = Form("qa")):
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -845,7 +871,7 @@ def gen_content(request: Request, brand_id: int, question_id: int = Form(...), l
     q = next((row for row in db.list_questions(brand_id) if row["id"] == question_id), None)
     if not q:
         return _redirect(f"/brands/{brand_id}/content")
-    data = geo_content.generate_content(brand, q["question"], lang)
+    data = geo_content.generate_content(brand, q["question"], lang, ctype)
     cid = db.create_content_item(
         brand_id, question_id, lang, data["title"], data["meta_title"],
         data["meta_desc"], data["body_md"], data["schema_json"], data["source"],
@@ -866,6 +892,7 @@ def view_content(request: Request, content_id: int):
     return templates.TemplateResponse(
         request, "content.html",
         {"item": item, "brand": brand, "wp": db.get_wp_connection(item["brand_id"]), "notice": None,
+         "aeo": geo_content.aeo_report_item(item),
          "hosted_url": f"{geo_content._site_url(brand)}/geo/{item['id']}"},
     )
 
@@ -988,20 +1015,22 @@ def publish_content(request: Request, content_id: int, status: str = Form("draft
     return templates.TemplateResponse(
         request, "content.html",
         {"item": item, "brand": brand, "wp": conn, "notice": notice,
+         "aeo": geo_content.aeo_report_item(item),
          "hosted_url": f"{geo_content._site_url(brand)}/geo/{item['id']}"},
     )
 
 
 # ---------- Embed (public — ไม่ต้อง login) ----------
 def _published_faqs(brand) -> list[dict]:
-    """FAQPage schema ของคอนเทนต์ที่เผยแพร่แล้ว (เป็น dict)"""
+    """schema (FAQPage/HowTo) ของคอนเทนต์ที่เผยแพร่แล้ว — รองรับทั้ง dict เดิม และ array ใหม่"""
     out = []
     for item in db.list_content(brand["id"]):
         if item["status"] == "published" and item.get("schema_json"):
             try:
                 s = json.loads(item["schema_json"])
-                if s.get("@type") == "FAQPage":
-                    out.append(s)
+                for o in (s if isinstance(s, list) else [s]):
+                    if isinstance(o, dict) and o.get("@type") in ("FAQPage", "HowTo", "ItemList"):
+                        out.append(o)
             except Exception:
                 pass
     return out
@@ -1285,3 +1314,18 @@ def admin_settings_save(request: Request, promptpay_id: str = Form(""), promptpa
     db.set_setting("promptpay_id", raw)
     db.set_setting("promptpay_name", promptpay_name.strip() or "เจอ.AI")
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.get("/admin/contacts")
+def admin_contacts(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_contacts.html", {"contacts": db.list_contacts()})
+
+
+@app.post("/admin/contacts/{cid}/handled")
+def admin_contact_handled(request: Request, cid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_contact_status(cid, "handled")
+    return _redirect("/admin/contacts")

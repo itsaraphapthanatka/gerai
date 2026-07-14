@@ -101,11 +101,18 @@ def pick_relevant(candidates: list[dict], topic: str, brand_name: str) -> dict |
     return {"url": ch["url"], "alt": cap or ch["alt"] or topic}
 
 
-def generate_image(prompt: str, size: str = "768x512") -> bytes | None:
-    """dreamshaper: สร้างภาพจาก prompt → คืน PNG bytes"""
+# ห้าม generate รูปคน — ใช้เป็น negative prompt (ถ้า server รองรับ) + ย้ำในตัว prompt
+_NO_PEOPLE = ("person, people, human, humans, man, woman, women, men, child, children, "
+              "kid, boy, girl, face, faces, portrait, selfie, crowd, body, body parts, hands, "
+              "arms, legs, skin, model, worker, customer")
+
+
+def generate_image(prompt: str, size: str = "768x512", negative_prompt: str = None) -> bytes | None:
+    """dreamshaper: สร้างภาพจาก prompt → คืน PNG bytes (ไม่สร้างรูปคน)"""
     payload = json.dumps({
         "model": os.getenv("AI_IMAGE_MODEL", "dreamshaper"),
         "prompt": prompt, "n": 1, "size": size,
+        "negative_prompt": negative_prompt or _NO_PEOPLE,
     }).encode()
     req = urllib.request.Request(
         ai_client.BASE_URL.rstrip("/") + "/images/generations", data=payload,
@@ -124,14 +131,65 @@ def generate_image(prompt: str, size: str = "768x512") -> bytes | None:
     return None
 
 
-def _gen_prompt(brand, topic: str) -> str:
+def _scene_prompt(brand, topic: str) -> str:
+    """ใช้ text AI แปลงหัวข้อบทความ → image prompt ของ 'ฉากที่ไม่มีคน'
+    (สถานที่/วัตถุ/อุปกรณ์/บรรยากาศ) เพราะหัวข้อมักพูดถึงคนตรงๆ ทำให้โมเดลวาดคน"""
     market = brand["market"] or ""
-    return (f"Professional realistic commercial photograph for: {topic}. "
-            f"Business context: {market}. Clean, bright, high quality, no text, no watermark.")
+    scene = ""
+    try:
+        ask = ("Write a short English image-generation prompt (one line, under 40 words) for a "
+               "professional commercial photo that illustrates this article topic but contains "
+               "ABSOLUTELY NO people. Describe only the place, interior, objects, tools, products, "
+               "or scenery.\n"
+               f"Business: {market}\nTopic: {topic}\n"
+               "Answer with the prompt text only, no quotes.")
+        raw = ai_client._chat([{"role": "user", "content": ask}], max_tokens=900, timeout=70)
+        lines = [l.strip(" \"'`*-•") for l in raw.splitlines() if l.strip(" \"'`*-•")]
+        scene = lines[-1] if lines else ""
+    except Exception:
+        scene = ""
+    if len(scene) < 8:
+        scene = f"interior, objects and scenery of a {market or 'business'}"
+    return (f"Professional realistic commercial photograph: {scene}. "
+            f"The scene is completely empty of people — no humans, no faces, no hands, "
+            f"no body parts, no silhouettes. Bright, clean, high quality, no text, no watermark.")
+
+
+def _has_person(png: bytes) -> bool:
+    """vision: ในรูปมีคนไหม (ถ้าเช็คไม่ได้ คืน False = ไม่บล็อก)"""
+    try:
+        durl = "data:image/png;base64," + base64.b64encode(png).decode()
+        parts = [{"type": "text", "text":
+                  "Is any person, human, face, or body part visible in this image? "
+                  "Answer with one word only: YES or NO."},
+                 {"type": "image_url", "image_url": {"url": durl}}]
+        ans = ai_client._chat([{"role": "user", "content": parts}], max_tokens=1200, timeout=120)
+        toks = re.findall(r"\b(yes|no)\b", ans.lower())
+        return toks[-1] == "yes" if toks else False
+    except Exception:
+        return False
+
+
+def _generate_no_people(brand, topic: str) -> bytes | None:
+    """generate รูป + ตรวจ vision ว่าไม่มีคน — ยังมีคนก็ลองใหม่ ถ้า 2 รอบยังมีคน คืน None
+    (ยอมไม่มีรูป ดีกว่าใส่รูปคน)"""
+    attempts = [
+        _scene_prompt(brand, topic),
+        (f"Wide professional photograph of an empty {brand['market'] or 'business'} environment — "
+         f"only objects, tools, furniture and scenery. Absolutely no people, no living beings, "
+         f"no faces, no body parts. Bright, clean, high quality, no text, no watermark."),
+    ]
+    for p in attempts:
+        png = generate_image(p)
+        if not png:
+            continue
+        if not _has_person(png):
+            return png
+    return None
 
 
 def image_for_article(brand, topic: str, site_url: str) -> dict | None:
-    """หารูปจากเว็บก่อน (vision) → ไม่มีค่อย generate.
+    """หารูปจากเว็บก่อน (vision) → ไม่มีค่อย generate (รูปที่ไม่มีคนเท่านั้น).
     คืน {'mode':'scraped','url','alt'} หรือ {'mode':'generated','png':bytes,'alt'} หรือ None
     """
     try:
@@ -141,7 +199,7 @@ def image_for_article(brand, topic: str, site_url: str) -> dict | None:
             return {"mode": "scraped", "url": pick["url"], "alt": pick["alt"]}
     except Exception:
         pass
-    png = generate_image(_gen_prompt(brand, topic))
+    png = _generate_no_people(brand, topic)
     if png:
         return {"mode": "generated", "png": png, "alt": topic}
     return None

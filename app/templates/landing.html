@@ -162,6 +162,39 @@
   .foot-col a:hover{color:#fff}
   .foot-bot{font-size:13px;color:var(--muted);padding-top:24px}
   @media(max-width:760px){.foot-top{flex-direction:column;gap:32px}}
+
+  /* pricing */
+  .plans-l{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch}
+  .plan-l{background:var(--canvas);border:1px solid var(--hairline);border-radius:24px;padding:30px 26px;display:flex;flex-direction:column;position:relative}
+  .plan-l.rec{border:2px solid var(--coral);box-shadow:rgba(255,85,48,.12) 0 8px 30px -6px}
+  .plan-l.ent{border:2px solid var(--primary);background:var(--surface)}
+  .plan-rb{position:absolute;top:-12px;left:26px;background:var(--coral);color:#fff;font-size:12px;font-weight:600;padding:4px 14px;border-radius:9999px}
+  .plan-rb.ent-rb{background:var(--primary)}
+  .plan-l .pl-name{font-size:21px;font-weight:700;letter-spacing:-.3px}
+  .plan-l .pl-tag{font-size:13px;color:var(--steel);margin-top:4px;min-height:38px}
+  .plan-l .pl-price{font-size:34px;font-weight:600;letter-spacing:-1px;margin:8px 0 4px}
+  .plan-l .pl-price span{font-size:14px;font-weight:500;color:var(--stone);letter-spacing:0}
+  .plan-l ul{list-style:none;margin:18px 0 22px;display:flex;flex-direction:column;gap:10px;flex:1}
+  .plan-l li{font-size:13.5px;color:var(--slate);padding-left:24px;position:relative;line-height:1.45}
+  .plan-l li::before{content:"✓";position:absolute;left:0;color:var(--success-text);font-weight:700}
+  .plan-l .btn{width:100%;justify-content:center}
+  .addons-l{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;justify-content:center}
+  .addon-l{background:var(--canvas);border:1px solid var(--hairline);border-radius:14px;padding:13px 18px;font-size:13.5px;color:var(--slate)}
+  .addon-l b{color:var(--primary);font-weight:600}
+  .addon-l .ap{color:var(--coral);font-weight:600}
+  @media(max-width:980px){.plans-l{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.plans-l{grid-template-columns:1fr}}
+
+  /* contact modal */
+  .cmodal{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,10,10,.55);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px}
+  .cmodal.open{display:flex}
+  .cmodal-box{background:#fff;border-radius:24px;padding:34px 30px;max-width:440px;width:100%;position:relative;box-shadow:rgba(0,0,0,.25) 0 20px 60px -10px}
+  .cmodal-x{position:absolute;top:14px;right:16px;background:none;border:0;font-size:18px;color:var(--stone);cursor:pointer;line-height:1}
+  .cmodal-h{font-size:23px;font-weight:700;letter-spacing:-.4px}
+  .cmodal-sub{font-size:14px;color:var(--steel);margin:8px 0 18px;line-height:1.5}
+  .cinput{width:100%;font-family:var(--font);font-size:15px;padding:12px 14px;border:1px solid var(--hairline);border-radius:12px;margin-bottom:12px;outline:none;color:var(--primary)}
+  .cinput:focus{border-color:var(--primary)}
+  .cmodal-err{color:#c8341a;font-size:13px;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -175,6 +208,7 @@
       <a href="#features">ฟีเจอร์</a>
       <a href="#how">วิธีทำงาน</a>
       <a href="#install">ติดตั้ง</a>
+      <a href="#pricing">ราคา</a>
     </div>
     <div class="nav-cta">
       {% if request.session.get('tenant_id') %}
@@ -315,6 +349,42 @@
   </div>
 </section>
 
+<section id="pricing" style="background:var(--surface)">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="sec-eyebrow">ราคา</div>
+      <h2>แพ็กเกจที่เหมาะกับคุณ</h2>
+      <p class="sec-sub">เริ่มฟรี อัปเกรดเมื่อพร้อม · ชำระง่ายผ่าน PromptPay · ราคายังไม่รวม VAT</p>
+    </div>
+    {% set logged_in = request.session.get('tenant_id') %}
+    <div class="plans-l">
+      {% for key, p in plans.items() %}
+      <div class="plan-l {{ 'rec' if key=='pro' }} {{ 'ent' if p.get('hidden') }}">
+        {% if key=='pro' %}<div class="plan-rb">แนะนำ</div>{% endif %}
+        {% if p.get('hidden') %}<div class="plan-rb ent-rb">Enterprise</div>{% endif %}
+        <div class="pl-name">{{ p.label }}</div>
+        <div class="pl-tag">{{ p.tagline }}</div>
+        <div class="pl-price">{% if p.get('hidden') %}<span style="font-size:23px;font-weight:600;letter-spacing:-.3px">ติดต่อเรา</span>{% elif p.price %}฿{{ '{:,}'.format(p.price) }}{% else %}ฟรี{% endif %}<span>{{ p.period }}</span></div>
+        <ul>{% for f in p.perks %}<li>{{ f }}</li>{% endfor %}</ul>
+        {% set lbl = 'ติดต่อทีมงาน' if p.get('hidden') else ('เริ่มฟรี' if key=='free' else 'เลือกแผนนี้ →') %}
+        {% if logged_in %}
+        <a href="/upgrade" class="btn {{ 'btn-primary' if key=='pro' else 'btn-outline' }}">{{ lbl }}</a>
+        {% else %}
+        <button type="button" onclick="openContact('{{ p.label }}')" class="btn {{ 'btn-primary' if key=='pro' else 'btn-outline' }}">{{ lbl }}</button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% if addons %}
+    <div class="addons-l">
+      {% for a in addons %}
+      <div class="addon-l"><b>{{ a.label }}</b> · <span class="ap">฿{{ '{:,}'.format(a.price) }}</span> {{ a.period }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <div class="cta-card">
@@ -340,6 +410,7 @@
           <a href="#features">ฟีเจอร์</a>
           <a href="#how">วิธีทำงาน</a>
           <a href="#install">ติดตั้ง</a>
+          <a href="#pricing">ราคา</a>
         </div>
         <div class="foot-col">
           <h5>เริ่มต้น</h5>
@@ -350,6 +421,60 @@
     <div class="foot-bot">© 2026 เจอ.AI · Generative Engine Optimization Platform</div>
   </div>
 </footer>
+
+<!-- contact modal -->
+<div id="contact-modal" class="cmodal" onclick="if(event.target===this)closeContact()">
+  <div class="cmodal-box">
+    <button class="cmodal-x" onclick="closeContact()" aria-label="ปิด">✕</button>
+    <div id="cm-form">
+      <div class="cmodal-h">สนใจแพ็กเกจ <span id="cm-plan" style="color:var(--coral)"></span></div>
+      <p class="cmodal-sub">กรอกข้อมูลติดต่อ ทีมงานเจอ.AI จะติดต่อกลับโดยเร็ว</p>
+      <input id="cm-name" class="cinput" placeholder="ชื่อ-นามสกุล / บริษัท" autocomplete="name">
+      <input id="cm-contact" class="cinput" placeholder="เบอร์โทร · อีเมล · LINE" autocomplete="tel">
+      <textarea id="cm-msg" class="cinput" rows="3" placeholder="ข้อความเพิ่มเติม (ไม่บังคับ)"></textarea>
+      <input id="cm-company" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div id="cm-err" class="cmodal-err"></div>
+      <button id="cm-submit" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitContact()">ส่งข้อมูลติดต่อ</button>
+    </div>
+    <div id="cm-done" style="display:none;text-align:center;padding:14px 0">
+      <div style="font-size:42px">✅</div>
+      <div class="cmodal-h" style="margin-top:10px">ได้รับข้อมูลแล้ว</div>
+      <p class="cmodal-sub">ทีมงานเจอ.AI จะติดต่อกลับโดยเร็วที่สุด ขอบคุณครับ</p>
+      <button class="btn btn-outline" onclick="closeContact()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openContact(plan){
+  document.getElementById('cm-plan').textContent = plan || '';
+  document.getElementById('cm-form').style.display='block';
+  document.getElementById('cm-done').style.display='none';
+  document.getElementById('cm-err').textContent='';
+  document.getElementById('contact-modal').classList.add('open');
+}
+function closeContact(){ document.getElementById('contact-modal').classList.remove('open'); }
+function submitContact(){
+  var plan=document.getElementById('cm-plan').textContent;
+  var name=document.getElementById('cm-name').value.trim();
+  var contact=document.getElementById('cm-contact').value.trim();
+  var message=document.getElementById('cm-msg').value.trim();
+  var company=document.getElementById('cm-company').value.trim();
+  var err=document.getElementById('cm-err'); var btn=document.getElementById('cm-submit');
+  if(!name||!contact){ err.textContent='กรุณากรอกชื่อและช่องทางติดต่อ'; return; }
+  var old=btn.textContent; btn.disabled=true; btn.textContent='กำลังส่ง...';
+  fetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:name,contact:contact,plan:plan,message:message,company:company})})
+   .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+   .then(function(res){
+     if(res.ok && res.d.ok){ document.getElementById('cm-form').style.display='none'; document.getElementById('cm-done').style.display='block'; }
+     else { err.textContent=(res.d&&res.d.error)||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง'; }
+   })
+   .catch(function(){ err.textContent='เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'; })
+   .finally(function(){ btn.disabled=false; btn.textContent=old; });
+}
+document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeContact(); });
+</script>
 
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
 </body>
