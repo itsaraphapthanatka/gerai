@@ -16,6 +16,13 @@
     <span style="font-size:13px;color:{{ 'var(--cool)' if c.get('info') else ('#1c7a44' if c.ok else '#b4530b') }}">{{ '✓' if c.ok else ('•' if c.get('info') else '✗') }} {{ c.label }}</span>
     {% endfor %}
   </div>
+  <form method="post" action="/content/{{ item['id'] }}/regenerate"
+        data-loading="⏳ กำลังสร้างใหม่ให้ครบ AEO… (~30-60 วิ)"
+        onsubmit="return confirm('สร้างเนื้อหาชิ้นนี้ใหม่ด้วยฟอร์แมต AEO เต็ม (answer-first + ลิสต์/ตาราง + FAQ + schema)?\n\n⚠️ เนื้อหาเดิมจะถูกเขียนทับ');"
+        style="margin-top:14px">
+    <button type="submit" class="btn ghost sm">🔄 สร้างใหม่ให้ครบ AEO</button>
+    {% if aeo.score < aeo.max %}<span class="muted" style="font-size:12px;margin-left:8px">ระบบจะเขียนใหม่ให้ได้ครบ 6/6 (answer-first, ลิสต์, FAQ, schema)</span>{% endif %}
+  </form>
 </div>
 {% endif %}
 

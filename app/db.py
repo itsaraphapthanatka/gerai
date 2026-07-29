@@ -169,6 +169,8 @@ def init_db() -> None:
         _ensure_column(c, "brands", "last_auto_content_at", "TEXT")
         _ensure_column(c, "brands", "auto_publish_days", "INTEGER DEFAULT -1")
         _ensure_column(c, "brands", "auto_image", "INTEGER DEFAULT 0")
+        _ensure_column(c, "brands", "facts", "TEXT")           # ข้อมูลจริงของแบรนด์ (ลูกค้ากรอกเอง)
+        _ensure_column(c, "brands", "site_context", "TEXT")    # เนื้อหาจากเว็บจริง (cache สำหรับ grounding)
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -446,9 +448,28 @@ def set_auto_image(brand_id: int, on: int) -> None:
         c.execute(q("UPDATE brands SET auto_image=? WHERE id=?"), (1 if on else 0, brand_id))
 
 
+def set_brand_facts(brand_id: int, facts: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET facts=? WHERE id=?"), (facts, brand_id))
+
+
+def set_brand_site_context(brand_id: int, ctx: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET site_context=? WHERE id=?"), (ctx, brand_id))
+
+
 def update_content_body(content_id: int, body_md: str) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE content_items SET body_md=? WHERE id=?"), (body_md, content_id))
+
+
+def update_content(content_id: int, title, meta_title, meta_desc, body_md, schema_json, source) -> None:
+    """เขียนทับคอนเทนต์ทั้งชิ้น (ใช้ตอน regenerate)"""
+    with get_conn() as c:
+        c.execute(
+            q("UPDATE content_items SET title=?, meta_title=?, meta_desc=?, body_md=?, schema_json=?, source=? WHERE id=?"),
+            (title, meta_title, meta_desc, body_md, schema_json, source, content_id),
+        )
 
 
 def set_auto_publish(brand_id: int, days: int) -> None:

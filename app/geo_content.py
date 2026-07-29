@@ -68,6 +68,18 @@ def _loads_lenient(s: str):
         return None
 
 
+def _fit_title(t: str, limit: int = 60) -> str:
+    """บังคับ title ≤ limit ตัวอักษร (เกณฑ์ AEO) — ตัดที่ขอบคำถ้าทำได้ ไม่ทิ้งเครื่องหมายห้อยท้าย"""
+    t = " ".join((t or "").split())
+    if len(t) <= limit:
+        return t
+    cut = t[:limit]
+    sp = cut.rfind(" ")
+    if sp >= int(limit * 0.6):  # มีช่องว่างใกล้ท้ายพอ → ตัดที่คำแทนกลางคำ
+        cut = cut[:sp]
+    return cut.rstrip(" -–—·|,:;")
+
+
 def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
     langname = "ภาษาไทย" if lang == "th" else "English"
     # ใช้ฟอร์แมต marker (ไม่ใช่ JSON) — body มี newline/quote/อักขระอะไรก็ได้ ไม่ต้อง escape → parse ทนกว่ามาก
@@ -92,24 +104,39 @@ def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
             "Do NOT fabricate rankings of named competitors or fake stats — frame items as "
             "options/tips/criteria, and include the business naturally where honest.\n"
         )
-        body_spec = ("(250-350 words markdown: short intro, then a numbered list 1. 2. 3. ... with a "
-                     "**bold item name** + explanation each, at least 5 items)")
+        body_spec = ("(250-350 words markdown: short intro, then a ## section heading, then a numbered "
+                     "list 1. 2. 3. ... with a **bold item name** + explanation each, at least 5 items)")
         items_spec = "(repeat the list item names, one per line as 'I: item name')"
     else:
         task = "Write content an AI engine would cite — mention the business name and its service area.\n"
         body_spec = ("(200-300 words markdown with ## headings; include at least one bullet list; "
                      "add a short comparison table when it helps)")
         items_spec = "(leave this section empty)"
+    # grounding: ข้อมูลจริงของแบรนด์ (facts ที่ลูกค้ากรอก) + เนื้อหาจากเว็บจริง (site_context)
+    facts = (brand["facts"] if "facts" in brand.keys() else None) or ""
+    site_ctx = (brand["site_context"] if "site_context" in brand.keys() else None) or ""
+    grounding = ""
+    if facts.strip():
+        grounding += ("\nVERIFIED FACTS about this business (these are TRUE — use them, weave in naturally, "
+                      f"never contradict):\n{facts.strip()[:1500]}\n")
+    if site_ctx.strip():
+        grounding += ("\nContent from the business's OWN website (ground your writing in this — reuse their real "
+                      "service names, wording, and coverage; prefer these real specifics over generic phrasing):\n"
+                      f"{site_ctx.strip()[:2500]}\n")
     prompt = (
         f"You are a GEO/AEO content writer for a Thai business. Write everything in {langname}.\n"
         f"Business: {brand['name']} (website: {brand['domain']}). Market/notes: {brand['market'] or '-'}.\n"
-        f'A user asks an AI search engine: "{question}".\n'
+        + grounding +
+        f'\nA user asks an AI search engine: "{question}".\n'
         + task +
         "Write ANSWER-FIRST (for AEO / featured snippets): give a direct, concise answer immediately, "
         "then the supporting detail.\n"
+        "Write like a real knowledgeable person, NOT like AI marketing copy — avoid clichés "
+        "(\"ครบวงจร\", \"ตอบโจทย์ทุกความต้องการ\", \"ในยุคดิจิทัล\", \"โซลูชันชั้นนำ\").\n"
         "IMPORTANT — content may be auto-published WITHOUT human review, so it must be safe by default:\n"
-        "Do NOT invent specific prices, sizes, square meters, numbers, years in business, statistics, awards, or client names. "
-        "Keep claims general and always true; for any specifics, tell readers to contact the business to confirm.\n\n"
+        "Use the VERIFIED FACTS / website content above as the source of specifics. Beyond those, do NOT invent "
+        "prices, sizes, numbers, years in business, statistics, awards, or client names — keep other claims general "
+        "and tell readers to contact the business to confirm.\n\n"
         "Return EXACTLY this plain-text format (NO JSON, NO code fences). Keep each === marker on its own line:\n"
         "===TITLE===\n(one-line title)\n"
         "===META_TITLE===\n(SEO title, max 60 chars)\n"
@@ -124,8 +151,11 @@ def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
         "Q: (question)\nA: (answer)\n"
         "Q: (question)\nA: (answer)"
     )
+    best = None  # เก็บผลที่ดีสุดไว้ เผื่อ retry แล้วยังได้ FAQ ไม่ครบ
     for _attempt in range(3):
-        raw = _llm_chat(prompt, max_tokens=2048)
+        # 4096: gemma เป็น reasoning model กิน token ส่วนคิดเยอะ + ฟอร์แมตใหม่ (ตาราง/ลิสต์) ยาวขึ้น
+        # ถ้าใช้ 2048 ส่วน FAQ ท้ายสุดโดนตัดบ่อย
+        raw = _llm_chat(prompt, max_tokens=4096)
         if not raw:
             continue
         raw = _strip_fences(raw)
@@ -155,9 +185,9 @@ def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
             fq, fa = m.group(1).strip(), m.group(2).strip()
             if fq and fa:
                 faqs.append({"q": fq, "a": fa})
-        return {
+        result = {
             "title": title,
-            "meta_title": ((secs.get("META_TITLE") or title).splitlines()[0]).strip()[:65],
+            "meta_title": _fit_title(((secs.get("META_TITLE") or title).splitlines()[0]).strip()),
             "meta_desc": ((secs.get("META_DESC") or "").splitlines()[0] if secs.get("META_DESC") else "").strip()[:160],
             "answer": answer,
             "body_md": body,
@@ -166,7 +196,10 @@ def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
             "faqs": faqs or [{"q": question, "a": answer}],
             "source": "llm",
         }
-    return None
+        if len(faqs) >= 2:      # ครบตามเกณฑ์ AEO → ใช้เลย
+            return result
+        best = best or result   # FAQ ไม่ครบ (มักเพราะโดนตัดท้าย) → เก็บไว้แล้วลองใหม่
+    return best
 
 
 def _template_generate(brand, question: str, lang: str, ctype: str = "qa"):
@@ -236,7 +269,7 @@ def _template_generate(brand, question: str, lang: str, ctype: str = "qa"):
     body = f"> **{tldr}:** {answer}\n\n" + body   # answer-first
     return {
         "title": title,
-        "meta_title": title[:65],
+        "meta_title": _fit_title(title),
         "meta_desc": meta_desc[:160],
         "answer": answer,
         "body_md": body,
@@ -287,7 +320,8 @@ def itemlist_schema(name: str, items: list) -> dict:
 def aeo_report_item(item) -> dict:
     """เช็คความพร้อม AEO ของคอนเทนต์ที่เก็บไว้ (answer-first, ลิสต์, FAQ, meta ฯลฯ)"""
     body = item["body_md"] or ""
-    head = body.lstrip()[:140].lower()
+    # ตัดรูปนำหน้าออกก่อนเช็ค answer-first (แบรนด์ auto-image อาจมี ![](url) นำหน้า TL;DR)
+    head = re.sub(r"^\s*!\[[^\]]*\]\([^)]*\)\s*", "", body).lstrip()[:140].lower()
     md = item["meta_desc"] or ""
     mt = item["meta_title"] or item["title"] or ""
     faq_n, has_howto = 0, False
@@ -300,9 +334,15 @@ def aeo_report_item(item) -> dict:
                 has_howto = True
     except Exception:
         pass
+    # หัวข้อย่อย: นับ ## / ### หรือ "ลิสต์มีชื่อ" (ข้อในลิสต์มีชื่อหัวข้อตัวหนา) หรือบรรทัดตัวหนาเดี่ยว
+    has_heading = (
+        "## " in body or "\n### " in body
+        or bool(re.search(r"\n\s*(?:\d+[.)]|[-*])\s*\*\*.+?\*\*", body))
+        or bool(re.search(r"(?:^|\n)\*\*[^*\n]{3,60}\*\*\s*(?:\n|$)", body))
+    )
     checks = [
         {"label": "ตอบก่อน (answer-first / TL;DR)", "ok": head.startswith(">") or "สรุป" in head or "summary" in head},
-        {"label": "มีหัวข้อย่อย (##)", "ok": "## " in body},
+        {"label": "มีหัวข้อย่อย / ลิสต์มีชื่อ", "ok": has_heading},
         {"label": "มีลิสต์หรือตาราง", "ok": ("\n- " in body) or ("\n* " in body) or ("|" in body) or bool(re.search(r"\n\d+[.)]", body))},
         {"label": f"FAQ อย่างน้อย 2 ข้อ ({faq_n} ข้อ)", "ok": faq_n >= 2},
         {"label": "Meta description 50–160 ตัว", "ok": 50 <= len(md) <= 160},
@@ -331,6 +371,16 @@ def org_schema(brand) -> str:
         ensure_ascii=False,
         indent=2,
     )
+
+
+def pick_ctype(question: str) -> str:
+    """เดารูปแบบ AEO ที่เหมาะกับคำถาม (ใช้กับ auto) — เทียบ → comparison, ลิสต์ → listicle, อื่นๆ → qa"""
+    q = (question or "").lower()
+    if re.search(r"เทียบ|เปรียบ|\bvs\.?\b|versus|แบบไหนดี|อันไหนดี|แบบไหนคุ้ม|ต่างกัน|ดีกว่า|หรือ(?:ซื้อ|เช่า|สร้าง|จ้าง)|compare|difference|better", q):
+        return "comparison"
+    if re.search(r"ที่ไหนบ้าง|อะไรบ้าง|ไหนบ้าง|มีที่ไหน|กี่แบบ|กี่ประเภท|แนะนำ|ข้อควรรู้|เลือกยังไง|เลือกอย่างไร|วิธีเลือก|เช็คลิสต์|checklist|top\s*\d|best|recommend|what are|which", q):
+        return "listicle"
+    return "qa"
 
 
 def generate_content(brand, question: str, lang: str = "th", ctype: str = "qa") -> dict:

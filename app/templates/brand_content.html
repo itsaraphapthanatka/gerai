@@ -12,7 +12,7 @@
 <!-- auto สร้างร่าง + โหมดเผยแพร่ -->
 <div class="card" style="margin-bottom:12px;border-color:var(--purple)">
   <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 auto สร้างคอนเทนต์ปิด gap</div>
-  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ</div>
+  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)</div>
 
   <div style="display:flex;gap:20px;flex-wrap:wrap">
     {% set curw = brand['auto_content_weekly'] or 0 %}
@@ -81,6 +81,7 @@
       <div style="flex:1.4">
         <label>รูปแบบ <span class="muted">(AEO)</span></label>
         <select name="ctype">
+          <option value="auto">🤖 อัตโนมัติตามคำถาม (แนะนำ)</option>
           <option value="qa">ถาม-ตอบ (มาตรฐาน)</option>
           <option value="comparison">⚖️ หน้าเปรียบเทียบ — ROI สูงสุด</option>
           <option value="listicle">🔢 ลิสต์อันดับ (X ข้อ)</option>
@@ -105,15 +106,59 @@
   <p style="margin:14px 0 0"><a class="link" href="/brands/{{ brand['id'] }}/assets">→ ชุดติดตั้ง on-site (llms.txt · robots · schema องค์กร)</a></p>
 </div>
 
+<!-- ข้อมูลจริงของแบรนด์ (grounding) -->
+<div class="card" style="margin-top:4px">
+  {% if request.query_params.get('saved') %}<div class="ok-banner" style="margin-bottom:10px">บันทึกแล้ว ✓ — คอนเทนต์ที่สร้างต่อจากนี้จะใช้ข้อมูลจริงนี้</div>{% endif %}
+  <h2 style="margin-top:0;border:none;padding:0 0 6px;font-size:15px">📌 ข้อมูลจริงของแบรนด์ <span class="muted" style="font-size:12px">— ให้ AI เขียนคอนเทนต์เฉพาะเจาะจง + จริง (ไม่มั่ว)</span></h2>
+  <form method="post" action="/brands/{{ brand['id'] }}/facts">
+    <textarea name="facts" rows="4" placeholder="เช่น ก่อตั้งปี 2558 · พื้นที่บริการ: บางนา-สมุทรปราการ · ใบอนุญาต... · จุดเด่น: ... · เคสตัวอย่าง: ..." style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13.5px;padding:10px 12px;border:1px solid var(--border);border-radius:8px">{{ brand['facts'] or '' }}</textarea>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+      <button type="submit" class="sm">บันทึก</button>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="refresh_site" value="1"> ดึงเนื้อหาเว็บใหม่</label>
+      <span class="muted" style="font-size:12px">{% if brand['site_context'] %}🌐 ดึงข้อมูลจากเว็บแล้ว (ใช้ ground อัตโนมัติ){% else %}🌐 เว็บจะถูกดึงอัตโนมัติตอนสร้างคอนเทนต์ครั้งแรก{% endif %}</span>
+    </div>
+  </form>
+  <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.6">💡 ยิ่งใส่ข้อมูลจริง (พื้นที่ ปีก่อตั้ง ใบอนุญาต เคส) AI ยิ่งเขียนเฉพาะเจาะจง น่าเชื่อถือ และถูก AI อ้างอิงง่ายขึ้น — ระบบยังดึงเนื้อหาจากเว็บจริงของคุณมาประกอบให้ด้วย</p>
+</div>
+
 <!-- รายการคอนเทนต์ -->
 {% if content %}
+{% if request.query_params.get('fixing') %}
+<div class="ok-banner" style="margin-top:4px">🔧 กำลังซ่อมเบื้องหลัง — จะแจ้งเตือน 🔔 เมื่อเสร็จ (รีเฟรชหน้าดูคะแนนใหม่ได้ภายหลัง · ~30-60 วิ/ชิ้น)</div>
+{% endif %}
+{% if aeo_summary %}
+<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;border-color:var(--purple)">
+  <b style="font-size:14px">📊 AEO รวมทุกชิ้น</b>
+  <span style="font-size:14px">เฉลี่ย <b style="color:var(--purple)">{{ aeo_summary.avg }}/{{ aeo_summary.max }}</b></span>
+  <span class="pill ok">ครบ {{ aeo_summary.full }} ชิ้น</span>
+  {% if aeo_summary.low %}<span class="pill admin" style="background:#fff0e6;color:#b4530b">ควรปรับ {{ aeo_summary.low }} ชิ้น</span>{% endif %}
+  {% if aeo_summary.low %}
+  <form method="post" action="/brands/{{ brand['id'] }}/content/fix-all"
+        data-loading="⏳ กำลังเริ่มซ่อม…"
+        onsubmit="return confirm('สร้างเนื้อหาที่ยังไม่เต็ม {{ aeo_summary.low }} ชิ้นใหม่ทั้งหมด?\n\n• เนื้อหาเดิมจะถูกเขียนทับ\n• ชิ้นที่เผยแพร่แล้วจะอัปเดตเวอร์ชัน public ให้อัตโนมัติ\n• ทำเบื้องหลัง จะแจ้งเตือนเมื่อเสร็จ');"
+        style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="publish_drafts" value="1"> เผยแพร่ร่างที่ซ่อมด้วย</label>
+    <button type="submit" class="btn">🔧 ซ่อมทั้งหมด ({{ aeo_summary.low }})</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
 <div class="card" style="padding:0;overflow:hidden;margin-top:4px">
   <table>
-    <thead><tr><th>หัวข้อ</th><th>ภาษา</th><th>ที่มา</th><th>สถานะ</th><th></th></tr></thead>
+    <thead><tr><th>หัวข้อ</th><th>AEO</th><th>ภาษา</th><th>ที่มา</th><th>สถานะ</th><th></th></tr></thead>
     <tbody>
     {% for ci in content %}
     <tr>
       <td style="max-width:280px">{{ ci['title'] }}</td>
+      <td>
+        {% set rep = aeo_scores.get(ci['id']) %}
+        {% if rep %}
+          {% set pct = rep.score / rep.max %}
+          <span class="pill" style="white-space:nowrap;{% if pct >= 1 %}background:#e8f7ee;color:#1c7a44{% elif pct >= 0.5 %}background:#fff6e6;color:#b4530b{% else %}background:#fdeaea;color:#c0392b{% endif %}"
+                title="{% for c in rep['items'] if not c.ok and not c.get('info') %}✗ {{ c.label }}&#10;{% endfor %}">
+            {{ rep.score }}/{{ rep.max }}</span>
+        {% endif %}
+      </td>
       <td class="muted">{{ 'ไทย' if ci['lang'] == 'th' else 'EN' }}</td>
       <td class="muted">{{ '🤖 auto' if ci['source'] == 'auto' else ci['source'] }}</td>
       <td>

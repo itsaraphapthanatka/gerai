@@ -90,7 +90,9 @@ def _auto_content_tick(b, weekly: int, now_local):
         return  # เกิน quota แพ็กเกจ
     g = crit[0]
     lang = g["lang"] or "th"
-    data = geo_content.generate_content(b, g["question"], lang)
+    b = _brand_grounded(b)
+    # เลือกรูปแบบ AEO ตามลักษณะคำถาม (เทียบ → comparison, ลิสต์ → listicle)
+    data = geo_content.generate_content(b, g["question"], lang, geo_content.pick_ctype(g["question"]))
     cid = db.create_content_item(
         bid, g["question_id"], lang, data["title"], data["meta_title"],
         data["meta_desc"], data["body_md"], data["schema_json"], "auto",  # มาร์คเป็น auto สำหรับ auto-publish
@@ -257,9 +259,30 @@ def _attach_image(brand, content_id: int, topic: str) -> None:
         if not item:
             return
         alt = (res.get("alt") or topic).replace("\n", " ").replace("]", "").replace(")", "").strip()
-        db.update_content_body(content_id, f"![{alt}]({url})\n\n{item['body_md']}")
+        img = f"![{alt}]({url})"
+        body = item["body_md"] or ""
+        if body.lstrip().startswith(">"):
+            # มี TL;DR (answer-first) อยู่บนสุด → แทรกรูปหลังบล็อก TL;DR ไม่ให้ answer-first ตก
+            parts = body.split("\n\n", 1)
+            body = (parts[0] + "\n\n" + img + "\n\n" + parts[1]) if len(parts) == 2 else (body + "\n\n" + img)
+        else:
+            body = f"{img}\n\n{body}"
+        db.update_content_body(content_id, body)
     except Exception:
         pass
+
+
+def _brand_grounded(brand):
+    """คืน brand ที่มี site_context (ดึงเนื้อหาเว็บจริงมา cache ครั้งแรก) เพื่อใช้ ground การเขียน"""
+    try:
+        if not brand["site_context"]:
+            txt = ai_client._fetch_text(geo_content._site_url(brand))
+            if txt and len(txt) > 40:
+                db.set_brand_site_context(brand["id"], txt[:4000])
+                brand = db.get_brand(brand["id"])
+    except Exception:
+        pass
+    return brand
 
 
 # ---------- auth ----------
@@ -666,6 +689,21 @@ def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
     return _redirect(f"/brands/{brand_id}/content")
 
 
+@app.post("/brands/{brand_id}/facts")
+def save_brand_facts(request: Request, brand_id: int, facts: str = Form(""), refresh_site: str = Form("")):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    db.set_brand_facts(brand_id, facts.strip()[:4000])
+    if refresh_site:   # ดึงเนื้อหาเว็บจริงใหม่ (grounding)
+        try:
+            txt = ai_client._fetch_text(geo_content._site_url(brand))
+            db.set_brand_site_context(brand_id, (txt or "")[:4000])
+        except Exception:
+            pass
+    return _redirect(f"/brands/{brand_id}/content?saved=1")
+
+
 def _valid_hm(t: str) -> str:
     """ตรวจ 'HH:MM' → คืนแบบ zero-pad, ถ้าผิดคืน '08:00'"""
     try:
@@ -709,10 +747,21 @@ def brand_content_list(request: Request, brand_id: int):
                     publish_eta[ci["id"]] = max(0.0, left)
                 except Exception:
                     pass
+    # คะแนน AEO ต่อชิ้น + สรุปรวม
+    aeo_scores = {ci["id"]: geo_content.aeo_report_item(ci) for ci in content}
+    aeo_summary = None
+    if aeo_scores:
+        vals = list(aeo_scores.values())
+        aeo_summary = {
+            "avg": round(sum(r["score"] for r in vals) / len(vals), 1),
+            "max": vals[0]["max"],
+            "full": sum(1 for r in vals if r["score"] == r["max"]),
+            "low": sum(1 for r in vals if r["score"] < r["max"]),
+        }
     return templates.TemplateResponse(request, "brand_content.html",
         {"brand": brand, "questions": questions, "content": content,
          "can_generate": ok, "limit_msg": limit_msg if not ok else None,
-         "publish_eta": publish_eta,
+         "publish_eta": publish_eta, "aeo_scores": aeo_scores, "aeo_summary": aeo_summary,
          "can_images": billing.feature(db.get_tenant(brand["tenant_id"]), "images"),
          "auto_content_choices": AUTO_CONTENT_CHOICES, "auto_publish_choices": AUTO_PUBLISH_CHOICES})
 
@@ -871,6 +920,9 @@ def gen_content(request: Request, brand_id: int, question_id: int = Form(...), l
     q = next((row for row in db.list_questions(brand_id) if row["id"] == question_id), None)
     if not q:
         return _redirect(f"/brands/{brand_id}/content")
+    if ctype == "auto":  # ให้ระบบเลือกรูปแบบ AEO ตามลักษณะคำถาม
+        ctype = geo_content.pick_ctype(q["question"])
+    brand = _brand_grounded(brand)
     data = geo_content.generate_content(brand, q["question"], lang, ctype)
     cid = db.create_content_item(
         brand_id, question_id, lang, data["title"], data["meta_title"],
@@ -879,6 +931,91 @@ def gen_content(request: Request, brand_id: int, question_id: int = Form(...), l
     if brand["auto_image"]:
         _attach_image(brand, cid, q["question"])
     return _redirect(f"/content/{cid}")
+
+
+_fixing_brands = set()  # กันกดซ้ำระหว่างซ่อม batch อยู่
+
+
+def _fix_all_worker(brand_id: int, tenant_id: int, publish_drafts: bool):
+    """ซ่อม AEO ทุกชิ้นที่ยังไม่เต็ม (regenerate) — รันเบื้องหลัง แล้วแจ้งเตือนเมื่อเสร็จ"""
+    fixed = published = 0
+    try:
+        brand = _brand_grounded(db.get_brand(brand_id))
+        conn = db.get_wp_connection(brand_id)
+        site = geo_content._site_url(brand)
+        for it in db.list_content(brand_id):
+            rep = geo_content.aeo_report_item(it)
+            if rep["score"] >= rep["max"]:
+                continue
+            q = next((r for r in db.list_questions(brand_id) if r["id"] == it["question_id"]), None)
+            question = q["question"] if q else (it["title"] or "")
+            try:
+                data = geo_content.generate_content(brand, question, it["lang"] or "th",
+                                                    geo_content.pick_ctype(question))
+                db.update_content(it["id"], data["title"], data["meta_title"], data["meta_desc"],
+                                  data["body_md"], data["schema_json"], data["source"])
+                if brand["auto_image"]:
+                    _attach_image(brand, it["id"], question)
+                fixed += 1
+                do_pub = (it["status"] == "published") or publish_drafts
+                if do_pub:
+                    if conn:
+                        _publish_item(db.get_content(it["id"]), conn, brand, status="publish")
+                    else:
+                        db.mark_content_published(it["id"], it["wp_post_id"],
+                                                  it["wp_link"] or f"{site}/geo/{it['id']}")
+                    published += 1
+            except Exception:
+                pass
+        db.add_notification(
+            tenant_id,
+            f"🔧 ซ่อม AEO เสร็จแล้ว — ปรับปรุง {fixed} ชิ้น" + (f" · เผยแพร่ {published} ชิ้น" if published else ""),
+            f"/brands/{brand_id}/content", "info")
+    finally:
+        _fixing_brands.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/content/fix-all")
+def fix_all_content(request: Request, brand_id: int, publish_drafts: str = Form("")):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    if brand_id not in _fixing_brands:
+        _fixing_brands.add(brand_id)
+        import threading
+        threading.Thread(target=_fix_all_worker,
+                         args=(brand_id, brand["tenant_id"], bool(publish_drafts)),
+                         daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/content?fixing=1")
+
+
+@app.post("/content/{content_id}/regenerate")
+def regenerate_content(request: Request, content_id: int):
+    item = db.get_content(content_id)
+    if not item:
+        return _redirect("/app")
+    brand = _brand_for(request, item["brand_id"])
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    q = next((r for r in db.list_questions(item["brand_id"]) if r["id"] == item["question_id"]), None)
+    question = q["question"] if q else (item["title"] or "")
+    lang = item["lang"] or "th"
+    brand = _brand_grounded(brand)
+    # เขียนทับด้วยฟอร์แมต AEO เต็ม (เลือก comparison/listicle ตามคำถามอัตโนมัติ) — ไม่คิดโควตา (แก้ของเดิม)
+    data = geo_content.generate_content(brand, question, lang, geo_content.pick_ctype(question))
+    db.update_content(content_id, data["title"], data["meta_title"], data["meta_desc"],
+                      data["body_md"], data["schema_json"], data["source"])
+    if brand["auto_image"]:
+        _attach_image(brand, content_id, question)
+    # ถ้าเคยเผยแพร่แล้ว → sync เวอร์ชัน public (WP อัปเดตโพสต์เดิม / hosted อัปเดตสดอยู่แล้ว)
+    if item["status"] == "published":
+        conn = db.get_wp_connection(item["brand_id"])
+        if conn:
+            try:
+                _publish_item(db.get_content(content_id), conn, brand, status="publish")
+            except Exception:
+                pass
+    return _redirect(f"/content/{content_id}")
 
 
 @app.get("/content/{content_id}")
