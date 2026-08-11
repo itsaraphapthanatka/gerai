@@ -627,7 +627,37 @@ def brand_detail(request: Request, brand_id: int):
          "embed_robots_url": f"{base_url}/e/{embed_key}/robots.txt",
          "embed_articles_url": f"{base_url}/e/{embed_key}/a/",
          "embed_content_json_url": f"{base_url}/e/{embed_key}/content.json",
-         "embed_host": request.url.hostname or "geo.appreview.cloud"})
+         "embed_host": request.url.hostname or "geo.appreview.cloud",
+         **_hosting_snippets(f"{base_url}/e/{embed_key}")})
+
+
+def _hosting_snippets(ev: str) -> dict:
+    """สร้าง config สำหรับ hosting ที่ไม่มี nginx (Vercel/Netlify/Next.js) — ev = {base}/e/{key}"""
+    vercel = (
+        '{\n'
+        '  "rewrites": [\n'
+        f'    {{ "source": "/geo",        "destination": "{ev}/a/" }},\n'
+        f'    {{ "source": "/geo/:path*", "destination": "{ev}/a/:path*" }},\n'
+        f'    {{ "source": "/llms.txt",   "destination": "{ev}/llms.txt" }}\n'
+        '  ]\n'
+        '}'
+    )
+    netlify = (
+        f"/geo/*     {ev}/a/:splat     200\n"
+        f"/llms.txt  {ev}/llms.txt      200"
+    )
+    nextjs = (
+        "// next.config.js\n"
+        "module.exports = {\n"
+        "  async rewrites() {\n"
+        "    return [\n"
+        f"      {{ source: '/geo/:path*', destination: '{ev}/a/:path*' }},\n"
+        f"      {{ source: '/llms.txt',   destination: '{ev}/llms.txt' }},\n"
+        "    ]\n"
+        "  },\n"
+        "}"
+    )
+    return {"embed_vercel_json": vercel, "embed_netlify": netlify, "embed_next_config": nextjs}
 
 
 @app.get("/brands/{brand_id}/questions")

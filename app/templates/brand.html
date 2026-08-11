@@ -146,14 +146,33 @@
         <button type="button" class="copy-btn" data-copy="codeProxy">คัดลอก</button>
       </div>
       <div class="muted" style="font-size:11px;margin-top:8px">เสร็จแล้วบทความจะอยู่ที่ <code>โดเมนคุณ/geo/…</code> — กด "เผยแพร่ (public)" ในหน้าคอนเทนต์เพื่อให้ขึ้น</div>
+
+      <!-- ไม่มี server: Vercel / Netlify / Next.js -->
+      <div style="font-size:11px;font-weight:600;margin:14px 0 4px">▲ ไม่มี server (Vercel / Netlify / Next.js) — ใช้ rewrites แทน proxy</div>
+      <div style="font-size:10.5px;color:var(--silver);margin-bottom:3px">Vercel — วางไฟล์ <code>vercel.json</code> ที่ root แล้ว deploy</div>
+      <div style="position:relative">
+        <pre class="code" id="codeVercel" style="margin:0;font-size:11px">{{ embed_vercel_json }}</pre>
+        <button type="button" class="copy-btn" data-copy="codeVercel">คัดลอก</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Netlify — ไฟล์ <code>_redirects</code> ที่โฟลเดอร์ publish (เช่น <code>public/</code>)</div>
+      <div style="position:relative">
+        <pre class="code" id="codeNetlify" style="margin:0;font-size:11px">{{ embed_netlify }}</pre>
+        <button type="button" class="copy-btn" data-copy="codeNetlify">คัดลอก</button>
+      </div>
       <details style="margin-top:8px">
-        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">ทางอื่น (Apache / ลิงก์ตรง / ดึง JSON เอง)</summary>
-        <div class="muted" style="font-size:11.5px;line-height:1.9;margin-top:6px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">ทางอื่น (Next.js config / Apache / ลิงก์ตรง / ดึง JSON เอง)</summary>
+        <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Next.js — ถ้าอยากใช้ <code>next.config.js</code> แทน vercel.json</div>
+        <div style="position:relative">
+          <pre class="code" id="codeNext" style="margin:0;font-size:11px">{{ embed_next_config }}</pre>
+          <button type="button" class="copy-btn" data-copy="codeNext">คัดลอก</button>
+        </div>
+        <div class="muted" style="font-size:11.5px;line-height:1.9;margin-top:8px">
           <b>Apache:</b> <code>ProxyPass /geo/ {{ embed_articles_url }}</code><br>
           <b>ลิงก์ตรง (ไม่ proxy):</b> <code>{{ embed_articles_url }}</code><br>
           <b>render เองในสแตกตัวเอง:</b> ดึงฟีด <code>{{ embed_content_json_url }}</code>
         </div>
       </details>
+      <div class="muted" style="font-size:10.5px;margin-top:8px;line-height:1.6">⚠️ robots.txt: ถ้ามีอยู่แล้ว <b>อย่า rewrite ทับ</b> — เพิ่มบรรทัด AI bot จากส่วน "llms.txt / robots.txt" ด้านล่างลงในไฟล์เดิมแทน</div>
     </div>
 
     <!-- แนะนำ: llms/robots -->
