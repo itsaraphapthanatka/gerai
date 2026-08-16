@@ -36,4 +36,40 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Search backend (วัด SoV) -->
+<div class="card" style="margin-top:16px;max-width:560px">
+  <h2 style="margin-top:0;font-size:17px">🔎 แหล่งค้นหา (วัด Share of Voice)</h2>
+  <p class="muted" style="font-size:12.5px;line-height:1.6;margin:0 0 14px">
+    SoV วัดจากผลค้นเว็บว่าแบรนด์โผล่ไหม · <b>ddgs (ฟรี)</b> ผลไม่เสถียร →
+    ใช้ <b>Serper (ผล Google จริง)</b> หรือ <b>Brave</b> จะแม่นกว่ามาก
+  </p>
+  <div style="font-size:12.5px;margin-bottom:12px">
+    กำลังใช้จริงตอนนี้:
+    <span class="pill {{ 'ok' if active_backend != 'ddgs' else 'admin' }}">{{ active_backend }}</span>
+    {% if search_backend != 'ddgs' and active_backend == 'ddgs' %}<span class="muted">(เลือก {{ search_backend }} แต่ยังไม่มีคีย์ → กลับไป ddgs)</span>{% endif %}
+  </div>
+  <form method="post" action="/admin/settings/search">
+    <label>แหล่งค้นหา</label>
+    <select name="search_backend" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px">
+      <option value="ddgs"   {% if search_backend=='ddgs' %}selected{% endif %}>ddgs — ฟรี (ผลไม่เสถียร)</option>
+      <option value="serper" {% if search_backend=='serper' %}selected{% endif %}>Serper — Google จริง (แนะนำ)</option>
+      <option value="brave"  {% if search_backend=='brave' %}selected{% endif %}>Brave Search</option>
+    </select>
+
+    <label style="margin-top:14px">Serper API key {% if serper_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="serper_key" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if serper_set else 'วางคีย์จาก serper.dev' }}" autocomplete="off">
+
+    <label style="margin-top:12px">Brave API key {% if brave_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="brave_key" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if brave_set else 'วางคีย์จาก brave.com/search/api' }}" autocomplete="off">
+
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.7">
+    <b>วิธีเอา Serper key (ผล Google):</b><br>
+    1. สมัครที่ <code>serper.dev</code> (ล็อกอิน Google ได้เลย) — ฟรี 2,500 ครั้ง<br>
+    2. ไปหน้า <b>API Key</b> → คัดลอกคีย์<br>
+    3. เลือก "Serper" ด้านบน → วางคีย์ → บันทึก · เสร็จแล้วรันมอนิเตอร์ SoV จะใช้ผล Google จริง
+  </div>
+</div>
 {% endblock %}

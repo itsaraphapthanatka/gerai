@@ -48,7 +48,7 @@ def _brave_search(query: str, limit: int) -> list[dict]:
 
     r = httpx.get(
         "https://api.search.brave.com/res/v1/web/search",
-        headers={"X-Subscription-Token": os.getenv("BRAVE_API_KEY", ""), "Accept": "application/json"},
+        headers={"X-Subscription-Token": _cfg("brave_key", "BRAVE_API_KEY"), "Accept": "application/json"},
         params={"q": query, "count": limit, "country": "th", "search_lang": "th"},
         timeout=20,
     )
@@ -62,7 +62,7 @@ def _serper_search(query: str, limit: int) -> list[dict]:
 
     r = httpx.post(
         "https://google.serper.dev/search",
-        headers={"X-API-KEY": os.getenv("SERPER_API_KEY", ""), "Content-Type": "application/json"},
+        headers={"X-API-KEY": _cfg("serper_key", "SERPER_API_KEY"), "Content-Type": "application/json"},
         json={"q": query, "gl": "th", "hl": "th", "num": limit},
         timeout=20,
     )
@@ -71,12 +71,23 @@ def _serper_search(query: str, limit: int) -> list[dict]:
     return [_row(x.get("title"), x.get("link"), i) for i, x in enumerate(results[:limit])]
 
 
+def _cfg(db_key: str, env_key: str) -> str:
+    """อ่านค่า config: DB settings ก่อน (ตั้งผ่านหน้า admin) ถ้าไม่มี fallback ไป .env"""
+    try:
+        v = db.get_setting(db_key)
+        if v:
+            return v
+    except Exception:
+        pass
+    return os.getenv(env_key, "")
+
+
 def active_backend() -> str:
     """backend ที่ใช้จริง — เลือก brave/serper เฉพาะเมื่อมี API key ไม่งั้น ddgs (ฟรี)."""
-    b = os.getenv("GEO_SEARCH_BACKEND", "ddgs").lower()
-    if b == "brave" and os.getenv("BRAVE_API_KEY"):
+    b = (_cfg("search_backend", "GEO_SEARCH_BACKEND") or "ddgs").lower()
+    if b == "brave" and _cfg("brave_key", "BRAVE_API_KEY"):
         return "brave"
-    if b == "serper" and os.getenv("SERPER_API_KEY"):
+    if b == "serper" and _cfg("serper_key", "SERPER_API_KEY"):
         return "serper"
     return "ddgs"
 
@@ -98,19 +109,31 @@ def search(query: str, limit: int = SEARCH_LIMIT) -> list[dict]:
     return _ddgs_search(query, limit)
 
 
-def analyze(brand_domain: str, results: list[dict]):
-    """คืน (present, position, competitor_domains)."""
+def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
+    """คืน (present, position, competitor_domains).
+    นับว่า 'โผล่' ถ้า: โดเมนแบรนด์ติดผล หรือ ชื่อแบรนด์ปรากฏใน title ของผลใดผลหนึ่ง
+    (ครอบคลุม mention บนไดเรกทอรี/บทความ ซึ่งเป็น share of voice จริง)."""
     bd = (brand_domain or "").lower()
     if bd.startswith("www."):
         bd = bd[4:]
+    # core ของชื่อแบรนด์ (ตัดคำต่อท้ายทั่วไป) → จับ "JKP PROPERTY CO.,LTD" ได้จาก "JKP Property Agency"
+    _STOP = {"co", "co.", "ltd", "ltd.", "inc", "inc.", "group", "agency", "company",
+             "จำกัด", "บริษัท", "the", "and", "&", "(ตัวอย่าง)"}
+    _toks = [t for t in " ".join((brand_name or "").lower().split()).split() if t not in _STOP]
+    core = " ".join(_toks[:2]) if _toks else ""
+    name_key = core if len(core) >= 5 else ""   # ชื่อสั้น/กว้างเกิน ไม่ใช้ (กัน false positive)
     present, position = False, None
     competitors = []
     for r in results:
-        if bd and (bd in r["domain"] or r["domain"] in bd) and r["domain"]:
+        dom = (r.get("domain") or "").lower()
+        title = (r.get("title") or "").lower()
+        own = bool(bd and dom and (bd in dom or dom in bd))
+        named = bool(name_key and name_key in title)
+        if own or named:
             if not present:
-                present, position = True, r["position"]
-        elif r["domain"]:
-            competitors.append(r["domain"])
+                present, position = True, r.get("position")
+        elif dom:
+            competitors.append(dom)
     return present, position, competitors
 
 
@@ -139,7 +162,7 @@ def run_for_brand(brand_id: int) -> dict:
                 results = search(q["question"])
             except Exception:
                 results = []
-            present, position, comps = analyze(brand["domain"], results)
+            present, position, comps = analyze(brand["domain"], results, brand["name"])
             if present:
                 hits += 1
             for c in comps[:5]:

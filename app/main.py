@@ -1458,6 +1458,11 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "ppid": ppid, "ppname": ppname,
         "qr": promptpay.qr_data_uri(ppid, 100) if ppid else None,
         "from_env": bool(not db.get_setting("promptpay_id") and os.getenv("PROMPTPAY_ID", "").strip()),
+        # search backend (วัด SoV)
+        "search_backend": (db.get_setting("search_backend") or os.getenv("GEO_SEARCH_BACKEND", "ddgs")).lower(),
+        "serper_set": bool(db.get_setting("serper_key") or os.getenv("SERPER_API_KEY")),
+        "brave_set": bool(db.get_setting("brave_key") or os.getenv("BRAVE_API_KEY")),
+        "active_backend": geo_worker.active_backend(),
         "saved": saved, "error": error,
     }
 
@@ -1480,6 +1485,21 @@ def admin_settings_save(request: Request, promptpay_id: str = Form(""), promptpa
             _settings_ctx(request, error="รูปแบบไม่ถูกต้อง — ใส่เบอร์พร้อมเพย์ 10 หลัก หรือเลขบัตรประชาชน/ภาษี 13 หลัก"))
     db.set_setting("promptpay_id", raw)
     db.set_setting("promptpay_name", promptpay_name.strip() or "เจอ.AI")
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/search")
+def admin_settings_search(request: Request, search_backend: str = Form("ddgs"),
+                          serper_key: str = Form(""), brave_key: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if search_backend not in ("ddgs", "serper", "brave"):
+        search_backend = "ddgs"
+    db.set_setting("search_backend", search_backend)
+    if serper_key.strip():           # เว้นว่าง = คงคีย์เดิม (ไม่ล้าง)
+        db.set_setting("serper_key", serper_key.strip())
+    if brave_key.strip():
+        db.set_setting("brave_key", brave_key.strip())
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 
