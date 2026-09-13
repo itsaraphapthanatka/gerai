@@ -101,6 +101,9 @@ add_filter('robots_txt', function ($output, $public) {
     foreach ($bots as $b) {
         $extra .= "User-agent: " . $b . "\nAllow: /\n\n";
     }
+    // ชี้ไป geo-sitemap ให้ Google เจอหน้า GEO เองโดยไม่ต้องส่งมือใน Search Console
+    // ต้องเป็น URL บนโดเมนนี้ (Google ไม่รับ sitemap ข้ามโดเมน) — ฝั่ง edge proxy มาที่ platform
+    $extra .= "Sitemap: " . home_url('/geo-sitemap.xml') . "\n";
     return $output . $extra;
 }, 10, 2);
 
