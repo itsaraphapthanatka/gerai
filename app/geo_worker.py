@@ -118,9 +118,6 @@ def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
     """คืน (present, position, competitor_domains).
     นับว่า 'โผล่' ถ้า: โดเมนแบรนด์ติดผล หรือ ชื่อแบรนด์ปรากฏใน title ของผลใดผลหนึ่ง
     (ครอบคลุม mention บนไดเรกทอรี/บทความ ซึ่งเป็น share of voice จริง)."""
-    bd = (brand_domain or "").lower()
-    if bd.startswith("www."):
-        bd = bd[4:]
     # core ของชื่อแบรนด์ (ตัดคำต่อท้ายทั่วไป) → จับ "JKP PROPERTY CO.,LTD" ได้จาก "JKP Property Agency"
     _STOP = {"co", "co.", "ltd", "ltd.", "inc", "inc.", "group", "agency", "company",
              "จำกัด", "บริษัท", "the", "and", "&", "(ตัวอย่าง)"}
@@ -132,7 +129,7 @@ def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
     for r in results:
         dom = (r.get("domain") or "").lower()
         title = (r.get("title") or "").lower()
-        own = bool(bd and dom and (bd in dom or dom in bd))
+        own = domain_matches(brand_domain, dom)   # ตรงตัว/ซับโดเมนเท่านั้น ไม่ใช่ substring
         named = bool(name_key and name_key in title)
         if own or named:
             if not present:
