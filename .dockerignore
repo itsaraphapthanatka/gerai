@@ -1,0 +1,17 @@
+.env
+.venv
+__pycache__/
+*.pyc
+extracted/
+*.tar.gz
+
+# ข้อมูลอ่อนไหว — อย่า bake เข้า image (ทุกรายการอยู่ใน .gitignore อยู่แล้ว)
+.git/
+.claude/
+geo.md
+*.db
+*.sql
+*.sql.gz
+uploads/
+app/static/gen/
+*.log

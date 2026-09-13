@@ -1,0 +1,38 @@
+services:
+  geo-postgres:
+    image: postgres:16
+    container_name: geo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: geo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: geo_platform
+    # bind localhost only — never exposed to the internet
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - geo-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geo -d geo_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  geo-app:
+    build: .
+    image: geo-platform:latest
+    container_name: geo-app
+    restart: unless-stopped
+    depends_on:
+      geo-postgres:
+        condition: service_healthy
+    env_file: .env
+    # lets the container reach host services (litellm on :4000) via host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # reachable only via the reverse proxy / cloudflare tunnel on the host
+    ports:
+      - "127.0.0.1:8095:8095"
+
+volumes:
+  geo-pg-data:
