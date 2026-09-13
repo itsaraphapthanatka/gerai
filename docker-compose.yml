@@ -33,6 +33,12 @@ services:
     # reachable only via the reverse proxy / cloudflare tunnel on the host
     ports:
       - "127.0.0.1:8095:8095"
+    # runtime-written data — must outlive the container, and .dockerignore keeps
+    # it out of the image. NOTE: BASE is /app/app (app/main.py), so generated
+    # images live at /app/app/static/gen, not /app/static/gen.
+    volumes:
+      - ./uploads:/app/uploads
+      - ./app/static/gen:/app/app/static/gen
 
 volumes:
   geo-pg-data:
