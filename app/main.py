@@ -725,6 +725,16 @@ def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
     return _redirect(f"/brands/{brand_id}/content")
 
 
+@app.post("/brands/{brand_id}/schema-type")
+def save_schema_type(request: Request, brand_id: int, schema_type: str = Form("")):
+    """เลือก schema.org @type ขององค์กร — ว่าง = ให้ระบบเดาจากชื่อ/ตลาด"""
+    if not _brand_for(request, brand_id):
+        return _redirect("/login")
+    t = (schema_type or "").strip()
+    db.set_schema_type(brand_id, t if t in geo_content.SCHEMA_TYPE_VALUES else None)
+    return _redirect(f"/brands/{brand_id}/assets?saved=1")
+
+
 @app.post("/brands/{brand_id}/facts")
 def save_brand_facts(request: Request, brand_id: int, facts: str = Form(""), refresh_site: str = Form("")):
     brand = _brand_for(request, brand_id)
@@ -1152,7 +1162,12 @@ def brand_assets(request: Request, brand_id: int):
          "sitemap": geo_content.sitemap_xml(brand, items),
          "sitemap_path": geo_content.SITEMAP_PATH,
          "sitemap_src": f"{str(request.base_url).rstrip('/')}/e/{brand['embed_key'] or ''}/sitemap.xml",
-         "published_count": len([i for i in items if i["status"] == "published"])},
+         "published_count": len([i for i in items if i["status"] == "published"]),
+         "wp": db.get_wp_connection(brand_id),
+         "schema_types": geo_content.SCHEMA_TYPES,
+         "schema_type": geo_content.schema_type_of(brand),
+         "schema_type_is_guess": not brand["schema_type"],
+         "saved": request.query_params.get("saved")},
     )
 
 

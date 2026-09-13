@@ -33,6 +33,22 @@
 
 <h2>Schema องค์กร (JSON-LD) <span class="muted">— วางใน &lt;head&gt; ทุกหน้า หรือผ่าน Connector</span></h2>
 <div class="card">
+  {% if saved %}<p class="pill ok" style="display:inline-block">บันทึกแล้ว</p>{% endif %}
+  <form method="post" action="/brands/{{ brand['id'] }}/schema-type" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <label for="schema_type" style="font-size:13px">ประเภทธุรกิจ</label>
+    <select name="schema_type" id="schema_type" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;max-width:100%">
+      {% for value, label in schema_types %}
+      <option value="{{ value }}" {{ 'selected' if value == schema_type }}>{{ label }} — {{ value }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn sm" type="submit">บันทึก</button>
+    {% if schema_type_is_guess %}<span class="muted" style="font-size:12px">ยังไม่ได้เลือก — ระบบเดาให้เป็น <b>{{ schema_type }}</b> จากชื่อและตลาดของแบรนด์</span>{% endif %}
+  </form>
+  <p class="muted" style="font-size:12px;margin:0 0 10px">
+    บอก Google และ AI ว่าแบรนด์นี้เป็นธุรกิจประเภทไหน — เลือกผิดประเภท entity ของแบรนด์จะเพี้ยน
+    ถ้าไม่มีอันไหนตรงเลย เลือก "ธุรกิจทั่วไป" ไว้ปลอดภัยกว่าเลือกผิด
+    {% if wp and wp['mode'] == 'connector' %}<br>เปลี่ยนแล้วอย่าลืมกด "ซิงค์" ที่หน้า WordPress เพื่อส่งค่าใหม่เข้าปลั๊กอิน{% endif %}
+  </p>
   <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
   <pre class="code">{{ org_schema }}</pre>
 </div>

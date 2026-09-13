@@ -181,6 +181,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "auto_image", "INTEGER DEFAULT 0")
         _ensure_column(c, "brands", "facts", "TEXT")           # ข้อมูลจริงของแบรนด์ (ลูกค้ากรอกเอง)
         _ensure_column(c, "brands", "site_context", "TEXT")    # เนื้อหาจากเว็บจริง (cache สำหรับ grounding)
+        _ensure_column(c, "brands", "schema_type", "TEXT")     # schema.org @type ขององค์กร (ว่าง = เดาจากชื่อ/ตลาด)
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -461,6 +462,11 @@ def set_auto_image(brand_id: int, on: int) -> None:
 def set_brand_facts(brand_id: int, facts: str) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE brands SET facts=? WHERE id=?"), (facts, brand_id))
+
+
+def set_schema_type(brand_id: int, t) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET schema_type=? WHERE id=?"), (t or None, brand_id))
 
 
 def set_brand_site_context(brand_id: int, ctx: str) -> None:

@@ -361,11 +361,76 @@ def _site_url(brand) -> str:
     return url if url.startswith("http") else "https://" + url
 
 
+# schema.org type ที่ใช้บ่อยกับธุรกิจไทย — (ค่า, ป้ายในหน้าจอ)
+# เลือกจาก subtype ของ LocalBusiness เป็นหลัก เพราะ Google ใช้ทำ rich result ได้
+# ถ้าไม่ตรงอันไหนเลย LocalBusiness กว้างพอและไม่ผิด
+SCHEMA_TYPES = [
+    ("LocalBusiness", "ธุรกิจทั่วไป (ปลอดภัยสุดถ้าไม่แน่ใจ)"),
+    ("ProfessionalService", "บริการวิชาชีพ / ที่ปรึกษา / ซอฟต์แวร์ / เอเจนซี"),
+    ("RealEstateAgent", "อสังหาริมทรัพย์ / นายหน้า"),
+    ("LegalService", "กฎหมาย / ทนายความ"),
+    ("MedicalBusiness", "คลินิก / การแพทย์"),
+    ("HealthAndBeautyBusiness", "ความงาม / สปา / ซาลอน"),
+    ("HomeAndConstructionBusiness", "ก่อสร้าง / รับเหมา / ตกแต่ง"),
+    ("FoodEstablishment", "ร้านอาหาร / คาเฟ่"),
+    ("LodgingBusiness", "โรงแรม / ที่พัก"),
+    ("Store", "ร้านค้า / ค้าปลีก"),
+    ("AutomotiveBusiness", "ยานยนต์ / อู่ / คาร์แคร์"),
+    ("FinancialService", "การเงิน / ประกัน"),
+    ("TravelAgency", "ท่องเที่ยว / ทัวร์"),
+    ("EducationalOrganization", "โรงเรียน / คอร์สเรียน"),
+    ("MovingCompany", "ขนส่ง / ขนย้าย"),
+    ("Organization", "องค์กร (ไม่มีหน้าร้าน/พื้นที่บริการ)"),
+]
+SCHEMA_TYPE_VALUES = {t for t, _ in SCHEMA_TYPES}
+DEFAULT_SCHEMA_TYPE = "LocalBusiness"
+
+# คำใบ้ → type (ไล่ตามลำดับ เจอก่อนใช้ก่อน จึงเรียงเฉพาะเจาะจงไว้บน)
+_SCHEMA_HINTS = [
+    ("LegalService", ("ทนาย", "กฎหมาย", "นิติ", "lawyer", "legal", "law firm", "attorney")),
+    ("RealEstateAgent", ("อสังหา", "นายหน้า", "คอนโด", "ที่ดิน", "บ้านจัดสรร", "โกดัง", "real estate", "property")),
+    ("MedicalBusiness", ("คลินิก", "โรงพยาบาล", "ทันตกรรม", "แพทย์", "clinic", "medical", "dental")),
+    ("HealthAndBeautyBusiness", ("ความงาม", "สปา", "ซาลอน", "เสริมสวย", "beauty", "spa", "salon")),
+    ("HomeAndConstructionBusiness", ("ก่อสร้าง", "รับเหมา", "ตกแต่งภายใน", "ต่อเติม", "construction", "renovation")),
+    ("FoodEstablishment", ("ร้านอาหาร", "คาเฟ่", "ภัตตาคาร", "restaurant", "cafe", "bakery")),
+    ("LodgingBusiness", ("โรงแรม", "ที่พัก", "รีสอร์ท", "hotel", "resort", "hostel")),
+    ("AutomotiveBusiness", ("ยานยนต์", "คาร์แคร์", "อู่ซ่อม", "รถยนต์", "automotive", "car care", "garage")),
+    ("FinancialService", ("ประกัน", "การเงิน", "สินเชื่อ", "insurance", "finance", "lending")),
+    ("TravelAgency", ("ท่องเที่ยว", "ทัวร์", "travel", "tour")),
+    ("EducationalOrganization", ("โรงเรียน", "คอร์ส", "ติวเตอร์", "สถาบันสอน", "academy", "school", "course")),
+    ("MovingCompany", ("ขนส่ง", "ขนย้าย", "รับส่ง", "โลจิสติกส์", "transport", "logistics", "delivery", "moving")),
+    ("ProfessionalService", ("ซอฟต์แวร์", "ระบบ", "เอเจนซี", "ที่ปรึกษา", "การตลาด", "ออกแบบ",
+                             "software", "system", "agency", "consult", "marketing", "design", "digital", "tech", "it ")),
+    ("Store", ("ร้านค้า", "จำหน่าย", "ขายส่ง", "store", "shop", "retail")),
+]
+
+
+def guess_schema_type(name: str = "", market: str = "") -> str:
+    """เดา type จากชื่อ/ตลาดของแบรนด์ — ใช้เป็นค่าตั้งต้นเท่านั้น ลูกค้าแก้ทับได้"""
+    hay = f" {name or ''} {market or ''} ".lower()
+    for t, words in _SCHEMA_HINTS:
+        if any(w in hay for w in words):
+            return t
+    return DEFAULT_SCHEMA_TYPE
+
+
+def schema_type_of(brand) -> str:
+    """type ที่แบรนด์นี้ใช้จริง — ค่าที่ตั้งไว้ ถ้าไม่มีก็เดาให้"""
+    t = None
+    try:
+        t = brand["schema_type"]
+    except (KeyError, IndexError):
+        pass
+    if t and t in SCHEMA_TYPE_VALUES:
+        return t
+    return guess_schema_type(brand["name"], brand["market"])
+
+
 def org_schema(brand) -> str:
     return json.dumps(
         {
             "@context": "https://schema.org",
-            "@type": "RealEstateAgent",
+            "@type": schema_type_of(brand),
             "name": brand["name"],
             "url": _site_url(brand),
             "areaServed": brand["market"] or "",
