@@ -355,7 +355,9 @@ def aeo_report_item(item) -> dict:
 
 
 def _site_url(brand) -> str:
-    url = brand["domain"] or ""
+    # ตัด / ท้ายทิ้ง — ลูกค้ากรอกโดเมนมาทั้งแบบมีและไม่มี ถ้าไม่ตัดจะได้ //geo/1
+    # ซึ่ง Google นับเป็นคนละ URL กับ /geo/1 (duplicate content + canonical เพี้ยน)
+    url = (brand["domain"] or "").strip().rstrip("/")
     return url if url.startswith("http") else "https://" + url
 
 
