@@ -997,7 +997,8 @@ def brand_rank(request: Request, brand_id: int):
         request, "rank.html",
         {"brand": brand, "rows": rows, "delta": delta, "bars": bars,
          "chart_w": max(320, left + len(bars) * (BW + GAP) + 10), "base_y": base,
-         "rank_limit": geo_worker.RANK_LIMIT, "is_google": geo_worker.rank_backend() == "serper"},
+         "rank_limit": geo_worker.RANK_LIMIT, "rank_pages": geo_worker.RANK_PAGES,
+         "is_google": geo_worker.rank_backend() == "serper"},
     )
 
 

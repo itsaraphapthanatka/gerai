@@ -78,7 +78,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 | `GEO_DB_PATH` | ./geo_platform.db | ที่อยู่ไฟล์ SQLite |
 | `SESSION_SECRET` | — | คีย์ session + ใช้ derive คีย์เข้ารหัส WP credential (ตั้งให้ยาว) |
 | `GEO_SEARCH_LIMIT` | 8 | จำนวนผลค้นต่อคำถาม (SoV) |
-| `GEO_RANK_LIMIT` | 20 | เช็คอันดับ Google ลึกถึงอันดับที่เท่าไหร่ |
+| `GEO_RANK_PAGES` | 2 | เช็คอันดับ Google ลึกกี่หน้า (Serper เมิน `num` ต้องไล่ page; เจอแล้วหยุด = ประหยัด credit) |
 | `GEO_SEARCH_BACKEND` | ddgs | ddgs / brave / serper |
 | `BRAVE_API_KEY` / `SERPER_API_KEY` | — | คีย์ search backend |
 | `GEO_AUTORUN` | 0 | 1=เปิด auto-run ในแอป |

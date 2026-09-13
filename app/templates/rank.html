@@ -3,7 +3,7 @@
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>อันดับ Google</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — เช็คว่าเว็บติด top {{ rank_limit }} ของคำถามเป้าหมายหรือยัง</p>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — เช็คว่าเว็บติด {{ rank_pages }} หน้าแรกของ Google (~{{ rank_limit }} อันดับ) ของคำถามเป้าหมายหรือยัง</p>
 
 {% if not is_google %}
 <div class="card" style="border-color:var(--amber,#e0a800)">
@@ -26,7 +26,7 @@
 {% else %}
 <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
   <div style="text-align:center">
-    <div class="muted">ติด top {{ rank_limit }}</div>
+    <div class="muted">ติด {{ rank_pages }} หน้าแรก</div>
     <div class="sov {% if delta.ranked == 0 %}no{% else %}pos{% endif %}">{{ delta.ranked }}/{{ delta.total }}</div>
     <div class="muted">คำถาม</div>
   </div>
@@ -42,7 +42,7 @@
   </div>
 </div>
 
-<h2>แนวโน้ม — สัดส่วนคำถามที่ติด top {{ rank_limit }}</h2>
+<h2>แนวโน้ม — สัดส่วนคำถามที่ติด {{ rank_pages }} หน้าแรก</h2>
 <div class="card">
   <svg viewBox="0 0 {{ chart_w }} 180" style="width:100%;max-width:{{ chart_w }}px;height:auto" role="img" aria-label="กราฟแนวโน้มอันดับ Google">
     <line x1="38" y1="{{ base_y }}" x2="{{ chart_w - 6 }}" y2="{{ base_y }}" stroke="#dedee5"/>
@@ -61,7 +61,7 @@
     {% for r in rows %}
     <tr>
       <td>{{ r.q }}</td>
-      <td>{% if r.pos %}<b>#{{ r.pos }}</b>{% else %}<span class="pill no">ไม่ติด top {{ rank_limit }}</span>{% endif %}</td>
+      <td>{% if r.pos %}<b>#{{ r.pos }}</b>{% else %}<span class="pill no">ไม่ติด {{ rank_pages }} หน้าแรก</span>{% endif %}</td>
       <td>
         {%- if r.change == 'up' %}<span class="pill ok">↑ ดีขึ้น {{ r.diff }} อันดับ</span>
         {%- elif r.change == 'down' %}<span class="pill no">↓ ตก {{ r.diff }} อันดับ</span>

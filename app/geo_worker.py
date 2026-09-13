@@ -58,13 +58,16 @@ def _brave_search(query: str, limit: int) -> list[dict]:
     return [_row(x.get("title"), x.get("url"), i) for i, x in enumerate(results[:limit])]
 
 
-def _serper_search(query: str, limit: int) -> list[dict]:
+def _serper_search(query: str, limit: int, page: int = 1) -> list[dict]:
     import httpx
 
+    body = {"q": query, "gl": "th", "hl": "th", "num": limit}
+    if page > 1:
+        body["page"] = page
     r = httpx.post(
         "https://google.serper.dev/search",
         headers={"X-API-KEY": _cfg("serper_key", "SERPER_API_KEY"), "Content-Type": "application/json"},
-        json={"q": query, "gl": "th", "hl": "th", "num": limit},
+        json=body,
         timeout=20,
     )
     r.raise_for_status()
@@ -141,7 +144,11 @@ def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
 # ---- Google rank tracking ----
 # SoV ถามว่า "แบรนด์ถูกพูดถึงไหม" (นับ mention บนเว็บใครก็ได้)
 # rank ถามว่า "เว็บเราอยู่อันดับเท่าไหร่" → นับเฉพาะโดเมนตัวเอง และต้องมองลึกกว่า top 8
-RANK_LIMIT = int(os.getenv("GEO_RANK_LIMIT", "20"))
+# Serper เมิน num ทั้งดุ้น — ส่ง 10/20/100 ก็คืนหน้าแรก ~8-10 ผลเท่ากัน
+# ต้องไล่ด้วย page แทน และ position ของแต่ละหน้าเริ่มนับ 1 ใหม่ จึงต้อง offset เอง
+RANK_PAGES = int(os.getenv("GEO_RANK_PAGES", "2"))
+_PER_PAGE = 10
+RANK_LIMIT = RANK_PAGES * _PER_PAGE   # ความลึกสูงสุดที่วัดได้ (ใช้เป็น label ใน UI)
 
 
 def rank_backend() -> str:
@@ -160,6 +167,25 @@ def find_position(brand_domain: str, results: list[dict]):
         dom = (r.get("domain") or "").lower()
         if dom and (bd in dom or dom in bd):
             return r.get("position"), r.get("url")
+    return None, None
+
+
+def rank_lookup(query: str, brand_domain: str):
+    """หาอันดับของ brand_domain โดยไล่ทีละหน้า — เจอแล้วหยุดทันที (ประหยัด credit:
+    ติดหน้าแรก = 1 credit, ต้องดูหน้า 2 = 2 credits). คืน (position, url)."""
+    if rank_backend() != "serper":
+        return find_position(brand_domain, search(query, RANK_LIMIT))
+    seen = 0
+    for page in range(1, RANK_PAGES + 1):
+        rows = _serper_search(query, _PER_PAGE, page=page)
+        if not rows:
+            break
+        for r in rows:                      # position ของหน้าถัดไปเริ่มที่ 1 → บวก offset
+            r["position"] += seen
+        seen += len(rows)
+        pos, url = find_position(brand_domain, rows)
+        if pos:
+            return pos, url
     return None, None
 
 
@@ -183,12 +209,10 @@ def check_rank_for_brand(brand_id: int) -> dict:
     positions, errors = [], 0
     for q in questions:
         try:
-            results = _serper_search(q["question"], RANK_LIMIT) if engine == "serper" \
-                else search(q["question"], RANK_LIMIT)
+            pos, url = rank_lookup(q["question"], brand["domain"])
         except Exception:
             errors += 1   # ค้นไม่สำเร็จ ≠ ไม่ติดอันดับ — ข้ามไป ไม่บันทึกเป็น "หลุด"
             continue
-        pos, url = find_position(brand["domain"], results)
         if pos:
             positions.append(pos)
         db.add_rank_result(brand_id, q["id"], q["question"], pos, url, engine, checked_at)
