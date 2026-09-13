@@ -8,6 +8,7 @@ MVP ใช้ heuristic (จับคู่โดเมน) — ไม่ต้�
 """
 from __future__ import annotations
 import os
+import re
 import json
 import datetime
 from urllib.parse import urlparse
@@ -156,16 +157,34 @@ def rank_backend() -> str:
     return "serper" if _cfg("serper_key", "SERPER_API_KEY") else active_backend()
 
 
+def norm_domain(value: str) -> str:
+    """โดเมนเปล่าสำหรับเทียบ — รับได้ทั้ง 'https://x.com/path', 'www.x.com', 'x.com:8080'
+    (brands.domain ของลูกค้ากรอกมาหลายรูปแบบ ส่วน domain ในผลค้นผ่าน domain_of() มาแล้ว)"""
+    d = (value or "").strip().lower()
+    d = re.sub(r"^[a-z][a-z0-9+.\-]*://", "", d)       # ตัด scheme
+    d = d.split("/")[0].split("?")[0].split("#")[0]     # ตัด path/query/fragment
+    d = d.split("@")[-1].split(":")[0]                  # ตัด userinfo / port
+    if d.startswith("www."):
+        d = d[4:]
+    return d.strip(".")
+
+
+def domain_matches(brand_domain: str, result_domain: str) -> bool:
+    """ตรงตัว หรือเป็นซับโดเมนของแบรนด์ (blog.x.com นับเป็นของ x.com).
+
+    เทียบแบบ substring ไม่ได้ — 'go.asia' จะ match 'petgo.asia' และ
+    'x.com' จะ match 'x.com.evil.net' ทำให้รายงานว่าติดอันดับทั้งที่เป็นเว็บคนอื่น
+    """
+    bd, rd = norm_domain(brand_domain), norm_domain(result_domain)
+    if not bd or not rd:
+        return False
+    return rd == bd or rd.endswith("." + bd)
+
+
 def find_position(brand_domain: str, results: list[dict]):
     """คืน (position, url) ของผลแรกที่เป็นโดเมนแบรนด์ — ไม่เจอคืน (None, None)"""
-    bd = (brand_domain or "").lower()
-    if bd.startswith("www."):
-        bd = bd[4:]
-    if not bd:
-        return None, None
     for r in results:
-        dom = (r.get("domain") or "").lower()
-        if dom and (bd in dom or dom in bd):
+        if domain_matches(brand_domain, r.get("domain") or ""):
             return r.get("position"), r.get("url")
     return None, None
 

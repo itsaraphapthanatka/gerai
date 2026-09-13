@@ -1284,7 +1284,7 @@ def _head_html(brand) -> str:
     return "\n".join(blocks)
 
 
-@app.get("/e/{key}.js")
+@app.api_route("/e/{key}.js", methods=["GET", "HEAD"])
 def embed_js(key: str):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
@@ -1310,7 +1310,9 @@ def embed_js(key: str):
                     headers={"Cache-Control": "public, max-age=3600"})
 
 
-@app.get("/e/{key}/llms.txt")
+# FastAPI ไม่เติม HEAD ให้ route GET อัตโนมัติ (ต่างจาก Starlette) — endpoint สาธารณะ
+# ต้องระบุเอง ไม่งั้น crawler ที่ยิง HEAD ตรวจก่อน (รวม Search Console) เจอ 405
+@app.api_route("/e/{key}/llms.txt", methods=["GET", "HEAD"])
 def embed_llms(key: str, dl: int = 0):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
@@ -1323,7 +1325,7 @@ def embed_llms(key: str, dl: int = 0):
     return PlainTextResponse(txt, headers=headers)
 
 
-@app.get("/e/{key}/robots.txt")
+@app.api_route("/e/{key}/robots.txt", methods=["GET", "HEAD"])
 def embed_robots(key: str, dl: int = 0):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
@@ -1334,7 +1336,7 @@ def embed_robots(key: str, dl: int = 0):
     return PlainTextResponse(geo_content.robots_snippet(brand), headers=headers)
 
 
-@app.get("/e/{key}/sitemap.xml")
+@app.api_route("/e/{key}/sitemap.xml", methods=["GET", "HEAD"])
 def embed_sitemap(key: str, dl: int = 0):
     """XML sitemap — ต้อง rewrite มาที่ {domain}/geo-sitemap.xml ถึงจะใช้ได้จริง (Google ไม่รับข้ามโดเมน)"""
     brand = db.get_brand_by_embed_key(key)
@@ -1347,7 +1349,7 @@ def embed_sitemap(key: str, dl: int = 0):
     return Response(xml, media_type="application/xml; charset=utf-8", headers=headers)
 
 
-@app.get("/e/{key}/head.html")
+@app.api_route("/e/{key}/head.html", methods=["GET", "HEAD"])
 def embed_head(key: str):
     """JSON-LD ดิบสำหรับ dev วางใน <head> ฝั่งเซิร์ฟเวอร์ (หรือให้เซิร์ฟเวอร์ fetch มา inline)"""
     brand = db.get_brand_by_embed_key(key)
@@ -1363,7 +1365,7 @@ def _published_items(brand):
     return [c for c in db.list_content(brand["id"]) if c["status"] == "published"]
 
 
-@app.get("/e/{key}/a/")
+@app.api_route("/e/{key}/a/", methods=["GET", "HEAD"])
 def hosted_index(request: Request, key: str):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
@@ -1375,7 +1377,7 @@ def hosted_index(request: Request, key: str):
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
-@app.get("/e/{key}/a/{cid}")
+@app.api_route("/e/{key}/a/{cid}", methods=["GET", "HEAD"])
 def hosted_article(request: Request, key: str, cid: int):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
@@ -1399,7 +1401,7 @@ def hosted_article(request: Request, key: str, cid: int):
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
-@app.get("/e/{key}/content.json")
+@app.api_route("/e/{key}/content.json", methods=["GET", "HEAD"])
 def content_feed(key: str):
     """ฟีดคอนเทนต์ที่เผยแพร่แล้ว — ให้เว็บ dev ดึงไป render เองในสแตกตัวเอง"""
     brand = db.get_brand_by_embed_key(key)
