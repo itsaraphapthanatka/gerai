@@ -6,7 +6,7 @@
 1) Monitor    วัด Share of Voice (SoV) — แบรนด์โผล่ในผลค้นกี่คำถาม + ใครครองพื้นที่
 2) Generate   สร้างคอนเทนต์ ไทย/อังกฤษ + Schema JSON-LD + meta จากคำถามที่ SoV ต่ำ
 3) Publish    ส่งเข้าเว็บลูกค้า — WP REST (บทความ) หรือ Connector plugin (บทความ+schema+meta)
-              + ชุดติดตั้ง on-site: llms.txt / robots (AI-bot) / schema องค์กร
+              + ชุดติดตั้ง on-site: llms.txt / robots (AI-bot) / schema องค์กร / geo-sitemap.xml
 4) Measure    รัน Monitor ซ้ำ → หน้า Progress เทียบ SoV ก่อน/หลัง (พิสูจน์ผลเป็นตัวเลข)
 ```
 
@@ -40,9 +40,13 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 1. **เพิ่มแบรนด์ + คำถามเป้าหมาย** (คำถามที่ลูกค้ามักถาม AI)
 2. **รันมอนิเตอร์** → ดูรายงาน SoV + ใครครองพื้นที่
 3. **สร้างคอนเทนต์ GEO** จากคำถาม (เลือกภาษา) → ได้บทความ + FAQPage JSON-LD + meta (คัดลอกได้)
-4. **ชุดติดตั้ง on-site** (`/brands/{id}/assets`) → คัดลอก llms.txt / robots / schema องค์กรไปแปะ
+4. **ชุดติดตั้ง on-site** (`/brands/{id}/assets`) → คัดลอก llms.txt / robots / schema องค์กร / sitemap ไปแปะ
+   - **geo-sitemap.xml** อัปเดตเองทุกครั้งที่เผยแพร่คอนเทนต์ — ต้อง proxy/rewrite ให้เสิร์ฟที่ `{โดเมนลูกค้า}/geo-sitemap.xml` (Google ไม่รับ sitemap ข้ามโดเมน) แล้วส่ง URL เข้า Google Search Console
 5. **เชื่อมต่อ WordPress** → เผยแพร่คอนเทนต์เป็น **ร่าง** (REST) หรือ **ร่าง+schema** (Connector)
 6. **ดูความคืบหน้า** (`/brands/{id}/progress`) → SoV ก่อน/หลัง + กราฟ + รายคำถามที่ขึ้นมาโผล่
+7. **เช็คอันดับ Google** (`/brands/{id}/rank`) → อันดับรายคำถาม + ขึ้น/ลงเทียบรอบก่อน
+   - SEO เป็น**เงื่อนไขตั้งต้น**ของ GEO: AI search ดึงจาก index ของ search engine อีกที หน้าที่ไม่ติด index/อันดับต่ำมากแทบไม่ถูกอ้างอิง → ดูคู่กับ SoV เพื่อแยกว่า "ไม่ติด Google" หรือ "คอนเทนต์ไม่ดี"
+   - อันดับ **Google จริงต้องใช้ Serper** (ddgs/brave เป็น engine อื่น) — หน้าจะเตือนถ้ายังไม่ได้ตั้งคีย์
 
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
@@ -50,6 +54,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --due --days 7   # รันเฉพาะแบรนด์ที่ค้างเกิน 7 วัน
   .\.venv\Scripts\python.exe run_monitors.py --all            # รันทุกแบรนด์
   .\.venv\Scripts\python.exe run_monitors.py --brand 3        # แบรนด์เดียว
+  .\.venv\Scripts\python.exe run_monitors.py --all --rank    # เช็คอันดับ Google (ไม่ใช่ SoV)
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง
 
@@ -72,7 +77,8 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 |---|---|---|
 | `GEO_DB_PATH` | ./geo_platform.db | ที่อยู่ไฟล์ SQLite |
 | `SESSION_SECRET` | — | คีย์ session + ใช้ derive คีย์เข้ารหัส WP credential (ตั้งให้ยาว) |
-| `GEO_SEARCH_LIMIT` | 8 | จำนวนผลค้นต่อคำถาม |
+| `GEO_SEARCH_LIMIT` | 8 | จำนวนผลค้นต่อคำถาม (SoV) |
+| `GEO_RANK_LIMIT` | 20 | เช็คอันดับ Google ลึกถึงอันดับที่เท่าไหร่ |
 | `GEO_SEARCH_BACKEND` | ddgs | ddgs / brave / serper |
 | `BRAVE_API_KEY` / `SERPER_API_KEY` | — | คีย์ search backend |
 | `GEO_AUTORUN` | 0 | 1=เปิด auto-run ในแอป |

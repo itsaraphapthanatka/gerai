@@ -618,6 +618,7 @@ def brand_detail(request: Request, brand_id: int):
     return templates.TemplateResponse(request, "brand.html",
         {"brand": brand, "last_run": last_run, "content_count": content_count,
          "q_count": q_count, "error": None,
+         "last_rank": db.last_rank_check(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -625,6 +626,7 @@ def brand_detail(request: Request, brand_id: int):
          "embed_head_html": _head_html(brand),
          "embed_llms_url": f"{base_url}/e/{embed_key}/llms.txt",
          "embed_robots_url": f"{base_url}/e/{embed_key}/robots.txt",
+         "embed_sitemap_url": f"{base_url}/e/{embed_key}/sitemap.xml",
          "embed_articles_url": f"{base_url}/e/{embed_key}/a/",
          "embed_content_json_url": f"{base_url}/e/{embed_key}/content.json",
          "embed_host": request.url.hostname or "geo.appreview.cloud",
@@ -633,18 +635,21 @@ def brand_detail(request: Request, brand_id: int):
 
 def _hosting_snippets(ev: str) -> dict:
     """สร้าง config สำหรับ hosting ที่ไม่มี nginx (Vercel/Netlify/Next.js) — ev = {base}/e/{key}"""
+    SITEMAP_PATH = geo_content.SITEMAP_PATH
     vercel = (
         '{\n'
         '  "rewrites": [\n'
         f'    {{ "source": "/geo",        "destination": "{ev}/a/" }},\n'
         f'    {{ "source": "/geo/:path*", "destination": "{ev}/a/:path*" }},\n'
-        f'    {{ "source": "/llms.txt",   "destination": "{ev}/llms.txt" }}\n'
+        f'    {{ "source": "/llms.txt",   "destination": "{ev}/llms.txt" }},\n'
+        f'    {{ "source": "{SITEMAP_PATH}", "destination": "{ev}/sitemap.xml" }}\n'
         '  ]\n'
         '}'
     )
     netlify = (
         f"/geo/*     {ev}/a/:splat     200\n"
-        f"/llms.txt  {ev}/llms.txt      200"
+        f"/llms.txt  {ev}/llms.txt      200\n"
+        f"{SITEMAP_PATH}  {ev}/sitemap.xml  200"
     )
     nextjs = (
         "// next.config.js\n"
@@ -653,6 +658,7 @@ def _hosting_snippets(ev: str) -> dict:
         "    return [\n"
         f"      {{ source: '/geo/:path*', destination: '{ev}/a/:path*' }},\n"
         f"      {{ source: '/llms.txt',   destination: '{ev}/llms.txt' }},\n"
+        f"      {{ source: '{SITEMAP_PATH}', destination: '{ev}/sitemap.xml' }},\n"
         "    ]\n"
         "  },\n"
         "}"
@@ -937,6 +943,64 @@ def brand_progress(request: Request, brand_id: int):
     )
 
 
+# ---------- Google rank tracking ----------
+@app.post("/brands/{brand_id}/rank/run")
+def run_rank(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    ok, _msg = billing.check(db.get_tenant(brand["tenant_id"]), "runs")
+    if not ok:
+        return _redirect(f"/brands/{brand_id}")
+    geo_worker.check_rank_for_brand(brand_id)
+    return _redirect(f"/brands/{brand_id}/rank")
+
+
+@app.get("/brands/{brand_id}/rank")
+def brand_rank(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    batches = db.rank_batches(brand_id)          # ใหม่→เก่า
+    rows, delta = [], None
+    if batches:
+        latest = db.rank_results_at(brand_id, batches[0]["checked_at"])
+        prev = {r["question"]: r["position"] for r in
+                db.rank_results_at(brand_id, batches[1]["checked_at"])} if len(batches) > 1 else {}
+        for r in latest:
+            before, after = prev.get(r["question"]), r["position"]
+            if before is None and after is None:
+                change, diff = "same", None
+            elif before is None:
+                change, diff = "new", None           # เพิ่งติดอันดับครั้งแรก
+            elif after is None:
+                change, diff = "lost", None          # หลุดจาก top N
+            else:
+                diff = before - after                # +ve = อันดับดีขึ้น (เลขน้อยลง)
+                change = "up" if diff > 0 else ("down" if diff < 0 else "same")
+            rows.append({"q": r["question"], "pos": after, "url": r["url"],
+                         "change": change, "diff": abs(diff) if diff else None})
+        b0 = batches[0]
+        delta = {"checked_at": b0["checked_at"], "engine": latest[0]["engine"] if latest else "",
+                 "total": b0["total"], "ranked": b0["ranked"] or 0,
+                 "avg_pos": round(b0["avg_pos"], 1) if b0["avg_pos"] else None}
+
+    # แนวโน้ม: จำนวนคำถามที่ติด top N ต่อรอบ (เก่า→ใหม่)
+    BW, GAP, left, base, maxh = 38, 16, 44, 150, 110
+    bars = []
+    for i, b in enumerate(list(reversed(batches))[-12:]):
+        pct = round((b["ranked"] or 0) / b["total"] * 100) if b["total"] else 0
+        h = round(pct / 100 * maxh)
+        bars.append({"x": left + i * (BW + GAP), "y": base - h, "h": h,
+                     "pct": pct, "date": (b["checked_at"] or "")[:10]})
+    return templates.TemplateResponse(
+        request, "rank.html",
+        {"brand": brand, "rows": rows, "delta": delta, "bars": bars,
+         "chart_w": max(320, left + len(bars) * (BW + GAP) + 10), "base_y": base,
+         "rank_limit": geo_worker.RANK_LIMIT, "is_google": geo_worker.rank_backend() == "serper"},
+    )
+
+
 # ---------- content (execution layer — Phase A) ----------
 @app.post("/brands/{brand_id}/content")
 def gen_content(request: Request, brand_id: int, question_id: int = Form(...), lang: str = Form("th"),
@@ -1083,7 +1147,11 @@ def brand_assets(request: Request, brand_id: int):
         request,
         "assets.html",
         {"brand": brand, "llms_txt": geo_content.llms_txt(brand, items),
-         "robots": geo_content.robots_snippet(), "org_schema": geo_content.org_schema(brand)},
+         "robots": geo_content.robots_snippet(brand), "org_schema": geo_content.org_schema(brand),
+         "sitemap": geo_content.sitemap_xml(brand, items),
+         "sitemap_path": geo_content.SITEMAP_PATH,
+         "sitemap_src": f"{str(request.base_url).rstrip('/')}/e/{brand['embed_key'] or ''}/sitemap.xml",
+         "published_count": len([i for i in items if i["status"] == "published"])},
     )
 
 
@@ -1262,7 +1330,20 @@ def embed_robots(key: str, dl: int = 0):
     headers = {"Cache-Control": "public, max-age=86400"}
     if dl:
         headers["Content-Disposition"] = 'attachment; filename="robots.txt"'
-    return PlainTextResponse(geo_content.robots_snippet(), headers=headers)
+    return PlainTextResponse(geo_content.robots_snippet(brand), headers=headers)
+
+
+@app.get("/e/{key}/sitemap.xml")
+def embed_sitemap(key: str, dl: int = 0):
+    """XML sitemap — ต้อง rewrite มาที่ {domain}/geo-sitemap.xml ถึงจะใช้ได้จริง (Google ไม่รับข้ามโดเมน)"""
+    brand = db.get_brand_by_embed_key(key)
+    if not brand:
+        return Response("", media_type="application/xml", status_code=404)
+    xml = geo_content.sitemap_xml(brand, db.list_content(brand["id"]))
+    headers = {"Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*"}
+    if dl:
+        headers["Content-Disposition"] = 'attachment; filename="geo-sitemap.xml"'
+    return Response(xml, media_type="application/xml; charset=utf-8", headers=headers)
 
 
 @app.get("/e/{key}/head.html")

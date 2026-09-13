@@ -9,6 +9,7 @@ MVP ใช้ heuristic (จับคู่โดเมน) — ไม่ต้�
 from __future__ import annotations
 import os
 import json
+import datetime
 from urllib.parse import urlparse
 
 from . import db
@@ -135,6 +136,72 @@ def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
         elif dom:
             competitors.append(dom)
     return present, position, competitors
+
+
+# ---- Google rank tracking ----
+# SoV ถามว่า "แบรนด์ถูกพูดถึงไหม" (นับ mention บนเว็บใครก็ได้)
+# rank ถามว่า "เว็บเราอยู่อันดับเท่าไหร่" → นับเฉพาะโดเมนตัวเอง และต้องมองลึกกว่า top 8
+RANK_LIMIT = int(os.getenv("GEO_RANK_LIMIT", "20"))
+
+
+def rank_backend() -> str:
+    """อันดับต้องมาจาก Google จริง = serper. ไม่มีคีย์ก็ยังเช็คได้แต่เป็นของ engine อื่น (บอกตามตรงใน UI)"""
+    return "serper" if _cfg("serper_key", "SERPER_API_KEY") else active_backend()
+
+
+def find_position(brand_domain: str, results: list[dict]):
+    """คืน (position, url) ของผลแรกที่เป็นโดเมนแบรนด์ — ไม่เจอคืน (None, None)"""
+    bd = (brand_domain or "").lower()
+    if bd.startswith("www."):
+        bd = bd[4:]
+    if not bd:
+        return None, None
+    for r in results:
+        dom = (r.get("domain") or "").lower()
+        if dom and (bd in dom or dom in bd):
+            return r.get("position"), r.get("url")
+    return None, None
+
+
+def check_rank_for_brand(brand_id: int) -> dict:
+    """เช็คอันดับ Google ของทุกคำถามเป้าหมาย 1 รอบ — ทุกแถวใช้ checked_at เดียวกัน"""
+    conn = db.get_conn()
+    try:
+        brand = conn.execute(db.q("SELECT * FROM brands WHERE id=?"), (brand_id,)).fetchone()
+        if not brand:
+            raise ValueError(f"ไม่พบ brand id={brand_id}")
+        questions = conn.execute(
+            db.q("SELECT * FROM target_questions WHERE brand_id=? ORDER BY id"), (brand_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+
+    engine = rank_backend()
+    # ละเอียดระดับไมโครวินาที — checked_at คือคีย์ของ "รอบ" ถ้าใช้แค่วินาที
+    # การเช็คสองรอบในวินาทีเดียวกันจะถูกยุบเป็นรอบเดียว (แถวซ้ำ/เทียบ before-after เพี้ยน)
+    checked_at = datetime.datetime.now().isoformat(timespec="microseconds")
+    positions, errors = [], 0
+    for q in questions:
+        try:
+            results = _serper_search(q["question"], RANK_LIMIT) if engine == "serper" \
+                else search(q["question"], RANK_LIMIT)
+        except Exception:
+            errors += 1   # ค้นไม่สำเร็จ ≠ ไม่ติดอันดับ — ข้ามไป ไม่บันทึกเป็น "หลุด"
+            continue
+        pos, url = find_position(brand["domain"], results)
+        if pos:
+            positions.append(pos)
+        db.add_rank_result(brand_id, q["id"], q["question"], pos, url, engine, checked_at)
+
+    return {
+        "checked_at": checked_at,
+        "engine": engine,
+        "questions": len(questions),
+        "checked": len(questions) - errors,
+        "errors": errors,
+        "ranked": len(positions),
+        "avg_position": (sum(positions) / len(positions)) if positions else None,
+    }
 
 
 def run_for_brand(brand_id: int) -> dict:

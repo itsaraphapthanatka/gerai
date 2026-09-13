@@ -64,6 +64,16 @@ def _tables() -> list[str]:
             position INTEGER,
             top_domains TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS rank_results (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            question_id INTEGER REFERENCES target_questions(id) ON DELETE SET NULL,
+            question TEXT NOT NULL,
+            position INTEGER,
+            url TEXT,
+            engine TEXT,
+            checked_at TEXT NOT NULL
+        )""",
         f"""CREATE TABLE IF NOT EXISTS content_items (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -521,6 +531,46 @@ def get_run(run_id: int):
 def get_results(run_id: int):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM run_results WHERE run_id=? ORDER BY id"), (run_id,)).fetchall()
+
+
+# ---- Google rank tracking ----
+# 1 รอบเช็ค = หลายแถวที่ใช้ checked_at เดียวกัน (ไม่มีตาราง run แยก — group ด้วย checked_at)
+def add_rank_result(brand_id, question_id, question, position, url, engine, checked_at) -> None:
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO rank_results(brand_id,question_id,question,position,url,engine,checked_at) "
+              "VALUES(?,?,?,?,?,?,?)"),
+            (brand_id, question_id, question, position, url, engine, checked_at),
+        )
+
+
+def rank_batches(brand_id: int, limit: int = 12):
+    """สรุปรายรอบ (ใหม่→เก่า): กี่คำถาม, ติดกี่คำถาม, อันดับเฉลี่ยเฉพาะที่ติด"""
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT checked_at, COUNT(*) AS total, "
+              "SUM(CASE WHEN position IS NOT NULL THEN 1 ELSE 0 END) AS ranked, "
+              "AVG(position) AS avg_pos "
+              "FROM rank_results WHERE brand_id=? GROUP BY checked_at ORDER BY checked_at DESC LIMIT ?"),
+            (brand_id, limit),
+        ).fetchall()
+
+
+def rank_results_at(brand_id: int, checked_at: str):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM rank_results WHERE brand_id=? AND checked_at=? ORDER BY "
+              "CASE WHEN position IS NULL THEN 1 ELSE 0 END, position, id"),
+            (brand_id, checked_at),
+        ).fetchall()
+
+
+def last_rank_check(brand_id: int):
+    with get_conn() as c:
+        row = c.execute(
+            q("SELECT MAX(checked_at) AS ts FROM rank_results WHERE brand_id=?"), (brand_id,)
+        ).fetchone()
+        return row["ts"] if row else None
 
 
 # ---- content items ----

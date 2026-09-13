@@ -402,12 +402,55 @@ AI_BOTS = [
 ]
 
 
-def robots_snippet() -> str:
+# path บนเว็บลูกค้าที่ rewrite มาที่ /e/{key}/sitemap.xml — ไม่ใช้ /sitemap.xml กันชนของเดิม
+SITEMAP_PATH = "/geo-sitemap.xml"
+
+
+def robots_snippet(brand=None) -> str:
     lines = []
     for bot in AI_BOTS:
         lines += [f"User-agent: {bot}", "Allow: /", ""]
-    lines.append("Sitemap: (ใส่ URL sitemap ของเว็บ)")
+    if brand is not None:
+        # ต้องเป็น URL บนโดเมนลูกค้า (Google ไม่รับ sitemap ข้ามโดเมน) → ชี้ที่ rewrite path
+        lines.append(f"Sitemap: {_site_url(brand)}{SITEMAP_PATH}")
+        lines.append("# ถ้าเว็บมี sitemap เดิมอยู่แล้ว (Yoast/RankMath ฯลฯ) ให้คงบรรทัด Sitemap ของเดิมไว้ด้วย")
+    else:
+        lines.append("Sitemap: (ใส่ URL sitemap ของเว็บ)")
     return "\n".join(lines)
+
+
+def _xml_escape(s: str) -> str:
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;").replace("'", "&apos;"))
+
+
+def content_url(brand, item) -> str:
+    """URL จริงของคอนเทนต์บนเว็บลูกค้า — WP → ลิงก์โพสต์, ไม่งั้น path ที่ rewrite มาหา platform"""
+    return item["wp_link"] or f"{_site_url(brand)}/geo/{item['id']}"
+
+
+def sitemap_xml(brand, items) -> str:
+    """XML sitemap ของคอนเทนต์ที่เผยแพร่แล้ว + หน้าแรก.
+
+    เสิร์ฟจาก platform แต่ URL ข้างในเป็นโดเมนลูกค้า → ลูกค้าต้อง rewrite
+    {domain}/geo-sitemap.xml มาที่ /e/{key}/sitemap.xml ไม่งั้น Google ตีตก (cross-domain)
+    """
+    urls = [(_site_url(brand), "")]
+    for i in items:
+        if i["status"] != "published":
+            continue
+        lastmod = (i["published_at"] or i["created_at"] or "")[:10]
+        urls.append((content_url(brand, i), lastmod))
+    out = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for loc, lastmod in urls:
+        out.append("  <url>")
+        out.append(f"    <loc>{_xml_escape(loc)}</loc>")
+        if lastmod:
+            out.append(f"    <lastmod>{lastmod}</lastmod>")
+        out.append("  </url>")
+    out.append("</urlset>")
+    return "\n".join(out)
 
 
 def llms_txt(brand, items) -> str:
@@ -420,7 +463,6 @@ def llms_txt(brand, items) -> str:
     if pub:
         out.append("## เนื้อหา / Pages")
         for i in pub:
-            url = i["wp_link"] or f"{site}/geo/{i['id']}"  # WP → ลิงก์โพสต์, dev → หน้า hosted
             desc = (i["meta_desc"] or "").replace("\n", " ")
-            out.append(f"- {i['title']}: {url}" + (f" — {desc}" if desc else ""))
+            out.append(f"- {i['title']}: {content_url(brand, i)}" + (f" — {desc}" if desc else ""))
     return "\n".join(out)

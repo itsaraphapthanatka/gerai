@@ -17,6 +17,20 @@
   <pre class="code">{{ robots }}</pre>
 </div>
 
+<h2>geo-sitemap.xml <span class="muted">— {{ published_count }} หน้าที่เผยแพร่แล้ว</span></h2>
+<div class="card">
+  <p class="muted" style="margin-top:0">
+    ต้องให้เสิร์ฟที่ <code>{{ brand['domain'] }}{{ sitemap_path }}</code> เท่านั้น (Google ไม่รับ sitemap ข้ามโดเมน) —
+    proxy/rewrite มาที่ <code>{{ sitemap_src }}</code> เพื่อให้อัปเดตอัตโนมัติทุกครั้งที่เผยแพร่คอนเทนต์ใหม่
+    แล้วส่ง URL เข้า Google Search Console → Sitemaps
+  </p>
+  {% if published_count == 0 %}
+  <p class="muted">ยังไม่มีคอนเทนต์ที่เผยแพร่ — sitemap จะมีแค่หน้าแรก</p>
+  {% endif %}
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <pre class="code">{{ sitemap }}</pre>
+</div>
+
 <h2>Schema องค์กร (JSON-LD) <span class="muted">— วางใน &lt;head&gt; ทุกหน้า หรือผ่าน Connector</span></h2>
 <div class="card">
   <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>

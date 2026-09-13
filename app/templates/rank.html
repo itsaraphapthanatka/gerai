@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}อันดับ Google — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>อันดับ Google</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — เช็คว่าเว็บติด top {{ rank_limit }} ของคำถามเป้าหมายหรือยัง</p>
+
+{% if not is_google %}
+<div class="card" style="border-color:var(--amber,#e0a800)">
+  <b>⚠️ ยังไม่ได้ตั้งค่า Serper</b>
+  <p class="muted" style="margin:6px 0 0">
+    อันดับที่เช็คได้ตอนนี้ <b>ไม่ใช่ของ Google</b> (มาจาก search backend ตัวอื่น) — ต้องใส่ Serper API key
+    {%- if request.session.get('is_admin') %} ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}
+    เพื่อวัดอันดับ Google จริง
+  </p>
+</div>
+{% endif %}
+
+<form method="post" action="/brands/{{ brand['id'] }}/rank/run" style="margin:14px 0">
+  <button class="btn" type="submit">เช็คอันดับตอนนี้</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">ใช้โควตาเดียวกับการมอนิเตอร์</span>
+</form>
+
+{% if not delta %}
+<div class="card"><p class="muted">ยังไม่เคยเช็คอันดับ — กดปุ่มด้านบนเพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+{% else %}
+<div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <div style="text-align:center">
+    <div class="muted">ติด top {{ rank_limit }}</div>
+    <div class="sov {% if delta.ranked == 0 %}no{% else %}pos{% endif %}">{{ delta.ranked }}/{{ delta.total }}</div>
+    <div class="muted">คำถาม</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">อันดับเฉลี่ย</div>
+    <div class="sov {% if delta.avg_pos %}pos{% else %}no{% endif %}">{{ delta.avg_pos or '–' }}</div>
+    <div class="muted">เฉพาะที่ติด</div>
+  </div>
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">เช็คล่าสุด</div>
+    <div>{{ delta.checked_at[:16].replace('T', ' ') }}</div>
+    <div class="muted">engine: {{ delta.engine }}</div>
+  </div>
+</div>
+
+<h2>แนวโน้ม — สัดส่วนคำถามที่ติด top {{ rank_limit }}</h2>
+<div class="card">
+  <svg viewBox="0 0 {{ chart_w }} 180" style="width:100%;max-width:{{ chart_w }}px;height:auto" role="img" aria-label="กราฟแนวโน้มอันดับ Google">
+    <line x1="38" y1="{{ base_y }}" x2="{{ chart_w - 6 }}" y2="{{ base_y }}" stroke="#dedee5"/>
+    {% for b in bars %}
+    <rect x="{{ b.x }}" y="{{ b.y }}" width="38" height="{{ b.h }}" rx="4" fill="#7132f5"></rect>
+    <text x="{{ b.x + 19 }}" y="{{ b.y - 6 }}" text-anchor="middle" font-size="11" fill="#101114">{{ b.pct }}%</text>
+    <text x="{{ b.x + 19 }}" y="168" text-anchor="middle" font-size="9.5" fill="#8595a8">{{ b.date[5:] }}</text>
+    {% endfor %}
+  </svg>
+</div>
+
+<h2>รายคำถาม</h2>
+<div class="card">
+  <table>
+    <tr><th>คำถาม</th><th>อันดับ</th><th>เปลี่ยนแปลง</th><th>หน้าที่ติด</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.q }}</td>
+      <td>{% if r.pos %}<b>#{{ r.pos }}</b>{% else %}<span class="pill no">ไม่ติด top {{ rank_limit }}</span>{% endif %}</td>
+      <td>
+        {%- if r.change == 'up' %}<span class="pill ok">↑ ดีขึ้น {{ r.diff }} อันดับ</span>
+        {%- elif r.change == 'down' %}<span class="pill no">↓ ตก {{ r.diff }} อันดับ</span>
+        {%- elif r.change == 'new' %}<span class="pill ok">✨ เพิ่งติด</span>
+        {%- elif r.change == 'lost' %}<span class="pill no">↓ หลุด</span>
+        {%- else %}<span class="muted">– เท่าเดิม</span>{% endif %}
+      </td>
+      <td>{% if r.url %}<a class="link" href="{{ r.url }}" target="_blank" rel="noopener" style="font-size:12px">{{ r.url[:60] }}{{ '…' if r.url|length > 60 else '' }}</a>{% else %}<span class="muted">–</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<p class="muted" style="font-size:12px">
+  อันดับ Google เป็นตัวชี้วัดตั้งต้นของ GEO — หน้าที่ไม่ติด index/อันดับต่ำมาก AI แทบไม่หยิบไปอ้างอิง
+  ดู <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV บน AI</a> ควบคู่กัน
+</p>
+{% endif %}
+{% endblock %}

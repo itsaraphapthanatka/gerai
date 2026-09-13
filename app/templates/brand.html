@@ -190,6 +190,27 @@
 {{ embed_robots_url }}</pre>
     </div>
 
+    <!-- แนะนำ: sitemap -->
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+      <div style="margin-bottom:4px"><span class="pri pri-rec">แนะนำ</span><b style="font-size:13.5px">geo-sitemap.xml</b></div>
+      <p class="muted" style="font-size:11.5px;line-height:1.6;margin:0 0 8px">
+        บอก Google ว่ามีหน้าใหม่ — ไม่มี sitemap หน้าใหม่อาจใช้เวลาเป็นสัปดาห์กว่าจะถูก index (AI ส่วนใหญ่ดึงจาก index อีกที)
+        <br>⚠️ ต้อง <b>proxy/rewrite ให้ขึ้นใต้โดเมนคุณ</b> — Google ไม่รับ sitemap ข้ามโดเมน
+      </p>
+      <div style="position:relative">
+        <pre class="code" id="codeSitemap" style="margin:0;font-size:11px">location = /geo-sitemap.xml {{ '{' }}
+    proxy_pass {{ embed_sitemap_url }};
+    proxy_set_header Host {{ embed_host }};
+    proxy_ssl_server_name on;
+{{ '}' }}</pre>
+        <button type="button" class="copy-btn" data-copy="codeSitemap">คัดลอก</button>
+      </div>
+      <div class="muted" style="font-size:11px;margin-top:8px">
+        เสร็จแล้วส่ง <code>{{ brand['domain'] }}/geo-sitemap.xml</code> เข้า Google Search Console → Sitemaps
+        (Vercel/Netlify/Next.js: มี rewrite ให้แล้วในโค้ดด้านบน)
+      </div>
+    </div>
+
     <!-- ออปชัน: head schema -->
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
       <div style="margin-bottom:4px"><span class="pri pri-opt">ออปชัน</span><b style="font-size:13.5px">ฝัง schema ในหน้าเดิมของเว็บ</b></div>
@@ -250,6 +271,11 @@
     <div class="qc-icon">🔗</div>
     <div class="qc-label">WordPress</div>
     <div class="qc-count">ตั้งค่าการเผยแพร่</div>
+  </a>
+  <a href="/brands/{{ brand['id'] }}/rank" class="quick-card">
+    <div class="qc-icon">🔍</div>
+    <div class="qc-label">อันดับ Google</div>
+    <div class="qc-count">{{ 'เช็ค ' ~ last_rank[:10] if last_rank else 'ยังไม่เคยเช็ค' }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
