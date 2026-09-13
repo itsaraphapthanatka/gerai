@@ -24,3 +24,7 @@ app/static/gen/
 
 # uploaded slips (ข้อมูลลูกค้า)
 uploads/
+
+# database dumps (ข้อมูลลูกค้า + password hash)
+*.sql.gz
+*.sql
