@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}สุขภาพเว็บ — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>สุขภาพเว็บ</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล</p>
+
+<form method="post" action="/brands/{{ brand['id'] }}/health/run" style="margin:14px 0">
+  <button class="btn" type="submit" {{ 'disabled' if running }}>{{ 'กำลังตรวจ…' if running else 'ตรวจตอนนี้' }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที</span>
+</form>
+
+{% if running and not report %}
+<div class="card"><p class="muted">กำลังตรวจ — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+{% elif not report %}
+<div class="card"><p class="muted">ยังไม่เคยตรวจ — กด "ตรวจตอนนี้" เพื่อเริ่ม</p></div>
+{% else %}
+
+<div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <div style="text-align:center">
+    <div class="muted">สถานะ</div>
+    <div class="sov {{ 'pos' if report.ok else 'no' }}">{{ 'ผ่าน' if report.ok else report.n_fail ~ ' ปัญหา' }}</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">ผ่าน</div><div class="sov pos">{{ report.n_ok }}</div>
+  </div>
+  {% if report.n_warn %}
+  <div style="text-align:center">
+    <div class="muted">ควรดู</div><div class="sov">{{ report.n_warn }}</div>
+  </div>
+  {% endif %}
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">ตรวจล่าสุด</div>
+    <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
+    <div class="muted" style="font-size:12px">{{ report.site }}</div>
+  </div>
+</div>
+
+{% set fails = report.checks | selectattr('status', 'equalto', 'fail') | list %}
+{% if fails %}
+<h2>ต้องแก้</h2>
+<div class="card">
+  <table>
+    <tr><th style="width:34%">รายการ</th><th>รายละเอียด</th></tr>
+    {% for c in fails %}
+    <tr><td><span class="pill no">✗</span> {{ c.label }}</td><td>{{ c.detail or '—' }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<h2>ผลตรวจทั้งหมด</h2>
+<div class="card">
+  <table>
+    {% for c in report.checks %}
+    <tr>
+      <td style="width:34%">{{ c.label }}</td>
+      <td style="width:8%">
+        {%- if c.status == 'ok' %}<span class="pill ok">ผ่าน</span>
+        {%- elif c.status == 'fail' %}<span class="pill no">ไม่ผ่าน</span>
+        {%- elif c.status == 'warn' %}<span class="pill">ควรดู</span>
+        {%- else %}<span class="muted">ข้าม</span>{% endif %}
+      </td>
+      <td class="muted" style="font-size:12.5px">{{ c.detail }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<p class="muted" style="font-size:12px">
+  ทุกข้อมาจากปัญหาที่เคยเกิดจริงกับเว็บลูกค้า — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex,
+  ส่งเนื้อหาหน้าแรกให้ทุก URL, หรือ sitemap เต็มไปด้วยลิงก์ตาย
+</p>
+{% endif %}
+{% endblock %}

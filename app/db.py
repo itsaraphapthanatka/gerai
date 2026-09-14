@@ -64,6 +64,15 @@ def _tables() -> list[str]:
             position INTEGER,
             top_domains TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS health_checks (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            checked_at TEXT NOT NULL,
+            ok INTEGER NOT NULL DEFAULT 0,
+            n_fail INTEGER NOT NULL DEFAULT 0,
+            n_warn INTEGER NOT NULL DEFAULT 0,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -537,6 +546,33 @@ def get_run(run_id: int):
 def get_results(run_id: int):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM run_results WHERE run_id=? ORDER BY id"), (run_id,)).fetchall()
+
+
+# ---- site health ----
+def add_health_check(brand_id: int, res: dict) -> None:
+    import json as _j
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO health_checks(brand_id,checked_at,ok,n_fail,n_warn,report) VALUES(?,?,?,?,?,?)"),
+            (brand_id, res["checked_at"], 1 if res["ok"] else 0,
+             res["n_fail"], res["n_warn"], _j.dumps(res, ensure_ascii=False)),
+        )
+
+
+def last_health_check(brand_id: int):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM health_checks WHERE brand_id=? ORDER BY checked_at DESC LIMIT 1"), (brand_id,)
+        ).fetchone()
+
+
+def last_published_at(brand_id: int):
+    with get_conn() as c:
+        r = c.execute(
+            q("SELECT MAX(published_at) AS d FROM content_items WHERE brand_id=? AND status='published'"),
+            (brand_id,),
+        ).fetchone()
+        return r["d"] if r else None
 
 
 # ---- Google rank tracking ----

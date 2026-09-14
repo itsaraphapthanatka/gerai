@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health
 
 
 def hash_pw(password: str) -> str:
@@ -619,6 +619,7 @@ def brand_detail(request: Request, brand_id: int):
         {"brand": brand, "last_run": last_run, "content_count": content_count,
          "q_count": q_count, "error": None,
          "last_rank": db.last_rank_check(brand_id),
+         "health": db.last_health_check(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -951,6 +952,63 @@ def brand_progress(request: Request, brand_id: int):
         request, "progress.html",
         {"brand": brand, "bars": bars, "chart_w": chart_w, "base_y": base, "delta": delta, "compare": compare},
     )
+
+
+# ---------- ตรวจสุขภาพเว็บ ----------
+_checking_brands: set = set()
+
+
+def run_health_check(brand_id: int, notify_tenant: int | None = None) -> dict:
+    """ตรวจเว็บ 1 แบรนด์ + เก็บผล — ใช้ได้ทั้งจาก route, cron และ worker เบื้องหลัง"""
+    brand = db.get_brand(brand_id)
+    published = [c for c in db.list_content(brand_id) if c["status"] == "published"]
+    res = site_health.run_checks(
+        geo_content._site_url(brand),
+        last_published=db.last_published_at(brand_id),
+        n_published=len(published),
+    )
+    db.add_health_check(brand_id, res)
+    if notify_tenant and not res["ok"]:
+        bad = [c["label"] for c in res["checks"] if c["status"] == "fail"][:3]
+        db.add_notification(
+            notify_tenant,
+            f"🩺 {brand['name']}: ตรวจเจอ {res['n_fail']} ปัญหา — " + ", ".join(bad),
+            f"/brands/{brand_id}/health", "warn")
+    return res
+
+
+def _health_worker(brand_id: int, tenant_id: int):
+    try:
+        run_health_check(brand_id, notify_tenant=tenant_id)
+    except Exception:
+        pass
+    finally:
+        _checking_brands.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/health/run")
+def run_brand_health(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _checking_brands:      # ยิงเน็ตหลายสิบครั้ง — กันกดรัว
+        _checking_brands.add(brand_id)
+        import threading
+        threading.Thread(target=_health_worker, args=(brand_id, brand["tenant_id"]), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/health?running=1")
+
+
+@app.get("/brands/{brand_id}/health")
+def brand_health(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    row = db.last_health_check(brand_id)
+    report = json.loads(row["report"]) if row and row["report"] else None
+    return templates.TemplateResponse(request, "health.html", {
+        "brand": brand, "report": report,
+        "running": brand_id in _checking_brands or request.query_params.get("running"),
+    })
 
 
 # ---------- Google rank tracking ----------

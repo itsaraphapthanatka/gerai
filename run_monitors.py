@@ -5,6 +5,7 @@
   python run_monitors.py --due [--days 7]   # รันเฉพาะแบรนด์ที่ค้างเกิน N วัน
   python run_monitors.py --brand 3          # รันแบรนด์เดียว
   python run_monitors.py --all --rank       # เช็คอันดับ Google (ไม่ใช่ SoV)
+  python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า
 """
 import os
 import sys
@@ -39,11 +40,17 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
-def run_targets(targets, rank=False):
+def run_targets(targets, rank=False, health=False):
     out = []
     for b in targets:
         try:
-            if rank:
+            if health:
+                from app.main import run_health_check
+                s = run_health_check(b["id"], notify_tenant=b["tenant_id"])
+                line = (f"  [{b['id']}] {b['name']}: "
+                        + ("ผ่านทั้งหมด" if s["ok"] else f"{s['n_fail']} ปัญหา — "
+                           + ", ".join(c["label"] for c in s["checks"] if c["status"] == "fail")))
+            elif rank:
                 s = geo_worker.check_rank_for_brand(b["id"])
                 avg = f" (เฉลี่ย #{s['avg_position']:.1f})" if s["avg_position"] else ""
                 line = f"  [{b['id']}] {b['name']}: ติดอันดับ {s['ranked']}/{s['checked']}{avg}"
@@ -66,6 +73,7 @@ def main():
     ap.add_argument("--days", type=int, default=int(os.getenv("GEO_RUN_INTERVAL_DAYS", "7")))
     ap.add_argument("--brand", type=int, help="รันแบรนด์เดียว (ระบุ id)")
     ap.add_argument("--rank", action="store_true", help="เช็คอันดับ Google แทนการมอนิเตอร์ SoV")
+    ap.add_argument("--health", action="store_true", help="ตรวจสุขภาพเว็บลูกค้า (แจ้งเตือนเมื่อเจอปัญหา)")
     args = ap.parse_args()
     db.init_db()
     brands = db.list_all_brands()
@@ -73,9 +81,12 @@ def main():
     if not targets:
         print("ไม่มีแบรนด์ที่ต้องรัน")
         return
-    backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
-    print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
-    run_targets(targets, rank=args.rank)
+    if args.health:
+        print(f"health · ตรวจ {len(targets)} แบรนด์")
+    else:
+        backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
+        print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
+    run_targets(targets, rank=args.rank, health=args.health)
 
 
 if __name__ == "__main__":

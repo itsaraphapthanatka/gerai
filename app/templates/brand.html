@@ -272,6 +272,11 @@
     <div class="qc-label">WordPress</div>
     <div class="qc-count">ตั้งค่าการเผยแพร่</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/health" class="quick-card">
+    <div class="qc-icon">{{ '🩺' if not health else ('✅' if health['ok'] else '🔴') }}</div>
+    <div class="qc-label">สุขภาพเว็บ</div>
+    <div class="qc-count">{{ 'ยังไม่เคยตรวจ' if not health else ('ผ่านทั้งหมด' if health['ok'] else health['n_fail'] ~ ' ปัญหา') }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/rank" class="quick-card">
     <div class="qc-icon">🔍</div>
     <div class="qc-label">อันดับ Google</div>

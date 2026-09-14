@@ -45,6 +45,10 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 5. **เชื่อมต่อ WordPress** → เผยแพร่คอนเทนต์เป็น **ร่าง** (REST) หรือ **ร่าง+schema** (Connector)
 6. **ดูความคืบหน้า** (`/brands/{id}/progress`) → SoV ก่อน/หลัง + กราฟ + รายคำถามที่ขึ้นมาโผล่
 7. **เช็คอันดับ Google** (`/brands/{id}/rank`) → อันดับรายคำถาม + ขึ้น/ลงเทียบรอบก่อน
+8. **ตรวจสุขภาพเว็บ** (`/brands/{id}/health`) → ดึงเว็บลูกค้ามาตรวจว่ามีอะไรขวาง GEO อยู่
+   - เช็ค: `noindex` · soft 404 · เสิร์ฟหน้าถูกตัว · canonical · www→apex · robots (บอท AI + Sitemap)
+     · ลิงก์ตายใน llms.txt/sitemap · sitemap ข้ามโดเมน · ความสดของคอนเทนต์
+   - ทุกข้อมาจากปัญหาที่เคยเกิดจริง — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex ไว้
    - SEO เป็น**เงื่อนไขตั้งต้น**ของ GEO: AI search ดึงจาก index ของ search engine อีกที หน้าที่ไม่ติด index/อันดับต่ำมากแทบไม่ถูกอ้างอิง → ดูคู่กับ SoV เพื่อแยกว่า "ไม่ติด Google" หรือ "คอนเทนต์ไม่ดี"
    - อันดับ **Google จริงต้องใช้ Serper** (ddgs/brave เป็น engine อื่น) — หน้าจะเตือนถ้ายังไม่ได้ตั้งคีย์
 
@@ -55,6 +59,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --all            # รันทุกแบรนด์
   .\.venv\Scripts\python.exe run_monitors.py --brand 3        # แบรนด์เดียว
   .\.venv\Scripts\python.exe run_monitors.py --all --rank    # เช็คอันดับ Google (ไม่ใช่ SoV)
+  .\.venv\Scripts\python.exe run_monitors.py --all --health  # ตรวจสุขภาพเว็บ + แจ้งเตือน
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง
 
