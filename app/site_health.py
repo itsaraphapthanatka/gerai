@@ -161,6 +161,35 @@ def judge_pages(home_title: str, pages: list) -> list:
     return out
 
 
+def judge_indexed(site_hits, page_hits, sample_url: str, n_published: int) -> list:
+    """Google เก็บเว็บ/หน้า GEO เข้า index หรือยัง — hits=None แปลว่าเช็คไม่ได้
+
+    เป็นเช็คที่สำคัญที่สุดแต่คนมองข้ามบ่อยสุด: เขียนคอนเทนต์ 17 ชิ้นแล้ว Google
+    ไม่เคยเห็นสักหน้า การเพิ่มคอนเทนต์ตอนนั้นคือเพิ่มของที่มองไม่เห็นให้มากขึ้น
+    """
+    if site_hits is None:
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", SKIP,
+                   "ต้องตั้ง Serper API key ถึงจะเช็คได้")]
+    if site_hits == 0:
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", FAIL,
+                   "ทั้งเว็บยังไม่อยู่ใน Google — ส่ง sitemap เข้า Search Console "
+                   "และยืนยันความเป็นเจ้าของก่อน ไม่งั้นคอนเทนต์ที่เขียนไม่มีใครเห็น")]
+    if not n_published:
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", OK, "เว็บอยู่ใน index (ยังไม่มีคอนเทนต์ให้ตรวจ)")]
+    if not sample_url:
+        # ไม่มี sitemap จึงไม่รู้ว่าจะตรวจหน้าไหน — อย่าตอบ ok ลอย ๆ เพราะแบรนด์แบบนี้
+        # มักเป็นกลุ่มที่แย่ที่สุด (ไม่มีทางให้ Google เจอคอนเทนต์เลย)
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", WARN,
+                   "เว็บอยู่ใน index แต่ตรวจหน้าคอนเทนต์ไม่ได้ เพราะยังไม่มี sitemap")]
+    if page_hits == 0:
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", FAIL,
+                   f"เว็บอยู่ใน index แต่หน้าคอนเทนต์ยังไม่ถูกเก็บ (เช็คจาก {sample_url[:48]}) "
+                   "— ส่ง geo-sitemap.xml เข้า Search Console")]
+    if page_hits is None:
+        return [_c("indexed", "Google เก็บเข้า index แล้ว", OK, "เว็บอยู่ใน index")]
+    return [_c("indexed", "Google เก็บเข้า index แล้ว", OK, "ทั้งเว็บและหน้าคอนเทนต์อยู่ใน index")]
+
+
 def judge_freshness(last_published: str, n_published: int, today: datetime.date) -> list:
     if not n_published:
         return [_c("freshness", "มีคอนเทนต์เผยแพร่ต่อเนื่อง", FAIL, "ยังไม่เคยเผยแพร่สักชิ้น")]
@@ -255,6 +284,23 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         _, _, h = fetch(u)
         pages.append({"url": u, "title": _title(h), "canonical": _canonical(h)})
     checks += judge_pages(home_title, pages)
+
+    # index: ใช้ Serper (มีค่าใช้จ่าย) — ไม่มีคีย์ก็ข้าม ไม่ทำให้ตก
+    site_hits = page_hits = None
+    sample = next((u for u in locs if u.rstrip("/") != base), "")
+    try:
+        from . import geo_worker
+        if geo_worker.rank_backend() == "serper":
+            # site: ครอบ subdomain ด้วย — ต้องกรองให้เหลือเฉพาะโดเมนลูกค้า
+            # ไม่งั้น geo.appreview.cloud (แพลตฟอร์มเราเอง) จะถูกนับเป็นเว็บลูกค้า
+            hits = geo_worker._serper_search(f"site:{apex}", 10)
+            site_hits = len([h for h in hits if host_of(h.get("url") or "") == apex])
+            if sample:
+                ph = geo_worker._serper_search(f"site:{sample}", 10)
+                page_hits = len([h for h in ph if (h.get("url") or "").rstrip("/") == sample.rstrip("/")])
+    except Exception:
+        site_hits = page_hits = None
+    checks += judge_indexed(site_hits, page_hits, sample, n_published)
 
     checks += judge_freshness(last_published, n_published, today)
 
