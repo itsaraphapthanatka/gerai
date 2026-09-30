@@ -27,6 +27,15 @@ services:
       geo-postgres:
         condition: service_healthy
     env_file: .env
+    # resolve ผ่าน DNS สาธารณะ ไม่ใช่ของเราเตอร์ — ตัวมอนิเตอร์ตัดสินว่าเว็บลูกค้าล่มหรือไม่
+    # จากการ resolve ชื่อ ถ้าเราเตอร์แคชคำตอบเสียไว้ เราจะแจ้งเตือนผิดให้ลูกค้าทุกราย
+    # (เกิดจริง 30 ก.ย. 2026: เราเตอร์ค้างคำตอบ "ไม่มีเรคคอร์ด" ของ appreview.cloud
+    #  ต่ออีกเป็นชั่วโมงหลังแก้ DNS เสร็จแล้ว ทั้งที่ 1.1.1.1 และ 8.8.8.8 ตอบถูกทันที)
+    # ชื่อ container (geo-postgres) ยังใช้ได้ตามปกติ — Docker embedded DNS จัดการก่อน
+    # แล้วค่อยส่งต่อเฉพาะชื่อภายนอกมาที่นี่
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     # lets the container reach host services (litellm on :4000) via host.docker.internal
     extra_hosts:
       - "host.docker.internal:host-gateway"
