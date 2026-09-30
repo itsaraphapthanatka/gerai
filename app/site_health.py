@@ -77,6 +77,16 @@ def links_in(html: str, base: str, apex: str) -> set:
     return out
 
 
+def crawl_order(links: set, content: set) -> list:
+    """เรียงว่าควรไต่หน้าไหนก่อน — หน้ารวมคอนเทนต์มักอยู่ที่ path ต้นทางเดียวกับคอนเทนต์
+    (/geo เป็นต้นทางของ /geo/102) จึงเอาหน้าพวกนั้นขึ้นก่อน
+
+    เรียงตามตัวอักษรเฉย ๆ ไม่พอ เพราะเราไต่ได้จำกัดจำนวนหน้า ถ้าเว็บมีลิงก์อื่นที่ชื่อ
+    มาก่อน (/area/... มาก่อน /geo) หน้ารวมบทความจะไม่ถูกไต่เลย แล้วฟ้องว่าเป็นหน้ากำพร้า
+    ทั้งที่เว็บลิงก์ไว้ถูกแล้ว — เกิดจริงกับ petgo.asia หลังเพิ่งเพิ่มลิงก์เข้าเมนู"""
+    return sorted(links, key=lambda u: (not any(c.startswith(u + "/") for c in content), u))
+
+
 def _noindex_reason(headers: dict, html: str):
     xrt = ""
     for k, v in (headers or {}).items():
@@ -358,7 +368,9 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         first = links_in(home, base, apex)
         seen_links |= first
         crawled = 1
-        for u in sorted(first - content)[:MAX_CRAWL - 1]:   # ชั้นสอง: เฉพาะหน้าที่ไม่ใช่คอนเทนต์เอง
+        # ชั้นสอง: ตัดตัวคอนเทนต์เอง และตัดหน้าแรกที่เพิ่งไต่ไป (ลิงก์ #anchor ตัด fragment
+        # แล้วเหลือ URL หน้าแรก ถ้าไม่ตัดจะกินโควตาไต่ไปเปล่า ๆ หนึ่งหน้า)
+        for u in crawl_order(first - content - {base.rstrip("/")}, content)[:MAX_CRAWL - 1]:
             _, _, h2 = fetch(u)
             if h2:
                 seen_links |= links_in(h2, base, apex)
