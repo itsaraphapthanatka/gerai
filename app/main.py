@@ -1026,7 +1026,8 @@ def run_uptime_check(brand_id: int, notify_tenant: int | None = None) -> dict:
 
     changed = res["up"] != was_up
     since = now if changed else (prev.get("since") or now)
-    state = {"up": res["up"], "since": since, "alerted_at": prev.get("alerted_at")}
+    state = {"up": res["up"], "since": since, "alerted_at": prev.get("alerted_at"),
+             "reason": res["reason"], "code": res["code"], "checked_at": now}
 
     if res["up"]:
         if changed:
@@ -1069,8 +1070,15 @@ def brand_health(request: Request, brand_id: int):
         return _redirect("/app" if _tid(request) else "/login")
     row = db.last_health_check(brand_id)
     report = json.loads(row["report"]) if row and row["report"] else None
+    up = _uptime_state(brand_id)
+    # รายงานที่ดึงหน้าแรกไม่ได้ เชื่อไม่ได้ทั้งฉบับ — ข้ออื่นตกตามกันเพราะตัวตรวจเข้าเว็บไม่ได้
+    # ไม่ใช่เพราะเว็บมีปัญหาหลายอย่าง ถ้าไม่บอกไว้คนจะไล่แก้ทีละข้อที่ไม่ได้เสีย
+    # ตัดสินจากตัวรายงานเอง ไม่ใช่จากเวลาของ uptime state — เว็บอาจล่มมาก่อนที่จะเริ่มเช็ครายวัน
+    stale = bool(report and any(c.get("key") == "home" and c.get("status") == "fail"
+                                for c in report.get("checks", [])))
     return templates.TemplateResponse(request, "health.html", {
-        "brand": brand, "report": report,
+        "brand": brand, "report": report, "uptime": up, "report_stale": stale,
+        "down_days": _days_since(up.get("since")) if up.get("up") is False else 0,
         "running": brand_id in _checking_brands or request.query_params.get("running"),
     })
 

@@ -5,6 +5,32 @@
 <h1>สุขภาพเว็บ</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล</p>
 
+{# สถานะ uptime จากการเช็ครายวัน — ต้องอยู่เหนือผลตรวจ เพราะถ้าเว็บเข้าไม่ได้
+   ผลตรวจข้างล่างจะเชื่อไม่ได้ทั้งหมด และเป็นเรื่องที่ต้องแก้ก่อนอย่างอื่น #}
+{% if uptime.up is defined %}
+  {% if uptime.up %}
+<div class="ok-banner">🟢 เว็บเปิดได้ปกติ
+  {%- if uptime.checked_at %} <span style="opacity:.7">· เช็คล่าสุด {{ uptime.checked_at[:16].replace('T', ' ') }}</span>{% endif %}
+</div>
+  {% else %}
+<div class="err">
+  <b>🔴 เข้าเว็บไม่ได้</b> — {{ uptime.reason }}
+  <div style="margin-top:6px;font-size:13px;opacity:.85">
+    ตรวจพบตั้งแต่ {{ uptime.since[:16].replace('T', ' ') }}{% if down_days %} ({{ down_days }} วัน){% endif %}
+    {%- if uptime.checked_at %} · เช็คล่าสุด {{ uptime.checked_at[:16].replace('T', ' ') }}{% endif %}
+  </div>
+</div>
+  {% endif %}
+{% endif %}
+
+{# รายงานที่ดึงหน้าแรกไม่ได้ ต้องเตือนแยก — แสดงแม้เว็บกลับมาแล้ว เพราะรายงานเก่ายังผิดอยู่ #}
+{% if report_stale %}
+<div class="err">
+  <b>ผลตรวจด้านล่างเชื่อไม่ได้</b> — รอบนั้นดึงหน้าแรกไม่ได้ ข้ออื่นจึงตกตามกันหมด
+  เพราะตัวตรวจเข้าเว็บไม่ได้ ไม่ใช่เพราะเว็บมีปัญหาหลายอย่าง — กด "ตรวจตอนนี้" อีกครั้งเมื่อเว็บกลับมา
+</div>
+{% endif %}
+
 <form method="post" action="/brands/{{ brand['id'] }}/health/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running }}>{{ 'กำลังตรวจ…' if running else 'ตรวจตอนนี้' }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที</span>
