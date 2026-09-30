@@ -24,6 +24,7 @@ SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 AI_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "PerplexityBot", "Google-Extended")
 MAX_URL_PROBES = 12          # จำกัดจำนวน URL ที่ยิงเช็คต่อรอบ กันรันนานเกินไป
 STALE_DAYS = 30              # ไม่มีคอนเทนต์ใหม่เกินนี้ = เตือน
+MAX_CRAWL = 5                # ไต่ลิงก์จากหน้าแรกกี่หน้า เพื่อหา orphan
 
 OK, FAIL, WARN, SKIP = "ok", "fail", "warn", "skip"
 
@@ -49,6 +50,23 @@ def _title(html: str) -> str:
 def _canonical(html: str):
     m = re.search(r"""(?i)<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']*)""", html or "")
     return m.group(1) if m else None
+
+
+def links_in(html: str, base: str, apex: str) -> set:
+    """URL ภายในโดเมนทั้งหมดที่ปรากฏใน href ของหน้านี้ (ตัด fragment/query ออก)"""
+    out = set()
+    for href in re.findall(r"""(?i)<a[^>]+href=["']([^"'#]+)""", html or ""):
+        href = href.strip()
+        if href.startswith("//"):
+            href = "https:" + href
+        if href.startswith("/"):
+            href = base.rstrip("/") + href
+        elif not href.lower().startswith("http"):
+            continue
+        if host_of(href) != apex:
+            continue
+        out.add(href.split("?")[0].rstrip("/"))
+    return out
 
 
 def _noindex_reason(headers: dict, html: str):
@@ -159,6 +177,27 @@ def judge_pages(home_title: str, pages: list) -> list:
     else:
         out.append(_c("canonical", "canonical ชี้ที่ตัวเอง", OK))
     return out
+
+
+def judge_orphan(reachable: int, total: int, pages_crawled: int) -> list:
+    """หน้าคอนเทนต์มีลิงก์จากเว็บไหม — sitemap บอก Google ว่าหน้ามีอยู่ แต่ลิงก์บอกว่าหน้าสำคัญ
+
+    JKP มี sitemap ถูกทุกอย่าง หน้าไม่มี noindex robots ไม่บล็อก แต่ Google เก็บหน้า
+    อื่นไป 10 หน้าโดยไม่แตะ /geo/* เลย — เพราะไม่มีหน้าไหนในเว็บลิงก์มาหาเลย
+    """
+    if not total:
+        return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", SKIP, "ไม่มีหน้าให้ตรวจ")]
+    if not pages_crawled:
+        return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", SKIP, "ไต่หน้าเว็บไม่ได้")]
+    if reachable == 0:
+        return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", FAIL,
+                   f"ไม่มีหน้าไหนในเว็บลิงก์มาหาคอนเทนต์เลย (ตรวจ {pages_crawled} หน้า) — "
+                   "Google ให้ความสำคัญหน้าที่มีลิงก์จริงมากกว่าหน้าที่มีแต่ใน sitemap "
+                   "เพิ่มเมนู/บล็อก บทความ ที่ชี้มาที่หน้ารวมคอนเทนต์")]
+    if reachable < total:
+        return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", OK,
+                   f"เข้าถึงจากลิงก์ได้ {reachable}/{total}")]
+    return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", OK, f"เข้าถึงได้ครบ {total} หน้า")]
 
 
 def judge_indexed(site_hits, page_hits, sample_url: str, n_published: int) -> list:
@@ -284,6 +323,20 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         _, _, h = fetch(u)
         pages.append({"url": u, "title": _title(h), "canonical": _canonical(h)})
     checks += judge_pages(home_title, pages)
+
+    # orphan: ไต่จากหน้าแรก 2 ชั้น แล้วดูว่าเจอ URL คอนเทนต์จาก sitemap ไหม
+    content = {u.split("?")[0].rstrip("/") for u in locs if u.rstrip("/") != base}
+    seen_links, crawled = set(), 0
+    if content:
+        first = links_in(home, base, apex)
+        seen_links |= first
+        crawled = 1
+        for u in sorted(first - content)[:MAX_CRAWL - 1]:   # ชั้นสอง: เฉพาะหน้าที่ไม่ใช่คอนเทนต์เอง
+            _, _, h2 = fetch(u)
+            if h2:
+                seen_links |= links_in(h2, base, apex)
+                crawled += 1
+    checks += judge_orphan(len(content & seen_links), len(content), crawled)
 
     # index: ใช้ Serper (มีค่าใช้จ่าย) — ไม่มีคีย์ก็ข้าม ไม่ทำให้ตก
     site_hits = page_hits = None
