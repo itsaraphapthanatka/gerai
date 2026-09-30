@@ -986,6 +986,70 @@ def _health_worker(brand_id: int, tenant_id: int):
         _checking_brands.discard(brand_id)
 
 
+UPTIME_REMIND_DAYS = 7    # ล่มค้างนานเท่านี้ เตือนซ้ำหนึ่งครั้ง กันเรื่องหล่นหาย
+
+
+def _uptime_state(brand_id: int) -> dict:
+    try:
+        return json.loads(db.get_setting(f"uptime:{brand_id}") or "{}")
+    except Exception:
+        return {}
+
+
+def _days_since(iso) -> int:
+    import datetime as _dt
+    try:
+        return (_dt.datetime.now() - _dt.datetime.fromisoformat(iso)).days
+    except Exception:
+        return 0
+
+
+def _notify_outage(tenant_id, message: str, link: str, type_: str) -> None:
+    """เว็บเข้าไม่ได้ทั้งเว็บเป็นเรื่องด่วน — แจ้งทั้งเจ้าของแบรนด์และแอดมิน
+    (ถ้าเจ้าของเป็นแอดมินอยู่แล้วไม่ต้องส่งซ้ำ)"""
+    owner = db.get_tenant(tenant_id) if tenant_id else None
+    if tenant_id:
+        db.add_notification(tenant_id, message, link, type_)
+    if not (owner and owner["is_admin"]):
+        db.notify_admins(message, link, type_)
+
+
+def run_uptime_check(brand_id: int, notify_tenant: int | None = None) -> dict:
+    """เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม — แจ้งเตือนเฉพาะตอนสถานะ "เปลี่ยน" ไม่ใช่ทุกวัน
+    ไม่งั้นเว็บที่ล่มยาวจะยิงแจ้งเตือนซ้ำทุกวันจนคนเลิกอ่าน แล้วของจริงก็หลุด"""
+    brand = db.get_brand(brand_id)
+    res = site_health.probe_uptime(geo_content._site_url(brand))
+    prev = _uptime_state(brand_id)
+    was_up = prev.get("up", True)   # ครั้งแรกถือว่าเคยปกติ ถ้าล่มอยู่แล้วจะได้แจ้งทันที
+    now = db.now()
+    link = f"/brands/{brand_id}/health"
+
+    changed = res["up"] != was_up
+    since = now if changed else (prev.get("since") or now)
+    state = {"up": res["up"], "since": since, "alerted_at": prev.get("alerted_at")}
+
+    if res["up"]:
+        if changed:
+            d = _days_since(prev.get("since") or now)
+            _notify_outage(notify_tenant,
+                           f"🟢 {brand['name']}: เว็บกลับมาเข้าได้แล้ว"
+                           + (f" — ล่มไป {d} วัน" if d else ""), link, "info")
+    elif changed:
+        _notify_outage(notify_tenant,
+                       f"🔴 {brand['name']}: เข้าเว็บไม่ได้ — {res['reason']}", link, "warn")
+        state["alerted_at"] = now
+    elif _days_since(prev.get("alerted_at") or since) >= UPTIME_REMIND_DAYS:
+        _notify_outage(notify_tenant,
+                       f"🔴 {brand['name']}: ยังเข้าเว็บไม่ได้ ({_days_since(since)} วันแล้ว)"
+                       f" — {res['reason']}", link, "warn")
+        state["alerted_at"] = now
+
+    db.set_setting(f"uptime:{brand_id}", json.dumps(state, ensure_ascii=False))
+    res["was_up"] = was_up
+    res["down_since"] = None if res["up"] else since
+    return res
+
+
 @app.post("/brands/{brand_id}/health/run")
 def run_brand_health(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)

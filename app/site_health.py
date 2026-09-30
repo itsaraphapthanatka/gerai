@@ -26,6 +26,14 @@ MAX_URL_PROBES = 12          # จำกัดจำนวน URL ที่ย�
 STALE_DAYS = 30              # ไม่มีคอนเทนต์ใหม่เกินนี้ = เตือน
 MAX_CRAWL = 5                # ไต่ลิงก์จากหน้าแรกกี่หน้า เพื่อหา orphan
 
+# uptime: เช็คเบา ๆ รายวัน ว่าเว็บยังเปิดได้ไหม — แยกจาก run_checks เพราะตัวเต็มยิงเน็ต
+# หลายสิบครั้งต่อแบรนด์ รันรายวันไม่ไหว และเวลาเว็บล่มจริง ผลตรวจเต็มจะฟ้องตกหลายข้อ
+# จนอ่านไม่ออกว่าสาเหตุคืออะไร (appreview.cloud ล่ม ก.ย. 2026 ขึ้นว่า "ไม่ผ่าน 4 ข้อ"
+# ทั้งที่ปัญหาจริงมีข้อเดียว คือ DNS ของโดเมนหลักหาย)
+BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+UPTIME_RETRY_WAIT = 5        # วินาที — ลองซ้ำก่อนประกาศว่าล่ม กัน network blip แจ้งเตือนผิด
+
 OK, FAIL, WARN, SKIP = "ok", "fail", "warn", "skip"
 
 
@@ -246,6 +254,25 @@ def judge_freshness(last_published: str, n_published: int, today: datetime.date)
     return [_c("freshness", "มีคอนเทนต์เผยแพร่ต่อเนื่อง", OK, msg)]
 
 
+def judge_uptime(dns_ok: bool, status: int) -> dict:
+    """ตัดสินว่าเว็บล่มไหม จากผลที่ยิงมาแล้ว — แยก "DNS ไม่มีเรคคอร์ด" ออกจาก "เข้าเซิร์ฟเวอร์
+    ไม่ได้" เพราะสองอย่างนี้แก้คนละที่ (DNS แก้ที่ Cloudflare, origin แก้ที่เซิร์ฟเวอร์)
+    บอกรวม ๆ ว่า "เว็บล่ม" ทำให้ไล่หาสาเหตุผิดทางเสียเวลา"""
+    if not dns_ok:
+        return {"up": False, "code": "dns",
+                "reason": "โดเมนแปลงเป็น IP ไม่ได้ — เรคคอร์ด DNS หาย โดเมนหมดอายุ หรือ nameserver ผิด"}
+    if status == 0:
+        return {"up": False, "code": "connect", "reason": "ต่อเซิร์ฟเวอร์ไม่ได้ (timeout หรือถูกปฏิเสธ)"}
+    if status in (521, 522, 523, 524, 530):
+        return {"up": False, "code": "origin",
+                "reason": f"Cloudflare ตอบ {status} — เข้าถึง origin ไม่ได้ (tunnel หรือเซิร์ฟเวอร์ล่ม)"}
+    if status >= 500:
+        return {"up": False, "code": "server", "reason": f"เซิร์ฟเวอร์ตอบ {status}"}
+    if status >= 400:
+        return {"up": False, "code": "client", "reason": f"หน้าแรกตอบ {status}"}
+    return {"up": True, "code": "ok", "reason": f"ตอบ {status}"}
+
+
 def summarize(checks: list) -> dict:
     fails = [c for c in checks if c["status"] == FAIL]
     warns = [c for c in checks if c["status"] == WARN]
@@ -360,4 +387,46 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     res = summarize(checks)
     res["checked_at"] = datetime.datetime.now().isoformat(timespec="seconds")
     res["site"] = base
+    return res
+
+
+# ---------- uptime probe ----------
+def dns_resolves(host: str) -> bool:
+    import socket
+    try:
+        socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+        return True
+    except OSError:
+        return False
+
+
+def probe_uptime(site_url: str, attempts: int = 2, wait: float = UPTIME_RETRY_WAIT) -> dict:
+    """ยิงหน้าแรกครั้งเดียว (ลองซ้ำถ้าไม่ผ่าน) — ใช้ UA เบราว์เซอร์ปกติ ไม่ใช่ Googlebot
+    เพราะที่อยากรู้รายวันคือ "คนเข้าเว็บได้ไหม" ไม่ใช่ "บอทเข้าได้ไหม" และ bot protection
+    ของ Cloudflare ชอบตอบ 403 ให้ UA บอทจนแจ้งเตือนผิด"""
+    import time
+    import httpx
+    apex = host_of(site_url)
+    url = f"https://{apex}/"
+    tries = max(1, attempts)
+    res: dict = {}
+    for i in range(tries):
+        t0 = time.monotonic()
+        dns_ok = dns_resolves(apex)
+        status = 0
+        if dns_ok:
+            try:
+                with httpx.Client(follow_redirects=True, timeout=15,
+                                  headers={"User-Agent": BROWSER_UA}) as c:
+                    status = c.get(url).status_code
+            except Exception:
+                status = 0
+        res = judge_uptime(dns_ok, status)
+        res.update(status=status, url=url, attempts=i + 1,
+                   ms=int((time.monotonic() - t0) * 1000),
+                   checked_at=datetime.datetime.now().isoformat(timespec="seconds"))
+        if res["up"]:
+            break
+        if i + 1 < tries:
+            time.sleep(wait)
     return res

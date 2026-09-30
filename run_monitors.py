@@ -5,7 +5,8 @@
   python run_monitors.py --due [--days 7]   # รันเฉพาะแบรนด์ที่ค้างเกิน N วัน
   python run_monitors.py --brand 3          # รันแบรนด์เดียว
   python run_monitors.py --all --rank       # เช็คอันดับ Google (ไม่ใช่ SoV)
-  python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า
+  python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า (เต็ม ใช้เวลานาน)
+  python run_monitors.py --all --uptime     # เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม (cron รายวัน)
 """
 import os
 import sys
@@ -40,11 +41,16 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
-def run_targets(targets, rank=False, health=False):
+def run_targets(targets, rank=False, health=False, uptime=False):
     out = []
     for b in targets:
         try:
-            if health:
+            if uptime:
+                from app.main import run_uptime_check
+                s = run_uptime_check(b["id"], notify_tenant=b["tenant_id"])
+                line = (f"  [{b['id']}] {b['name']}: "
+                        + ("ปกติ" if s["up"] else f"ล่ม — {s['reason']}"))
+            elif health:
                 from app.main import run_health_check
                 s = run_health_check(b["id"], notify_tenant=b["tenant_id"])
                 line = (f"  [{b['id']}] {b['name']}: "
@@ -74,6 +80,8 @@ def main():
     ap.add_argument("--brand", type=int, help="รันแบรนด์เดียว (ระบุ id)")
     ap.add_argument("--rank", action="store_true", help="เช็คอันดับ Google แทนการมอนิเตอร์ SoV")
     ap.add_argument("--health", action="store_true", help="ตรวจสุขภาพเว็บลูกค้า (แจ้งเตือนเมื่อเจอปัญหา)")
+    ap.add_argument("--uptime", action="store_true",
+                    help="เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม — แจ้งเตือนตอนล่ม/กลับมา (สำหรับ cron รายวัน)")
     args = ap.parse_args()
     db.init_db()
     brands = db.list_all_brands()
@@ -81,12 +89,14 @@ def main():
     if not targets:
         print("ไม่มีแบรนด์ที่ต้องรัน")
         return
-    if args.health:
+    if args.uptime:
+        print(f"uptime · เช็ค {len(targets)} แบรนด์")
+    elif args.health:
         print(f"health · ตรวจ {len(targets)} แบรนด์")
     else:
         backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
         print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
-    run_targets(targets, rank=args.rank, health=args.health)
+    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime)
 
 
 if __name__ == "__main__":
