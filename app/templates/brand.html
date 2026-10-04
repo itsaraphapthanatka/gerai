@@ -282,6 +282,11 @@
     <div class="qc-label">อันดับ Google</div>
     <div class="qc-count">{{ 'เช็ค ' ~ last_rank[:10] if last_rank else 'ยังไม่เคยเช็ค' }}</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/ai" class="quick-card">
+    <div class="qc-icon">🤖</div>
+    <div class="qc-label">มองเห็นบน AI</div>
+    <div class="qc-count">{{ 'ยังไม่เคยถาม' if not ai else (('ถูกพูดถึง ' ~ ai['rate'] ~ '%') if ai['asked'] else 'ยังไม่มีคีย์') }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
     <div class="qc-label">SoV Impact</div>

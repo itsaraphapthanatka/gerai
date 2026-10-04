@@ -51,9 +51,21 @@ def run_targets(targets, rank=False, health=False, uptime=False, ai=False):
                 s = run_ai_visibility(b["id"])
                 eng = ", ".join(f"{v['label']} {v['cited']}+{v['named']}/{v['asked']}"
                                 for v in s["by_engine"].values() if v["asked"])
-                line = (f"  [{b['id']}] {b['name']}: "
-                        + (f"ถูกพูดถึง {s['rate']}% ({eng})" if s["asked"]
-                           else "ข้ามทุกเจ้า — ยังไม่ได้ตั้งคีย์"))
+                # asked=0 ไม่ได้แปลว่าไม่มีคีย์เสมอไป — อาจมีคีย์แต่ยิงแล้วพังทุกครั้ง (เช่น 401)
+                # ถ้าเหมารวมว่า "ยังไม่ได้ตั้งคีย์" คนจะไปใส่คีย์ซ้ำทั้งที่ปัญหาคือคีย์ผิด
+                errs = {v["label"]: v["errors"] for v in s["by_engine"].values() if v["errors"]}
+                if s["asked"]:
+                    tail = f"ถูกพูดถึง {s['rate']}% ({eng})"
+                    if errs:
+                        tail += " · ผิดพลาด: " + ", ".join(f"{k} {n}" for k, n in errs.items())
+                elif errs:
+                    first = next((r["reason"] for r in s["rows"] if r["status"] == "error"), "")
+                    tail = ("ถามไม่สำเร็จ — " + ", ".join(f"{k} ผิดพลาด {n}" for k, n in errs.items())
+                            + (f" ({first[:70]})" if first else ""))
+                else:
+                    reasons = list(dict.fromkeys(r["reason"] for r in s["rows"] if r["reason"]))
+                    tail = "ข้ามทุกเจ้า — " + ("; ".join(reasons) if reasons else "ไม่มีคำถามเป้าหมาย")
+                line = f"  [{b['id']}] {b['name']}: {tail}"
             elif uptime:
                 from app.main import run_uptime_check
                 s = run_uptime_check(b["id"], notify_tenant=b["tenant_id"])

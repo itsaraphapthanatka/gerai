@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}การมองเห็นบน AI — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>การมองเห็นบน AI</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ถาม ChatGPT, Claude, Perplexity, Gemini ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม</p>
+
+{# ต่างจาก SoV: ตัวนั้นถาม search engine ว่าโดเมนโผล่ไหม ตัวนี้ถามผู้ช่วย AI ตรง ๆ
+   ซึ่งคือสิ่งที่ลูกค้าเข้าใจว่าซื้อ — ต้องบอกให้ชัดว่าเป็นคนละตัวเลขกัน #}
+{% if not available %}
+<div class="card" style="border-color:var(--amber,#e0a800)">
+  <b>⚠️ ยังไม่ได้ตั้งคีย์ของ AI เจ้าไหนเลย</b>
+  <p class="muted" style="margin:6px 0 0">
+    ทุกเจ้าจะถูก "ข้าม" จนกว่าจะใส่คีย์ — เริ่มที่เจ้าเดียวก่อนได้ (แนะนำ Perplexity ถูกสุดและค้นเว็บมาในตัว)
+    {%- if request.session.get('is_admin') %} ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}
+  </p>
+</div>
+{% else %}
+<p class="muted" style="font-size:12.5px">เจ้าที่พร้อม:
+  {% for e in available %}<span class="pill ok">{{ engines[e].label }}</span> {% endfor %}
+  {% for e, spec in engines.items() if e not in available %}<span class="pill" style="opacity:.55">{{ spec.label }} — ยังไม่มีคีย์</span> {% endfor %}
+</p>
+{% endif %}
+
+<form method="post" action="/brands/{{ brand['id'] }}/ai/run" style="margin:14px 0">
+  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ 'กำลังถาม…' if running else 'ถาม AI ตอนนี้' }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">ถามทุกเจ้าที่มีคีย์ × ทุกคำถามเป้าหมาย · มีค่าใช้จ่ายต่อคำถาม · ใช้เวลาหลายนาที</span>
+</form>
+
+{% if running and not report %}
+<div class="card"><p class="muted">กำลังถาม — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+{% elif not report %}
+<div class="card"><p class="muted">ยังไม่เคยถาม — กด "ถาม AI ตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+{% elif not report.asked %}
+{# แยก "ไม่มีคีย์" กับ "มีคีย์แต่พัง" — error ต้องขึ้นก่อน ไม่งั้นคนจะไปใส่คีย์ซ้ำทั้งที่คีย์ผิด #}
+{% set errs = report.rows | selectattr('status', 'equalto', 'error') | list %}
+<div class="card">
+  <p class="muted" style="margin:0">รอบล่าสุด {{ report.checked_at[:16].replace('T', ' ') }} ถามไม่ได้สักเจ้า</p>
+  {% if errs %}
+  <div class="err" style="margin-top:10px"><b>มีคีย์แต่เรียกไม่สำเร็จ</b> —
+    {% for e, v in report.by_engine.items() if v.errors %}{{ v.label }} ผิดพลาด {{ v.errors }}/{{ v.errors + v.asked }}{{ ', ' if not loop.last }}{% endfor %}
+    <div style="margin-top:6px;font-size:12.5px;opacity:.85">{{ errs[0].reason[:160] }}</div>
+  </div>
+  {% else %}
+  {# เหตุผลต่างกันได้ต่อเจ้า (ไม่ได้ตั้ง / placeholder ค้าง) — โชว์แค่แถวแรกจะกลบคำเตือนของเจ้าอื่น #}
+  <ul class="muted" style="margin:8px 0 0;padding-left:18px">
+    {% for reason in report.rows | map(attribute='reason') | unique %}<li>{{ reason }}</li>{% else %}<li>ไม่มีคำถามเป้าหมาย</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% else %}
+
+<div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <div style="text-align:center">
+    <div class="muted">ถูกพูดถึง</div>
+    <div class="sov {{ 'pos' if report.rate else 'no' }}">{{ report.rate }}%</div>
+    <div class="muted">ของคำถามที่ถามได้</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">ถูกอ้างอิง</div>
+    <div class="sov {{ 'pos' if report.cited else 'no' }}">{{ report.cited }}</div>
+    <div class="muted">ใช้เว็บเราเป็นแหล่ง</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">ถูกเอ่ยชื่อ</div>
+    <div class="sov {{ 'pos' if report.named else 'no' }}">{{ report.named }}</div>
+    <div class="muted">จาก {{ report.asked }} คำตอบ</div>
+  </div>
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">ถามล่าสุด</div>
+    <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
+  </div>
+</div>
+
+<h2>แยกตามเจ้า</h2>
+<div class="card">
+  <table>
+    <tr><th>AI</th><th>ถามได้</th><th>อ้างอิงเว็บเรา</th><th>เอ่ยชื่อ</th><th>หมายเหตุ</th></tr>
+    {% for e, v in report.by_engine.items() %}
+    <tr>
+      <td><b>{{ v.label }}</b></td>
+      <td>{{ v.asked }}</td>
+      <td>{% if v.cited %}<span class="pill ok">{{ v.cited }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+      <td>{% if v.named %}<span class="pill ok">{{ v.named }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+      <td class="muted" style="font-size:12px">
+        {%- if v.skipped %}ข้าม {{ v.skipped }} — ยังไม่มีคีย์{% endif %}
+        {%- if v.errors %} <span class="pill no">ผิดพลาด {{ v.errors }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<h2>รายคำถาม</h2>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr><th>คำถาม</th>{% for e, spec in engines.items() %}<th style="text-align:center">{{ spec.label }}</th>{% endfor %}</tr>
+    {% for m in matrix %}
+    <tr>
+      <td>{{ m.q }}</td>
+      {% for e in engines %}
+      {% set st = m.cells.get(e, 'skip') %}
+      <td style="text-align:center">
+        {%- if st == 'cited' %}<span class="pill ok">อ้างอิง</span>
+        {%- elif st == 'named' %}<span class="pill ok" style="opacity:.75">เอ่ยชื่อ</span>
+        {%- elif st == 'absent' %}<span class="pill no">ไม่พูดถึง</span>
+        {%- elif st == 'error' %}<span class="pill no">ผิดพลาด</span>
+        {%- else %}<span class="muted">ข้าม</span>{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+{% if rivals %}
+<h2>เว็บที่ AI อ้างอิงแทนเรา</h2>
+<div class="card">
+  <table>
+    <tr><th>โดเมน</th><th>ถูกอ้างกี่ครั้ง</th></tr>
+    {% for host, n in rivals %}
+    <tr><td><a class="link" href="https://{{ host }}" target="_blank" rel="noopener">{{ host }}</a></td><td>{{ n }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="muted" style="font-size:12px;margin:10px 0 0">นี่คือคู่แข่งที่ชนะคำถามเหล่านี้อยู่ตอนนี้ — ดูว่าเขาเขียนอะไรที่เราไม่มี</p>
+</div>
+{% endif %}
+
+<p class="muted" style="font-size:12px">
+  <b>อ้างอิง</b> = AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง) ·
+  <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น ·
+  ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI
+</p>
+{% endif %}
+{% endblock %}

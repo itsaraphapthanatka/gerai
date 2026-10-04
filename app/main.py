@@ -620,6 +620,7 @@ def brand_detail(request: Request, brand_id: int):
          "q_count": q_count, "error": None,
          "last_rank": db.last_rank_check(brand_id),
          "health": db.last_health_check(brand_id),
+         "ai": db.last_ai_visibility(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -1093,6 +1094,58 @@ def brand_health(request: Request, brand_id: int):
         "brand": brand, "report": report, "uptime": up, "report_stale": stale,
         "down_days": _days_since(up.get("since")) if up.get("up") is False else 0,
         "running": brand_id in _checking_brands or request.query_params.get("running"),
+    })
+
+
+# ---------- การมองเห็นบน AI (ถามผู้ช่วยจริง) ----------
+_ai_running: set = set()
+
+
+def _ai_worker(brand_id: int):
+    try:
+        run_ai_visibility(brand_id)
+    except Exception:
+        pass
+    finally:
+        _ai_running.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/ai/run")
+def run_brand_ai(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _ai_running:          # ทุกคำถามมีค่าใช้จ่าย — กันกดรัวซ้ำซ้อน
+        _ai_running.add(brand_id)
+        import threading
+        threading.Thread(target=_ai_worker, args=(brand_id,), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/ai?running=1")
+
+
+@app.get("/brands/{brand_id}/ai")
+def brand_ai(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    row = db.last_ai_visibility(brand_id)
+    report = json.loads(row["report"]) if row and row["report"] else None
+    matrix, rivals = [], []
+    if report:
+        from collections import Counter
+        # แถว = คำถาม (คงลำดับ) · คอลัมน์ = เจ้า — เรียงใน Python ให้ template เรียบ
+        order, cells = [], {}
+        for r in report["rows"]:
+            if r["question"] not in cells:
+                order.append(r["question"]); cells[r["question"]] = {}
+            cells[r["question"]][r["engine"]] = r["status"]
+        matrix = [{"q": qq, "cells": cells[qq]} for qq in order]
+        cnt = Counter(h for r in report["rows"] for h in (r.get("others") or []))
+        rivals = cnt.most_common(8)
+    return templates.TemplateResponse(request, "ai.html", {
+        "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
+        "engines": ai_visibility.ENGINES,
+        "available": ai_visibility.available_engines(),
+        "running": brand_id in _ai_running or request.query_params.get("running"),
     })
 
 
@@ -1705,6 +1758,10 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "serper_set": bool(db.get_setting("serper_key") or os.getenv("SERPER_API_KEY")),
         "brave_set": bool(db.get_setting("brave_key") or os.getenv("BRAVE_API_KEY")),
         "active_backend": geo_worker.active_backend(),
+        # คีย์ AI ผู้ช่วย (วัดการมองเห็นจริง) — บอกแค่ว่าตั้งแล้วหรือยัง ไม่ส่งค่าออกไปหน้าเว็บ
+        "ai_engines": ai_visibility.ENGINES,
+        "ai_set": {e: bool(db.get_setting(spec["db_key"]) or os.getenv(spec["env"]))
+                   for e, spec in ai_visibility.ENGINES.items()},
         "saved": saved, "error": error,
     }
 
@@ -1742,6 +1799,19 @@ def admin_settings_search(request: Request, search_backend: str = Form("ddgs"),
         db.set_setting("serper_key", serper_key.strip())
     if brave_key.strip():
         db.set_setting("brave_key", brave_key.strip())
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/ai")
+def admin_settings_ai(request: Request, ai_key_openai: str = Form(""), ai_key_anthropic: str = Form(""),
+                      ai_key_pplx: str = Form(""), ai_key_gemini: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    # เว้นว่าง = คงคีย์เดิม (ไม่ล้าง) — แบบเดียวกับ serper/brave
+    for k, v in (("ai_key_openai", ai_key_openai), ("ai_key_anthropic", ai_key_anthropic),
+                 ("ai_key_pplx", ai_key_pplx), ("ai_key_gemini", ai_key_gemini)):
+        if v.strip():
+            db.set_setting(k, v.strip())
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

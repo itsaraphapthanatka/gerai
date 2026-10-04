@@ -24,18 +24,54 @@ CITED, NAMED, ABSENT, SKIP, ERROR = "cited", "named", "absent", "skip", "error"
 
 TIMEOUT = int(os.getenv("GEO_AI_TIMEOUT", "90"))     # ค้นเว็บ+เรียบเรียง ใช้เวลาหลายสิบวินาที
 MAX_Q = int(os.getenv("GEO_AI_MAX_QUESTIONS", "8"))  # เพดานคำถามต่อรอบ — ทุกคำถามมีค่าใช้จ่าย
+MIN_KEY_LEN = 16                                      # สั้นกว่านี้ไม่ใช่คีย์จริงของเจ้าไหนเลย
 
 # แต่ละเจ้าใช้คีย์คนละตัว ไม่มีคีย์ = ข้าม ไม่ใช่ตก (แบบเดียวกับ Serper ใน site_health)
+# db_key = ชื่อใน settings ที่แอดมินวางคีย์ผ่านหน้าเว็บ · env = ทางเลือกใน .env
 ENGINES = {
-    "chatgpt":    {"label": "ChatGPT",    "env": "OPENAI_API_KEY"},
-    "claude":     {"label": "Claude",     "env": "ANTHROPIC_API_KEY"},
-    "perplexity": {"label": "Perplexity", "env": "PERPLEXITY_API_KEY"},
-    "gemini":     {"label": "Gemini",     "env": "GEMINI_API_KEY"},
+    "chatgpt":    {"label": "ChatGPT",    "db_key": "ai_key_openai",    "env": "OPENAI_API_KEY",
+                   "hint": "platform.openai.com"},
+    "claude":     {"label": "Claude",     "db_key": "ai_key_anthropic", "env": "ANTHROPIC_API_KEY",
+                   "hint": "console.anthropic.com"},
+    "perplexity": {"label": "Perplexity", "db_key": "ai_key_pplx",      "env": "PERPLEXITY_API_KEY",
+                   "hint": "perplexity.ai/settings/api"},
+    "gemini":     {"label": "Gemini",     "db_key": "ai_key_gemini",    "env": "GEMINI_API_KEY",
+                   "hint": "aistudio.google.com"},
 }
 
 
 def _key(engine: str):
-    return (os.getenv(ENGINES[engine]["env"]) or "").strip() or None
+    """DB settings ก่อน (แอดมินวางผ่านหน้าเว็บ) แล้วค่อย .env — ลำดับเดียวกับ geo_worker._cfg
+    เพื่อให้เปิดใช้ได้โดยไม่ต้องแตะเซิร์ฟเวอร์"""
+    spec = ENGINES[engine]
+    v = None
+    try:
+        from . import db
+        v = (db.get_setting(spec["db_key"]) or "").strip() or None
+    except Exception:
+        pass
+    v = v or (os.getenv(spec["env"]) or "").strip() or None
+    # คีย์จริงของทุกเจ้ายาวหลายสิบตัวอักษร ค่าสั้น ๆ คือ placeholder ที่ถูกวางค้างไว้
+    # (เกิดจริง: "..." จากคำสั่งตัวอย่างหลุดเข้า .env แล้วระบบยิง API จริง 48 ครั้งได้ 401 หมด)
+    # ถือว่าไม่มีคีย์ดีกว่ายิงทิ้ง — และบอกเหตุผลให้ชัดแทนที่จะเงียบ
+    if v and len(v) < MIN_KEY_LEN:
+        return None
+    return v
+
+
+def key_problem(engine: str) -> str:
+    """เหตุผลที่เจ้านี้ใช้ไม่ได้ — แยก "ไม่ได้ตั้ง" กับ "ตั้งแต่ใช้ไม่ได้" ให้คนอ่านรู้ว่าต้องทำอะไร"""
+    spec = ENGINES[engine]
+    raw = ""
+    try:
+        from . import db
+        raw = (db.get_setting(spec["db_key"]) or "").strip()
+    except Exception:
+        pass
+    raw = raw or (os.getenv(spec["env"]) or "").strip()
+    if raw and len(raw) < MIN_KEY_LEN:
+        return f"คีย์ {spec['env']} สั้นผิดปกติ ({len(raw)} ตัวอักษร) — น่าจะเป็น placeholder ค้างอยู่"
+    return f"ยังไม่ได้ตั้ง {spec['env']}"
 
 
 def available_engines() -> list[str]:
@@ -226,7 +262,7 @@ def ask(engine: str, question: str) -> dict:
     """
     if not _key(engine):
         return {"ok": False, "skip": True, "text": "", "citations": [],
-                "reason": f"ยังไม่ได้ตั้ง {ENGINES[engine]['env']}"}
+                "reason": key_problem(engine)}
     try:
         raw = CALLERS[engine](question)
         text, cites = PARSERS[engine](raw)

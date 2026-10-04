@@ -72,4 +72,22 @@
     3. เลือก "Serper" ด้านบน → วางคีย์ → บันทึก · เสร็จแล้วรันมอนิเตอร์ SoV จะใช้ผล Google จริง
   </div>
 </div>
+
+<div class="card">
+  <h2>คีย์ AI ผู้ช่วย — วัดการมองเห็นจริง</h2>
+  <p class="muted" style="margin:0 0 12px">
+    ใช้ถาม ChatGPT / Claude / Perplexity / Gemini ตรง ๆ ว่าแบรนด์ลูกค้าถูกเอ่ยถึงไหม (หน้า "มองเห็นบน AI" ของแต่ละแบรนด์)
+    ใส่เจ้าเดียวก่อนก็ได้ เจ้าที่ไม่มีคีย์จะถูกข้าม · <b>ทุกคำถามมีค่าใช้จ่าย</b> รอบเต็ม = จำนวนแบรนด์ × คำถาม × เจ้าที่เปิด
+  </p>
+  <form method="post" action="/admin/settings/ai">
+    {% for e, spec in ai_engines.items() %}
+    <label{% if not loop.first %} style="margin-top:12px"{% endif %}>{{ spec.label }} API key {% if ai_set[e] %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="{{ spec.db_key }}" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if ai_set[e] else 'วางคีย์จาก ' ~ spec.hint }}" autocomplete="off">
+    {% endfor %}
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.7">
+    แนะนำเริ่มที่ <b>Perplexity</b> — ค้นเว็บมาในตัว ราคาถูกสุด และใกล้พฤติกรรมคนหาของมากที่สุด · บันทึกแล้วไปที่แบรนด์ → "มองเห็นบน AI" → ถามแบรนด์เดียวก่อนเพื่อยืนยันว่าผลออกมาสมเหตุสมผล ก่อนปล่อยให้รันรายสัปดาห์
+  </div>
+</div>
 {% endblock %}
