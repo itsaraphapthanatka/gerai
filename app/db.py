@@ -73,6 +73,16 @@ def _tables() -> list[str]:
             n_warn INTEGER NOT NULL DEFAULT 0,
             report TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS ai_visibility (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            checked_at TEXT NOT NULL,
+            asked INTEGER NOT NULL DEFAULT 0,
+            cited INTEGER NOT NULL DEFAULT 0,
+            named INTEGER NOT NULL DEFAULT 0,
+            rate INTEGER,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -557,6 +567,25 @@ def add_health_check(brand_id: int, res: dict) -> None:
             (brand_id, res["checked_at"], 1 if res["ok"] else 0,
              res["n_fail"], res["n_warn"], _j.dumps(res, ensure_ascii=False)),
         )
+
+
+def add_ai_visibility(brand_id: int, res: dict) -> None:
+    import json as _j
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO ai_visibility(brand_id,checked_at,asked,cited,named,rate,report)"
+              " VALUES(?,?,?,?,?,?,?)"),
+            (brand_id, res["checked_at"], res["asked"], res["cited"], res["named"],
+             res["rate"], _j.dumps(res, ensure_ascii=False)),
+        )
+
+
+def last_ai_visibility(brand_id: int):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM ai_visibility WHERE brand_id=? ORDER BY checked_at DESC LIMIT 1"),
+            (brand_id,),
+        ).fetchone()
 
 
 def last_health_check(brand_id: int):

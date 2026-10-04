@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility
 
 
 def hash_pw(password: str) -> str:
@@ -984,6 +984,19 @@ def _health_worker(brand_id: int, tenant_id: int):
         pass
     finally:
         _checking_brands.discard(brand_id)
+
+
+def run_ai_visibility(brand_id: int) -> dict:
+    """ถาม AI ผู้ช่วยจริงว่าแบรนด์ถูกเอ่ยถึงไหม + เก็บผล
+
+    ยังไม่แจ้งเตือนโดยตั้งใจ — ตอนนี้แทบทุกแบรนด์ยังไม่ถูกเอ่ยถึงเลย ถ้าแจ้งทุกรอบ
+    จะกลายเป็นเสียงรบกวนที่ทุกคนเลิกอ่าน เหมือนที่กันไว้ในเช็ค uptime
+    ค่อยเพิ่มเมื่อมีฐานให้เทียบว่า "ตกลงจากเดิม" ได้
+    """
+    brand = db.get_brand(brand_id)
+    res = ai_visibility.check_brand(brand, db.list_questions(brand_id))
+    db.add_ai_visibility(brand_id, res)
+    return res
 
 
 UPTIME_REMIND_DAYS = 7    # ล่มค้างนานเท่านี้ เตือนซ้ำหนึ่งครั้ง กันเรื่องหล่นหาย

@@ -7,6 +7,7 @@
   python run_monitors.py --all --rank       # เช็คอันดับ Google (ไม่ใช่ SoV)
   python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า (เต็ม ใช้เวลานาน)
   python run_monitors.py --all --uptime     # เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม (cron รายวัน)
+  python run_monitors.py --all --ai         # ถาม AI จริง (ChatGPT/Claude/Perplexity/Gemini)
 """
 import os
 import sys
@@ -41,11 +42,19 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
-def run_targets(targets, rank=False, health=False, uptime=False):
+def run_targets(targets, rank=False, health=False, uptime=False, ai=False):
     out = []
     for b in targets:
         try:
-            if uptime:
+            if ai:
+                from app.main import run_ai_visibility
+                s = run_ai_visibility(b["id"])
+                eng = ", ".join(f"{v['label']} {v['cited']}+{v['named']}/{v['asked']}"
+                                for v in s["by_engine"].values() if v["asked"])
+                line = (f"  [{b['id']}] {b['name']}: "
+                        + (f"ถูกพูดถึง {s['rate']}% ({eng})" if s["asked"]
+                           else "ข้ามทุกเจ้า — ยังไม่ได้ตั้งคีย์"))
+            elif uptime:
                 from app.main import run_uptime_check
                 s = run_uptime_check(b["id"], notify_tenant=b["tenant_id"])
                 line = (f"  [{b['id']}] {b['name']}: "
@@ -80,6 +89,8 @@ def main():
     ap.add_argument("--brand", type=int, help="รันแบรนด์เดียว (ระบุ id)")
     ap.add_argument("--rank", action="store_true", help="เช็คอันดับ Google แทนการมอนิเตอร์ SoV")
     ap.add_argument("--health", action="store_true", help="ตรวจสุขภาพเว็บลูกค้า (แจ้งเตือนเมื่อเจอปัญหา)")
+    ap.add_argument("--ai", action="store_true",
+                    help="ถาม AI ผู้ช่วยจริงว่าแบรนด์ถูกเอ่ยถึงไหม (มีค่าใช้จ่ายต่อคำถาม)")
     ap.add_argument("--uptime", action="store_true",
                     help="เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม — แจ้งเตือนตอนล่ม/กลับมา (สำหรับ cron รายวัน)")
     args = ap.parse_args()
@@ -89,14 +100,19 @@ def main():
     if not targets:
         print("ไม่มีแบรนด์ที่ต้องรัน")
         return
-    if args.uptime:
+    if args.ai:
+        from app import ai_visibility
+        av = ai_visibility.available_engines()
+        print(f"ai · {len(targets)} แบรนด์ · เจ้าที่ตั้งคีย์แล้ว: "
+              + (", ".join(ai_visibility.ENGINES[e]["label"] for e in av) if av else "ยังไม่มีเลย"))
+    elif args.uptime:
         print(f"uptime · เช็ค {len(targets)} แบรนด์")
     elif args.health:
         print(f"health · ตรวจ {len(targets)} แบรนด์")
     else:
         backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
         print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
-    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime)
+    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime, ai=args.ai)
 
 
 if __name__ == "__main__":
