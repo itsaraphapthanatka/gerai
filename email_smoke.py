@@ -9,7 +9,8 @@ assert msg["To"] == "lukkha@example.com" and "JKP" in msg["Subject"] and "geo@ex
 parts = {p.get_content_type(): p for p in msg.walk()}
 assert "text/plain" in parts and "text/html" in parts and "application/pdf" in parts
 assert "บรรทัด 1\nบรรทัด 2" in parts["text/plain"].get_content() and parts["application/pdf"].get_filename() == "r.pdf"
-print("build_message: plain จาก html + html + แนบ PDF + From/Message-ID OK")
+assert msg["List-Unsubscribe"] == "<mailto:geo@example.com?subject=unsubscribe>"
+print("build_message: plain จาก html + html + แนบ PDF + From/Message-ID + List-Unsubscribe OK")
 
 d = datetime.datetime(2026, 1, 31, 7, 30)
 assert cp.next_run("weekly", d) == datetime.datetime(2026, 2, 7, 7, 30)
