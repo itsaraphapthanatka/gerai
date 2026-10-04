@@ -370,11 +370,16 @@ def sync_brand(site_url: str, pages: list, key: dict | None = None, today: datet
 
     # index รายหน้า
     for pg in pages[:MAX_INSPECT]:
-        try:
-            row = inspect(key, prop, pg["url"])
-        except Exception as e:
-            row = {"url": pg["url"], "group": ERROR, "state": _err(e), "verdict": "", "last_crawl": None,
-                   "google_canonical": None, "user_canonical": None, "indexing": "", "fetch": "", "robots": "", "link": None}
+        # URL Inspection ช้าเป็นบางครั้ง (petgo: 1 ใน 24 หน้า ReadTimeout) — ลองซ้ำหนึ่งครั้งก่อนบันทึกว่าตรวจไม่ได้
+        for attempt in (1, 2):
+            try:
+                row = inspect(key, prop, pg["url"])
+                break
+            except Exception as e:
+                if attempt == 1 and "Timeout" in type(e).__name__:
+                    continue
+                row = {"url": pg["url"], "group": ERROR, "state": _err(e), "verdict": "", "last_crawl": None,
+                       "google_canonical": None, "user_canonical": None, "indexing": "", "fetch": "", "robots": "", "link": None}
         row.update(title=pg.get("title") or "", clicks=None, impressions=None, position=None)
         rep["pages"].append(row)
     idx = rep["index"]

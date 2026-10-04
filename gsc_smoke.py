@@ -183,4 +183,20 @@ assert r6["pages"][0]["stale"] is True and r6["pages"][1]["stale"] is False and 
 hs6 = g.health_summary(r6)
 assert hs6["blocked"] == 1 and hs6["blocked_stale"] == 1, hs6
 print("sync_brand: แยก noindex ที่ Google จำของเก่า (แก้แล้ว) ออกจากที่ยังติดจริง OK")
+
+# Google ช้าครั้งเดียว → ลองซ้ำแล้วได้ผล · ช้าสองครั้ง → ตรวจไม่ได้ (ไม่ค้าง ไม่ล้มทั้งรอบ)
+import httpx
+flaky = {"n": 0}
+def flaky_inspect(key, prop, url):
+    flaky["n"] += 1
+    if flaky["n"] == 1: raise httpx.ReadTimeout("slow")
+    return {"url": url, **g.classify(res("PASS", "Submitted and indexed"))}
+g.inspect = flaky_inspect
+r7 = g.sync_brand(SITE, PAGES[:1], key=KEY, today=datetime.date(2026, 10, 4))
+assert flaky["n"] == 2 and r7["index"]["indexed"] == 1 and r7["index"]["error"] == 0, (flaky, r7["index"])
+def always_slow(key, prop, url): raise httpx.ReadTimeout("slow")
+g.inspect = always_slow
+r8 = g.sync_brand(SITE, PAGES[:1], key=KEY, today=datetime.date(2026, 10, 4))
+assert r8["index"]["error"] == 1 and "ReadTimeout" in r8["pages"][0]["state"], r8["pages"][0]["state"]
+print("sync_brand: timeout ครั้งเดียวลองซ้ำสำเร็จ · timeout ซ้ำบันทึกว่าตรวจไม่ได้ OK")
 print("ALL GSC TESTS OK")
