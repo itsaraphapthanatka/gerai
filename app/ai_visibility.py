@@ -40,10 +40,23 @@ ENGINES = {
 }
 
 
-def _key(engine: str):
+# OpenRouter: คีย์เดียวถึงทั้ง 4 เจ้า — ใช้ตัวค้นของเจ้าของโมเดล ("native search" ตามเอกสาร)
+# ไม่ใช่ตัวค้นของ OpenRouter เอง ราคา token เท่าซื้อตรง (+5.5% ตอนเติมเครดิต)
+# และส่ง usage.cost = เงินที่หักจริงกลับมา ซึ่งแม่นกว่าตารางราคาที่เราฝังไว้
+OPENROUTER = {"label": "OpenRouter", "db_key": "ai_key_openrouter", "env": "OPENROUTER_API_KEY",
+              "hint": "openrouter.ai/keys"}
+# slug บน OpenRouter — Gemini ต้องเป็น 3.x เพราะ 2.5 ไม่อยู่ในรายชื่อที่รองรับ native search
+OR_MODELS = {
+    "claude":     os.getenv("GEO_OR_MODEL_CLAUDE", "anthropic/claude-opus-5.5"),
+    "chatgpt":    os.getenv("GEO_OR_MODEL_OPENAI", "openai/gpt-5"),
+    "perplexity": os.getenv("GEO_OR_MODEL_PPLX", "perplexity/sonar"),
+    "gemini":     os.getenv("GEO_OR_MODEL_GEMINI", "google/gemini-3-flash"),
+}
+
+
+def _read_key(spec: dict):
     """DB settings ก่อน (แอดมินวางผ่านหน้าเว็บ) แล้วค่อย .env — ลำดับเดียวกับ geo_worker._cfg
     เพื่อให้เปิดใช้ได้โดยไม่ต้องแตะเซิร์ฟเวอร์"""
-    spec = ENGINES[engine]
     v = None
     try:
         from . import db
@@ -59,24 +72,48 @@ def _key(engine: str):
     return v
 
 
-def key_problem(engine: str) -> str:
-    """เหตุผลที่เจ้านี้ใช้ไม่ได้ — แยก "ไม่ได้ตั้ง" กับ "ตั้งแต่ใช้ไม่ได้" ให้คนอ่านรู้ว่าต้องทำอะไร"""
-    spec = ENGINES[engine]
+def _key(engine: str):
+    return _read_key(ENGINES[engine])
+
+
+def _or_key():
+    return _read_key(OPENROUTER)
+
+
+def route(engine: str):
+    """ทางที่จะใช้ถามเจ้านี้ — คีย์ตรงมาก่อน (ไม่มีค่าธรรมเนียม) ไม่มีค่อยไป OpenRouter
+    ไม่มีทั้งคู่ = None แล้ว ask() จะข้ามพร้อมเหตุผล"""
+    if _key(engine):
+        return "direct"
+    if _or_key():
+        return "openrouter"
+    return None
+
+
+def _raw_key(spec: dict) -> str:
     raw = ""
     try:
         from . import db
         raw = (db.get_setting(spec["db_key"]) or "").strip()
     except Exception:
         pass
-    raw = raw or (os.getenv(spec["env"]) or "").strip()
-    if raw and len(raw) < MIN_KEY_LEN:
-        return f"คีย์ {spec['env']} สั้นผิดปกติ ({len(raw)} ตัวอักษร) — น่าจะเป็น placeholder ค้างอยู่"
+    return raw or (os.getenv(spec["env"]) or "").strip()
+
+
+def key_problem(engine: str) -> str:
+    """เหตุผลที่เจ้านี้ใช้ไม่ได้ — แยก "ไม่ได้ตั้ง" กับ "ตั้งแต่ใช้ไม่ได้" ให้คนอ่านรู้ว่าต้องทำอะไร
+    ตรวจทั้งคีย์ตรงและ OpenRouter เพราะ placeholder ค้างได้ทั้งสองที่"""
+    spec = ENGINES[engine]
+    for sp in (spec, OPENROUTER):
+        raw = _raw_key(sp)
+        if raw and len(raw) < MIN_KEY_LEN:
+            return f"คีย์ {sp['env']} สั้นผิดปกติ ({len(raw)} ตัวอักษร) — น่าจะเป็น placeholder ค้างอยู่"
     return f"ยังไม่ได้ตั้ง {spec['env']}"
 
 
 def available_engines() -> list[str]:
-    """เจ้าที่ตั้งคีย์ไว้แล้ว — ที่เหลือจะถูกบันทึกเป็น skip พร้อมเหตุผล"""
-    return [e for e in ENGINES if _key(e)]
+    """เจ้าที่ถามได้ (คีย์ตรงหรือผ่าน OpenRouter) — ที่เหลือจะถูกบันทึกเป็น skip พร้อมเหตุผล"""
+    return [e for e in ENGINES if route(e)]
 
 
 # ---------- judge: ตัดสินจากคำตอบที่ได้มาแล้ว ----------
@@ -300,6 +337,7 @@ BASES = {
     "chatgpt":    os.getenv("GEO_AI_BASE_OPENAI", "https://api.openai.com"),
     "perplexity": os.getenv("GEO_AI_BASE_PPLX", "https://api.perplexity.ai"),
     "gemini":     os.getenv("GEO_AI_BASE_GEMINI", "https://generativelanguage.googleapis.com"),
+    "openrouter": os.getenv("GEO_AI_BASE_OPENROUTER", "https://openrouter.ai"),
 }
 
 
@@ -350,23 +388,76 @@ CALLERS = {"claude": call_claude, "chatgpt": call_openai,
            "perplexity": call_perplexity, "gemini": call_gemini}
 
 
+# ---------- OpenRouter: ทางเดียวถึงทั้ง 4 เจ้า ----------
+def call_openrouter(engine: str, question: str) -> dict:
+    return _post(
+        f"{BASES['openrouter']}/api/v1/chat/completions",
+        {"Authorization": f"Bearer {_or_key()}", "Content-Type": "application/json",
+         "HTTP-Referer": "https://geo.appreview.cloud", "X-Title": "GEO Platform"},
+        {"model": OR_MODELS[engine],
+         # engine ต้องเป็น native — ค่าตั้งต้น auto จะ fall back ไป Exa เงียบ ๆ ถ้าโมเดลไม่รองรับ
+         # ซึ่งจะทำให้เราวัด "โมเดล + ผลค้นของ Exa" แล้วรายงานเหมือนเป็นคำตอบของเจ้านั้นจริง
+         "tools": [{"type": "openrouter:web_search",
+                    "parameters": {"engine": "native", "max_results": 5}}],
+         "messages": [{"role": "user", "content": question}]})
+
+
+def parse_openrouter(resp: dict) -> tuple[str, list]:
+    """OpenRouter ทำให้ทุกเจ้าตอบรูปเดียวกัน (OpenAI chat) — ลิงก์อยู่ที่ message.annotations[].url_citation
+    จึงใช้ parser ตัวเดียวแทน 4 ตัวที่เขียนตามเอกสารของแต่ละเจ้า"""
+    text, urls = "", []
+    for ch in resp.get("choices") or []:
+        msg = ch.get("message") or {}
+        text = msg.get("content") or text
+        for a in msg.get("annotations") or []:
+            u = (a.get("url_citation") or {}).get("url")
+            if u:
+                urls.append(u)
+    urls += [u for u in (resp.get("citations") or []) if isinstance(u, str)]   # Perplexity ส่งเพิ่มตรงนี้
+    return text, _dedupe(urls)
+
+
+def usage_openrouter(resp: dict) -> dict:
+    u = resp.get("usage") or {}
+    out = {"in": _i(u.get("prompt_tokens")), "out": _i(u.get("completion_tokens")), "searches": 0}
+    # เงินที่หักจริง — ถ้ามีจะชนะตารางราคาใน estimate_cost (ดู ask)
+    try:
+        if u.get("cost") is not None:
+            out["cost_usd"] = float(u["cost"])
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
 def ask(engine: str, question: str) -> dict:
     """ถาม 1 เจ้า 1 คำถาม — คืน dict เดียวกันหมดไม่ว่าสำเร็จหรือพลาด
 
     ไม่โยน exception ออกไป เพราะรอบหนึ่งยิงหลายสิบครั้ง ถ้าเจ้าหนึ่งล่มแล้วทั้งรอบพัง
     เราจะเสียผลของเจ้าที่เหลือไปด้วยทั้งที่มันใช้ได้
     """
-    if not _key(engine):
+    via = route(engine)
+    if not via:
         return {"ok": False, "skip": True, "text": "", "citations": [],
-                "reason": key_problem(engine)}
+                "reason": key_problem(engine), "via": None}
     try:
-        raw = CALLERS[engine](question)
-        text, cites = PARSERS[engine](raw)
-        usage = USAGE[engine](raw)
+        if via == "openrouter":
+            raw = call_openrouter(engine, question)
+            text, cites = parse_openrouter(raw)
+            usage = usage_openrouter(raw)
+            model = OR_MODELS[engine]
+        else:
+            raw = CALLERS[engine](question)
+            text, cites = PARSERS[engine](raw)
+            usage = USAGE[engine](raw)
+            model = MODELS[engine]
+        # เงินที่ผู้ให้บริการบอกเอง (OpenRouter usage.cost) ชนะตารางราคาที่เราประเมิน
+        actual = usage.pop("cost_usd", None)
+        cost = actual if actual is not None else estimate_cost(engine, model, usage)
         return {"ok": True, "skip": False, "text": text, "citations": cites, "reason": "",
-                "usage": usage, "cost_usd": estimate_cost(engine, MODELS[engine], usage)}
+                "usage": usage, "cost_usd": cost, "via": via,
+                "cost_source": "billed" if actual is not None else "table"}
     except Exception as e:
-        return {"ok": False, "skip": False, "text": "", "citations": [],
+        return {"ok": False, "skip": False, "text": "", "citations": [], "via": via,
                 "reason": f"{type(e).__name__}: {str(e)[:120]}"}
 
 
@@ -395,7 +486,8 @@ def check_brand(brand, questions, aliases=()) -> dict:
                          # skip/error ไม่มี usage — บันทึก 0 (error ที่เรียกสำเร็จบางส่วนอาจถูกคิดเงิน
                          # แต่เราไม่มีตัวเลข จึงไม่เดา)
                          "usage": r.get("usage") or {"in": 0, "out": 0, "searches": 0},
-                         "cost_usd": r.get("cost_usd") or 0.0})
+                         "cost_usd": r.get("cost_usd") or 0.0,
+                         "via": r.get("via"), "cost_source": r.get("cost_source")})
     return summarize(rows, checked_at, apex)
 
 

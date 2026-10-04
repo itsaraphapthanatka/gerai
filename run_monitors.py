@@ -115,8 +115,9 @@ def main():
     if args.ai:
         from app import ai_visibility
         av = ai_visibility.available_engines()
-        print(f"ai · {len(targets)} แบรนด์ · เจ้าที่ตั้งคีย์แล้ว: "
-              + (", ".join(ai_visibility.ENGINES[e]["label"] for e in av) if av else "ยังไม่มีเลย"))
+        # บอกด้วยว่าไปทางไหน — คีย์ตรง หรือผ่าน OpenRouter — เพราะค่าใช้จ่ายและที่ต้องไปแก้ต่างกัน
+        lab = lambda e: ai_visibility.ENGINES[e]["label"] + (" (OpenRouter)" if ai_visibility.route(e) == "openrouter" else "")
+        print(f"ai · {len(targets)} แบรนด์ · เจ้าที่ถามได้: " + (", ".join(lab(e) for e in av) if av else "ยังไม่มีเลย"))
     elif args.uptime:
         print(f"uptime · เช็ค {len(targets)} แบรนด์")
     elif args.health:

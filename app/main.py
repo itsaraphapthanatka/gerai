@@ -1145,6 +1145,7 @@ def brand_ai(request: Request, brand_id: int):
         "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
         "engines": ai_visibility.ENGINES,
         "available": ai_visibility.available_engines(),
+        "routes": {e: ai_visibility.route(e) for e in ai_visibility.ENGINES},
         # เก็บเป็น USD (ค่าจริงจาก API) — บาทเป็นแค่การแสดงผล อัตราตั้งทับได้ด้วย GEO_FX_THB
         "cost_30d": db.ai_cost_30d(brand_id),
         "fx": float(os.getenv("GEO_FX_THB", "33.6")),
@@ -1765,6 +1766,9 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "ai_engines": ai_visibility.ENGINES,
         "ai_set": {e: bool(db.get_setting(spec["db_key"]) or os.getenv(spec["env"]))
                    for e, spec in ai_visibility.ENGINES.items()},
+        "openrouter": ai_visibility.OPENROUTER,
+        "or_set": bool(db.get_setting(ai_visibility.OPENROUTER["db_key"])
+                       or os.getenv(ai_visibility.OPENROUTER["env"])),
         "saved": saved, "error": error,
     }
 
@@ -1807,12 +1811,14 @@ def admin_settings_search(request: Request, search_backend: str = Form("ddgs"),
 
 @app.post("/admin/settings/ai")
 def admin_settings_ai(request: Request, ai_key_openai: str = Form(""), ai_key_anthropic: str = Form(""),
-                      ai_key_pplx: str = Form(""), ai_key_gemini: str = Form("")):
+                      ai_key_pplx: str = Form(""), ai_key_gemini: str = Form(""),
+                      ai_key_openrouter: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
     # เว้นว่าง = คงคีย์เดิม (ไม่ล้าง) — แบบเดียวกับ serper/brave
     for k, v in (("ai_key_openai", ai_key_openai), ("ai_key_anthropic", ai_key_anthropic),
-                 ("ai_key_pplx", ai_key_pplx), ("ai_key_gemini", ai_key_gemini)):
+                 ("ai_key_pplx", ai_key_pplx), ("ai_key_gemini", ai_key_gemini),
+                 ("ai_key_openrouter", ai_key_openrouter)):
         if v.strip():
             db.set_setting(k, v.strip())
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))

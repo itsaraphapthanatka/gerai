@@ -11,13 +11,13 @@
 <div class="card" style="border-color:var(--amber,#e0a800)">
   <b>⚠️ ยังไม่ได้ตั้งคีย์ของ AI เจ้าไหนเลย</b>
   <p class="muted" style="margin:6px 0 0">
-    ทุกเจ้าจะถูก "ข้าม" จนกว่าจะใส่คีย์ — เริ่มที่เจ้าเดียวก่อนได้ (แนะนำ Perplexity ถูกสุดและค้นเว็บมาในตัว)
+    ทุกเจ้าจะถูก "ข้าม" จนกว่าจะใส่คีย์ — ง่ายสุดคือคีย์ OpenRouter ตัวเดียวถึงทั้ง 4 เจ้า หรือจะใส่คีย์ตรงทีละเจ้าก็ได้
     {%- if request.session.get('is_admin') %} ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}
   </p>
 </div>
 {% else %}
 <p class="muted" style="font-size:12.5px">เจ้าที่พร้อม:
-  {% for e in available %}<span class="pill ok">{{ engines[e].label }}</span> {% endfor %}
+  {% for e in available %}<span class="pill ok">{{ engines[e].label }}{% if routes.get(e) == 'openrouter' %} · ผ่าน OpenRouter{% endif %}</span> {% endfor %}
   {% for e, spec in engines.items() if e not in available %}<span class="pill" style="opacity:.55">{{ spec.label }} — ยังไม่มีคีย์</span> {% endfor %}
 </p>
 {% endif %}
@@ -137,7 +137,7 @@
   <b>อ้างอิง</b> = AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง) ·
   <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น ·
   ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI ·
-  <b>ค่าใช้จ่าย</b>คำนวณจาก token/จำนวนค้นที่ API แต่ละเจ้าส่งกลับจริง × ราคาทางการ (USD) ส่วนบาทเป็นค่าประมาณที่อัตรา {{ fx }}
+  <b>ค่าใช้จ่าย</b> — ผ่าน OpenRouter ใช้เงินที่หักจริง (<code>usage.cost</code>) · คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {{ fx }}
 </p>
 {% endif %}
 {% endblock %}
