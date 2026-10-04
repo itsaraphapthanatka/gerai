@@ -275,6 +275,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "autopilot", "INTEGER DEFAULT 0")            # เปิด Autopilot รายสัปดาห์
         _ensure_column(c, "brands", "autopilot_mode", "TEXT DEFAULT 'draft'")    # draft | publish
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
+        _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -840,6 +841,19 @@ def clear_chat(brand_id: int) -> None:
 
 
 # ---- Google AI Overview / AI Mode ----
+def set_aiserp_auto(brand_id: int, on: bool) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET aiserp_auto=? WHERE id=?"), (1 if on else 0, brand_id))
+
+
+def aiserp_auto_brands():
+    """แบรนด์ที่เปิดเช็ค Google AI อัตโนมัติ พร้อมจำนวนคำถาม — ไว้ประเมินโควตา SerpApi ต่อรอบ"""
+    with get_conn() as c:
+        return c.execute(
+            "SELECT b.id, b.name, (SELECT COUNT(*) FROM target_questions t WHERE t.brand_id=b.id) AS n_questions "
+            "FROM brands b WHERE b.aiserp_auto=1 ORDER BY b.id").fetchall()
+
+
 def add_ai_serp(brand_id: int, res: dict) -> None:
     import json as _j
     bk = res.get("by_kind") or {}

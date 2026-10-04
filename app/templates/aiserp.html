@@ -14,6 +14,17 @@
 </div>
 {% endif %}
 
+{% if saved %}<div class="ok-banner">บันทึกแล้ว</div>{% endif %}
+{# เลือกเป็นรายแบรนด์ว่าจะให้ cron จันทร์ 10:30 เช็คให้ไหม — ทุกคำถามกินโควตา SerpApi แผนฟรีมีแค่ 100/เดือน #}
+<div class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13.5px">
+  <form method="post" action="/brands/{{ brand['id'] }}/ai-serp/auto" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0"><input type="checkbox" name="on" value="1" {% if brand['aiserp_auto'] %}checked{% endif %} onchange="this.form.submit()" style="width:auto"> เช็คอัตโนมัติทุกจันทร์ 10:30</label>
+  </form>
+  <span class="muted">แบรนด์นี้ ≈ <b>{{ est_round }} search/รอบ</b> ({{ 2 }} แบบ × สูงสุด {{ max_q }} คำถาม)</span>
+  <span class="muted" style="margin-left:auto">เปิดอยู่ {{ auto_brands|length }} แบรนด์ ≈ <b>{{ auto_month }} search/เดือน</b>
+    {%- if auto_month > 100 %} — เกินแผนฟรี SerpApi (100/เดือน) ต้องแผนเสียเงินหรือลดแบรนด์{% elif auto_brands %} — อยู่ในแผนฟรี{% endif %}</span>
+</div>
+
 <form method="post" action="/brands/{{ brand['id'] }}/ai-serp/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ 'กำลังเช็ค…' if running else 'เช็คตอนนี้' }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที</span>

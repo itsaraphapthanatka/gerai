@@ -107,6 +107,11 @@ def ask_mode(question: str) -> dict:
     return {**extract_mode(raw), "present": True, "searches": 1}
 
 
+def searches_per_round(n_questions: int) -> int:
+    """ประมาณโควตาต่อรอบ: 2 แบบ × คำถาม (ไม่เกิน MAX_Q) · AI Overview บางข้อใช้ 2 ถ้าต้องยิง token — ประเมินขั้นต่ำ"""
+    return 2 * min(int(n_questions or 0), MAX_Q)
+
+
 def _empty_kind(label: str) -> dict:
     return {"label": label, "asked": 0, "shown": 0, "cited": 0, "named": 0, "absent": 0, "none": 0, "errors": 0, "rate": 0}
 

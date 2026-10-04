@@ -169,9 +169,13 @@ def main():
     if args.autopilot and args.brand is None:
         brands = [b for b in brands if b["autopilot"]]       # เฉพาะแบรนด์ที่เปิด Autopilot
         args.all = True
+    if args.aiserp and args.brand is None:
+        brands = [b for b in brands if b["aiserp_auto"]]     # เฉพาะแบรนด์ที่เปิดเช็ค Google AI อัตโนมัติ (โควตา SerpApi)
+        args.all = True
     targets = select_targets(brands, all_=args.all, due=args.due, days=args.days, brand_id=args.brand)
     if not targets:
-        print("ไม่มีแบรนด์ที่ต้องรัน" + (" — ยังไม่มีแบรนด์ไหนเปิด Autopilot" if args.autopilot else ""))
+        print("ไม่มีแบรนด์ที่ต้องรัน" + (" — ยังไม่มีแบรนด์ไหนเปิด Autopilot" if args.autopilot else "")
+              + (" — ยังไม่มีแบรนด์ไหนเปิดเช็ค Google AI อัตโนมัติ (ติ๊กที่หน้า AI Overview ของแบรนด์)" if args.aiserp else ""))
         return
     if args.autopilot:
         from app.main import run_autopilot

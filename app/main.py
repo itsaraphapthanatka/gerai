@@ -1352,6 +1352,15 @@ def run_brand_ai_serp(request: Request, brand_id: int):
     return _redirect(f"/brands/{brand_id}/ai-serp?running=1")
 
 
+@app.post("/brands/{brand_id}/ai-serp/auto")
+def set_brand_ai_serp_auto(request: Request, brand_id: int, on: str = Form("")):
+    """เปิด/ปิดเช็ค Google AI อัตโนมัติรายแบรนด์ — ทุกคำถามกินโควตา SerpApi จึงไม่เปิดให้ทุกแบรนด์โดยอัตโนมัติ"""
+    if not _brand_for(request, brand_id):
+        return _redirect("/login")
+    db.set_aiserp_auto(brand_id, bool(on))
+    return _redirect(f"/brands/{brand_id}/ai-serp?saved=1")
+
+
 @app.get("/brands/{brand_id}/ai-serp")
 def brand_ai_serp(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)
@@ -1369,10 +1378,16 @@ def brand_ai_serp(request: Request, brand_id: int):
             cells[r["question"]][r["kind"]] = r
         matrix = [{"q": qq, "cells": cells[qq]} for qq in order]
         rivals = Counter(h for r in report["rows"] for h in (r.get("others") or [])).most_common(8)
+    auto_brands = db.aiserp_auto_brands()
     return templates.TemplateResponse(request, "aiserp.html", {
         "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
         "kinds": ai_serp.KINDS, "available": ai_serp.available(),
-        "running": brand_id in _aiserp_running,
+        "running": brand_id in _aiserp_running, "saved": request.query_params.get("saved"),
+        # โควตา: รอบนี้ของแบรนด์นี้ + รวมทุกแบรนด์ที่เปิด auto (×4 รอบ/เดือน) ให้ตัดสินใจเทียบแผน SerpApi ได้
+        "est_round": ai_serp.searches_per_round(len(db.list_questions(brand_id))),
+        "auto_brands": auto_brands,
+        "auto_month": 4 * sum(ai_serp.searches_per_round(b["n_questions"]) for b in auto_brands),
+        "max_q": ai_serp.MAX_Q,
     })
 
 
