@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}อีเมล — เจอ.AI{% endblock %}
+{% block content %}
+<h1>อีเมล</h1>
+<p class="muted">ส่งรายงาน/ข้อความให้ลูกค้าตามรอบ — ต่อแบรนด์ พร้อมตัวเลขจริงและ PDF แนบ · ใช้ SMTP ของคุณเอง (Gmail/Workspace ใช้ App Password)</p>
+
+{% if notice %}<div class="{{ 'ok-banner' if notice.ok else 'err' }}">{{ notice.msg }}</div>{% endif %}
+
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:320px;max-width:520px">
+    <h2 style="margin-top:0;font-size:17px">📮 เซิร์ฟเวอร์ส่งอีเมล (SMTP) {% if smtp.ready %}<span class="pill ok" style="font-size:9px">พร้อม</span>{% else %}<span class="pill no" style="font-size:9px">ยังไม่ตั้ง</span>{% endif %}</h2>
+    <form method="post" action="/admin/email/smtp">
+      <label>Host</label>
+      <input type="text" name="host" value="{{ smtp.smtp_host }}" placeholder="smtp.gmail.com" autocomplete="off">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label style="margin-top:12px">Port</label><input type="text" name="port" value="{{ smtp.smtp_port }}" placeholder="587" inputmode="numeric"></div>
+        <div style="flex:1"><label style="margin-top:12px">การเข้ารหัส</label>
+          <select name="tls" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;width:100%">
+            <option value="starttls" {% if smtp.smtp_tls in ('', 'starttls') %}selected{% endif %}>STARTTLS (587)</option>
+            <option value="ssl" {% if smtp.smtp_tls == 'ssl' %}selected{% endif %}>SSL (465)</option>
+            <option value="none" {% if smtp.smtp_tls == 'none' %}selected{% endif %}>ไม่เข้ารหัส (25)</option>
+          </select></div>
+      </div>
+      <label style="margin-top:12px">ชื่อผู้ใช้ (อีเมลล็อกอิน)</label>
+      <input type="text" name="user" value="{{ smtp.smtp_user }}" autocomplete="off">
+      <label style="margin-top:12px">รหัสผ่าน / App Password {% if smtp.pass_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+      <input type="password" name="password" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if smtp.pass_set else 'Gmail: สร้าง App Password ที่ myaccount.google.com/apppasswords' }}" autocomplete="new-password">
+      <label style="margin-top:12px">อีเมลผู้ส่ง (From)</label>
+      <input type="text" name="from_" value="{{ smtp.smtp_from }}" placeholder="report@yourdomain.com" autocomplete="off">
+      <label style="margin-top:12px">ชื่อผู้ส่ง</label>
+      <input type="text" name="from_name" value="{{ smtp.smtp_from_name or 'เจอ.AI' }}" autocomplete="off">
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button type="submit">บันทึก</button>
+        <button type="submit" formaction="/admin/email/test" class="btn" style="background:transparent;color:var(--ink);border:1px solid var(--border)" {{ 'disabled' if not smtp.ready }}>ส่งอีเมลทดสอบถึง {{ me_email }}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="flex:1;min-width:320px">
+    <h2 style="margin-top:0;font-size:17px">＋ สร้างแคมเปญ</h2>
+    <form method="post" action="/admin/email/campaigns">
+      <label>ชื่อแคมเปญ (ภายใน)</label>
+      <input type="text" name="name" value="รายงาน GEO รายเดือน" required>
+      <label style="margin-top:12px">หัวข้ออีเมล</label>
+      <input type="text" name="subject" value="{{ default_subject }}" required>
+      <label style="margin-top:12px">เนื้อความ (Markdown ใส่ตัวแปรได้)</label>
+      <textarea name="body_md" rows="12" required style="width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:inherit">{{ default_body }}</textarea>
+      <details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12px">ตัวแปรที่ใช้ได้</summary>
+        <div class="muted" style="font-size:11.5px;line-height:1.7;margin-top:4px">{% for k, v in placeholders.items() %}<code>{{ k }}</code> {{ v }}{{ ' · ' if not loop.last }}{% endfor %}</div></details>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <div style="flex:1;min-width:160px"><label>ส่งถึง</label>
+          <select name="audience" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;width:100%">
+            <option value="all">ทุกลูกค้า (ทุกแบรนด์)</option>
+            {% for t in tenants if not t['is_admin'] or t['brand_count'] %}<option value="tenant:{{ t['id'] }}">ลูกค้า: {{ t['name'] or t['email'] }} ({{ t['brand_count'] }} แบรนด์)</option>{% endfor %}
+            {% for b in brands %}<option value="brand:{{ b['id'] }}">แบรนด์: {{ b['name'] }}</option>{% endfor %}
+          </select></div>
+        <div style="flex:1;min-width:140px"><label>รอบ</label>
+          <select name="schedule" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;width:100%">
+            {% for k, v in schedules.items() %}<option value="{{ k }}" {% if k == 'monthly' %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select></div>
+        <div style="flex:1;min-width:180px"><label>ส่งครั้งแรก</label><input type="datetime-local" name="first_at" value="{{ default_first_at }}" required></div>
+      </div>
+      <label style="margin-top:12px;display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="attach_report" value="1" checked style="width:auto"> แนบรายงาน PDF ของแบรนด์</label>
+      <div style="margin-top:14px"><button type="submit">สร้างแคมเปญ</button></div>
+    </form>
+  </div>
+</div>
+
+<h2>แคมเปญ ({{ campaigns|length }})</h2>
+<div class="card">
+  {% if campaigns %}
+  <table>
+    <tr><th>ชื่อ</th><th>ส่งถึง</th><th>รอบ</th><th>ส่งครั้งถัดไป</th><th>ส่งล่าสุด</th><th>ส่งแล้ว</th><th>สถานะ</th><th></th></tr>
+    {% for c in campaigns %}
+    <tr>
+      <td><b>{{ c['name'] }}</b><div class="muted" style="font-size:11.5px">{{ c['subject'][:60] }}{% if c['attach_report'] %} · แนบ PDF{% endif %}</div></td>
+      <td>{{ labels[c['id']] }}</td>
+      <td>{{ schedules.get(c['schedule'], c['schedule']) }}</td>
+      <td class="muted" style="font-size:12.5px">{{ (c['next_at'] or '–')[:16].replace('T', ' ') }}</td>
+      <td class="muted" style="font-size:12.5px">{{ (c['last_sent_at'] or 'ยังไม่เคย')[:16].replace('T', ' ') }}</td>
+      <td>{{ c['sent_ok'] }}{% if c['sent_fail'] %} <span class="pill no">ล้ม {{ c['sent_fail'] }}</span>{% endif %}</td>
+      <td>{% if c['status'] == 'active' %}<span class="pill ok">ทำงาน</span>{% elif c['status'] == 'paused' %}<span class="pill">พัก</span>{% else %}<span class="muted">จบแล้ว</span>{% endif %}</td>
+      <td style="white-space:nowrap">
+        <form method="post" action="/admin/email/campaigns/{{ c['id'] }}/send" style="display:inline"><button type="submit" class="btn sm" {{ 'disabled' if not smtp.ready }}>ส่งตอนนี้</button></form>
+        {% if c['status'] == 'active' %}<form method="post" action="/admin/email/campaigns/{{ c['id'] }}/pause" style="display:inline"><button type="submit" class="btn sm" style="background:transparent;color:var(--ink);border:1px solid var(--border)">พัก</button></form>
+        {% elif c['status'] == 'paused' %}<form method="post" action="/admin/email/campaigns/{{ c['id'] }}/resume" style="display:inline"><button type="submit" class="btn sm" style="background:transparent;color:var(--ink);border:1px solid var(--border)">เปิด</button></form>{% endif %}
+        <form method="post" action="/admin/email/campaigns/{{ c['id'] }}/delete" style="display:inline"><button type="submit" class="danger btn sm">ลบ</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted" style="margin:0">ยังไม่มีแคมเปญ — สร้างจากฟอร์มด้านบน ค่าเริ่มต้นคือรายงานรายเดือนพร้อม PDF</p>{% endif %}
+</div>
+
+{% if log %}
+<h2>ประวัติการส่ง</h2>
+<div class="card">
+  <table>
+    <tr><th>เวลา</th><th>แคมเปญ</th><th>ถึง</th><th>แบรนด์</th><th>ผล</th></tr>
+    {% for l in log %}
+    <tr><td class="muted" style="font-size:12.5px">{{ l['sent_at'][:16].replace('T', ' ') }}</td><td>{{ l['campaign_name'] or '–' }}</td><td>{{ l['to_email'] }}</td><td>{{ l['brand_name'] or '–' }}</td>
+      <td>{% if l['ok'] %}<span class="pill ok">ส่งแล้ว</span>{% else %}<span class="pill no" title="{{ l['error'] }}">ล้ม</span> <span class="muted" style="font-size:11.5px">{{ (l['error'] or '')[:80] }}</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<p class="muted" style="font-size:12px">
+  แคมเปญส่งอัตโนมัติทุกเช้า 07:30 เมื่อถึงกำหนด · ส่ง "ต่อแบรนด์" (ลูกค้าที่มี 2 แบรนด์ได้ 2 ฉบับ) · ลูกค้าที่ไม่มีอีเมลในระบบจะถูกข้าม ·
+  Autopilot ของแบรนด์ส่งรายงานผ่าน SMTP ชุดนี้เช่นกัน · Gmail ส่งได้ ~500 ฉบับ/วัน ถ้ามากกว่านั้นใช้ SES/Mailgun
+</p>
+{% endblock %}

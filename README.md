@@ -67,6 +67,8 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 12. **รายงาน & ส่งออก** (`/brands/{id}/report`) → รวมทุกตัววัดเป็นหน้าเดียว + "สิ่งที่ควรทำต่อ" จากกฎง่าย ๆ · ดาวน์โหลด **PDF** (Gotenberg ใน compose service `pdf`, ฟอนต์ Sarabun จาก `deploy/fonts`) · **CSV** 7 ชนิด (คอนเทนต์/คำถาม/SoV/อันดับ/AI/Search Console/สุขภาพ) ใส่ BOM ให้ Excel อ่านไทยถูก
 13. **ถามข้อมูลแบรนด์** (`/brands/{id}/chat`) → แชตถามเป็นภาษาคน AI ตอบจาก digest ของตัวเลขจริง (ชุดเดียวกับรายงาน) ห้ามเดานอกข้อมูล · ใช้โมเดลเดียวกับที่เขียนคอนเทนต์ (`AI_API_KEY`)
 
+14. **อีเมลแคมเปญ** (`/admin/email`) → ตั้ง SMTP ของตัวเอง (Gmail App Password / SES / Mailgun) → สร้างแคมเปญ ครั้งเดียว/รายสัปดาห์/รายเดือน ส่งถึงทุกลูกค้า, ลูกค้ารายเดียว หรือแบรนด์เดียว · เนื้อความ Markdown ใส่ตัวแปรตัวเลขจริง (`{sov}` `{clicks}` `{next_steps}` …) · แนบ PDF รายงานได้ · log ทุกฉบับ · cron 07:30 ส่งที่ถึงกำหนด (`--email`)
+
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
   ```powershell
@@ -78,6 +80,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --all --health  # ตรวจสุขภาพเว็บ + แจ้งเตือน
   .\.venv\Scripts\python.exe run_monitors.py --all --speed   # สแกนความเร็ว PageSpeed
   .\.venv\Scripts\python.exe run_monitors.py --all --aiserp  # Google AI Overview / AI Mode (SerpApi)
+  .\.venv\Scripts\python.exe run_monitors.py --email         # ส่งอีเมลแคมเปญที่ถึงกำหนด
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง
 

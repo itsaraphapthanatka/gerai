@@ -15,7 +15,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns
+
+# ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
+BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
 
 
 def hash_pw(password: str) -> str:
@@ -2153,6 +2156,107 @@ def admin_settings_serp(request: Request, serpapi_key: str = Form(""), pagespeed
         if v.strip():                           # เว้นว่าง = คงคีย์เดิม
             db.set_setting(k, v.strip())
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+# ---------- อีเมล: SMTP + แคมเปญ ----------
+def _email_ctx(request: Request, notice=None):
+    import datetime as _dt
+    tenants = [dict(t) for t in db.list_all_tenants()]
+    brands = [dict(b) for b in db.list_all_brands()]
+    camps = db.list_campaigns()
+    me = db.get_tenant(_tid(request))
+    return {
+        "smtp": mailer.public_config(), "me_email": me["email"] if me else "",
+        "campaigns": camps, "labels": {c["id"]: campaigns.audience_label(c["audience"], tenants, brands) for c in camps},
+        "tenants": tenants, "brands": brands, "schedules": campaigns.SCHEDULES, "placeholders": campaigns.PLACEHOLDERS,
+        "default_subject": campaigns.DEFAULT_SUBJECT, "default_body": campaigns.DEFAULT_BODY,
+        "default_first_at": (_dt.datetime.now() + _dt.timedelta(days=1)).replace(hour=8, minute=0).strftime("%Y-%m-%dT%H:%M"),
+        "log": db.list_email_log(30), "notice": notice,
+    }
+
+
+@app.get("/admin/email")
+def admin_email(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request))
+
+
+@app.post("/admin/email/smtp")
+def admin_email_smtp(request: Request, host: str = Form(""), port: str = Form(""), user: str = Form(""), password: str = Form(""),
+                     from_: str = Form(""), from_name: str = Form(""), tls: str = Form("starttls")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    mailer.save_config(host, port, user, password, from_, from_name, tls)
+    return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request, {"ok": True, "msg": "บันทึก SMTP แล้ว — กด \"ส่งอีเมลทดสอบ\" เพื่อยืนยันว่าส่งออกได้จริง"}))
+
+
+@app.post("/admin/email/test")
+def admin_email_test(request: Request, host: str = Form(""), port: str = Form(""), user: str = Form(""), password: str = Form(""),
+                     from_: str = Form(""), from_name: str = Form(""), tls: str = Form("starttls")):
+    """บันทึกค่าที่กรอกไว้ก่อน แล้วส่งทดสอบถึงอีเมลของแอดมินที่ล็อกอิน — จะได้รู้ทันทีว่า host/port/รหัสถูก"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    mailer.save_config(host, port, user, password, from_, from_name, tls)
+    me = db.get_tenant(_tid(request))
+    try:
+        mailer.send(me["email"], "ทดสอบ SMTP จาก เจอ.AI",
+                    mailer.wrap_html("SMTP ใช้งานได้", "<p>ถ้าคุณได้รับอีเมลนี้ แปลว่าการตั้งค่า SMTP ถูกต้อง แคมเปญและ Autopilot จะส่งรายงานผ่านช่องทางนี้</p>",
+                                     f"ส่งจาก {BASE_URL}/admin/email"))
+        notice = {"ok": True, "msg": f"ส่งอีเมลทดสอบถึง {me['email']} แล้ว — เช็คกล่องจดหมาย (และ Spam) "}
+    except Exception as e:
+        notice = {"ok": False, "msg": f"ส่งไม่สำเร็จ: {type(e).__name__}: {str(e)[:200]}"}
+    return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request, notice))
+
+
+@app.post("/admin/email/campaigns")
+def admin_email_create(request: Request, name: str = Form(...), subject: str = Form(...), body_md: str = Form(...),
+                       audience: str = Form("all"), schedule: str = Form("monthly"), first_at: str = Form(""), attach_report: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    import datetime as _dt
+    try:
+        nxt = _dt.datetime.fromisoformat(first_at).isoformat(timespec="seconds")
+    except Exception:
+        nxt = (_dt.datetime.now() + _dt.timedelta(minutes=5)).isoformat(timespec="seconds")
+    if schedule not in campaigns.SCHEDULES:
+        schedule = "monthly"
+    db.create_campaign(name.strip()[:120], subject.strip()[:200], body_md.strip()[:8000], audience.strip()[:40], schedule, bool(attach_report), nxt)
+    return _redirect("/admin/email")
+
+
+@app.post("/admin/email/campaigns/{cid}/send")
+def admin_email_send_now(request: Request, cid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    camp = db.get_campaign(cid)
+    if not camp:
+        return _redirect("/admin/email")
+    res = campaigns.send_campaign(dict(camp), BASE_URL)
+    msg = f"ส่ง \"{res['campaign']}\" แล้ว {res['sent']}/{res['recipients']} ฉบับ" + (f" · ล้ม {res['failed']}: {'; '.join(res['errors'])}" if res["failed"] else "") \
+          + (f" · รอบถัดไป {res['next_at'].replace('T', ' ')}" if res.get("next_at") else " · แคมเปญครั้งเดียว — จบแล้ว")
+    return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request, {"ok": res["failed"] == 0, "msg": msg}))
+
+
+@app.post("/admin/email/campaigns/{cid}/pause")
+def admin_email_pause(request: Request, cid: int):
+    if _is_admin(request):
+        db.set_campaign_status(cid, "paused")
+    return _redirect("/admin/email")
+
+
+@app.post("/admin/email/campaigns/{cid}/resume")
+def admin_email_resume(request: Request, cid: int):
+    if _is_admin(request):
+        db.set_campaign_status(cid, "active")
+    return _redirect("/admin/email")
+
+
+@app.post("/admin/email/campaigns/{cid}/delete")
+def admin_email_delete(request: Request, cid: int):
+    if _is_admin(request):
+        db.delete_campaign(cid)
+    return _redirect("/admin/email")
 
 
 @app.get("/admin/contacts")

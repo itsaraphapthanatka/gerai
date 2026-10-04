@@ -121,6 +121,29 @@ def _tables() -> list[str]:
             content TEXT NOT NULL,
             created_at TEXT NOT NULL
         )""",
+        f"""CREATE TABLE IF NOT EXISTS email_campaigns (
+            id {_PK},
+            name TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body_md TEXT NOT NULL,
+            audience TEXT NOT NULL DEFAULT 'all',
+            schedule TEXT NOT NULL DEFAULT 'monthly',
+            attach_report INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'active',
+            next_at TEXT,
+            last_sent_at TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS email_log (
+            id {_PK},
+            campaign_id INTEGER REFERENCES email_campaigns(id) ON DELETE SET NULL,
+            tenant_id INTEGER,
+            to_email TEXT NOT NULL,
+            brand_id INTEGER,
+            sent_at TEXT NOT NULL,
+            ok INTEGER NOT NULL DEFAULT 0,
+            error TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -686,6 +709,64 @@ def pagespeed_history(brand_id: int, limit: int = 8):
             q("SELECT checked_at, perf_mobile, perf_desktop, seo_mobile FROM pagespeed_scans "
               "WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)
         ).fetchall()
+
+
+# ---- Email campaigns ----
+def create_campaign(name, subject, body_md, audience, schedule, attach_report, next_at) -> int:
+    with get_conn() as c:
+        cur = c.execute(
+            q("INSERT INTO email_campaigns(name,subject,body_md,audience,schedule,attach_report,status,next_at,created_at)"
+              " VALUES(?,?,?,?,?,?,'active',?,?) RETURNING id"),
+            (name, subject, body_md, audience, schedule, 1 if attach_report else 0, next_at, now()))
+        return cur.fetchone()["id"]
+
+
+def list_campaigns():
+    with get_conn() as c:
+        return c.execute(
+            "SELECT ec.*, (SELECT COUNT(*) FROM email_log l WHERE l.campaign_id=ec.id AND l.ok=1) AS sent_ok, "
+            "(SELECT COUNT(*) FROM email_log l WHERE l.campaign_id=ec.id AND l.ok=0) AS sent_fail "
+            "FROM email_campaigns ec ORDER BY ec.id DESC").fetchall()
+
+
+def get_campaign(cid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM email_campaigns WHERE id=?"), (cid,)).fetchone()
+
+
+def due_campaigns(now_iso: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM email_campaigns WHERE status='active' AND next_at IS NOT NULL AND next_at<=? ORDER BY id"),
+                         (now_iso,)).fetchall()
+
+
+def touch_campaign(cid: int, last_sent_at: str, next_at, status: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE email_campaigns SET last_sent_at=?, next_at=?, status=? WHERE id=?"), (last_sent_at, next_at, status, cid))
+
+
+def set_campaign_status(cid: int, status: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE email_campaigns SET status=? WHERE id=?"), (status, cid))
+
+
+def delete_campaign(cid: int) -> None:
+    with get_conn() as c:
+        c.execute(q("DELETE FROM email_campaigns WHERE id=?"), (cid,))
+
+
+def add_email_log(campaign_id, tenant_id, to_email, brand_id, ok: bool, error: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO email_log(campaign_id,tenant_id,to_email,brand_id,sent_at,ok,error) VALUES(?,?,?,?,?,?,?)"),
+                  (campaign_id, tenant_id, to_email, brand_id, now(), 1 if ok else 0, error or None))
+
+
+def list_email_log(limit: int = 30):
+    with get_conn() as c:
+        return c.execute(
+            "SELECT l.*, ec.name AS campaign_name, b.name AS brand_name FROM email_log l "
+            "LEFT JOIN email_campaigns ec ON ec.id=l.campaign_id LEFT JOIN brands b ON b.id=l.brand_id "
+            + q("ORDER BY l.id DESC LIMIT ?"), (limit,)).fetchall()
 
 
 # ---- Analytics chat ----

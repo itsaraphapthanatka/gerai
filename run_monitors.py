@@ -11,6 +11,7 @@
   python run_monitors.py --all --gsc        # ซิงค์ Google Search Console (index จริง + sitemap + คลิก) รันก่อน --health
   python run_monitors.py --all --speed      # สแกนความเร็วหน้าแรก (PageSpeed Insights) mobile + desktop
   python run_monitors.py --all --aiserp     # เช็ค Google AI Overview / AI Mode (SerpApi — ต้องมีคีย์)
+  python run_monitors.py --email            # ส่งอีเมลแคมเปญที่ถึงกำหนด (cron รายวัน — ไม่ขึ้นกับแบรนด์)
 """
 import os
 import sys
@@ -147,8 +148,21 @@ def main():
                     help="ซิงค์ Google Search Console — index จริงรายหน้า, ส่ง/เช็ค sitemap, คลิก 28 วัน (รันก่อน --health)")
     ap.add_argument("--speed", action="store_true", help="สแกนความเร็วหน้าแรกด้วย PageSpeed Insights (mobile + desktop)")
     ap.add_argument("--aiserp", action="store_true", help="เช็ค Google AI Overview / AI Mode ผ่าน SerpApi (ต้องมีคีย์)")
+    ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
     args = ap.parse_args()
     db.init_db()
+    if args.email:
+        # แคมเปญไม่ผูกกับแบรนด์ที่เลือก — ส่งทุกอันที่ถึงกำหนด แล้วจบ
+        from app import campaigns, mailer
+        if not mailer.config():
+            print("email · ยังไม่ได้ตั้งค่า SMTP (admin → อีเมล) — ข้าม")
+            return
+        res = campaigns.send_due(os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud"))
+        print(f"email · แคมเปญถึงกำหนด {len(res)} รายการ")
+        for r in res:
+            print(f"  {r['campaign']}: ส่ง {r['sent']}/{r['recipients']}" + (f" · ล้ม {r['failed']} ({'; '.join(r['errors'])})" if r["failed"] else "")
+                  + (f" · รอบถัดไป {r['next_at']}" if r.get("next_at") else " · จบ"))
+        return
     brands = db.list_all_brands()
     targets = select_targets(brands, all_=args.all, due=args.due, days=args.days, brand_id=args.brand)
     if not targets:

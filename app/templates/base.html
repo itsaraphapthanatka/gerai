@@ -184,6 +184,7 @@
     {% if request.session.get('is_admin') %}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> ผู้ดูแลระบบ</a>
     <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> ผู้ติดต่อ{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
+    <a href="/admin/email" class="{{ 'active' if _path.startswith('/admin/email') }}"><span class="icon">📧</span> อีเมล</a>
     <a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> ตั้งค่า</a>
     {% endif %}
 
