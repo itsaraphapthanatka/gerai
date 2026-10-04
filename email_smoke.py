@@ -40,7 +40,11 @@ assert [b["id"] for _, b in cp.recipients_of("tenant:1", tenants, brands)] == [1
 assert [(t["id"], b["id"]) for t, b in cp.recipients_of("brand:30", tenants, brands)] == [(3, 30)]
 assert cp.recipients_of("brand:20", tenants, brands) == []
 assert cp.audience_label("brand:30", tenants, brands) == "แบรนด์ C1" and cp.audience_label("tenant:1", tenants, brands) == "ลูกค้า A" and cp.audience_label("all", tenants, brands) == "ทุกลูกค้า"
-print("recipients_of: all/tenant/brand · ข้ามลูกค้าไม่มีอีเมล OK")
+tenants2 = tenants + [{"id": 9, "email": "admin@geo.local", "name": "P"}]
+brands2 = brands + [{"id": 90, "tenant_id": 9, "name": "P1"}]
+assert [b["id"] for _, b in cp.recipients_of("all", tenants2, brands2)] == [10, 11, 30]       # ที่อยู่สมมติถูกข้าม
+assert mail.is_deliverable("a@x.com") and not mail.is_deliverable("admin@geo.local") and not mail.is_deliverable("x@local.invalid") and not mail.is_deliverable("")
+print("recipients_of: all/tenant/brand · ข้ามลูกค้าไม่มีอีเมล/ที่อยู่สมมติ OK")
 print("ALL EMAIL TESTS OK")
 
 # พอร์ตกับโหมดเข้ารหัสไม่คู่กัน → ยึดตามพอร์ต (465 ต้อง SSL, 587 ต้อง STARTTLS)

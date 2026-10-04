@@ -86,7 +86,8 @@ def recipients_of(audience: str, tenants: list, brands: list) -> list:
         pairs = [(tmap.get(tid), b) for b in brands if b["tenant_id"] == tid]
     else:
         pairs = [(tmap.get(b["tenant_id"]), b) for b in brands]
-    return [(t, b) for t, b in pairs if t and (t.get("email") or "")]
+    from .mailer import is_deliverable
+    return [(t, b) for t, b in pairs if t and is_deliverable(t.get("email") or "")]
 
 
 def audience_label(audience: str, tenants: list, brands: list) -> str:

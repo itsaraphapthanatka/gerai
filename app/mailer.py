@@ -17,6 +17,15 @@ DEFAULT_PORT = {"starttls": 587, "ssl": 465, "none": 25}
 TIMEOUT = 30
 
 
+PLACEHOLDER_SUFFIXES = (".local", ".invalid", ".test", ".example", "@localhost", "@example.com")
+
+
+def is_deliverable(email: str) -> bool:
+    """ที่อยู่สมมติที่ติดมาตั้งแต่ตั้งระบบ (admin@geo.local ฯลฯ) ส่งไปแล้วเด้งเปล่า ๆ และทำชื่อเสียงโดเมนเสีย — ข้ามไว้ก่อน"""
+    e = (email or "").strip().lower()
+    return "@" in e and not e.endswith(PLACEHOLDER_SUFFIXES)
+
+
 def config() -> dict | None:
     """ค่าที่ใช้ส่งจริง (รหัสถอดแล้ว) — None = ยังตั้งไม่ครบ (host + from อย่างน้อย)"""
     from . import db, wp_client

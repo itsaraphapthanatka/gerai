@@ -1507,8 +1507,10 @@ def _autopilot_report(brand, log) -> str:
     """รายงานสรุป → อีเมลเจ้าของแบรนด์พร้อม PDF ถ้ามี SMTP · ไม่มีก็บอกว่าดูในระบบ"""
     tenant = db.get_tenant(brand["tenant_id"])
     rep = report.collect(brand["id"])
-    if not (mailer.config() and tenant and tenant["email"]):
+    if not mailer.config():
         return "ไม่มี SMTP — ดูรายงานได้ที่หน้า รายงาน & ส่งออก"
+    if not (tenant and mailer.is_deliverable(tenant["email"])):
+        return f"ไม่ได้ส่งอีเมล — อีเมลเจ้าของแบรนด์ ({tenant['email'] if tenant else '-'}) ยังเป็นที่อยู่สมมติ แก้ที่แผงผู้ดูแล → ลูกค้า"
     vals = campaigns.values_for(rep, tenant["name"] or "", BASE_URL)
     subject = campaigns.render_body("Autopilot รายสัปดาห์ — {brand}", vals)
     body_md = campaigns.render_body(campaigns.DEFAULT_BODY, vals)
