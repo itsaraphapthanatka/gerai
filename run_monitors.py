@@ -56,6 +56,11 @@ def run_targets(targets, rank=False, health=False, uptime=False, ai=False):
                 errs = {v["label"]: v["errors"] for v in s["by_engine"].values() if v["errors"]}
                 if s["asked"]:
                     tail = f"ถูกพูดถึง {s['rate']}% ({eng}) · ${s.get('cost_usd', 0):.3f}"
+                    # คำตอบที่ไม่ได้อิงการค้นเว็บไม่เข้าตัวหาร — บอกจำนวนไว้ให้รู้ว่า % มาจากกี่คำตอบ
+                    extra = [f"ไม่ได้ค้น {s['unsearched']}" if s.get("unsearched") else "",
+                             f"ไม่มีคำตอบ {s['no_answer']}" if s.get("no_answer") else ""]
+                    if any(extra):
+                        tail += " · " + ", ".join(x for x in extra if x)
                     if errs:
                         tail += " · ผิดพลาด: " + ", ".join(f"{k} {n}" for k, n in errs.items())
                 elif errs:

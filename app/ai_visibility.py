@@ -21,10 +21,22 @@ import datetime
 from .site_health import host_of   # ตัดโดเมนให้เหลือ host เปล่า ใช้ตัวเดียวกันทั้งระบบ
 
 CITED, NAMED, ABSENT, SKIP, ERROR = "cited", "named", "absent", "skip", "error"
+# สองสถานะนี้ "ไม่ใช่คำตอบที่วัดได้" จึงไม่เข้าตัวหาร — ถ้านับเป็น absent จะได้ 0% ปลอม
+UNSEARCHED = "unsearched"   # โมเดลตอบโดยไม่ค้นเว็บเลย (ถามกลับ/ตอบจากความจำ) — รอบแรกจริง 4 ใน 8 คำถามเป็นแบบนี้
+NO_ANSWER = "no_answer"     # ตอบว่างเปล่า เช่น reasoning กินโควตา output จนหมด (OpenAI status=incomplete)
 
 TIMEOUT = int(os.getenv("GEO_AI_TIMEOUT", "90"))     # ค้นเว็บ+เรียบเรียง ใช้เวลาหลายสิบวินาที
 MAX_Q = int(os.getenv("GEO_AI_MAX_QUESTIONS", "8"))  # เพดานคำถามต่อรอบ — ทุกคำถามมีค่าใช้จ่าย
 MIN_KEY_LEN = 16                                      # สั้นกว่านี้ไม่ใช่คีย์จริงของเจ้าไหนเลย
+
+# คำสั่งระบบเดียวกันทุกเจ้า — รอบแรกจริง gpt-5 "ถามกลับ" แทนที่จะแนะนำ 4 ใน 8 คำถาม ซึ่งวัดอะไรไม่ได้
+# สิ่งที่เราวัดคือ "พอมันแนะนำ มันแนะนำใคร" จึงบังคับให้แนะนำเป็นรายชื่อพร้อมแหล่งอ้างอิงเสมอ
+SYSTEM_PROMPT = ("คุณคือผู้ช่วยค้นหาสินค้า/บริการ ตอบทันทีเป็นรายชื่อผู้ให้บริการหรือเว็บไซต์ที่แนะนำ 3–5 ราย "
+                 "พร้อมลิงก์แหล่งอ้างอิงจากการค้นเว็บ กระชับ ห้ามถามกลับหรือขอข้อมูลเพิ่ม "
+                 "ถ้าคำถามกว้างให้เลือกตีความที่พบบ่อยที่สุดแล้วตอบเลย")
+MAX_OUT = int(os.getenv("GEO_AI_MAX_OUT", "3000"))              # เพดาน output ต่อคำตอบ — ลดค่าใช้จ่าย
+OPENAI_EFFORT = os.getenv("GEO_AI_OPENAI_EFFORT", "low")        # reasoning ของ gpt-5: low พอสำหรับงานแนะนำ
+SEARCH_CTX = os.getenv("GEO_AI_SEARCH_CTX", "low")              # ขนาดผลค้นที่ป้อนโมเดล (OpenAI) — low ถูกสุด
 
 # แต่ละเจ้าใช้คีย์คนละตัว ไม่มีคีย์ = ข้าม ไม่ใช่ตก (แบบเดียวกับ Serper ใน site_health)
 # db_key = ชื่อใน settings ที่แอดมินวางคีย์ผ่านหน้าเว็บ · env = ทางเลือกใน .env
@@ -222,10 +234,22 @@ def parse_gemini(resp: dict) -> tuple[str, list]:
             if part.get("text"):
                 text.append(part["text"])
         for chunk in (cand.get("groundingMetadata") or {}).get("groundingChunks") or []:
-            uri = (chunk.get("web") or {}).get("uri")
-            if uri:
+            web = chunk.get("web") or {}
+            uri, title = web.get("uri") or "", (web.get("title") or "").strip()
+            # uri ที่ได้จริงเป็น vertexaisearch.cloud.google.com/grounding-api-redirect/... ทุกอัน
+            # ถ้าใช้ตรง ๆ judge จะไม่มีวันเห็นว่าเว็บเราถูกอ้าง และคู่แข่งจะกลายเป็น "vertexaisearch" ตัวเดียว
+            # แต่ Google ใส่ชื่อโดเมนจริงไว้ใน title (เช่น "wha-logistics.com") จึงใช้แทน
+            if "grounding-api-redirect" in uri:
+                # redirect ที่ title ไม่บอกโดเมน = ไม่รู้ว่าเว็บไหน ทิ้งดีกว่าให้ vertexaisearch ไปโผล่เป็น "คู่แข่ง"
+                if _looks_like_domain(title):
+                    urls.append(f"https://{title}")
+            elif uri:
                 urls.append(uri)
     return "\n".join(text), _dedupe(urls)
+
+
+def _looks_like_domain(t: str) -> bool:
+    return bool(t) and " " not in t and "." in t and "/" not in t and len(t) <= 100
 
 
 PARSERS = {"claude": parse_claude, "chatgpt": parse_openai,
@@ -279,7 +303,9 @@ def usage_gemini(resp: dict) -> dict:
     u = resp.get("usageMetadata") or {}
     grounded = any(((c.get("groundingMetadata") or {}).get("groundingChunks"))
                    for c in (resp.get("candidates") or []))
-    return {"in": _i(u.get("promptTokenCount")), "out": _i(u.get("candidatesTokenCount")),
+    # thoughtsTokenCount คือ thinking ซึ่งถูกคิดเงินเป็น output — 3.8-flash ใช้มากกว่าคำตอบจริงเสียอีก
+    return {"in": _i(u.get("promptTokenCount")),
+            "out": _i(u.get("candidatesTokenCount")) + _i(u.get("thoughtsTokenCount")),
             "searches": 1 if grounded else 0}
 
 
@@ -307,6 +333,8 @@ _DEFAULT_PRICES = {
     },
     "gemini": {   # grounding ฟรี 1,500 ครั้ง/วันสำหรับ 2.5 (เราใช้ไม่ถึง 200/สัปดาห์) จึงคิด 0
         "gemini-2.5-flash": {"in": 0.30, "out": 2.50,  "search": 0.0},
+        # 3.8-flash: $0.75/$3.75 ถึง 31 ธ.ค. 2026 (รวม thinking) · grounding ฟรี 5,000 ครั้ง/เดือนสำหรับ 3.x
+        "gemini-3.8-flash": {"in": 0.75, "out": 3.75,  "search": 0.0},
         "gemini-2.5-pro":   {"in": 1.25, "out": 10.00, "search": 0.0},
     },
 }
@@ -345,7 +373,8 @@ MODELS = {
     "claude":     os.getenv("GEO_AI_MODEL_CLAUDE", "claude-opus-5-5"),
     "chatgpt":    os.getenv("GEO_AI_MODEL_OPENAI", "gpt-5"),
     "perplexity": os.getenv("GEO_AI_MODEL_PPLX", "sonar"),
-    "gemini":     os.getenv("GEO_AI_MODEL_GEMINI", "gemini-2.5-flash"),
+    # 2.5-flash ถูกปิดสำหรับคีย์ใหม่ (404 "no longer available to new users" 4 ต.ค. 2026) Google ชี้ให้ใช้ 3.8
+    "gemini":     os.getenv("GEO_AI_MODEL_GEMINI", "gemini-3.8-flash"),
 }
 
 
@@ -373,7 +402,7 @@ def call_claude(question: str) -> dict:
         f"{BASES['claude']}/v1/messages",
         {"x-api-key": _key("claude"), "anthropic-version": "2023-06-01",
          "content-type": "application/json"},
-        {"model": MODELS["claude"], "max_tokens": 2048,
+        {"model": MODELS["claude"], "max_tokens": MAX_OUT, "system": SYSTEM_PROMPT,
          # ต้องมี web search ไม่งั้นตอบจากความจำตอนเทรน ซึ่งไม่ใช่สิ่งที่เราวัด
          "tools": [{"type": "web_search_20260209", "name": "web_search"}],
          "messages": [{"role": "user", "content": question}]})
@@ -383,15 +412,20 @@ def call_openai(question: str) -> dict:
     return _post(
         f"{BASES['chatgpt']}/v1/responses",
         {"Authorization": f"Bearer {_key('chatgpt')}", "Content-Type": "application/json"},
-        {"model": MODELS["chatgpt"], "tools": [{"type": "web_search"}], "input": question})
+        {"model": MODELS["chatgpt"], "input": question, "instructions": SYSTEM_PROMPT,
+         # รอบแรกจริง: ไม่คุม effort → reasoning กิน output จนไม่มีคำตอบ (status=incomplete) และ
+         # ค้น 8 ครั้ง/คำถาม อ่าน 36K token ตก $0.16/คำถาม — low + context เล็กลงเหลือ ~$0.03 คำตอบครบ
+         "reasoning": {"effort": OPENAI_EFFORT}, "max_output_tokens": MAX_OUT,
+         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX}]})
 
 
 def call_perplexity(question: str) -> dict:
     return _post(
         f"{BASES['perplexity']}/chat/completions",
         {"Authorization": f"Bearer {_key('perplexity')}", "Content-Type": "application/json"},
-        {"model": MODELS["perplexity"],
-         "messages": [{"role": "user", "content": question}]})
+        {"model": MODELS["perplexity"], "max_tokens": MAX_OUT,
+         "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+                      {"role": "user", "content": question}]})
 
 
 def call_gemini(question: str) -> dict:
@@ -400,6 +434,8 @@ def call_gemini(question: str) -> dict:
         f"{MODELS['gemini']}:generateContent?key={_key('gemini')}",
         {"Content-Type": "application/json"},
         {"contents": [{"parts": [{"text": question}]}],
+         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+         "generationConfig": {"maxOutputTokens": MAX_OUT},
          "tools": [{"google_search": {}}]})
 
 
@@ -418,7 +454,9 @@ def call_openrouter(engine: str, question: str) -> dict:
          # ซึ่งจะทำให้เราวัด "โมเดล + ผลค้นของ Exa" แล้วรายงานเหมือนเป็นคำตอบของเจ้านั้นจริง
          "tools": [{"type": "openrouter:web_search",
                     "parameters": {"engine": "native", "max_results": 5}}],
-         "messages": [{"role": "user", "content": question}]})
+         "max_tokens": MAX_OUT,
+         "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+                      {"role": "user", "content": question}]})
 
 
 def parse_openrouter(resp: dict) -> tuple[str, list]:
@@ -496,6 +534,11 @@ def check_brand(brand, questions, aliases=()) -> dict:
                 v = {"status": SKIP, "cited": False, "named": False, "others": []}
             elif not r["ok"]:
                 v = {"status": ERROR, "cited": False, "named": False, "others": []}
+            elif not (r["text"] or "").strip():
+                v = {"status": NO_ANSWER, "cited": False, "named": False, "others": []}
+            elif not r["citations"] and (r.get("usage") or {}).get("searches", 0) == 0:
+                # ตอบแต่ไม่ได้ค้นเว็บ (ถามกลับ/ตอบจากความจำ) — ไม่ใช่คำตอบที่ grounded จึงไม่ตัดสิน
+                v = {"status": UNSEARCHED, "cited": False, "named": False, "others": []}
             else:
                 v = judge_mention(r["text"], r["citations"], apex, brand["name"], aliases)
             rows.append({"engine": e, "question_id": qq.get("id"), "question": text,
@@ -523,6 +566,8 @@ def summarize(rows: list, checked_at: str, apex: str = "") -> dict:
             "named": sum(1 for r in el if r["named"]),
             "skipped": sum(1 for r in er if r["status"] == SKIP),
             "errors": sum(1 for r in er if r["status"] == ERROR),
+            "unsearched": sum(1 for r in er if r["status"] == UNSEARCHED),
+            "no_answer": sum(1 for r in er if r["status"] == NO_ANSWER),
             "cost_usd": round(sum(r.get("cost_usd") or 0 for r in er), 4),
             "tokens_in": sum((r.get("usage") or {}).get("in", 0) for r in er),
             "tokens_out": sum((r.get("usage") or {}).get("out", 0) for r in er),
@@ -531,6 +576,8 @@ def summarize(rows: list, checked_at: str, apex: str = "") -> dict:
     return {
         "checked_at": checked_at, "apex": apex, "rows": rows, "by_engine": by_engine,
         "asked": len(live),
+        "unsearched": sum(1 for r in rows if r["status"] == UNSEARCHED),
+        "no_answer": sum(1 for r in rows if r["status"] == NO_ANSWER),
         "cited": sum(1 for r in live if r["cited"]),
         "named": sum(1 for r in live if r["named"]),
         # เอ่ยถึงกี่ % ของคำถามที่ถามได้จริง — ไม่หารด้วยคำถามที่ข้ามเพราะไม่มีคีย์

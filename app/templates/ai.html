@@ -91,6 +91,8 @@
       <td class="muted" style="font-size:12px">{% if v.asked %}${{ '%.3f' % (v.cost_usd or 0) }}<br>{{ "{:,}".format(v.tokens_in or 0) }}/{{ "{:,}".format(v.tokens_out or 0) }} tok{% else %}–{% endif %}</td>
       <td class="muted" style="font-size:12px">
         {%- if v.skipped %}ข้าม {{ v.skipped }} — ยังไม่มีคีย์{% endif %}
+        {%- if v.unsearched %} ไม่ได้ค้น {{ v.unsearched }}{% endif %}
+        {%- if v.no_answer %} ไม่มีคำตอบ {{ v.no_answer }}{% endif %}
         {%- if v.errors %} <span class="pill no">ผิดพลาด {{ v.errors }}</span>{% endif %}
       </td>
     </tr>
@@ -111,6 +113,8 @@
         {%- if st == 'cited' %}<span class="pill ok">อ้างอิง</span>
         {%- elif st == 'named' %}<span class="pill ok" style="opacity:.75">เอ่ยชื่อ</span>
         {%- elif st == 'absent' %}<span class="pill no">ไม่พูดถึง</span>
+        {%- elif st == 'unsearched' %}<span class="pill" title="ตอบโดยไม่ได้ค้นเว็บ (ถามกลับ/ตอบจากความจำ) — ไม่นับ">ไม่ได้ค้น</span>
+        {%- elif st == 'no_answer' %}<span class="pill" title="คำตอบว่าง (เช่น output เต็มก่อนตอบ) — ไม่นับ">ไม่มีคำตอบ</span>
         {%- elif st == 'error' %}<span class="pill no">ผิดพลาด</span>
         {%- else %}<span class="muted">ข้าม</span>{% endif %}
       </td>
@@ -136,6 +140,7 @@
 <p class="muted" style="font-size:12px">
   <b>อ้างอิง</b> = AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง) ·
   <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น ·
+  <b>ไม่ได้ค้น / ไม่มีคำตอบ</b> = AI ไม่ได้ให้คำตอบที่อิงการค้นเว็บ จึงไม่นับเข้า % (นับเป็น "ไม่พูดถึง" จะได้ 0% ปลอม) ·
   ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI ·
   <b>ค่าใช้จ่าย</b> — ผ่าน OpenRouter ใช้เงินที่หักจริง (<code>usage.cost</code>) · คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {{ fx }}
 </p>
