@@ -108,3 +108,32 @@ print("wp: ไม่มี WordPress → ไม่มีข้อ / ปลั๊
 s = sh.summarize(sh.judge_csr(sh.page_shape(HOP)) + sh.judge_connector(probes(), CONTENT, APEX) + sh.judge_wp(None))
 assert (s["n_fail"], s["n_ok"]) == (1, 1), s
 print("ALL HEALTH TESTS OK")
+
+# ---------- indexed จาก Search Console ----------
+def gs(**k):
+    base = {"synced_at": "2026-10-04T09:15:00", "age_days": 0, "total": 10, "inspected": 10,
+            "indexed": 0, "crawled": 0, "discovered": 0, "unknown": 0, "blocked": 0, "other": 0, "error": 0}
+    return {**base, **k}
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(indexed=10))[0]
+assert c["status"] == sh.OK and "10/10" in c["detail"] and "Search Console" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(unknown=7, crawled=3))[0]
+assert c["status"] == sh.FAIL and "0/10" in c["detail"] and "ยังไม่รู้จัก URL" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(unknown=10, sitemap_ok=True))[0]
+assert c["status"] == sh.FAIL and "ทั้งที่ sitemap ส่งแล้ว" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(indexed=3, crawled=7))[0]
+assert c["status"] == sh.WARN and "อ่านแล้วแต่เลือกไม่เก็บ" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(indexed=9, blocked=1))[0]
+assert c["status"] == sh.FAIL and "noindex" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(indexed=6, blocked=0, blocked_stale=4))[0]
+assert c["status"] == sh.OK and "เคยติด noindex" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 10, gsc=gs(indexed=8, other=2, age_days=20))[0]
+assert c["status"] == sh.OK and "20 วันก่อน" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 5, gsc=gs(total=5, inspected=0))[0]
+assert c["status"] == sh.WARN and "ตรวจรายหน้าไม่ได้" in c["detail"], c
+c = sh.judge_indexed(None, None, "", 0, gsc=gs(total=0, inspected=0))[0]
+assert c["status"] == sh.OK, c
+# ไม่มี Search Console → ทางเดิม (Serper) ยังทำงานเหมือนเดิม
+assert sh.judge_indexed(None, None, "", 3)[0]["status"] == sh.SKIP
+assert sh.judge_indexed(0, None, "", 3)[0]["status"] == sh.FAIL
+print("indexed: ใช้ Search Console (ครบ/0/บางส่วน/บล็อก/เก่า/ตรวจไม่ได้) + ทางเดิมยังอยู่ OK")
+print("ALL HEALTH TESTS OK (incl. gsc)")

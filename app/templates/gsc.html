@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Search Console — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>Google Search Console</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ข้อมูลจาก Google โดยตรง: หน้าคอนเทนต์หน้าไหนอยู่ใน index จริง sitemap ถูกรับไหม และคนค้นเจอเราด้วยคำว่าอะไร</p>
+
+{# ต่างจาก "อันดับ Google" ที่ยิง Serper: ตัวนี้คือสิ่งที่ Google บอกเองว่าเก็บหน้าไหนไว้และคนคลิกเท่าไร #}
+{% if not info %}
+<div class="card" style="border-color:var(--amber,#e0a800)">
+  <b>⚠️ ยังไม่ได้ตั้งบัญชีบริการ Google</b>
+  <p class="muted" style="margin:6px 0 0">ต้องมี service account JSON จาก Google Cloud ก่อน
+    {%- if request.session.get('is_admin') %} — ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}</p>
+</div>
+{% else %}
+<div class="card" style="font-size:13px">
+  บัญชีบริการ: <code>{{ info.email }}</code>
+  <div class="muted" style="margin-top:6px;font-size:12.5px;line-height:1.6">
+    เพิ่มอีเมลนี้เป็นผู้ใช้ใน Search Console ของ <b>{{ brand['domain'] }}</b> (การตั้งค่า → ผู้ใช้และสิทธิ์ → เพิ่มผู้ใช้ → สิทธิ์ <b>Full</b>) แล้วกดซิงค์ — Restricted ดูได้แต่ส่ง sitemap ไม่ได้
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="/brands/{{ brand['id'] }}/gsc/run" style="margin:14px 0">
+  <button class="btn" type="submit" {{ 'disabled' if running or not info }}>{{ 'กำลังซิงค์…' if running else 'ซิงค์ Search Console ตอนนี้' }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">ส่ง sitemap ให้ถ้ายังไม่ได้ส่ง · ตรวจ index รายหน้า · ดึงคลิก 28 วัน — ไม่มีค่าใช้จ่าย ใช้เวลาราวหนึ่งนาที</span>
+</form>
+
+{% if running and not report %}
+<div class="card"><p class="muted">กำลังซิงค์ — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+{% elif not report %}
+<div class="card"><p class="muted">ยังไม่เคยซิงค์ — กด "ซิงค์ Search Console ตอนนี้" เพื่อเริ่ม</p></div>
+{% elif not report.linked %}
+<div class="err">
+  <b>ยังเข้าถึง Search Console ของเว็บนี้ไม่ได้</b> — {{ report.reason }}
+  <div style="margin-top:8px;font-size:12.5px;opacity:.9;line-height:1.7">
+    property ที่ลองหา: {% for t in report.tried %}<code>{{ t }}</code>{{ ' · ' if not loop.last }}{% endfor %}
+    {% if report.email %}<br>ให้เจ้าของเว็บเพิ่ม <code>{{ report.email }}</code> เป็นผู้ใช้สิทธิ์ Full ใน property ใดก็ได้ข้างต้น แล้วกดซิงค์อีกครั้ง{% endif %}
+  </div>
+  <div class="muted" style="margin-top:8px;font-size:12px">ซิงค์ล่าสุด {{ report.synced_at[:16].replace('T', ' ') }}</div>
+</div>
+{% else %}
+{% set idx = report.index %}{% set an = report.analytics or {} %}{% set site = an.site or {'clicks': 0, 'impressions': 0, 'position': none} %}{% set sm = report.sitemap or {} %}
+
+<div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <div style="text-align:center">
+    <div class="muted">อยู่ใน index</div>
+    <div class="sov {{ 'pos' if idx.indexed else 'no' }}">{{ idx.indexed }}/{{ idx.inspected }}</div>
+    <div class="muted">หน้าคอนเทนต์</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">คลิกจาก Google</div>
+    <div class="sov {{ 'pos' if site.clicks else '' }}">{{ "{:,}".format(site.clicks or 0) }}</div>
+    <div class="muted">28 วัน ทั้งเว็บ · หน้าคอนเทนต์ {{ "{:,}".format((an.content or {}).get('clicks', 0)) }}</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">Impressions</div>
+    <div class="sov">{{ "{:,}".format(site.impressions or 0) }}</div>
+    <div class="muted">อันดับเฉลี่ย {{ site.position if site.position else '–' }}</div>
+  </div>
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">ซิงค์ล่าสุด</div>
+    <div>{{ report.synced_at[:16].replace('T', ' ') }}</div>
+    <div class="muted" style="font-size:12px"><code>{{ report.property }}</code> · สิทธิ์ {{ perm_label }} · ข้อมูล {{ an.start }} – {{ an.end }}</div>
+  </div>
+</div>
+
+<h2>Sitemap</h2>
+<div class="card" style="font-size:13.5px">
+  <code>{{ sm.url }}</code> —
+  {% if sm.submitted %}
+    <span class="pill ok">ส่งแล้ว</span>
+    {% if sm.just_submitted %} <span class="pill ok" style="opacity:.75">ระบบเพิ่งส่งให้รอบนี้</span>{% endif %}
+    {% if sm.re_submitted %} <span class="pill" title="{{ sm.note }}">ส่งซ้ำรอบนี้</span>{% endif %}
+    {% if sm.is_pending %} <span class="pill">Google ยังไม่ประมวลผล</span>{% endif %}
+    {% if sm.errors %} <span class="pill no">ผิดพลาด {{ sm.errors }}</span>{% endif %}
+    {% if sm.warnings %} <span class="pill">เตือน {{ sm.warnings }}</span>{% endif %}
+    <div class="muted" style="margin-top:6px;font-size:12.5px">
+      ส่งล่าสุด {{ (sm.last_submitted or '')[:10] or '–' }} · Google ดาวน์โหลดล่าสุด {{ (sm.last_downloaded or '')[:10] or 'ยังไม่เคย' }}{% if sm.n_urls %} · URL ใน sitemap {{ sm.n_urls }}{% endif %}
+      {% if sm.note %}<br>{{ sm.note }}{% endif %}
+    </div>
+  {% else %}
+    <span class="pill no">ยังไม่ได้ส่ง</span> <span class="muted" style="font-size:12.5px">{{ sm.note }}</span>
+  {% endif %}
+</div>
+
+<h2>หน้าคอนเทนต์รายหน้า</h2>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr><th>หน้า</th><th>สถานะใน Google</th><th>Google อ่านล่าสุด</th><th style="text-align:right">คลิก</th><th style="text-align:right">Impr.</th><th style="text-align:right">อันดับ</th></tr>
+    {% for p in report.pages %}
+    <tr>
+      <td>
+        <a class="link" href="{{ p.url }}" target="_blank" rel="noopener">{{ (p.title or p.url)[:70] }}</a>
+        {% if p.link %}<a class="muted" href="{{ p.link }}" target="_blank" rel="noopener" style="font-size:11px;margin-left:6px" title="เปิดใน Search Console">GSC ↗</a>{% endif %}
+      </td>
+      <td>
+        {%- if p.group == 'indexed' %}<span class="pill ok">{{ labels[p.group] }}</span>
+        {%- elif p.stale %}<span class="pill" title="Google รายงานจากครั้งที่อ่านล่าสุด — ตรวจสดแล้วหน้านี้ไม่มี noindex">เคยติด noindex · แก้แล้ว รอ Google อ่านใหม่</span>
+        {%- elif p.group in ('blocked', 'error') %}<span class="pill no">{{ labels[p.group] }}</span>
+        {%- else %}<span class="pill">{{ labels[p.group] }}</span>{% endif %}
+        {% if p.group in ('other', 'error', 'blocked') and p.state %}<div class="muted" style="font-size:11.5px;margin-top:3px">{{ p.state[:100] }}</div>{% endif %}
+        {% if p.group != 'indexed' and (p.in_sitemap or p.referrers) %}<div class="muted" style="font-size:11px;margin-top:2px">{{ 'อยู่ใน sitemap ที่ Google เห็น' if p.in_sitemap }}{{ ' · ' if p.in_sitemap and p.referrers }}{{ ('มีลิงก์ชี้มา ' ~ p.referrers) if p.referrers }}</div>{% endif %}
+      </td>
+      <td class="muted" style="font-size:12px">{{ (p.last_crawl or '')[:10] or '–' }}</td>
+      <td style="text-align:right">{{ p.clicks if p.clicks is not none else '–' }}</td>
+      <td style="text-align:right">{{ p.impressions if p.impressions is not none else '–' }}</td>
+      <td style="text-align:right">{{ p.position if p.position else '–' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">ยังไม่มีคอนเทนต์ที่เผยแพร่ให้ตรวจ</td></tr>
+    {% endfor %}
+  </table>
+  {% if idx.total > idx.inspected %}
+  <p class="muted" style="font-size:12px;margin:10px 0 0">ตรวจ {{ idx.inspected }} จาก {{ idx.total }} หน้า — จำกัดต่อรอบเพื่อรักษาโควตา URL Inspection (2,000 ครั้ง/วัน)</p>
+  {% endif %}
+</div>
+
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:300px">
+    <h2 style="margin-top:0;font-size:17px">คำค้นที่พาคนมาหน้าคอนเทนต์</h2>
+    {% if an.content_queries %}
+    <table>
+      <tr><th>คำค้น</th><th style="text-align:right">คลิก</th><th style="text-align:right">Impr.</th><th style="text-align:right">อันดับ</th></tr>
+      {% for r in an.content_queries %}
+      <tr><td>{{ r.query }}</td><td style="text-align:right">{{ r.clicks }}</td><td style="text-align:right">{{ r.impressions }}</td><td style="text-align:right">{{ r.position or '–' }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="muted" style="font-size:13px;margin:0">ยังไม่มีคำค้นที่นำคนมาหน้าคอนเทนต์ใน 28 วันนี้ — ปกติสำหรับหน้าที่ยังไม่อยู่ใน index</p>
+    {% endif %}
+  </div>
+  <div class="card" style="flex:1;min-width:300px">
+    <h2 style="margin-top:0;font-size:17px">คำค้นทั้งเว็บ (10 อันดับ)</h2>
+    {% if an.top_queries %}
+    <table>
+      <tr><th>คำค้น</th><th style="text-align:right">คลิก</th><th style="text-align:right">Impr.</th><th style="text-align:right">อันดับ</th></tr>
+      {% for r in an.top_queries %}
+      <tr><td>{{ r.query }}</td><td style="text-align:right">{{ r.clicks }}</td><td style="text-align:right">{{ r.impressions }}</td><td style="text-align:right">{{ r.position or '–' }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="muted" style="font-size:13px;margin:0">Google ยังไม่มีข้อมูลคำค้นของเว็บนี้ในช่วง 28 วัน</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if report.errors %}
+<div class="err" style="margin-top:14px">
+  <b>บางขั้นตอนทำไม่สำเร็จ</b>
+  <ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px">
+    {% for e in report.errors %}<li>{{ e.step }}: {{ e.msg }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<p class="muted" style="font-size:12px">
+  <b>อยู่ใน index</b> = Google เก็บหน้านี้แล้ว ค้นเจอได้ ·
+  <b>อ่านแล้ว ยังไม่เก็บ</b> = Google มาอ่านแล้วแต่เลือกไม่เก็บ มักเป็นเนื้อหาบาง/ซ้ำ ·
+  <b>เห็นแล้ว ยังไม่อ่าน</b> = รู้จาก sitemap แล้วแต่ยังไม่มา รอหรือเพิ่มลิงก์ภายใน ·
+  <b>ยังไม่รู้จัก</b> = ไม่เคยเห็น URL นี้เลย sitemap/ลิงก์ยังไปไม่ถึง ·
+  <b>เคยติด noindex</b> = Google จำสถานะจากครั้งที่อ่านล่าสุด ตรวจสดแล้วไม่มี noindex — รอรอบ crawl หรือกด "ขอให้จัดทำดัชนี" ใน Search Console ทีละ URL (API ทำแทนไม่ได้) ·
+  ข้อมูลคลิกช้ากว่าปัจจุบันราว 3 วัน · ผลข้อ "Google เก็บเข้า index แล้ว" ใน<a class="link" href="/brands/{{ brand['id'] }}/health">สุขภาพเว็บ</a>ใช้ตัวเลขชุดนี้เมื่อเชื่อมแล้ว
+</p>
+{% endif %}
+{% endblock %}

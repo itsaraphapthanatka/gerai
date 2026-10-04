@@ -50,10 +50,16 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
      · ลิงก์ตายใน llms.txt/sitemap · sitemap ข้ามโดเมน · **Google เก็บเข้า index แล้วหรือยัง** · ความสดของคอนเทนต์
      · **เนื้อหาอยู่ใน HTML ไม่ต้องรอ JS** (เว็บ React/Vite ที่ส่ง `<div id="root"></div>` เปล่า — บอท AI ไม่รัน JS เห็นเว็บว่าง)
      · **ตัวเชื่อมเป็น rewrite ไม่ใช่ redirect** (/geo · llms.txt · geo-sitemap.xml ต้องตอบ 200 บนโดเมนลูกค้า) · ปลั๊กอิน/REST WordPress ยังรับงาน
-   - เช็ค index ใช้ Serper (มีค่าใช้จ่าย ~2 credit/แบรนด์) — ไม่มีคีย์ก็ข้ามไป ไม่ทำให้ตก
+   - เช็ค index ใช้ผล Search Console จริงถ้าเชื่อมแล้ว (ข้อถัดไป) — ไม่งั้นเดาจาก site: ผ่าน Serper (~2 credit/แบรนด์) ไม่มีคีย์ก็ข้ามไป ไม่ทำให้ตก
    - ทุกข้อมาจากปัญหาที่เคยเกิดจริง — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex ไว้
    - SEO เป็น**เงื่อนไขตั้งต้น**ของ GEO: AI search ดึงจาก index ของ search engine อีกที หน้าที่ไม่ติด index/อันดับต่ำมากแทบไม่ถูกอ้างอิง → ดูคู่กับ SoV เพื่อแยกว่า "ไม่ติด Google" หรือ "คอนเทนต์ไม่ดี"
    - อันดับ **Google จริงต้องใช้ Serper** (ddgs/brave เป็น engine อื่น) — หน้าจะเตือนถ้ายังไม่ได้ตั้งคีย์
+
+9. **Google Search Console** (`/brands/{id}/gsc`) → ข้อมูลจาก Google โดยตรง ไม่ต้องเดา
+   - ตั้งบัญชีบริการ (service account JSON) ครั้งเดียวที่ `/admin/settings` แล้วให้ลูกค้าเพิ่มอีเมลของมันเป็นผู้ใช้สิทธิ์ **Full** ใน Search Console ของเว็บตัวเอง
+   - ต่อรอบซิงค์: **ส่ง geo-sitemap.xml ให้เอง**ถ้ายังไม่ได้ส่ง · ตรวจ index **รายหน้า** (URL Inspection: อยู่ใน index / อ่านแล้วไม่เก็บ / เห็นแล้วยังไม่อ่าน / ยังไม่รู้จัก / ถูกบล็อก) · คลิก-impressions-อันดับ 28 วัน ทั้งเว็บและรายหน้าคอนเทนต์ · คำค้นที่พาคนมาหน้าคอนเทนต์
+   - ไม่มีค่าใช้จ่าย · โควตา URL Inspection 2,000 ครั้ง/property/วัน (จำกัด 40 หน้า/รอบ ตั้งทับได้ด้วย `GEO_GSC_MAX_INSPECT`) · ข้อมูลคลิกช้ากว่าปัจจุบัน ~3 วัน
+   - คีย์เก็บเข้ารหัส (Fernet เดียวกับรหัส WordPress) หรือชี้ไฟล์ด้วย `GSC_SERVICE_ACCOUNT_FILE` ใน .env
 
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
@@ -62,6 +68,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --all            # รันทุกแบรนด์
   .\.venv\Scripts\python.exe run_monitors.py --brand 3        # แบรนด์เดียว
   .\.venv\Scripts\python.exe run_monitors.py --all --rank    # เช็คอันดับ Google (ไม่ใช่ SoV)
+  .\.venv\Scripts\python.exe run_monitors.py --all --gsc     # ซิงค์ Search Console (รันก่อน --health ให้ข้อ index ใช้ของจริง)
   .\.venv\Scripts\python.exe run_monitors.py --all --health  # ตรวจสุขภาพเว็บ + แจ้งเตือน
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง

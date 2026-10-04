@@ -287,6 +287,11 @@
     <div class="qc-label">มองเห็นบน AI</div>
     <div class="qc-count">{{ 'ยังไม่เคยถาม' if not ai else (('ถูกพูดถึง ' ~ ai['rate'] ~ '%') if ai['asked'] else 'ยังไม่มีคีย์') }}</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/gsc" class="quick-card">
+    <div class="qc-icon">📈</div>
+    <div class="qc-label">Search Console</div>
+    <div class="qc-count">{{ 'ยังไม่เคยซิงค์' if not gsc else (('index ' ~ gsc['indexed'] ~ '/' ~ gsc['total']) if gsc['linked'] else 'ยังไม่ได้เชื่อม') }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
     <div class="qc-label">SoV Impact</div>

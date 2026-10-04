@@ -83,6 +83,17 @@ def _tables() -> list[str]:
             rate INTEGER,
             report TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS gsc_snapshots (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            synced_at TEXT NOT NULL,
+            linked INTEGER NOT NULL DEFAULT 0,
+            indexed INTEGER NOT NULL DEFAULT 0,
+            total INTEGER NOT NULL DEFAULT 0,
+            clicks INTEGER NOT NULL DEFAULT 0,
+            impressions INTEGER NOT NULL DEFAULT 0,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -594,6 +605,30 @@ def last_ai_visibility(brand_id: int):
     with get_conn() as c:
         return c.execute(
             q("SELECT * FROM ai_visibility WHERE brand_id=? ORDER BY checked_at DESC LIMIT 1"),
+            (brand_id,),
+        ).fetchone()
+
+
+# ---- Google Search Console ----
+def add_gsc_snapshot(brand_id: int, res: dict) -> None:
+    """เก็บผลซิงค์ทั้งก้อน (JSON) + ตัวเลขหัว ๆ แยกคอลัมน์ให้หน้าแบรนด์อ่านได้โดยไม่ต้องแกะ JSON"""
+    import json as _j
+    idx, an = res.get("index") or {}, (res.get("analytics") or {}).get("site") or {}
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO gsc_snapshots(brand_id,synced_at,linked,indexed,total,clicks,impressions,report)"
+              " VALUES(?,?,?,?,?,?,?,?)"),
+            (brand_id, res["synced_at"], 1 if res.get("linked") else 0,
+             int(idx.get("indexed") or 0), int(idx.get("total") or 0),
+             int(an.get("clicks") or 0), int(an.get("impressions") or 0),
+             _j.dumps(res, ensure_ascii=False)),
+        )
+
+
+def last_gsc(brand_id: int):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM gsc_snapshots WHERE brand_id=? ORDER BY synced_at DESC LIMIT 1"),
             (brand_id,),
         ).fetchone()
 

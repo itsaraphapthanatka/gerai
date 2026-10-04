@@ -8,6 +8,7 @@
   python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า (เต็ม ใช้เวลานาน)
   python run_monitors.py --all --uptime     # เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม (cron รายวัน)
   python run_monitors.py --all --ai         # ถาม AI จริง (ChatGPT/Claude/Perplexity/Gemini)
+  python run_monitors.py --all --gsc        # ซิงค์ Google Search Console (index จริง + sitemap + คลิก) รันก่อน --health
 """
 import os
 import sys
@@ -42,11 +43,24 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
-def run_targets(targets, rank=False, health=False, uptime=False, ai=False):
+def run_targets(targets, rank=False, health=False, uptime=False, ai=False, gsc=False):
     out = []
     for b in targets:
         try:
-            if ai:
+            if gsc:
+                from app.main import run_gsc_sync
+                s = run_gsc_sync(b["id"])
+                if not s.get("linked"):
+                    tail = "ยังไม่ได้เชื่อม — " + (s.get("reason") or "เพิ่มบัญชีบริการเป็นผู้ใช้ใน Search Console")
+                else:
+                    idx, an = s["index"], s["analytics"]["site"]
+                    sm = s.get("sitemap") or {}
+                    tail = (f"{s['property']} · index {idx['indexed']}/{idx['total']}"
+                            f" · {an.get('clicks', 0):,} คลิก / {an.get('impressions', 0):,} impressions ใน 28 วัน"
+                            + (" · sitemap ส่งแล้ว" if sm.get("submitted") else " · sitemap ยังไม่ได้ส่ง")
+                            + (f" · ผิดพลาด {len(s['errors'])}" if s.get("errors") else ""))
+                line = f"  [{b['id']}] {b['name']}: {tail}"
+            elif ai:
                 from app.main import run_ai_visibility
                 s = run_ai_visibility(b["id"])
                 eng = ", ".join(f"{v['label']} {v['cited']}+{v['named']}/{v['asked']}"
@@ -110,6 +124,8 @@ def main():
                     help="ถาม AI ผู้ช่วยจริงว่าแบรนด์ถูกเอ่ยถึงไหม (มีค่าใช้จ่ายต่อคำถาม)")
     ap.add_argument("--uptime", action="store_true",
                     help="เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม — แจ้งเตือนตอนล่ม/กลับมา (สำหรับ cron รายวัน)")
+    ap.add_argument("--gsc", action="store_true",
+                    help="ซิงค์ Google Search Console — index จริงรายหน้า, ส่ง/เช็ค sitemap, คลิก 28 วัน (รันก่อน --health)")
     args = ap.parse_args()
     db.init_db()
     brands = db.list_all_brands()
@@ -117,7 +133,11 @@ def main():
     if not targets:
         print("ไม่มีแบรนด์ที่ต้องรัน")
         return
-    if args.ai:
+    if args.gsc:
+        from app import gsc
+        info = gsc.key_info()
+        print(f"gsc · {len(targets)} แบรนด์ · บัญชีบริการ: " + (info["email"] if info else "ยังไม่ได้ตั้ง (admin → ตั้งค่า → Search Console)"))
+    elif args.ai:
         from app import ai_visibility
         av = ai_visibility.available_engines()
         # บอกด้วยว่าไปทางไหน — คีย์ตรง หรือผ่าน OpenRouter — เพราะค่าใช้จ่ายและที่ต้องไปแก้ต่างกัน
@@ -130,7 +150,7 @@ def main():
     else:
         backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
         print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
-    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime, ai=args.ai)
+    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime, ai=args.ai, gsc=args.gsc)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 <h1>ตั้งค่า</h1>
 <p class="muted">บัญชีรับเงิน PromptPay — ใช้สร้าง QR ให้ลูกค้าสแกนจ่ายในหน้าอัปเกรดแผน/แพ็กเกจเสริม</p>
 
-{% if saved %}<div class="ok-banner">บันทึกบัญชีรับเงินแล้ว ✓ QR ของลูกค้าจะอัปเดตทันที</div>{% endif %}
+{% if saved %}<div class="ok-banner">บันทึกแล้ว ✓</div>{% endif %}
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
 <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
@@ -94,6 +94,35 @@
   </form>
   <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.7">
     ทางที่ง่ายสุดคือ <b>OpenRouter คีย์เดียว</b> แล้วค่อยเลือกเปิดเจ้าไหนทีหลัง · ถ้าจะซื้อตรง แนะนำเริ่มที่ <b>Gemini</b> (grounding ฟรี 1,500 ครั้ง/วัน) หรือ <b>Perplexity</b> (ค้นเว็บในตัว ถูก) · บันทึกแล้วไปที่แบรนด์ → "มองเห็นบน AI" → ถามแบรนด์เดียวก่อนเพื่อยืนยันว่าผลออกมาสมเหตุสมผล ก่อนปล่อยให้รันรายสัปดาห์
+  </div>
+</div>
+<div class="card">
+  <h2>Google Search Console — index จริง · ส่ง sitemap · คลิก</h2>
+  <p class="muted" style="margin:0 0 12px">
+    ใช้บัญชีบริการ (service account) ของ Google Cloud หนึ่งบัญชี แล้วให้ลูกค้าเพิ่มอีเมลของมันเป็นผู้ใช้ใน Search Console ของแต่ละเว็บ — ไม่ต้องขอรหัสผ่านใคร
+    ระบบจะส่ง geo-sitemap.xml ให้เอง ตรวจว่าหน้าคอนเทนต์อยู่ใน index จริงไหม และดึงคลิก 28 วัน (ไม่มีค่าใช้จ่าย)
+  </p>
+  {% if gsc_info %}
+  <div style="font-size:13px;margin-bottom:12px;line-height:1.7">
+    ตั้งแล้ว: <code>{{ gsc_info.email }}</code>
+    <span class="muted">(โปรเจกต์ {{ gsc_info.project or '—' }}{{ ' · จากไฟล์ที่ชี้ใน .env' if gsc_info.source == 'env' else '' }})</span>
+    {% if gsc_status %}<br><span class="pill {{ 'ok' if gsc_status.ok else 'no' }}">{{ 'ใช้งานได้' if gsc_status.ok else 'มีปัญหา' }}</span>
+    <span class="muted" style="font-size:12px">{{ gsc_status.msg }} · ทดสอบ {{ gsc_status.checked_at[:16].replace('T', ' ') }}</span>{% endif %}
+  </div>
+  {% endif %}
+  <form method="post" action="/admin/settings/gsc">
+    <label>Service account JSON {% if gsc_info %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <textarea name="gsc_json" rows="5" autocomplete="off" spellcheck="false"
+      placeholder="{{ 'ตั้งค่าแล้ว — วางไฟล์ใหม่เพื่อเปลี่ยน (เว้นว่าง = คงเดิม)' if gsc_info else 'วางเนื้อหาไฟล์ .json ที่ดาวน์โหลดจาก Google Cloud ทั้งไฟล์' }}"
+      style="width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:inherit"></textarea>
+    <div style="margin-top:12px"><button type="submit">บันทึกและทดสอบ</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.7">
+    <b>ทำครั้งเดียว:</b><br>
+    1. <code>console.cloud.google.com</code> → สร้างโปรเจกต์ → APIs &amp; Services → Library → เปิดใช้ <b>Google Search Console API</b><br>
+    2. IAM &amp; Admin → Service Accounts → Create → เสร็จแล้วแท็บ <b>Keys</b> → Add key → JSON → วางเนื้อหาไฟล์ที่นี่ แล้วกด "บันทึกและทดสอบ"<br>
+    3. ในแต่ละ Search Console ของลูกค้า: การตั้งค่า → ผู้ใช้และสิทธิ์ → เพิ่มอีเมลบัญชีบริการ สิทธิ์ <b>Full</b> (Restricted ส่ง sitemap ไม่ได้) → ไปที่แบรนด์ → "Search Console" → ซิงค์<br>
+    ไฟล์ JSON มี private key — ระบบเก็บแบบเข้ารหัสและไม่แสดงซ้ำ ถ้าคีย์หลุดให้ลบคีย์นั้นใน Google Cloud แล้วสร้างใหม่มาวางแทน
   </div>
 </div>
 <style>

@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc
 
 
 def hash_pw(password: str) -> str:
@@ -621,6 +621,7 @@ def brand_detail(request: Request, brand_id: int):
          "last_rank": db.last_rank_check(brand_id),
          "health": db.last_health_check(brand_id),
          "ai": db.last_ai_visibility(brand_id),
+         "gsc": db.last_gsc(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -978,11 +979,13 @@ def run_health_check(brand_id: int, notify_tenant: int | None = None) -> dict:
     brand = db.get_brand(brand_id)
     published = [c for c in db.list_content(brand_id) if c["status"] == "published"]
     conn = db.get_wp_connection(brand_id)
+    snap = db.last_gsc(brand_id)       # index จริงจาก Search Console ถ้าเคยซิงค์และเชื่อมได้ — แทนการเดาผ่าน Serper
     res = site_health.run_checks(
         geo_content._site_url(brand),
         last_published=db.last_published_at(brand_id),
         n_published=len(published),
         wp=_wp_probe(conn) if conn else None,
+        gsc=gsc.health_summary(json.loads(snap["report"])) if snap and snap["report"] else None,
     )
     db.add_health_check(brand_id, res)
     if notify_tenant and not res["ok"]:
@@ -1168,6 +1171,58 @@ def brand_ai(request: Request, brand_id: int):
         "cost_30d": db.ai_cost_30d(brand_id),
         "fx": float(os.getenv("GEO_FX_THB", "33.6")),
         "running": brand_id in _ai_running or request.query_params.get("running"),
+    })
+
+
+# ---------- Google Search Console ----------
+def run_gsc_sync(brand_id: int) -> dict:
+    """ซิงค์ Search Console ของแบรนด์ + เก็บผล — ส่ง sitemap ถ้ายังไม่ได้ส่ง ตรวจ index รายหน้า ดึงคลิก 28 วัน
+    ยังไม่แจ้งเตือน (เหมือน AI) — ค่อยเพิ่มเมื่อมีฐานให้เทียบว่า "ตกจากเดิม" ได้"""
+    brand = db.get_brand(brand_id)
+    pages = [{"title": it["title"], "url": geo_content.content_url(brand, it)}
+             for it in db.list_content(brand_id) if it["status"] == "published"]
+    res = gsc.sync_brand(geo_content._site_url(brand), pages)
+    db.add_gsc_snapshot(brand_id, res)
+    return res
+
+
+_gsc_running: set = set()
+
+
+def _gsc_worker(brand_id: int):
+    try:
+        run_gsc_sync(brand_id)
+    except Exception:
+        pass
+    finally:
+        _gsc_running.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/gsc/run")
+def run_brand_gsc(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _gsc_running:         # ตรวจรายหน้าหลายสิบครั้งต่อรอบ — กันกดรัว
+        _gsc_running.add(brand_id)
+        import threading
+        threading.Thread(target=_gsc_worker, args=(brand_id,), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/gsc?running=1")
+
+
+@app.get("/brands/{brand_id}/gsc")
+def brand_gsc(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    row = db.last_gsc(brand_id)
+    report = json.loads(row["report"]) if row and row["report"] else None
+    return templates.TemplateResponse(request, "gsc.html", {
+        "brand": brand, "report": report,
+        "info": gsc.key_info(),                     # อีเมลบัญชีบริการที่ลูกค้าต้องเอาไปเพิ่ม — ไม่มีส่วนลับ
+        "labels": gsc.GROUP_LABELS,
+        "perm_label": gsc.PERM_LABELS.get(report.get("permission"), report.get("permission")) if report else "",
+        "running": brand_id in _gsc_running or request.query_params.get("running"),
     })
 
 
@@ -1790,6 +1845,8 @@ def _settings_ctx(request: Request, saved=False, error=None):
         # รูปปิดกลางของคีย์ที่บันทึกไว้ (หัว 4 ท้าย 4) — ให้ยืนยันได้ว่าใส่ตัวไหน ไม่ส่งคีย์เต็มออกไป
         "ai_mask": {e: ai_visibility.stored_key_preview(spec) for e, spec in ai_visibility.ENGINES.items()},
         "or_mask": ai_visibility.stored_key_preview(ai_visibility.OPENROUTER),
+        # Search Console — โชว์แค่อีเมล/โปรเจกต์ของบัญชีบริการ + ผลทดสอบตอนบันทึก ไม่ส่ง JSON กลับหน้าเว็บ
+        "gsc_info": gsc.key_info(), "gsc_status": gsc.status(),
         "saved": saved, "error": error,
     }
 
@@ -1842,6 +1899,21 @@ def admin_settings_ai(request: Request, ai_key_openai: str = Form(""), ai_key_an
                  ("ai_key_openrouter", ai_key_openrouter)):
         if v.strip():
             db.set_setting(k, v.strip())
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/gsc")
+def admin_settings_gsc(request: Request, gsc_json: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not gsc_json.strip():
+        return templates.TemplateResponse(request, "admin_settings.html",
+            _settings_ctx(request, error="ยังไม่ได้วาง service account JSON"))
+    # ทดสอบจริงก่อนเก็บ (ขอ token + ดึง property) — คีย์ที่ใช้ไม่ได้จะไม่ทับของเดิม
+    r = gsc.save_key(gsc_json)
+    if not r["ok"]:
+        return templates.TemplateResponse(request, "admin_settings.html",
+            _settings_ctx(request, error="Search Console: " + r["msg"]))
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

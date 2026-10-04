@@ -11,6 +11,7 @@
   csr            เว็บ React/Vite ส่ง HTML เปล่า <div id="root"></div> → บอท AI ไม่รัน JS เห็นเว็บว่าง
   connector      ตั้ง redirect แทน rewrite → geo-sitemap.xml เด้งข้ามโดเมน Google ตีตก ทั้งที่เช็คเดิมผ่าน
   wp             ปลั๊กอิน/REST ของ WordPress ตาย → สั่งเผยแพร่แล้วไปไม่ถึงเว็บ กว่าจะรู้คอนเทนต์ค้างเป็นเดือน
+  indexed        เดิมเดาจาก site: ผ่าน Serper — ถ้าเชื่อม Search Console แล้วใช้ผล URL Inspection จริงแทน (gsc.py)
 
 ฟังก์ชัน judge_* รับข้อมูลที่ดึงมาแล้ว ไม่ยิงเน็ตเอง — เทสต์ได้โดยไม่ต้องมีเว็บจริง
 (ตัวตรวจที่ฟ้องผิดอันตรายกว่าไม่มีตัวตรวจ เพราะคนจะเลิกเชื่อแล้วเมินไฟแดงทั้งหมด)
@@ -231,12 +232,53 @@ def judge_orphan(reachable: int, total: int, pages_crawled: int) -> list:
     return [_c("orphan", "คอนเทนต์มีลิงก์จากเว็บ", OK, f"เข้าถึงได้ครบ {total} หน้า")]
 
 
-def judge_indexed(site_hits, page_hits, sample_url: str, n_published: int) -> list:
+def _index_advice(g: dict) -> str:
+    """คำแนะนำตามกลุ่มที่เป็นส่วนใหญ่ — แต่ละสถานะของ Google แก้คนละทาง"""
+    top = max(("unknown", "discovered", "crawled"), key=lambda k: g.get(k, 0))
+    if not g.get(top):
+        return ""
+    if top == "unknown" and g.get("sitemap_ok"):
+        return ("Google ยังไม่รู้จัก URL ส่วนใหญ่ทั้งที่ sitemap ส่งแล้ว — ต้องมีลิงก์ภายในจากหน้าที่ Google เข้าบ่อย "
+                "(หน้าแรก/เมนู) ชี้มาหน้ารวมคอนเทนต์ แล้วรอรอบ crawl")
+    return {
+        "unknown": "Google ยังไม่รู้จัก URL ส่วนใหญ่ — sitemap ต้องถูกส่งใน Search Console และต้องมีลิงก์ภายในชี้มาหน้ารวมคอนเทนต์",
+        "discovered": "Google เห็น URL จาก sitemap แล้วแต่ยังไม่มาอ่าน — เพิ่มลิงก์ภายในจากหน้าที่มีคนเข้า แล้วรอรอบ crawl",
+        "crawled": "Google อ่านแล้วแต่เลือกไม่เก็บ — มักเป็นเนื้อหาบาง/ซ้ำกับหน้าอื่น เสริมให้เฉพาะเจาะจงและเพิ่มลิงก์ภายใน",
+    }[top]
+
+
+def judge_indexed(site_hits, page_hits, sample_url: str, n_published: int, gsc: dict | None = None) -> list:
     """Google เก็บเว็บ/หน้า GEO เข้า index หรือยัง — hits=None แปลว่าเช็คไม่ได้
 
     เป็นเช็คที่สำคัญที่สุดแต่คนมองข้ามบ่อยสุด: เขียนคอนเทนต์ 17 ชิ้นแล้ว Google
     ไม่เคยเห็นสักหน้า การเพิ่มคอนเทนต์ตอนนั้นคือเพิ่มของที่มองไม่เห็นให้มากขึ้น
+
+    gsc = สรุปจาก Search Console (gsc.health_summary) ถ้ามี ใช้ของจริงแทนการเดาจาก site: ผ่าน Serper
+    ซึ่งทั้งเสียเครดิตและเชื่อได้ครึ่งเดียว (site: ไม่โชว์ทุกหน้าที่อยู่ใน index)
     """
+    label = "Google เก็บเข้า index แล้ว"
+    if gsc:
+        tot, idx = int(gsc.get("inspected") or 0), int(gsc.get("indexed") or 0)
+        when = f"Search Console {str(gsc.get('synced_at', ''))[:10]}" + (
+            f" ({gsc['age_days']} วันก่อน — กดซิงค์ใหม่)" if int(gsc.get("age_days") or 0) > 10 else "")
+        if not tot:
+            return [_c("indexed", label, WARN if n_published else OK,
+                       (f"มีคอนเทนต์ {n_published} ชิ้นแต่ตรวจรายหน้าไม่ได้สักหน้า — ดูข้อผิดพลาดในหน้า Search Console"
+                        if n_published else "ยังไม่มีคอนเทนต์ให้ตรวจ") + f" · {when}")]
+        names = (("crawled", "อ่านแล้วไม่เก็บ"), ("discovered", "เห็นแล้วยังไม่อ่าน"), ("unknown", "ยังไม่รู้จัก"),
+                 ("blocked", "ถูกบล็อก"), ("blocked_stale", "เคยติด noindex แก้แล้วรอ Google อ่านใหม่"),
+                 ("other", "อื่น ๆ"), ("error", "ตรวจไม่ได้"))
+        parts = ", ".join(f"{k} {gsc[g]}" for g, k in names if gsc.get(g))
+        detail = f"{idx}/{tot} หน้าคอนเทนต์อยู่ใน index" + (f" · {parts}" if parts else "") + f" · {when}"
+        if gsc.get("blocked"):
+            return [_c("indexed", label, FAIL, detail + f" — {gsc['blocked']} หน้าถูกบล็อกด้วย noindex/robots ต้องแก้ก่อน Google จึงจะเก็บ"
+                       " (รายชื่อในหน้า Search Console · โพสต์ WordPress มักมาจากการตั้งค่า SEO plugin ของโพสต์/หมวด)")]
+        advice = _index_advice(gsc)
+        if idx == 0:
+            return [_c("indexed", label, FAIL, detail + (" — " + advice if advice else ""))]
+        if idx * 2 < tot:
+            return [_c("indexed", label, WARN, detail + (" — " + advice if advice else ""))]
+        return [_c("indexed", label, OK, detail)]
     if site_hits is None:
         return [_c("indexed", "Google เก็บเข้า index แล้ว", SKIP,
                    "ต้องตั้ง Serper API key ถึงจะเช็คได้")]
@@ -422,9 +464,10 @@ def _client():
                         headers={"User-Agent": UA}, verify=True)
 
 
-def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None, wp=None) -> dict:
+def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None, wp=None, gsc=None) -> dict:
     """ตรวจเว็บ 1 แบรนด์ — คืน dict พร้อมเก็บลง DB / แสดงผล
-    wp = ผล ping WordPress ที่ main ยิงให้ (None = แบรนด์โหมด hosted ไม่มี WordPress)"""
+    wp  = ผล ping WordPress ที่ main ยิงให้ (None = แบรนด์โหมด hosted ไม่มี WordPress)
+    gsc = สรุป index จาก Search Console (gsc.health_summary) ถ้าเชื่อมแล้ว — ใช้แทน Serper"""
     import httpx
     today = today or datetime.date.today()
     apex = host_of(site_url)
@@ -516,12 +559,13 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
                 crawled += 1
     checks += judge_orphan(len(content & seen_links), len(content), crawled)
 
-    # index: ใช้ Serper (มีค่าใช้จ่าย) — ไม่มีคีย์ก็ข้าม ไม่ทำให้ตก
+    # index: มี Search Console ใช้ของจริง ไม่เปลืองเครดิต · ไม่มีก็เดาจาก site: ผ่าน Serper (มีค่าใช้จ่าย)
+    # · ไม่มีคีย์ก็ข้าม ไม่ทำให้ตก
     site_hits = page_hits = None
     sample = next((u for u in locs if u.rstrip("/") != base), "")
     try:
         from . import geo_worker
-        if geo_worker.rank_backend() == "serper":
+        if not gsc and geo_worker.rank_backend() == "serper":
             # site: ครอบ subdomain ด้วย — ต้องกรองให้เหลือเฉพาะโดเมนลูกค้า
             # ไม่งั้น geo.appreview.cloud (แพลตฟอร์มเราเอง) จะถูกนับเป็นเว็บลูกค้า
             hits = geo_worker._serper_search(f"site:{apex}", 10)
@@ -531,7 +575,7 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
                 page_hits = len([h for h in ph if (h.get("url") or "").rstrip("/") == sample.rstrip("/")])
     except Exception:
         site_hits = page_hits = None
-    checks += judge_indexed(site_hits, page_hits, sample, n_published)
+    checks += judge_indexed(site_hits, page_hits, sample, n_published, gsc=gsc)
 
     checks += judge_freshness(last_published, n_published, today)
 
