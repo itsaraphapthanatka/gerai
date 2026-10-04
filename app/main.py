@@ -324,7 +324,7 @@ def logout(request: Request):
 @app.get("/")
 def landing(request: Request):
     return templates.TemplateResponse(request, "landing.html",
-                                      {"plans": billing.PLANS, "addons": billing.ADDONS})
+                                      {"plans": billing.PLANS, "addons": billing.ADDONS, "ai_live": _ai_live()})
 
 
 @app.post("/api/contact")
@@ -1162,16 +1162,44 @@ def brand_ai(request: Request, brand_id: int):
         matrix = [{"q": qq, "cells": cells[qq], "links": links[qq]} for qq in order]
         cnt = Counter(h for r in report["rows"] for h in (r.get("others") or []))
         rivals = cnt.most_common(8)
+    available = ai_visibility.available_engines()
+    # คอลัมน์/แถวของเจ้าที่ไม่มีคีย์และไม่เคยมีข้อมูลในรายงานนี้ เป็นแค่ช่อง "ข้าม" เต็มหน้า — เอาออก
+    # แล้วบอกเป็นบรรทัดเดียวว่าเจ้าไหนยังไม่ได้ถาม (เจ้าที่เคยถามได้/เคยพังในรายงานยังโชว์ เพื่อให้เห็นประวัติ)
+    by = (report or {}).get("by_engine") or {}
+    shown = {e: spec for e, spec in ai_visibility.ENGINES.items()
+             if e in available or (by.get(e) or {}).get("asked") or (by.get(e) or {}).get("errors")}
     return templates.TemplateResponse(request, "ai.html", {
         "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
-        "engines": ai_visibility.ENGINES,
-        "available": ai_visibility.available_engines(),
+        "engines": shown,
+        "hidden": [spec["label"] for e, spec in ai_visibility.ENGINES.items() if e not in shown],
+        "ai_live": _ai_live(fresh=True),
+        "available": available,
         "routes": {e: ai_visibility.route(e) for e in ai_visibility.ENGINES},
         # เก็บเป็น USD (ค่าจริงจาก API) — บาทเป็นแค่การแสดงผล อัตราตั้งทับได้ด้วย GEO_FX_THB
         "cost_30d": db.ai_cost_30d(brand_id),
         "fx": float(os.getenv("GEO_FX_THB", "33.6")),
         "running": brand_id in _ai_running or request.query_params.get("running"),
     })
+
+
+_AI_LIVE: dict = {"ts": 0.0, "val": None}
+
+
+def _ai_live(fresh: bool = False) -> dict:
+    """เจ้า AI ที่ถามได้จริงตอนนี้ (มีคีย์) — ข้อความโฆษณาและหัวหน้าใช้ชุดนี้ ไม่ใช่รายชื่อเต็ม 4 เจ้า
+    เคยโฆษณา "ChatGPT, Claude, Perplexity" และ "4+ AI engines" ทั้งที่ไม่มีคีย์ Claude — ของที่วัดไม่ได้
+    ต้องไม่อยู่ในหน้าขาย · landing เป็นสาธารณะ จึงแคช 5 นาที ไม่ให้ทุก hit ไปอ่าน settings"""
+    import time
+    if fresh or _AI_LIVE["val"] is None or time.time() - _AI_LIVE["ts"] > 300:
+        keys = ai_visibility.available_engines()
+        labels = [ai_visibility.ENGINES[e]["label"] for e in keys]
+        _AI_LIVE.update(ts=time.time(), val={
+            "keys": keys, "labels": labels, "n": len(labels),
+            "text": ", ".join(labels) if labels else "ผู้ช่วย AI",     # "ChatGPT, Perplexity, Gemini"
+            "short": "/".join(labels),                                  # "ChatGPT/Perplexity/Gemini"
+            "missing": [spec["label"] for e, spec in ai_visibility.ENGINES.items() if e not in keys],
+        })
+    return _AI_LIVE["val"]
 
 
 # ---------- Google Search Console ----------
@@ -1899,6 +1927,7 @@ def admin_settings_ai(request: Request, ai_key_openai: str = Form(""), ai_key_an
                  ("ai_key_openrouter", ai_key_openrouter)):
         if v.strip():
             db.set_setting(k, v.strip())
+    _AI_LIVE["ts"] = 0.0          # ข้อความโฆษณาบน landing อ้างอิงเจ้าที่มีคีย์ — ให้สะท้อนคีย์ใหม่ทันที
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

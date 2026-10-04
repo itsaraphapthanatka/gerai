@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>เจอ.AI — ให้แบรนด์คุณโผล่ในคำตอบ AI (GEO Platform)</title>
-<meta name="description" content="เจอ.AI วัดว่าแบรนด์คุณปรากฏในคำตอบของ ChatGPT, Claude, Perplexity แค่ไหน หา gap แล้วสร้างคอนเทนต์ + Schema ปิดช่องว่างให้อัตโนมัติ — ติดตั้งได้ทุกเว็บ">
+<meta name="description" content="เจอ.AI วัดว่าแบรนด์คุณปรากฏในคำตอบของ {{ ai_live.text }} แค่ไหน หา gap แล้วสร้างคอนเทนต์ + Schema ปิดช่องว่างให้อัตโนมัติ — ติดตั้งได้ทุกเว็บ">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -224,7 +224,8 @@
   <div class="wrap">
     <div class="eyebrow"><span class="dot"></span>Generative Engine Optimization</div>
     <h1 class="hero-h">ให้แบรนด์คุณ<br>โผล่ใน<span class="accent">คำตอบ AI</span></h1>
-    <p class="hero-sub">คนหันไปถาม ChatGPT, Claude, Perplexity แทน Google — เจอ.AI วัดว่าแบรนด์คุณถูกพูดถึงแค่ไหน หาช่องว่าง แล้วสร้างคอนเทนต์ + Schema ปิดให้อัตโนมัติ ติดตั้งได้ทุกเว็บ</p>
+    {# รายชื่อเจ้า AI = เจ้าที่มีคีย์ถามได้จริง (ai_live) — ไม่โฆษณาเจ้าที่ยังวัดให้ไม่ได้ #}
+    <p class="hero-sub">คนหันไปถาม{{ " " if ai_live.n }}{{ ai_live.text }} แทน Google — เจอ.AI วัดว่าแบรนด์คุณถูกพูดถึงแค่ไหน หาช่องว่าง แล้วสร้างคอนเทนต์ + Schema ปิดให้อัตโนมัติ ติดตั้งได้ทุกเว็บ</p>
     <div class="hero-cta">
       <a href="/login" class="btn btn-primary">เริ่มใช้งาน →</a>
       <a href="#how" class="btn btn-outline">ดูวิธีทำงาน</a>
@@ -249,7 +250,8 @@
 <section style="padding-top:40px">
   <div class="wrap">
     <div class="stats">
-      <div class="stat"><div class="n">4+</div><div class="l">AI engines ที่วัด (GPT/Claude/Perplexity/Google)</div></div>
+      {% if ai_live.n %}<div class="stat"><div class="n">{{ ai_live.n }}</div><div class="l">AI engines ที่วัดจริง ({{ ai_live.short }})</div></div>
+      {% else %}<div class="stat"><div class="n">AI</div><div class="l">วัดการมองเห็นบนผู้ช่วย AI</div></div>{% endif %}
       <div class="stat"><div class="n">3</div><div class="l">ช่องทางติดตั้ง — ทุกชนิดเว็บ</div></div>
       <div class="stat"><div class="n">100%</div><div class="l">อัตโนมัติ ตั้งแต่วัดถึงเผยแพร่</div></div>
       <div class="stat"><div class="n">24/7</div><div class="l">มอนิเตอร์ตามรอบที่ตั้งเอง</div></div>

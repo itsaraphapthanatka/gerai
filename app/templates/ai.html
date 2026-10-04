@@ -3,7 +3,7 @@
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>การมองเห็นบน AI</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ถาม ChatGPT, Claude, Perplexity, Gemini ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม</p>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ถาม{{ " " if ai_live.n }}{{ ai_live.text }} ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม</p>
 
 {# ต่างจาก SoV: ตัวนั้นถาม search engine ว่าโดเมนโผล่ไหม ตัวนี้ถามผู้ช่วย AI ตรง ๆ
    ซึ่งคือสิ่งที่ลูกค้าเข้าใจว่าซื้อ — ต้องบอกให้ชัดว่าเป็นคนละตัวเลขกัน #}
@@ -19,6 +19,7 @@
 <p class="muted" style="font-size:12.5px">เจ้าที่พร้อม:
   {% for e in available %}<span class="pill ok">{{ engines[e].label }}{% if routes.get(e) == 'openrouter' %} · ผ่าน OpenRouter{% endif %}</span> {% endfor %}
   {% for e, spec in engines.items() if e not in available %}<span class="pill" style="opacity:.55">{{ spec.label }} — ยังไม่มีคีย์</span> {% endfor %}
+  {% if hidden %}<span style="opacity:.6">· ไม่ได้ถาม {{ hidden | join(', ') }} (ยังไม่มีคีย์ — ใส่ได้ที่ตั้งค่าระบบ แล้วจะกลับมาอยู่ในตาราง)</span>{% endif %}
 </p>
 {% endif %}
 
@@ -82,7 +83,7 @@
 <div class="card">
   <table>
     <tr><th>AI</th><th>ถามได้</th><th>อ้างอิงเว็บเรา</th><th>เอ่ยชื่อ</th><th>ค่าใช้จ่าย</th><th>หมายเหตุ</th></tr>
-    {% for e, v in report.by_engine.items() %}
+    {% for e in engines %}{% set v = report.by_engine.get(e) %}{% if v %}
     <tr>
       <td><b>{{ v.label }}</b></td>
       <td>{{ v.asked }}</td>
@@ -96,7 +97,7 @@
         {%- if v.errors %} <span class="pill no">ผิดพลาด {{ v.errors }}</span>{% endif %}
       </td>
     </tr>
-    {% endfor %}
+    {% endif %}{% endfor %}
   </table>
 </div>
 

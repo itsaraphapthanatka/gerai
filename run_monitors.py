@@ -7,7 +7,7 @@
   python run_monitors.py --all --rank       # เช็คอันดับ Google (ไม่ใช่ SoV)
   python run_monitors.py --all --health     # ตรวจสุขภาพเว็บลูกค้า (เต็ม ใช้เวลานาน)
   python run_monitors.py --all --uptime     # เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม (cron รายวัน)
-  python run_monitors.py --all --ai         # ถาม AI จริง (ChatGPT/Claude/Perplexity/Gemini)
+  python run_monitors.py --all --ai         # ถาม AI จริง — เฉพาะเจ้าที่ตั้งคีย์ไว้ (ChatGPT/Claude/Perplexity/Gemini)
   python run_monitors.py --all --gsc        # ซิงค์ Google Search Console (index จริง + sitemap + คลิก) รันก่อน --health
 """
 import os
