@@ -218,13 +218,33 @@ def parse_openai(resp: dict) -> tuple[str, list]:
 
 
 def parse_perplexity(resp: dict) -> tuple[str, list]:
-    """Perplexity sonar — ค้นเว็บมาในตัว ลิงก์อยู่ที่ search_results หรือ citations"""
-    text = ""
-    for ch in resp.get("choices") or []:
-        text = (ch.get("message") or {}).get("content") or text
-    urls = [r["url"] for r in (resp.get("search_results") or []) if r.get("url")]
-    urls += [u for u in (resp.get("citations") or []) if isinstance(u, str)]
-    return text, _dedupe(urls)
+    """Perplexity Agent API — คำตอบอยู่ใน output[].content[] (type output_text) พร้อม annotations
+    url_citation ส่วนแหล่งที่ค้นเจอทั้งหมดอยู่ใน output item ชนิด search_results → results[].url
+    เอาทั้งสองชุด: annotations คือที่ "ถูกอ้างในคำตอบ" search_results คือที่ "ถูกอ่าน" — รวมแล้ว dedupe"""
+    text, cited, read = [], [], []
+    for item in resp.get("output") or []:
+        t = item.get("type")
+        if t == "message":
+            for part in item.get("content") or []:
+                if part.get("type") == "output_text":
+                    text.append(part.get("text") or "")
+                    for a in part.get("annotations") or []:
+                        if a.get("url"):
+                            cited.append(a["url"])
+        elif t == "search_results":
+            for r in item.get("results") or []:
+                if r.get("url"):
+                    read.append(r["url"])
+    body = "\n".join(text)
+    # ของจริง (4 ต.ค. 2026): annotations ว่าง แต่ sonar ใส่ลิงก์ markdown ไว้ในข้อความ — นั่นคือ "ที่ถูกอ้าง"
+    # ส่วน search_results คือ "ที่ถูกอ่าน" (15 หน้า) ใช้เฉพาะเมื่อในคำตอบไม่มีลิงก์เลย เพื่อให้ cited
+    # มีความหมายเดียวกับเจ้าอื่น = ปรากฏเป็นแหล่งของคำตอบ ไม่ใช่แค่ถูกเปิดอ่าน
+    cited += _md_links(body)
+    return body, _dedupe(cited or read)
+
+
+def _md_links(text: str) -> list:
+    return [m.group(1).rstrip(".,)") for m in re.finditer(r"\]\((https?://[^\s)]+)\)", text or "")]
 
 
 def parse_gemini(resp: dict) -> tuple[str, list]:
@@ -296,8 +316,20 @@ def usage_openai(resp: dict) -> dict:
 
 def usage_perplexity(resp: dict) -> dict:
     u = resp.get("usage") or {}
-    # sonar คิด "request fee" ต่อคำขอ ไม่ใช่ต่อครั้งที่ค้น — 1 คำขอ = 1 หน่วย
-    return {"in": _i(u.get("prompt_tokens")), "out": _i(u.get("completion_tokens")), "searches": 1}
+    calls = u.get("tool_calls_details") or {}
+    # เอกสารเรียก tool ว่า web_search แต่ response จริงใช้คีย์ "search_web" — รับทั้งสองและทุกคีย์ที่มีคำว่า search
+    n = sum(_i((v or {}).get("invocation")) for k, v in calls.items() if "search" in k.lower())
+    out = {"in": _i(u.get("input_tokens")), "out": _i(u.get("output_tokens")), "searches": n}
+    # Agent API ส่งเงินที่หักจริงมาใน usage.cost.total_cost — ชนะตารางราคา (ดู ask)
+    cost = u.get("cost")
+    try:
+        if isinstance(cost, dict) and cost.get("total_cost") is not None:
+            out["cost_usd"] = float(cost["total_cost"])
+        elif isinstance(cost, (int, float)):
+            out["cost_usd"] = float(cost)
+    except (TypeError, ValueError):
+        pass
+    return out
 
 
 def usage_gemini(resp: dict) -> dict:
@@ -328,9 +360,9 @@ _DEFAULT_PRICES = {
         "gpt-5-mini": {"in": 0.25, "out": 2.00,  "search": 10.0},
         "gpt-5-nano": {"in": 0.05, "out": 0.40,  "search": 10.0},
     },
-    "perplexity": {   # "search" = request fee ระดับ medium context ($5/$8/$12 ตาม low/med/high)
-        "sonar":     {"in": 1.00, "out": 1.00,  "search": 8.0},
-        "sonar-pro": {"in": 3.00, "out": 15.00, "search": 10.0},
+    "perplexity": {   # Agent API (4 ต.ค. 2026): token + web_search $0.0025/ครั้ง — ไม่มี request fee แบบ Sonar เดิมแล้ว
+        "perplexity/sonar": {"in": 0.25, "out": 2.50, "search": 2.5},
+        "sonar":            {"in": 0.25, "out": 2.50, "search": 2.5},   # ชื่อเก่า เผื่อ env ยังตั้งไว้
     },
     "gemini": {   # grounding ฟรี 1,500 ครั้ง/วันสำหรับ 2.5 (เราใช้ไม่ถึง 200/สัปดาห์) จึงคิด 0
         "gemini-2.5-flash": {"in": 0.30, "out": 2.50,  "search": 0.0},
@@ -373,7 +405,8 @@ def estimate_cost(engine: str, model: str, usage: dict) -> float:
 MODELS = {
     "claude":     os.getenv("GEO_AI_MODEL_CLAUDE", "claude-opus-5-5"),
     "chatgpt":    os.getenv("GEO_AI_MODEL_OPENAI", "gpt-5"),
-    "perplexity": os.getenv("GEO_AI_MODEL_PPLX", "sonar"),
+    # Agent API ใช้ชื่อแบบ provider/model — preset (fast/low/...) ใช้โมเดล OpenAI จึงไม่ใช้ เพราะเราวัด "Perplexity"
+    "perplexity": os.getenv("GEO_AI_MODEL_PPLX", "perplexity/sonar"),
     # 2.5-flash ถูกปิดสำหรับคีย์ใหม่ (404 "no longer available to new users" 4 ต.ค. 2026) Google ชี้ให้ใช้ 3.8
     "gemini":     os.getenv("GEO_AI_MODEL_GEMINI", "gemini-3.8-flash"),
 }
@@ -421,12 +454,14 @@ def call_openai(question: str) -> dict:
 
 
 def call_perplexity(question: str) -> dict:
+    """Perplexity Agent API — /chat/completions ถูกปิด 2026 (403 "Sonar is now the Agent API")
+    สเปก: docs.perplexity.ai/api-reference/agent-post · ต้องส่ง tools เอง เพราะไม่ได้ใช้ preset"""
     return _post(
-        f"{BASES['perplexity']}/chat/completions",
+        f"{BASES['perplexity']}/v1/agent",
         {"Authorization": f"Bearer {_key('perplexity')}", "Content-Type": "application/json"},
-        {"model": MODELS["perplexity"], "max_tokens": MAX_OUT,
-         "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                      {"role": "user", "content": question}]})
+        {"model": MODELS["perplexity"], "input": question, "instructions": SYSTEM_PROMPT,
+         "max_output_tokens": MAX_OUT,
+         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX}]})
 
 
 def call_gemini(question: str) -> dict:
@@ -515,8 +550,15 @@ def ask(engine: str, question: str) -> dict:
                 "usage": usage, "cost_usd": cost, "via": via,
                 "cost_source": "billed" if actual is not None else "table"}
     except Exception as e:
+        # httpx บอกแค่ "403 Forbidden" — เหตุผลจริงอยู่ใน body (เช่น Perplexity: "Sonar is now the Agent API.
+        # Use /v1/responses") ถ้าไม่เก็บ คนต้องยิงซ้ำด้วยมือเพื่อรู้ว่าต้องแก้อะไร
+        body = ""
+        try:
+            body = (e.response.text or "")[:300].replace("\n", " ")   # HTTPStatusError
+        except Exception:
+            pass
         return {"ok": False, "skip": False, "text": "", "citations": [], "via": via,
-                "reason": f"{type(e).__name__}: {str(e)[:120]}"}
+                "reason": f"{type(e).__name__}: {str(e)[:120]}" + (f" · body: {body}" if body else "")}
 
 
 def check_brand(brand, questions, aliases=()) -> dict:
