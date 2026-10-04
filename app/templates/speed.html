@@ -114,4 +114,8 @@
   คะแนน lab แกว่งได้รอบละไม่กี่แต้มตามเครือข่ายของ Google — ดูแนวโน้มจากประวัติ ไม่ใช่ตัวเลขครั้งเดียว · สแกนอัตโนมัติทุกสัปดาห์
 </p>
 {% endif %}
+{% if running %}
+{# งานยังทำอยู่ → รีเฟรชเองทุก 10 วิ (ตัด ?running=1 ออก) จนปุ่มกลับมา ไม่ต้องกด F5 เดา #}
+<script>setTimeout(function () { location.replace(location.pathname); }, 10000);</script>
+{% endif %}
 {% endblock %}

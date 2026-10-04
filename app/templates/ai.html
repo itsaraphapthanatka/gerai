@@ -167,4 +167,8 @@
   <b>ค่าใช้จ่าย</b> — ผ่าน OpenRouter ใช้เงินที่หักจริง (<code>usage.cost</code>) · คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {{ fx }}
 </p>
 {% endif %}
+{% if running %}
+{# งานยังทำอยู่ → รีเฟรชเองทุก 10 วิ (ตัด ?running=1 ออก) จนปุ่มกลับมา ไม่ต้องกด F5 เดา #}
+<script>setTimeout(function () { location.replace(location.pathname); }, 10000);</script>
+{% endif %}
 {% endblock %}

@@ -163,4 +163,8 @@
   ข้อมูลคลิกช้ากว่าปัจจุบันราว 3 วัน · ผลข้อ "Google เก็บเข้า index แล้ว" ใน<a class="link" href="/brands/{{ brand['id'] }}/health">สุขภาพเว็บ</a>ใช้ตัวเลขชุดนี้เมื่อเชื่อมแล้ว
 </p>
 {% endif %}
+{% if running %}
+{# งานยังทำอยู่ → รีเฟรชเองทุก 10 วิ (ตัด ?running=1 ออก) จนปุ่มกลับมา ไม่ต้องกด F5 เดา #}
+<script>setTimeout(function () { location.replace(location.pathname); }, 10000);</script>
+{% endif %}
 {% endblock %}

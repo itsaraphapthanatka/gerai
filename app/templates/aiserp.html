@@ -101,4 +101,8 @@
   ตัวเลขนี้คนละชุดกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> (ผลค้น 10 ลิงก์) และ <a class="link" href="/brands/{{ brand['id'] }}/ai">มองเห็นบน AI</a> (ChatGPT/Perplexity/Gemini) · ค้นแบบประเทศไทย/ภาษาไทย ผลอาจต่างจากที่เห็นในเครื่องตัวเองซึ่งขึ้นกับประวัติและตำแหน่ง
 </p>
 {% endif %}
+{% if running %}
+{# งานยังทำอยู่ → รีเฟรชเองทุก 10 วิ (ตัด ?running=1 ออก) จนปุ่มกลับมา ไม่ต้องกด F5 เดา #}
+<script>setTimeout(function () { location.replace(location.pathname); }, 10000);</script>
+{% endif %}
 {% endblock %}

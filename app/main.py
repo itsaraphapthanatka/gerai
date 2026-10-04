@@ -1130,7 +1130,7 @@ def brand_health(request: Request, brand_id: int):
     return templates.TemplateResponse(request, "health.html", {
         "brand": brand, "report": report, "uptime": up, "report_stale": stale,
         "down_days": _days_since(up.get("since")) if up.get("up") is False else 0,
-        "running": brand_id in _checking_brands or request.query_params.get("running"),
+        "running": brand_id in _checking_brands,
     })
 
 
@@ -1196,7 +1196,7 @@ def brand_ai(request: Request, brand_id: int):
         # เก็บเป็น USD (ค่าจริงจาก API) — บาทเป็นแค่การแสดงผล อัตราตั้งทับได้ด้วย GEO_FX_THB
         "cost_30d": db.ai_cost_30d(brand_id),
         "fx": float(os.getenv("GEO_FX_THB", "33.6")),
-        "running": brand_id in _ai_running or request.query_params.get("running"),
+        "running": brand_id in _ai_running,
     })
 
 
@@ -1268,7 +1268,7 @@ def brand_gsc(request: Request, brand_id: int):
         "info": gsc.key_info(),                     # อีเมลบัญชีบริการที่ลูกค้าต้องเอาไปเพิ่ม — ไม่มีส่วนลับ
         "labels": gsc.GROUP_LABELS,
         "perm_label": gsc.PERM_LABELS.get(report.get("permission"), report.get("permission")) if report else "",
-        "running": brand_id in _gsc_running or request.query_params.get("running"),
+        "running": brand_id in _gsc_running,
     })
 
 
@@ -1315,7 +1315,7 @@ def brand_speed(request: Request, brand_id: int):
     return templates.TemplateResponse(request, "speed.html", {
         "brand": brand, "report": report, "history": db.pagespeed_history(brand_id),
         "categories": pagespeed.CATEGORIES, "grade": pagespeed.grade,
-        "running": brand_id in _speed_running or request.query_params.get("running"),
+        "running": brand_id in _speed_running,
     })
 
 
@@ -1372,7 +1372,7 @@ def brand_ai_serp(request: Request, brand_id: int):
     return templates.TemplateResponse(request, "aiserp.html", {
         "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
         "kinds": ai_serp.KINDS, "available": ai_serp.available(),
-        "running": brand_id in _aiserp_running or request.query_params.get("running"),
+        "running": brand_id in _aiserp_running,
     })
 
 
@@ -1585,7 +1585,7 @@ def brand_autopilot(request: Request, brand_id: int):
         "brand": brand, "runs": runs, "logs": logs, "modes": autopilot.MODES,
         "can_publish": billing.feature(db.get_tenant(brand["tenant_id"]), "auto_publish"),
         "saved": request.query_params.get("saved"),
-        "running": brand_id in _autopilot_running or request.query_params.get("running"),
+        "running": brand_id in _autopilot_running,
     })
 
 
