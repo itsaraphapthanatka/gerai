@@ -8,12 +8,16 @@
   www            เสิร์ฟทั้ง www และ apex โดยไม่ redirect → Google นับเป็นสองเว็บ
   llms/sitemap   ลูกค้าย้ายเว็บ ลิงก์เก่าใน DB ตายหมดแต่ไม่มีใครรู้ 2 เดือน
   freshness      connector ตายเงียบ คอนเทนต์ค้างเป็นร่าง ไม่มีอะไรเผยแพร่
+  csr            เว็บ React/Vite ส่ง HTML เปล่า <div id="root"></div> → บอท AI ไม่รัน JS เห็นเว็บว่าง
+  connector      ตั้ง redirect แทน rewrite → geo-sitemap.xml เด้งข้ามโดเมน Google ตีตก ทั้งที่เช็คเดิมผ่าน
+  wp             ปลั๊กอิน/REST ของ WordPress ตาย → สั่งเผยแพร่แล้วไปไม่ถึงเว็บ กว่าจะรู้คอนเทนต์ค้างเป็นเดือน
 
 ฟังก์ชัน judge_* รับข้อมูลที่ดึงมาแล้ว ไม่ยิงเน็ตเอง — เทสต์ได้โดยไม่ต้องมีเว็บจริง
 (ตัวตรวจที่ฟ้องผิดอันตรายกว่าไม่มีตัวตรวจ เพราะคนจะเลิกเชื่อแล้วเมินไฟแดงทั้งหมด)
 """
 from __future__ import annotations
 import re
+import html as _html
 import json
 import datetime
 import xml.etree.ElementTree as ET
@@ -25,6 +29,15 @@ AI_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "PerplexityBo
 MAX_URL_PROBES = 12          # จำกัดจำนวน URL ที่ยิงเช็คต่อรอบ กันรันนานเกินไป
 STALE_DAYS = 30              # ไม่มีคอนเทนต์ใหม่เกินนี้ = เตือน
 MAX_CRAWL = 5                # ไต่ลิงก์จากหน้าแรกกี่หน้า เพื่อหา orphan
+
+# csr: HTML ที่เสิร์ฟมาครั้งแรก (ยังไม่รัน JavaScript) ต้องมีเนื้อหาให้บอทอ่าน — บอท AI
+# (GPTBot, ClaudeBot, PerplexityBot) ไม่รัน JS เว็บ React/Vite ที่ส่ง <div id="root"></div>
+# เปล่า ๆ จึงเป็นเว็บว่างในสายตา AI ทั้งที่คนเปิดดูเห็นครบ (hop-property และ tanawat-lawyer
+# ส่งข้อความมา 32 และ 37 ตัวอักษร ขณะที่เว็บปกติส่งมา 4,000–13,000)
+CSR_MIN_TEXT = 300           # ตัวอักษรที่มองเห็นต่ำกว่านี้ = แทบไม่มีเนื้อหา
+CSR_THIN_TEXT = 800          # ต่ำกว่านี้ + มีกรอบ mount เปล่า = มีเนื้อหาสำรองแค่บางส่วน
+MOUNT_IDS = ("root", "app", "__next", "__nuxt", "___gatsby", "q-app", "svelte")
+CONNECTOR_PATHS = ("/geo", "/llms.txt", "/geo-sitemap.xml")   # path ที่เว็บลูกค้าต้อง rewrite มาที่ platform
 
 # uptime: เช็คเบา ๆ รายวัน ว่าเว็บยังเปิดได้ไหม — แยกจาก run_checks เพราะตัวเต็มยิงเน็ต
 # หลายสิบครั้งต่อแบรนด์ รันรายวันไม่ไหว และเวลาเว็บล่มจริง ผลตรวจเต็มจะฟ้องตกหลายข้อ
@@ -283,6 +296,118 @@ def judge_uptime(dns_ok: bool, status: int) -> dict:
     return {"up": True, "code": "ok", "reason": f"ตอบ {status}"}
 
 
+# ---------- csr: เนื้อหาอยู่ใน HTML หรือรอ JavaScript ----------
+def visible_text(html: str) -> str:
+    """ข้อความที่เหลือหลังตัด comment/script/style/แท็กออก — ใกล้เคียงสิ่งที่บอทที่ไม่รัน JS อ่านได้"""
+    h = re.sub(r"(?is)<!--.*?-->", " ", html or "")
+    h = re.sub(r"(?is)<(script|style|template|svg)\b[^>]*>.*?</\1\s*>", " ", h)
+    h = re.sub(r"(?s)<[^>]+>", " ", h)
+    return re.sub(r"\s+", " ", _html.unescape(h)).strip()
+
+
+def page_shape(html: str) -> dict:
+    """สรุปรูปร่าง HTML ดิบของหน้า — ตัวเลขที่ judge_csr ใช้ตัดสิน (แยกไว้ให้เทสต์/ดีบักดูค่าได้)"""
+    h = html or ""
+    ids = "|".join(re.escape(i) for i in MOUNT_IDS)
+    h1 = re.search(r"(?is)<h1\b[^>]*>(.*?)</h1\s*>", h)
+    return {
+        "text": len(visible_text(h)),
+        "links": len(re.findall(r"(?i)<a\b[^>]+href=", h)),
+        "h1": bool(h1 and visible_text(h1.group(1))),
+        # กรอบที่ JavaScript จะมาเติมแต่ตอนนี้ว่าง — ลายเซ็นของ React/Vue/Next ที่ไม่ได้ทำ SSR
+        "empty_mount": bool(re.search(rf"""(?is)<(div|main)\b[^>]+id=["'](?:{ids})["'][^>]*>\s*</\1\s*>""", h)),
+        "scripts": len(re.findall(r"(?i)<script\b[^>]+src=", h)),
+    }
+
+
+def judge_csr(shape: dict | None) -> list:
+    """หน้าแรกส่งเนื้อหามาใน HTML เลยไหม — บอท AI ไม่รัน JavaScript เว็บ CSR จึงเป็นเว็บว่าง
+    ในสายตา AI ทั้งที่คนเปิดดูเห็นครบ และเช็คข้ออื่นผ่านหมด (ทำ /geo เป็น rewrite ไว้ถูกแล้ว
+    แต่ตัวเว็บเองไม่มีอะไรให้อ่าน) · มี <script type=module> อย่างเดียวไม่นับ — เว็บ SSR ที่
+    hydrate ก็มีเหมือนกัน ตัดสินจากปริมาณข้อความเป็นหลัก"""
+    label = "เนื้อหาอยู่ใน HTML ไม่ต้องรอ JavaScript"
+    if not shape:
+        return [_c("csr", label, SKIP, "ข้ามเพราะหน้าแรกเข้าไม่ได้")]
+    t, n = shape["text"], shape["links"]
+    stat = f"ข้อความ {t:,} ตัวอักษร · ลิงก์ {n}" + ("" if shape["h1"] else " · ไม่มี h1")
+    if t < CSR_MIN_TEXT and (shape["empty_mount"] or shape["scripts"]):
+        return [_c("csr", label, FAIL,
+                   f"HTML ที่ส่งให้บอทมีแค่ {stat} — เนื้อหาถูกเติมด้วย JavaScript ทีหลัง (CSR) "
+                   "บอท AI ไม่รัน JS จึงเห็นเว็บว่างเปล่า ต้องทำ SSR/prerender "
+                   "หรืออย่างน้อยใส่เนื้อหาและลิงก์หลักลงใน HTML ตั้งแต่เซิร์ฟเวอร์")]
+    if t < CSR_MIN_TEXT:
+        return [_c("csr", label, WARN, f"หน้าแรกแทบไม่มีเนื้อหาให้บอทอ่าน — {stat}")]
+    if t < CSR_THIN_TEXT and shape["empty_mount"]:
+        return [_c("csr", label, WARN, f"มีเนื้อหาสำรองบางส่วน ({stat}) แต่ส่วนหลักยังรอ JavaScript")]
+    return [_c("csr", label, OK, stat)]
+
+
+# ---------- connector: path ที่ต้อง rewrite มาที่ platform ----------
+def judge_connector(probes: dict, content: set, apex: str, wp: bool = False) -> list:
+    """path ที่เว็บลูกค้าต้อง rewrite มาที่ platform ตอบบนโดเมนตัวเองจริงไหม
+
+    probes = {path: {"status", "url" (ปลายทางหลังตามรีไดเรกต์), "html"}, "pages": [{"url", "final"}]}
+    redirect กับ rewrite ให้ 200 เหมือนกันเมื่อตามลิงก์ไป เช็ค llms/sitemap เดิมจึงผ่านทั้งคู่
+    แต่ Google เห็นต่างกัน: Hop ตั้ง geo-sitemap.xml เป็น redirect ไป geo.appreview.cloud →
+    sitemap อยู่คนละโดเมนกับ URL ข้างใน ถูกตีตกทั้งไฟล์ และหน้าที่ redirect ออกไปไม่นับเป็นของเว็บ
+    ส่วน /geo ที่ตอบ 200 ต้องดูด้วยว่าเป็นหน้ารวมบทความจริง ไม่ใช่ SPA ที่ตอบหน้าแรกให้ทุก path
+    """
+    label = "ตัวเชื่อม /geo · llms.txt · sitemap เป็น rewrite บนโดเมนเอง"
+    paths = [probes.get(p) or {} for p in CONNECTOR_PATHS]
+    if all(not p.get("status") for p in paths):
+        return [_c("connector", label, SKIP, "เข้าเว็บไม่ได้")]
+    base = f"https://{apex}"
+    bad, good = [], []
+    for path, p in zip(CONNECTOR_PATHS, paths):
+        st, final, body = p.get("status") or 0, p.get("url") or "", p.get("html") or ""
+        name = path if path == "/geo" else path.lstrip("/")
+        if final and host_of(final) != apex:
+            bad.append(f"{name} redirect ไป {host_of(final)} — ต้องเป็น rewrite ให้ตอบ 200 บนโดเมนเอง")
+        elif path == "/geo":
+            if st == 200:
+                links = links_in(body, base, apex)
+                n_art = len([u for u in links if u in content or re.search(r"/geo/\d+$", u)])
+                if n_art or not content or 'name="generator" content="เจอ.AI' in body:
+                    good.append("/geo ✓" + (f" ลิงก์บทความ {n_art}" if n_art else ""))
+                else:
+                    bad.append("/geo ตอบ 200 แต่ไม่มีลิงก์ไปบทความสักชิ้น — เป็นหน้า fallback ของเว็บเอง (SPA) "
+                               "rewrite ยังไม่ทำงาน")
+            elif st in (404, 410) and wp:
+                good.append("/geo ไม่ต้องมี (WordPress)")
+            elif st in (404, 410):
+                bad.append("/geo ยังไม่ได้ตั้ง rewrite (ตอบ 404) — บอทไม่มีทางเจอหน้ารวมบทความ")
+            elif st:
+                bad.append(f"/geo ตอบ {st}")
+            else:
+                bad.append("/geo เข้าไม่ได้")
+        elif st == 200:
+            if path == "/llms.txt" and "<html" in body[:300].lower():
+                bad.append("llms.txt ตอบ HTML (หน้า fallback ของเว็บ) — rewrite ยังไม่ทำงาน")
+            else:
+                good.append(f"{name} ✓")
+        # llms/sitemap ที่ตอบ 404/5xx มีข้อของตัวเองฟ้องอยู่แล้ว ไม่นับซ้ำที่นี่
+    off = [pg for pg in probes.get("pages") or [] if pg.get("final") and host_of(pg["final"]) != apex]
+    if off:
+        bad.append(f"บทความ {len(off)} หน้า redirect ไป {host_of(off[0]['final'])} — ต้องเป็น rewrite /geo/*")
+    if bad:
+        return [_c("connector", label, FAIL, " · ".join(bad))]
+    return [_c("connector", label, OK, " · ".join(good) + " — ตอบบนโดเมนเองทั้งหมด")]
+
+
+def judge_wp(ping: dict | None) -> list:
+    """WordPress ของแบรนด์ยังรับคอนเทนต์ไหม — ping คือผล wp_client ที่ main ยิงให้ เพราะต้องใช้
+    ความลับที่เก็บใน DB (site_health ไม่แตะ DB) · None = แบรนด์ไม่ได้ต่อ WordPress ไม่มีข้อนี้
+    ก่อนหน้านี้ connector ตายเงียบแล้วไปโผล่ที่เช็ค freshness หลังคอนเทนต์ค้างเป็นเดือน"""
+    if not ping:
+        return []
+    label = "WordPress รับคอนเทนต์ได้ (ปลั๊กอิน/REST)"
+    how = "ปลั๊กอิน" if ping.get("mode") == "connector" else "REST API"
+    msg = (ping.get("msg") or "").strip()
+    if ping.get("ok"):
+        return [_c("wp", label, OK, f"{how}: {msg}")]
+    return [_c("wp", label, FAIL, f"{how}: {msg} — สั่งเผยแพร่แล้วจะไปไม่ถึงเว็บ แก้ที่หน้า WordPress ของแบรนด์")]
+
+
 def summarize(checks: list) -> dict:
     fails = [c for c in checks if c["status"] == FAIL]
     warns = [c for c in checks if c["status"] == WARN]
@@ -297,8 +422,9 @@ def _client():
                         headers={"User-Agent": UA}, verify=True)
 
 
-def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None) -> dict:
-    """ตรวจเว็บ 1 แบรนด์ — คืน dict พร้อมเก็บลง DB / แสดงผล"""
+def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None, wp=None) -> dict:
+    """ตรวจเว็บ 1 แบรนด์ — คืน dict พร้อมเก็บลง DB / แสดงผล
+    wp = ผล ping WordPress ที่ main ยิงให้ (None = แบรนด์โหมด hosted ไม่มี WordPress)"""
     import httpx
     today = today or datetime.date.today()
     apex = host_of(site_url)
@@ -306,13 +432,14 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     checks: list = []
 
     def fetch(url, redirects=True):
+        """คืน (status, headers, text, final_url) — final_url บอกว่าตามรีไดเรกต์ไปจบที่โดเมนไหน"""
         try:
             with httpx.Client(follow_redirects=redirects, timeout=20,
                               headers={"User-Agent": UA}) as c:
                 r = c.get(url)
-                return r.status_code, dict(r.headers), r.text
+                return r.status_code, dict(r.headers), r.text, str(r.url)
         except Exception:
-            return 0, {}, ""
+            return 0, {}, "", url
 
     def code(url):
         try:
@@ -321,9 +448,10 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         except Exception:
             return 0
 
-    st, hd, home = fetch(base + "/")
+    st, hd, home, _ = fetch(base + "/")
     checks += judge_home(st, hd, home)
     home_title = _title(home)
+    checks += judge_csr(page_shape(home) if st == 200 and home else None)
 
     checks += judge_soft404(code(f"{base}/zz-health-check-not-a-real-path"))
 
@@ -334,15 +462,15 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     except Exception:
         checks += judge_www(0, "", apex)
 
-    rst, _, rtxt = fetch(base + "/robots.txt")
+    rst, _, rtxt, _ = fetch(base + "/robots.txt")
     checks += judge_robots(rst, rtxt)
 
-    lst, _, ltxt = fetch(base + "/llms.txt")
+    lst, _, ltxt, lurl = fetch(base + "/llms.txt")
     llinks = re.findall(r"https?://\S+", ltxt or "")[1:]
     lprobe = {u: code(u) for u in llinks[:MAX_URL_PROBES]}
     checks += judge_links("llms", "llms.txt", lst, llinks, lprobe)
 
-    sst, _, sxml = fetch(base + "/geo-sitemap.xml")
+    sst, _, sxml, surl = fetch(base + "/geo-sitemap.xml")
     locs = []
     if sst == 200:
         try:
@@ -357,12 +485,23 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
 
     pages = []
     for u in [x for x in locs if x.rstrip("/") != base][:3]:
-        _, _, h = fetch(u)
-        pages.append({"url": u, "title": _title(h), "canonical": _canonical(h)})
+        _, _, h, fu = fetch(u)
+        pages.append({"url": u, "title": _title(h), "canonical": _canonical(h), "final": fu})
     checks += judge_pages(home_title, pages)
 
-    # orphan: ไต่จากหน้าแรก 2 ชั้น แล้วดูว่าเจอ URL คอนเทนต์จาก sitemap ไหม
     content = {u.split("?")[0].rstrip("/") for u in locs if u.rstrip("/") != base}
+
+    # connector: ดูว่าตามรีไดเรกต์แล้วไปจบที่โดเมนไหน — llms/sitemap ใช้ผลที่ดึงมาแล้ว ยิงเพิ่มแค่ /geo
+    gst, _, ghtml, gurl = fetch(base + "/geo")
+    checks += judge_connector({
+        "/geo": {"status": gst, "url": gurl, "html": ghtml},
+        "/llms.txt": {"status": lst, "url": lurl, "html": ltxt},
+        "/geo-sitemap.xml": {"status": sst, "url": surl, "html": sxml},
+        "pages": [{"url": p["url"], "final": p["final"]} for p in pages],
+    }, content, apex, wp=bool(wp))
+    checks += judge_wp(wp)
+
+    # orphan: ไต่จากหน้าแรก 2 ชั้น แล้วดูว่าเจอ URL คอนเทนต์จาก sitemap ไหม
     seen_links, crawled = set(), 0
     if content:
         first = links_in(home, base, apex)
@@ -371,7 +510,7 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         # ชั้นสอง: ตัดตัวคอนเทนต์เอง และตัดหน้าแรกที่เพิ่งไต่ไป (ลิงก์ #anchor ตัด fragment
         # แล้วเหลือ URL หน้าแรก ถ้าไม่ตัดจะกินโควตาไต่ไปเปล่า ๆ หนึ่งหน้า)
         for u in crawl_order(first - content - {base.rstrip("/")}, content)[:MAX_CRAWL - 1]:
-            _, _, h2 = fetch(u)
+            _, _, h2, _ = fetch(u)
             if h2:
                 seen_links |= links_in(h2, base, apex)
                 crawled += 1

@@ -48,6 +48,8 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 8. **ตรวจสุขภาพเว็บ** (`/brands/{id}/health`) → ดึงเว็บลูกค้ามาตรวจว่ามีอะไรขวาง GEO อยู่
    - เช็ค: `noindex` · soft 404 · เสิร์ฟหน้าถูกตัว · canonical · www→apex · robots (บอท AI + Sitemap)
      · ลิงก์ตายใน llms.txt/sitemap · sitemap ข้ามโดเมน · **Google เก็บเข้า index แล้วหรือยัง** · ความสดของคอนเทนต์
+     · **เนื้อหาอยู่ใน HTML ไม่ต้องรอ JS** (เว็บ React/Vite ที่ส่ง `<div id="root"></div>` เปล่า — บอท AI ไม่รัน JS เห็นเว็บว่าง)
+     · **ตัวเชื่อมเป็น rewrite ไม่ใช่ redirect** (/geo · llms.txt · geo-sitemap.xml ต้องตอบ 200 บนโดเมนลูกค้า) · ปลั๊กอิน/REST WordPress ยังรับงาน
    - เช็ค index ใช้ Serper (มีค่าใช้จ่าย ~2 credit/แบรนด์) — ไม่มีคีย์ก็ข้ามไป ไม่ทำให้ตก
    - ทุกข้อมาจากปัญหาที่เคยเกิดจริง — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex ไว้
    - SEO เป็น**เงื่อนไขตั้งต้น**ของ GEO: AI search ดึงจาก index ของ search engine อีกที หน้าที่ไม่ติด index/อันดับต่ำมากแทบไม่ถูกอ้างอิง → ดูคู่กับ SoV เพื่อแยกว่า "ไม่ติด Google" หรือ "คอนเทนต์ไม่ดี"

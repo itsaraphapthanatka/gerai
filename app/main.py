@@ -959,14 +959,30 @@ def brand_progress(request: Request, brand_id: int):
 _checking_brands: set = set()
 
 
+def _wp_probe(conn) -> dict:
+    """ยิงถาม WordPress ของแบรนด์ว่ายังรับงานได้ไหม ด้วยข้อมูลล็อกอินที่เก็บไว้ — ทำที่นี่
+    เพราะ site_health ไม่แตะ DB/ความลับ แล้วส่งผลให้ judge_wp ตัดสิน (ไม่เก็บ/ไม่พิมพ์คีย์)"""
+    try:
+        if conn["mode"] == "connector" and conn["api_key"]:
+            r = wp_client.connector_ping(conn["site_url"], wp_client.decrypt(conn["api_key"]))
+        else:
+            r = wp_client.test_connection(conn["site_url"], conn["auth_user"],
+                                          wp_client.decrypt(conn["auth_secret"]))
+    except Exception as e:
+        r = {"ok": False, "msg": f"ตรวจไม่ได้: {e}"}
+    return {"mode": conn["mode"], "ok": bool(r.get("ok")), "msg": r.get("msg", "")}
+
+
 def run_health_check(brand_id: int, notify_tenant: int | None = None) -> dict:
     """ตรวจเว็บ 1 แบรนด์ + เก็บผล — ใช้ได้ทั้งจาก route, cron และ worker เบื้องหลัง"""
     brand = db.get_brand(brand_id)
     published = [c for c in db.list_content(brand_id) if c["status"] == "published"]
+    conn = db.get_wp_connection(brand_id)
     res = site_health.run_checks(
         geo_content._site_url(brand),
         last_published=db.last_published_at(brand_id),
         n_published=len(published),
+        wp=_wp_probe(conn) if conn else None,
     )
     db.add_health_check(brand_id, res)
     if notify_tenant and not res["ok"]:
