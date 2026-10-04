@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp
 
 
 def hash_pw(password: str) -> str:
@@ -370,7 +370,7 @@ def pwa_manifest():
 
 
 _SW_JS = """
-const CACHE = 'geo-v2';
+const CACHE = 'geo-v3';
 const ASSETS = ['/static/icon-192.png', '/static/icon-512.png', '/manifest.webmanifest'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -378,6 +378,17 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+// respondWith ต้องได้ Response เสมอ — เดิม catch แล้วคืน caches.match() ซึ่งเป็น undefined สำหรับหน้าเว็บ
+// (เราแคชแค่ /static) พอเซิร์ฟเวอร์รีสตาร์ท/เน็ตสะดุด เบราว์เซอร์จึงฟ้อง "Failed to convert value to 'Response'"
+// และ "network error response: the promise was rejected" ทุกครั้ง แทนที่จะเห็นหน้าออฟไลน์ธรรมดา
+function offline(req) {
+  if (req.mode === 'navigate') {
+    return new Response('<!doctype html><html lang="th"><meta charset="utf-8"><title>เชื่อมต่อไม่ได้</title>'
+      + '<p style="font-family:system-ui,sans-serif;padding:40px;line-height:1.7">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ชั่วคราว — ลองรีเฟรชอีกครั้ง</p>',
+      {status: 503, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+  }
+  return Response.error();
+}
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;                 // ไม่แตะ POST
@@ -385,11 +396,12 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;       // เฉพาะ same-origin
   if (url.pathname.startsWith('/static/')) {        // static: cache-first
     e.respondWith(caches.match(req).then(c => c || fetch(req).then(r => {
-      const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return r;
-    })));
+      if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+      return r;
+    })).catch(() => offline(req)));
     return;
   }
-  e.respondWith(fetch(req).catch(() => caches.match(req)));  // page: network-first
+  e.respondWith(fetch(req).catch(() => caches.match(req).then(c => c || offline(req))));  // page: network-first
 });
 """
 
@@ -622,6 +634,8 @@ def brand_detail(request: Request, brand_id: int):
          "health": db.last_health_check(brand_id),
          "ai": db.last_ai_visibility(brand_id),
          "gsc": db.last_gsc(brand_id),
+         "speed": db.last_pagespeed(brand_id),
+         "aiserp": db.last_ai_serp(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -1254,6 +1268,110 @@ def brand_gsc(request: Request, brand_id: int):
     })
 
 
+# ---------- Page Speed (PageSpeed Insights) ----------
+def run_pagespeed(brand_id: int) -> dict:
+    """สแกนความเร็วหน้าแรก mobile + desktop แล้วเก็บผล — ใช้จาก route, cron (--speed) และ autopilot"""
+    brand = db.get_brand(brand_id)
+    res = pagespeed.scan(geo_content._site_url(brand))
+    db.add_pagespeed(brand_id, res)
+    return res
+
+
+_speed_running: set = set()
+
+
+def _speed_worker(brand_id: int):
+    try:
+        run_pagespeed(brand_id)
+    except Exception:
+        pass
+    finally:
+        _speed_running.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/speed/run")
+def run_brand_speed(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _speed_running:        # Lighthouse ใช้เวลาเป็นนาที — กันกดรัว
+        _speed_running.add(brand_id)
+        import threading
+        threading.Thread(target=_speed_worker, args=(brand_id,), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/speed?running=1")
+
+
+@app.get("/brands/{brand_id}/speed")
+def brand_speed(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    row = db.last_pagespeed(brand_id)
+    report = json.loads(row["report"]) if row and row["report"] else None
+    return templates.TemplateResponse(request, "speed.html", {
+        "brand": brand, "report": report, "history": db.pagespeed_history(brand_id),
+        "categories": pagespeed.CATEGORIES, "grade": pagespeed.grade,
+        "running": brand_id in _speed_running or request.query_params.get("running"),
+    })
+
+
+# ---------- Google AI Overview / AI Mode (SerpApi) ----------
+def run_ai_serp(brand_id: int) -> dict:
+    """ถาม AI Overview + AI Mode ของ Google ด้วยคำถามเป้าหมาย แล้วเก็บผล — ไม่มีคีย์ SerpApi = skip"""
+    brand = db.get_brand(brand_id)
+    res = ai_serp.check_brand(brand, db.list_questions(brand_id))
+    db.add_ai_serp(brand_id, res)
+    return res
+
+
+_aiserp_running: set = set()
+
+
+def _aiserp_worker(brand_id: int):
+    try:
+        run_ai_serp(brand_id)
+    except Exception:
+        pass
+    finally:
+        _aiserp_running.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/ai-serp/run")
+def run_brand_ai_serp(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _aiserp_running:       # ทุกคำถามกินโควตา SerpApi — กันกดรัว
+        _aiserp_running.add(brand_id)
+        import threading
+        threading.Thread(target=_aiserp_worker, args=(brand_id,), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/ai-serp?running=1")
+
+
+@app.get("/brands/{brand_id}/ai-serp")
+def brand_ai_serp(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    row = db.last_ai_serp(brand_id)
+    report = json.loads(row["report"]) if row and row["report"] else None
+    matrix, rivals = [], []
+    if report:
+        from collections import Counter
+        order, cells = [], {}
+        for r in report["rows"]:
+            if r["question"] not in cells:
+                order.append(r["question"]); cells[r["question"]] = {}
+            cells[r["question"]][r["kind"]] = r
+        matrix = [{"q": qq, "cells": cells[qq]} for qq in order]
+        rivals = Counter(h for r in report["rows"] for h in (r.get("others") or [])).most_common(8)
+    return templates.TemplateResponse(request, "aiserp.html", {
+        "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
+        "kinds": ai_serp.KINDS, "available": ai_serp.available(),
+        "running": brand_id in _aiserp_running or request.query_params.get("running"),
+    })
+
+
 # ---------- Google rank tracking ----------
 @app.post("/brands/{brand_id}/rank/run")
 def run_rank(request: Request, brand_id: int):
@@ -1875,6 +1993,9 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "or_mask": ai_visibility.stored_key_preview(ai_visibility.OPENROUTER),
         # Search Console — โชว์แค่อีเมล/โปรเจกต์ของบัญชีบริการ + ผลทดสอบตอนบันทึก ไม่ส่ง JSON กลับหน้าเว็บ
         "gsc_info": gsc.key_info(), "gsc_status": gsc.status(),
+        # SerpApi (AI Overview / AI Mode) + PageSpeed key — โชว์แค่รูปปิดกลาง
+        "serpapi": ai_serp.SPEC, "serpapi_set": ai_serp.available(), "serpapi_mask": ai_serp.key_preview(),
+        "psi": pagespeed.SPEC, "psi_set": bool(pagespeed._key()), "psi_mask": pagespeed.key_preview(),
         "saved": saved, "error": error,
     }
 
@@ -1943,6 +2064,16 @@ def admin_settings_gsc(request: Request, gsc_json: str = Form("")):
     if not r["ok"]:
         return templates.TemplateResponse(request, "admin_settings.html",
             _settings_ctx(request, error="Search Console: " + r["msg"]))
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/serp")
+def admin_settings_serp(request: Request, serpapi_key: str = Form(""), pagespeed_key: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    for k, v in (("serpapi_key", serpapi_key), ("pagespeed_key", pagespeed_key)):
+        if v.strip():                           # เว้นว่าง = คงคีย์เดิม
+            db.set_setting(k, v.strip())
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

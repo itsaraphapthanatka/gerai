@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}ความเร็วเว็บ — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>ความเร็วเว็บ</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — คะแนนจาก Google PageSpeed Insights (Lighthouse) ทั้งมือถือและเดสก์ท็อป ความเร็วเป็นสัญญาณอันดับของ Google และหน้าที่ช้ามากบอทอ่านได้ไม่ครบ</p>
+
+<form method="post" action="/brands/{{ brand['id'] }}/speed/run" style="margin:14px 0">
+  <button class="btn" type="submit" {{ 'disabled' if running }}>{{ 'กำลังสแกน…' if running else 'สแกนตอนนี้' }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">Google รัน Lighthouse ให้ 2 รอบ (มือถือ/เดสก์ท็อป) ใช้เวลาราว 1–2 นาที · ไม่มีค่าใช้จ่าย</span>
+</form>
+
+{% if running and not report %}
+<div class="card"><p class="muted">กำลังสแกน — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+{% elif not report %}
+<div class="card"><p class="muted">ยังไม่เคยสแกน — กด "สแกนตอนนี้" เพื่อเริ่ม</p></div>
+{% else %}
+
+{% macro score(v) -%}
+  {%- set g = grade(v) -%}
+  <span class="sov {{ 'pos' if g == 'good' else ('no' if g == 'poor' else '') }}" style="{{ 'color:var(--amber,#b26a00)' if g == 'ok' }}">{{ v if v is not none else '–' }}</span>
+{%- endmacro %}
+
+<div class="card" style="display:flex;align-items:center;gap:28px;flex-wrap:wrap">
+  {% for strat, label in (('mobile', 'มือถือ'), ('desktop', 'เดสก์ท็อป')) %}
+  {% set r = report[strat] %}
+  <div style="text-align:center">
+    <div class="muted">ประสิทธิภาพ · {{ label }}</div>
+    {% if r.error %}<div class="sov no" style="font-size:18px">ผิดพลาด</div>
+    {% else %}{{ score(r.scores.performance) }}{% endif %}
+    <div class="muted">จาก 100</div>
+  </div>
+  {% endfor %}
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">สแกนล่าสุด</div>
+    <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
+    <div class="muted" style="font-size:12px">{{ (report.mobile.final_url or report.url)[:60] }}{% if report.mobile.lighthouse %} · Lighthouse {{ report.mobile.lighthouse }}{% endif %}</div>
+  </div>
+</div>
+
+{% for strat, label in (('mobile', 'มือถือ'), ('desktop', 'เดสก์ท็อป')) %}
+{% set r = report[strat] %}
+<h2>{{ label }}</h2>
+{% if r.error %}
+<div class="err">สแกน{{ label }}ไม่สำเร็จ — {{ r.error }}</div>
+{% else %}
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:280px">
+    <table>
+      <tr><th>หมวด</th><th style="text-align:right">คะแนน</th></tr>
+      {% for cid, cname in categories %}
+      <tr><td>{{ cname }}</td><td style="text-align:right">{{ score(r.scores[cid]) }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card" style="flex:1;min-width:280px">
+    <table>
+      <tr><th>เมตริก (lab)</th><th>ค่า</th></tr>
+      {% for m in r.metrics %}
+      <tr><td>{{ m.label }}</td><td>
+        {%- set g = grade(m.score) -%}
+        <span class="pill {{ 'ok' if g == 'good' else ('no' if g == 'poor' else '') }}">{{ m.display or '–' }}</span>
+      </td></tr>
+      {% else %}<tr><td colspan="2" class="muted">ไม่มีเมตริก</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% if r.field %}
+<div class="card">
+  <b>ข้อมูลผู้ใช้จริง (Chrome UX Report)</b>{% if r.field.origin_fallback %} <span class="muted" style="font-size:12px">— ทั้งโดเมน เพราะหน้านี้คนเข้ายังไม่พอ</span>{% endif %}
+  <span class="pill {{ 'ok' if r.field.overall == 'FAST' else ('no' if r.field.overall == 'SLOW' else '') }}" style="margin-left:8px">{{ {'FAST': 'ผ่าน Core Web Vitals', 'AVERAGE': 'ต้องปรับปรุง', 'SLOW': 'ช้า'}.get(r.field.overall, r.field.overall or '–') }}</span>
+  <table style="margin-top:8px">
+    <tr><th>เมตริก</th><th>p75</th><th>ระดับ</th></tr>
+    {% for m in r.field.metrics %}
+    <tr><td>{{ m.label }}</td><td>{{ (m.percentile / 100) if m.id == 'CUMULATIVE_LAYOUT_SHIFT_SCORE' else (m.percentile ~ ' ms') }}</td>
+      <td><span class="pill {{ 'ok' if m.category == 'FAST' else ('no' if m.category == 'SLOW' else '') }}">{{ {'FAST': 'ดี', 'AVERAGE': 'พอใช้', 'SLOW': 'ช้า'}.get(m.category, m.category) }}</span></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% elif strat == 'mobile' %}
+<p class="muted" style="font-size:12.5px">Google ยังไม่มีข้อมูลผู้ใช้จริง (CrUX) ของเว็บนี้ — ปกติสำหรับเว็บที่คนเข้าไม่มาก คะแนนด้านบนเป็นผลทดสอบในห้องแล็บ</p>
+{% endif %}
+{% if r.opportunities %}
+<div class="card">
+  <b>สิ่งที่ควรแก้ก่อน ({{ label }})</b> <span class="muted" style="font-size:12px">— เรียงตามเวลาโหลดที่ประหยัดได้</span>
+  <table style="margin-top:8px">
+    <tr><th>รายการ</th><th style="text-align:right">ประหยัดได้</th></tr>
+    {% for o in r.opportunities %}
+    <tr><td>{{ o.title }}</td><td style="text-align:right">{{ '%.1f' % (o.savings_ms / 1000) }} s</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{% if history and history | length > 1 %}
+<h2>ประวัติ</h2>
+<div class="card">
+  <table>
+    <tr><th>วันที่</th><th style="text-align:right">มือถือ</th><th style="text-align:right">เดสก์ท็อป</th><th style="text-align:right">SEO (มือถือ)</th></tr>
+    {% for h in history %}
+    <tr><td>{{ h['checked_at'][:16].replace('T', ' ') }}</td>
+      <td style="text-align:right">{{ h['perf_mobile'] if h['perf_mobile'] is not none else '–' }}</td>
+      <td style="text-align:right">{{ h['perf_desktop'] if h['perf_desktop'] is not none else '–' }}</td>
+      <td style="text-align:right">{{ h['seo_mobile'] if h['seo_mobile'] is not none else '–' }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<p class="muted" style="font-size:12px">
+  คะแนน 90+ ดี · 50–89 พอใช้ · ต่ำกว่า 50 ต้องแก้ (เกณฑ์เดียวกับ Lighthouse) · LCP = เนื้อหาหลักโผล่กี่วินาที · CLS = หน้ากระตุก · TBT = JavaScript บล็อกการตอบสนอง ·
+  คะแนน lab แกว่งได้รอบละไม่กี่แต้มตามเครือข่ายของ Google — ดูแนวโน้มจากประวัติ ไม่ใช่ตัวเลขครั้งเดียว · สแกนอัตโนมัติทุกสัปดาห์
+</p>
+{% endif %}
+{% endblock %}

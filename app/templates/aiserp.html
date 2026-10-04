@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Google AI Overview / AI Mode — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>Google AI Overview / AI Mode</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — คำตอบ AI ของ Google เองสำหรับคำถามเป้าหมาย: กล่อง AI Overview เหนือผลค้นหา และแท็บ AI Mode พูดถึงหรืออ้างอิงแบรนด์ไหม</p>
+
+{# คนละตัวเลขกับ SoV (ผลค้น 10 ลิงก์) และ "มองเห็นบน AI" (ChatGPT/Perplexity/Gemini) — นี่คือ AI ของ Google ที่คนไทยเจอก่อนเพื่อน #}
+{% if not available %}
+<div class="card" style="border-color:var(--amber,#e0a800)">
+  <b>⚠️ ยังไม่ได้ตั้งคีย์ SerpApi</b>
+  <p class="muted" style="margin:6px 0 0">Google ไม่มี API สำหรับ AI Overview/AI Mode และ Serper ที่ใช้วัด SoV ก็ไม่ให้ — ต้องใช้ SerpApi (แผนฟรี 100 search/เดือน)
+    {%- if request.session.get('is_admin') %} ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}</p>
+</div>
+{% endif %}
+
+<form method="post" action="/brands/{{ brand['id'] }}/ai-serp/run" style="margin:14px 0">
+  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ 'กำลังเช็ค…' if running else 'เช็คตอนนี้' }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที</span>
+</form>
+
+{% if running and not report %}
+<div class="card"><p class="muted">กำลังเช็ค — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+{% elif not report %}
+<div class="card"><p class="muted">ยังไม่เคยเช็ค — กด "เช็คตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+{% elif report.skip %}
+<div class="card"><p class="muted" style="margin:0">รอบล่าสุด {{ report.checked_at[:16].replace('T', ' ') }} ถูกข้าม — {{ report.skip }}</p></div>
+{% else %}
+{% set ov = report.by_kind.overview %}{% set md = report.by_kind.mode %}
+<div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+  <div style="text-align:center">
+    <div class="muted">AI Overview พูดถึงเรา</div>
+    <div class="sov {{ 'pos' if (ov.cited + ov.named) else 'no' }}">{{ ov.cited + ov.named }}/{{ ov.shown }}</div>
+    <div class="muted">จากคำถามที่ Google แสดง AI Overview{% if ov.none %} · อีก {{ ov.none }} ข้อไม่แสดง{% endif %}</div>
+  </div>
+  <div style="text-align:center">
+    <div class="muted">AI Mode พูดถึงเรา</div>
+    <div class="sov {{ 'pos' if (md.cited + md.named) else 'no' }}">{{ md.cited + md.named }}/{{ md.shown }}</div>
+    <div class="muted">อ้างอิง {{ md.cited }} · เอ่ยชื่อ {{ md.named }}</div>
+  </div>
+  <div style="margin-left:auto;text-align:right">
+    <div class="muted">เช็คล่าสุด</div>
+    <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
+    <div class="muted" style="font-size:12px">ใช้ {{ report.searches }} search{% if ov.errors + md.errors %} · <span class="pill no">ผิดพลาด {{ ov.errors + md.errors }}</span>{% endif %}</div>
+  </div>
+</div>
+
+<h2>รายคำถาม</h2>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr><th>คำถาม</th>{% for k, label in kinds.items() %}<th style="text-align:center">{{ label }}</th>{% endfor %}</tr>
+    {% for m in matrix %}
+    <tr>
+      <td>{{ m.q }}</td>
+      {% for k in kinds %}
+      {% set c = m.cells.get(k) %}
+      <td style="text-align:center">
+        {%- if not c %}<span class="muted">–</span>
+        {%- elif c.status == 'cited' %}<span class="pill ok">อ้างอิงเว็บเรา</span>
+        {%- elif c.status == 'named' %}<span class="pill ok" style="opacity:.75">เอ่ยชื่อ</span>
+        {%- elif c.status == 'absent' %}<span class="pill no">ไม่พูดถึง</span>
+        {%- elif c.status == 'none' %}<span class="pill" title="Google ไม่แสดง AI Overview สำหรับคำถามนี้ — ไม่นับ">ไม่มี AI Overview</span>
+        {%- elif c.status == 'error' %}<span class="pill no" title="{{ c.reason }}">ผิดพลาด</span>
+        {%- else %}<span class="muted">{{ c.status }}</span>{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% set srcs = [] %}{% for k in kinds %}{% if m.cells.get(k) %}{% for u in m.cells[k].sources %}{% set _ = srcs.append((kinds[k], u)) %}{% endfor %}{% endif %}{% endfor %}
+    {% if srcs %}
+    <tr><td colspan="{{ 1 + kinds|length }}" style="padding:0 0 10px 12px;border-top:0">
+      <details><summary class="muted" style="cursor:pointer;font-size:12px">แหล่งที่ Google อ้าง {{ srcs|length }} รายการ · ข้อความคำตอบ</summary>
+        <div style="font-size:12px;margin-top:6px;line-height:1.7">
+          {% for k in kinds %}{% set c = m.cells.get(k) %}{% if c and (c.sources or c.excerpt) %}
+          <div><b>{{ kinds[k] }}</b>
+            {% for u in c.sources %}<div style="padding-left:12px;word-break:break-all"><a class="link" href="{{ u }}" target="_blank" rel="noopener">{{ u.replace('https://','').replace('http://','')[:110] }}</a></div>{% endfor %}
+            {% if c.excerpt %}<div class="muted" style="padding-left:12px;margin-top:4px;white-space:pre-line">{{ c.excerpt[:500] }}{{ '…' if c.excerpt|length > 500 }}</div>{% endif %}
+          </div>
+          {% endif %}{% endfor %}
+        </div>
+      </details>
+    </td></tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+</div>
+
+{% if rivals %}
+<h2>เว็บที่ Google AI อ้างอิงแทนเรา</h2>
+<div class="card">
+  <table>
+    <tr><th>โดเมน</th><th>ถูกอ้างกี่ครั้ง</th></tr>
+    {% for host, n in rivals %}
+    <tr><td><a class="link" href="https://{{ host }}" target="_blank" rel="noopener">{{ host }}</a></td><td>{{ n }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<p class="muted" style="font-size:12px">
+  <b>อ้างอิงเว็บเรา</b> = Google AI ใช้หน้าเว็บแบรนด์เป็นแหล่ง · <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างที่อื่น · <b>ไม่มี AI Overview</b> = Google ไม่ขึ้นกล่อง AI สำหรับคำถามนั้น (ไม่ใช่ความผิดของแบรนด์ ไม่นับเข้าตัวหาร) ·
+  ตัวเลขนี้คนละชุดกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> (ผลค้น 10 ลิงก์) และ <a class="link" href="/brands/{{ brand['id'] }}/ai">มองเห็นบน AI</a> (ChatGPT/Perplexity/Gemini) · ค้นแบบประเทศไทย/ภาษาไทย ผลอาจต่างจากที่เห็นในเครื่องตัวเองซึ่งขึ้นกับประวัติและตำแหน่ง
+</p>
+{% endif %}
+{% endblock %}

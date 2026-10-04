@@ -61,6 +61,9 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
    - ไม่มีค่าใช้จ่าย · โควตา URL Inspection 2,000 ครั้ง/property/วัน (จำกัด 40 หน้า/รอบ ตั้งทับได้ด้วย `GEO_GSC_MAX_INSPECT`) · ข้อมูลคลิกช้ากว่าปัจจุบัน ~3 วัน
    - คีย์เก็บเข้ารหัส (Fernet เดียวกับรหัส WordPress) หรือชี้ไฟล์ด้วย `GSC_SERVICE_ACCOUNT_FILE` ใน .env
 
+10. **ความเร็วเว็บ** (`/brands/{id}/speed`) → PageSpeed Insights (Lighthouse) มือถือ + เดสก์ท็อป: คะแนน 4 หมวด, LCP/CLS/TBT, ข้อมูลผู้ใช้จริง (CrUX) ถ้ามี, สิ่งที่ควรแก้เรียงตามเวลาที่ประหยัดได้ · ไม่มีคีย์ก็ใช้ได้ (`PAGESPEED_API_KEY` ไม่บังคับ) · สแกนรายสัปดาห์
+11. **Google AI Overview / AI Mode** (`/brands/{id}/ai-serp`) → คำตอบ AI ของ Google เองต่อคำถามเป้าหมาย อ้างอิง/เอ่ยชื่อ/ไม่พูดถึง และแยก "Google ไม่แสดง AI Overview" ออกจากตัวหาร · ผ่าน SerpApi (ใส่คีย์ที่ `/admin/settings`, ~2 search/คำถาม) เพราะ Google ไม่มี API และ Serper ไม่ให้ข้อมูลสองอย่างนี้
+
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
   ```powershell
@@ -70,6 +73,8 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --all --rank    # เช็คอันดับ Google (ไม่ใช่ SoV)
   .\.venv\Scripts\python.exe run_monitors.py --all --gsc     # ซิงค์ Search Console (รันก่อน --health ให้ข้อ index ใช้ของจริง)
   .\.venv\Scripts\python.exe run_monitors.py --all --health  # ตรวจสุขภาพเว็บ + แจ้งเตือน
+  .\.venv\Scripts\python.exe run_monitors.py --all --speed   # สแกนความเร็ว PageSpeed
+  .\.venv\Scripts\python.exe run_monitors.py --all --aiserp  # Google AI Overview / AI Mode (SerpApi)
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง
 

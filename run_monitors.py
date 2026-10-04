@@ -9,6 +9,8 @@
   python run_monitors.py --all --uptime     # เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม (cron รายวัน)
   python run_monitors.py --all --ai         # ถาม AI จริง — เฉพาะเจ้าที่ตั้งคีย์ไว้ (ChatGPT/Claude/Perplexity/Gemini)
   python run_monitors.py --all --gsc        # ซิงค์ Google Search Console (index จริง + sitemap + คลิก) รันก่อน --health
+  python run_monitors.py --all --speed      # สแกนความเร็วหน้าแรก (PageSpeed Insights) mobile + desktop
+  python run_monitors.py --all --aiserp     # เช็ค Google AI Overview / AI Mode (SerpApi — ต้องมีคีย์)
 """
 import os
 import sys
@@ -43,11 +45,28 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
-def run_targets(targets, rank=False, health=False, uptime=False, ai=False, gsc=False):
+def run_targets(targets, rank=False, health=False, uptime=False, ai=False, gsc=False, speed=False, aiserp=False):
     out = []
     for b in targets:
         try:
-            if gsc:
+            if speed:
+                from app.main import run_pagespeed
+                s = run_pagespeed(b["id"])
+                def _sc(k):
+                    v = s.get(k) or {}
+                    return f"ผิดพลาด ({v['error'][:50]})" if v.get("error") else f"{(v.get('scores') or {}).get('performance')}"
+                line = f"  [{b['id']}] {b['name']}: ประสิทธิภาพ มือถือ {_sc('mobile')} · เดสก์ท็อป {_sc('desktop')}"
+            elif aiserp:
+                from app.main import run_ai_serp
+                s = run_ai_serp(b["id"])
+                if s.get("skip"):
+                    line = f"  [{b['id']}] {b['name']}: ข้าม — {s['skip']}"
+                else:
+                    ov, md = s["by_kind"]["overview"], s["by_kind"]["mode"]
+                    line = (f"  [{b['id']}] {b['name']}: AI Overview โผล่ {ov['cited'] + ov['named']}/{ov['shown']} (Google ไม่แสดง {ov['none']})"
+                            f" · AI Mode {md['cited'] + md['named']}/{md['shown']} · {s['searches']} searches"
+                            + (f" · ผิดพลาด {ov['errors'] + md['errors']}" if ov["errors"] + md["errors"] else ""))
+            elif gsc:
                 from app.main import run_gsc_sync
                 s = run_gsc_sync(b["id"])
                 if not s.get("linked"):
@@ -126,6 +145,8 @@ def main():
                     help="เช็คเร็ว ๆ ว่าเว็บยังเปิดได้ไหม — แจ้งเตือนตอนล่ม/กลับมา (สำหรับ cron รายวัน)")
     ap.add_argument("--gsc", action="store_true",
                     help="ซิงค์ Google Search Console — index จริงรายหน้า, ส่ง/เช็ค sitemap, คลิก 28 วัน (รันก่อน --health)")
+    ap.add_argument("--speed", action="store_true", help="สแกนความเร็วหน้าแรกด้วย PageSpeed Insights (mobile + desktop)")
+    ap.add_argument("--aiserp", action="store_true", help="เช็ค Google AI Overview / AI Mode ผ่าน SerpApi (ต้องมีคีย์)")
     args = ap.parse_args()
     db.init_db()
     brands = db.list_all_brands()
@@ -133,7 +154,12 @@ def main():
     if not targets:
         print("ไม่มีแบรนด์ที่ต้องรัน")
         return
-    if args.gsc:
+    if args.speed:
+        print(f"speed · สแกน {len(targets)} แบรนด์ (mobile + desktop)")
+    elif args.aiserp:
+        from app import ai_serp
+        print(f"ai-serp · {len(targets)} แบรนด์ · SerpApi: " + ("มีคีย์" if ai_serp.available() else "ยังไม่ได้ตั้ง (admin → ตั้งค่า)"))
+    elif args.gsc:
         from app import gsc
         info = gsc.key_info()
         print(f"gsc · {len(targets)} แบรนด์ · บัญชีบริการ: " + (info["email"] if info else "ยังไม่ได้ตั้ง (admin → ตั้งค่า → Search Console)"))
@@ -150,7 +176,8 @@ def main():
     else:
         backend = geo_worker.rank_backend() if args.rank else geo_worker.active_backend()
         print(f"{'rank' if args.rank else 'monitor'} · backend={backend} · รัน {len(targets)} แบรนด์")
-    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime, ai=args.ai, gsc=args.gsc)
+    run_targets(targets, rank=args.rank, health=args.health, uptime=args.uptime, ai=args.ai, gsc=args.gsc,
+                speed=args.speed, aiserp=args.aiserp)
 
 
 if __name__ == "__main__":

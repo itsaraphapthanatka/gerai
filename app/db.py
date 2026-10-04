@@ -94,6 +94,26 @@ def _tables() -> list[str]:
             impressions INTEGER NOT NULL DEFAULT 0,
             report TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS pagespeed_scans (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            checked_at TEXT NOT NULL,
+            perf_mobile INTEGER,
+            perf_desktop INTEGER,
+            seo_mobile INTEGER,
+            report TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS ai_serp_checks (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            checked_at TEXT NOT NULL,
+            asked INTEGER NOT NULL DEFAULT 0,
+            overview_shown INTEGER NOT NULL DEFAULT 0,
+            overview_hit INTEGER NOT NULL DEFAULT 0,
+            mode_hit INTEGER NOT NULL DEFAULT 0,
+            searches INTEGER NOT NULL DEFAULT 0,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -630,6 +650,56 @@ def last_gsc(brand_id: int):
         return c.execute(
             q("SELECT * FROM gsc_snapshots WHERE brand_id=? ORDER BY synced_at DESC LIMIT 1"),
             (brand_id,),
+        ).fetchone()
+
+
+# ---- Page speed ----
+def add_pagespeed(brand_id: int, res: dict) -> None:
+    import json as _j
+    m, d = res.get("mobile") or {}, res.get("desktop") or {}
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO pagespeed_scans(brand_id,checked_at,perf_mobile,perf_desktop,seo_mobile,report) VALUES(?,?,?,?,?,?)"),
+            (brand_id, res["checked_at"], (m.get("scores") or {}).get("performance"),
+             (d.get("scores") or {}).get("performance"), (m.get("scores") or {}).get("seo"),
+             _j.dumps(res, ensure_ascii=False)),
+        )
+
+
+def last_pagespeed(brand_id: int):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM pagespeed_scans WHERE brand_id=? ORDER BY checked_at DESC LIMIT 1"), (brand_id,)
+        ).fetchone()
+
+
+def pagespeed_history(brand_id: int, limit: int = 8):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT checked_at, perf_mobile, perf_desktop, seo_mobile FROM pagespeed_scans "
+              "WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)
+        ).fetchall()
+
+
+# ---- Google AI Overview / AI Mode ----
+def add_ai_serp(brand_id: int, res: dict) -> None:
+    import json as _j
+    bk = res.get("by_kind") or {}
+    ov, md = bk.get("overview") or {}, bk.get("mode") or {}
+    with get_conn() as c:
+        c.execute(
+            q("INSERT INTO ai_serp_checks(brand_id,checked_at,asked,overview_shown,overview_hit,mode_hit,searches,report)"
+              " VALUES(?,?,?,?,?,?,?,?)"),
+            (brand_id, res["checked_at"], res.get("asked") or 0, ov.get("shown") or 0,
+             (ov.get("cited") or 0) + (ov.get("named") or 0), (md.get("cited") or 0) + (md.get("named") or 0),
+             res.get("searches") or 0, _j.dumps(res, ensure_ascii=False)),
+        )
+
+
+def last_ai_serp(brand_id: int):
+    with get_conn() as c:
+        return c.execute(
+            q("SELECT * FROM ai_serp_checks WHERE brand_id=? ORDER BY checked_at DESC LIMIT 1"), (brand_id,)
         ).fetchone()
 
 

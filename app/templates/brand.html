@@ -292,6 +292,16 @@
     <div class="qc-label">Search Console</div>
     <div class="qc-count">{{ 'ยังไม่เคยซิงค์' if not gsc else (('index ' ~ gsc['indexed'] ~ '/' ~ gsc['total']) if gsc['linked'] else 'ยังไม่ได้เชื่อม') }}</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/speed" class="quick-card">
+    <div class="qc-icon">⚡</div>
+    <div class="qc-label">ความเร็วเว็บ</div>
+    <div class="qc-count">{{ 'ยังไม่เคยสแกน' if not speed else ('มือถือ ' ~ (speed['perf_mobile'] if speed['perf_mobile'] is not none else '–') ~ ' · เดสก์ท็อป ' ~ (speed['perf_desktop'] if speed['perf_desktop'] is not none else '–')) }}</div>
+  </a>
+  <a href="/brands/{{ brand['id'] }}/ai-serp" class="quick-card">
+    <div class="qc-icon">✨</div>
+    <div class="qc-label">Google AI Overview / AI Mode</div>
+    <div class="qc-count">{{ 'ยังไม่เคยเช็ค' if not aiserp else (('AI Overview ' ~ aiserp['overview_hit'] ~ '/' ~ aiserp['overview_shown'] ~ ' · AI Mode ' ~ aiserp['mode_hit'] ~ '/' ~ (aiserp['asked'] - aiserp['overview_shown'] if aiserp['asked'] > aiserp['overview_shown'] else aiserp['asked'])) if aiserp['asked'] else 'ยังไม่มีคีย์') }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
     <div class="qc-label">SoV Impact</div>

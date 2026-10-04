@@ -125,6 +125,25 @@
     ไฟล์ JSON มี private key — ระบบเก็บแบบเข้ารหัสและไม่แสดงซ้ำ ถ้าคีย์หลุดให้ลบคีย์นั้นใน Google Cloud แล้วสร้างใหม่มาวางแทน
   </div>
 </div>
+<div class="card">
+  <h2>Google AI Overview / AI Mode (SerpApi) · ความเร็วเว็บ (PageSpeed)</h2>
+  <p class="muted" style="margin:0 0 12px">
+    AI Overview (กล่องสรุปเหนือผลค้น) และ AI Mode ของ Google ไม่มี API ตรงและ Serper ไม่ให้ — ใช้ <b>SerpApi</b> คีย์เดียวได้ทั้งสองอย่าง
+    (1 search ต่อคำถามต่อแบบ รอบละ ~2 × จำนวนคำถาม × แบรนด์) · PageSpeed Insights เรียกได้โดยไม่มีคีย์ ใส่คีย์เมื่อโควตาไม่พอ
+  </p>
+  <form method="post" action="/admin/settings/serp">
+    <label>{{ serpapi.label }} API key {% if serpapi_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="serpapi_key" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if serpapi_set else 'วางคีย์จาก ' ~ serpapi.hint }}" autocomplete="off">
+    {% if serpapi_mask %}<div class="keymask">ในระบบ: <code>{{ serpapi_mask }}</code></div>{% endif %}
+    <label style="margin-top:12px">{{ psi.label }} API key <span class="muted" style="font-weight:400">(ไม่บังคับ)</span> {% if psi_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="pagespeed_key" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if psi_set else 'ว่างได้ · ' ~ psi.hint }}" autocomplete="off">
+    {% if psi_mask %}<div class="keymask">ในระบบ: <code>{{ psi_mask }}</code></div>{% endif %}
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.7">
+    SerpApi: สมัครที่ <code>serpapi.com</code> → Your Account → API Key · แผนฟรี 100 search/เดือน (พอทดลอง 1 แบรนด์ 6 คำถาม × 2 แบบ ≈ 12/รอบ) · บันทึกแล้วไปที่แบรนด์ → "Google AI Overview / AI Mode" → เช็คแบรนด์เดียวก่อน
+  </div>
+</div>
 <style>
   .keyrow { display:flex; align-items:center; gap:6px; }
   .keyrow input { flex:1; min-width:0; }
