@@ -64,6 +64,9 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 10. **ความเร็วเว็บ** (`/brands/{id}/speed`) → PageSpeed Insights (Lighthouse) มือถือ + เดสก์ท็อป: คะแนน 4 หมวด, LCP/CLS/TBT, ข้อมูลผู้ใช้จริง (CrUX) ถ้ามี, สิ่งที่ควรแก้เรียงตามเวลาที่ประหยัดได้ · ไม่มีคีย์ก็ใช้ได้ (`PAGESPEED_API_KEY` ไม่บังคับ) · สแกนรายสัปดาห์
 11. **Google AI Overview / AI Mode** (`/brands/{id}/ai-serp`) → คำตอบ AI ของ Google เองต่อคำถามเป้าหมาย อ้างอิง/เอ่ยชื่อ/ไม่พูดถึง และแยก "Google ไม่แสดง AI Overview" ออกจากตัวหาร · ผ่าน SerpApi (ใส่คีย์ที่ `/admin/settings`, ~2 search/คำถาม) เพราะ Google ไม่มี API และ Serper ไม่ให้ข้อมูลสองอย่างนี้
 
+12. **รายงาน & ส่งออก** (`/brands/{id}/report`) → รวมทุกตัววัดเป็นหน้าเดียว + "สิ่งที่ควรทำต่อ" จากกฎง่าย ๆ · ดาวน์โหลด **PDF** (Gotenberg ใน compose service `pdf`, ฟอนต์ Sarabun จาก `deploy/fonts`) · **CSV** 7 ชนิด (คอนเทนต์/คำถาม/SoV/อันดับ/AI/Search Console/สุขภาพ) ใส่ BOM ให้ Excel อ่านไทยถูก
+13. **ถามข้อมูลแบรนด์** (`/brands/{id}/chat`) → แชตถามเป็นภาษาคน AI ตอบจาก digest ของตัวเลขจริง (ชุดเดียวกับรายงาน) ห้ามเดานอกข้อมูล · ใช้โมเดลเดียวกับที่เขียนคอนเทนต์ (`AI_API_KEY`)
+
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
   ```powershell

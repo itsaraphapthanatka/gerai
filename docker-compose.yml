@@ -48,6 +48,20 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./app/static/gen:/app/app/static/gen
+    # รายงาน PDF เรนเดอร์ผ่าน container pdf (ด้านล่าง) — ถ้าไม่มี แอปยังทำงานได้ แค่ปุ่ม PDF จะบอกให้ใช้ Print
+    environment:
+      - PDF_SERVICE_URL=http://pdf:3000
+
+  # Gotenberg = Chromium แปลง HTML → PDF ผ่าน HTTP — ใช้ทำรายงานรายเดือน (/brands/{id}/report.pdf)
+  # ไม่เปิดพอร์ตออกนอก geo-app เรียกผ่านเครือข่ายภายในเท่านั้น
+  # ฟอนต์ Sarabun ใน deploy/fonts (OFL) mount ให้ ไม่งั้นภาษาไทยในรายงานเป็นกล่องสี่เหลี่ยม
+  pdf:
+    image: gotenberg/gotenberg:8
+    container_name: geo-pdf
+    restart: unless-stopped
+    command: ["gotenberg", "--api-timeout=90s", "--chromium-disable-javascript=true"]
+    volumes:
+      - ./deploy/fonts:/usr/share/fonts/sarabun:ro
 
 volumes:
   geo-pg-data:

@@ -302,6 +302,16 @@
     <div class="qc-label">Google AI Overview / AI Mode</div>
     <div class="qc-count">{{ 'ยังไม่เคยเช็ค' if not aiserp else (('AI Overview ' ~ aiserp['overview_hit'] ~ '/' ~ aiserp['overview_shown'] ~ ' · AI Mode ' ~ aiserp['mode_hit'] ~ '/' ~ (aiserp['asked'] - aiserp['overview_shown'] if aiserp['asked'] > aiserp['overview_shown'] else aiserp['asked'])) if aiserp['asked'] else 'ยังไม่มีคีย์') }}</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/report" class="quick-card">
+    <div class="qc-icon">📄</div>
+    <div class="qc-label">รายงาน & ส่งออก</div>
+    <div class="qc-count">PDF รายเดือน · CSV</div>
+  </a>
+  <a href="/brands/{{ brand['id'] }}/chat" class="quick-card">
+    <div class="qc-icon">💬</div>
+    <div class="qc-label">ถามข้อมูลแบรนด์</div>
+    <div class="qc-count">AI ตอบจากตัวเลขจริง</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
     <div class="qc-label">SoV Impact</div>

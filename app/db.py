@@ -114,6 +114,13 @@ def _tables() -> list[str]:
             searches INTEGER NOT NULL DEFAULT 0,
             report TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS chat_messages (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -679,6 +686,24 @@ def pagespeed_history(brand_id: int, limit: int = 8):
             q("SELECT checked_at, perf_mobile, perf_desktop, seo_mobile FROM pagespeed_scans "
               "WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)
         ).fetchall()
+
+
+# ---- Analytics chat ----
+def add_chat_message(brand_id: int, role: str, content: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO chat_messages(brand_id,role,content,created_at) VALUES(?,?,?,?)"),
+                  (brand_id, role, content, now()))
+
+
+def list_chat_messages(brand_id: int, limit: int = 40):
+    with get_conn() as c:
+        rows = c.execute(q("SELECT * FROM chat_messages WHERE brand_id=? ORDER BY id DESC LIMIT ?"), (brand_id, limit)).fetchall()
+    return list(reversed(rows))
+
+
+def clear_chat(brand_id: int) -> None:
+    with get_conn() as c:
+        c.execute(q("DELETE FROM chat_messages WHERE brand_id=?"), (brand_id,))
 
 
 # ---- Google AI Overview / AI Mode ----

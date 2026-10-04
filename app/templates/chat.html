@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}ถามข้อมูล — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>ถามข้อมูลแบรนด์</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ถามเป็นภาษาคน แล้ว AI ตอบจากตัวเลขจริงของแบรนด์นี้ (SoV, อันดับ, ผู้ช่วย AI, Search Console, สุขภาพ, ความเร็ว, คอนเทนต์) ไม่เดานอกข้อมูล</p>
+
+{% if not llm_ready %}
+<div class="card" style="border-color:var(--amber,#e0a800)"><b>⚠️ ยังไม่ได้ตั้งค่าโมเดล AI</b><p class="muted" style="margin:6px 0 0">ต้องมี <code>AI_API_KEY</code> ใน .env (ตัวเดียวกับที่ใช้เขียนคอนเทนต์)</p></div>
+{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="max-height:60vh;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px" id="chatlog">
+    {% if not messages %}
+    <p class="muted" style="margin:0">ยังไม่มีบทสนทนา — ลองถามคำถามด้านล่าง หรือกดคำถามตัวอย่าง</p>
+    {% endif %}
+    {% for m in messages %}
+    <div style="align-self:{{ 'flex-end' if m['role'] == 'user' else 'flex-start' }};max-width:85%">
+      <div style="font-size:11px;color:var(--silver);margin:0 4px 2px;text-align:{{ 'right' if m['role'] == 'user' else 'left' }}">{{ 'คุณ' if m['role'] == 'user' else 'เจอ.AI' }} · {{ m['created_at'][11:16] }}</div>
+      <div style="padding:10px 14px;border-radius:14px;white-space:pre-wrap;line-height:1.6;font-size:14px;{{ 'background:var(--purple);color:#fff' if m['role'] == 'user' else 'background:var(--canvas);border:1px solid var(--border)' }}">{{ m['content'] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <form method="post" action="/brands/{{ brand['id'] }}/chat" style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)">
+    <input type="text" name="message" id="msg" placeholder="เช่น เดือนนี้ดีขึ้นไหม / หน้าไหนยังไม่ติด index" autocomplete="off" required maxlength="600" style="flex:1" {{ 'disabled' if not llm_ready }}>
+    <button type="submit" {{ 'disabled' if not llm_ready }}>ถาม</button>
+  </form>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+  {% for s in suggestions %}<button type="button" class="btn sm" style="font-size:12px" onclick="document.getElementById('msg').value={{ s | tojson }};document.getElementById('msg').focus()">{{ s }}</button>{% endfor %}
+  {% if messages %}
+  <form method="post" action="/brands/{{ brand['id'] }}/chat/clear" style="margin-left:auto"><button type="submit" class="danger" style="font-size:12px">ล้างประวัติ</button></form>
+  {% endif %}
+</div>
+
+<p class="muted" style="font-size:12px">
+  ข้อมูลที่ AI เห็นคือตัวเลขล่าสุดของแต่ละตัววัด ณ ตอนถาม (ชุดเดียวกับ<a class="link" href="/brands/{{ brand['id'] }}/report">รายงาน</a>) — ถ้าตัววัดไหนยังไม่เคยรัน AI จะบอกว่าไม่มีข้อมูลและควรรันอะไร · คำตอบเก็บไว้ในระบบเพื่อดูย้อนหลัง
+</p>
+<script>var l=document.getElementById('chatlog'); if(l) l.scrollTop=l.scrollHeight;</script>
+{% endblock %}

@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat
 
 
 def hash_pw(password: str) -> str:
@@ -1370,6 +1370,84 @@ def brand_ai_serp(request: Request, brand_id: int):
         "kinds": ai_serp.KINDS, "available": ai_serp.available(),
         "running": brand_id in _aiserp_running or request.query_params.get("running"),
     })
+
+
+# ---------- รายงานสรุป + ส่งออกไฟล์ ----------
+@app.get("/brands/{brand_id}/report")
+def brand_report(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    data = report.collect(brand_id)
+    return templates.TemplateResponse(request, "report.html", {"d": data, "pdf": False, "exports": report.EXPORTS})
+
+
+@app.get("/brands/{brand_id}/report.pdf")
+def brand_report_pdf(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    data = report.collect(brand_id)
+    try:
+        pdf = report.to_pdf(report.render_html(data, pdf=True))
+    except Exception as e:
+        # บริการ PDF (container pdf) ล่ม — ให้คนยังเอารายงานไปได้ด้วย Print ของเบราว์เซอร์
+        return templates.TemplateResponse(request, "report.html",
+            {"d": data, "pdf": False, "exports": report.EXPORTS,
+             "pdf_error": f"สร้าง PDF ไม่ได้ตอนนี้ ({type(e).__name__}) — ใช้ Print → Save as PDF ของเบราว์เซอร์แทนได้"}, status_code=503)
+    fname = f"geo-report-{(brand['name'] or 'brand').replace(' ', '_')[:30]}-{data['period']['to']}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{__import__('urllib.parse').parse.quote(fname)}"})
+
+
+@app.get("/brands/{brand_id}/export/{kind}.csv")
+def brand_export_csv(request: Request, brand_id: int, kind: str):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    ex = report.export(brand_id, kind)
+    if not ex:
+        return PlainTextResponse("ไม่รู้จักชนิดไฟล์ — ใช้ " + ", ".join(report.EXPORTS), status_code=404)
+    fname, header, rows = ex
+    return Response(report.csv_bytes(header, rows), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{__import__('urllib.parse').parse.quote(fname)}"})
+
+
+# ---------- ถามข้อมูลแบรนด์ (analytics chat) ----------
+@app.get("/brands/{brand_id}/chat")
+def brand_chat(request: Request, brand_id: int, error: str = ""):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "chat.html", {
+        "brand": brand, "messages": db.list_chat_messages(brand_id), "suggestions": analytics_chat.SUGGESTIONS,
+        "llm_ready": bool(ai_client.API_KEY), "error": error or None,
+    })
+
+
+@app.post("/brands/{brand_id}/chat")
+def brand_chat_ask(request: Request, brand_id: int, message: str = Form(...)):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    msg = (message or "").strip()[:600]
+    if not msg:
+        return _redirect(f"/brands/{brand_id}/chat")
+    history = [dict(m) for m in db.list_chat_messages(brand_id, limit=analytics_chat.HISTORY_TURNS)]
+    try:
+        reply = analytics_chat.answer(report.collect(brand_id), history, msg)
+    except Exception as e:
+        return _redirect(f"/brands/{brand_id}/chat?error=" + __import__("urllib.parse").parse.quote(f"ถามโมเดลไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"))
+    db.add_chat_message(brand_id, "user", msg)
+    db.add_chat_message(brand_id, "assistant", reply or "(โมเดลไม่ตอบ)")
+    return _redirect(f"/brands/{brand_id}/chat")
+
+
+@app.post("/brands/{brand_id}/chat/clear")
+def brand_chat_clear(request: Request, brand_id: int):
+    if _brand_for(request, brand_id):
+        db.clear_chat(brand_id)
+    return _redirect(f"/brands/{brand_id}/chat")
 
 
 # ---------- Google rank tracking ----------

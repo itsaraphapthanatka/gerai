@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รายงาน GEO — {{ d.brand.name }} ({{ d.period.to }})</title>
+{% if not pdf %}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">{% endif %}
+<style>
+  :root { --ink:#1c1c2b; --muted:#6b6b7b; --line:#e6e6ee; --purple:#7132f5; --green:#149e61; --red:#d92d20; --amber:#b26a00; --soft:#f6f6fa; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Sarabun', 'Leelawadee UI', 'Garuda', sans-serif; color: var(--ink); margin: 0; background: #fff; font-size: 13.5px; line-height: 1.55; }
+  .page { max-width: 820px; margin: 0 auto; padding: 28px 32px 40px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--purple); padding-bottom: 10px; margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .brandmark { color: var(--purple); font-weight: 700; font-size: 15px; text-align: right; }
+  .brandmark small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 20px; }
+  .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--soft); }
+  .kpi .l { color: var(--muted); font-size: 11.5px; }
+  .kpi .v { font-size: 24px; font-weight: 700; line-height: 1.15; margin-top: 2px; }
+  .kpi .s { font-size: 11.5px; color: var(--muted); }
+  .up { color: var(--green); } .down { color: var(--red); } .flat { color: var(--muted); }
+  h2 { font-size: 15px; margin: 20px 0 8px; padding-left: 8px; border-left: 3px solid var(--purple); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; background: var(--soft); }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eee; }
+  .pill.ok { background: #e3f6ec; color: #0f6a44; } .pill.no { background: #fde8e6; color: #9b1c15; } .pill.warn { background: #fff3d6; color: #8a5300; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .note { color: var(--muted); font-size: 11.5px; }
+  ol.steps { padding-left: 20px; margin: 6px 0; } ol.steps li { margin: 4px 0; }
+  .empty { color: var(--muted); font-style: italic; }
+  footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; display: flex; justify-content: space-between; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .toolbar a { display: inline-block; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); text-decoration: none; color: var(--ink); font-size: 12.5px; background: #fff; }
+  .toolbar a.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
+  @media print { .toolbar { display: none; } .page { padding: 0; } @page { size: A4; margin: 14mm; } }
+  @media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+{% if not pdf %}
+{% if pdf_error %}<div style="background:#fff3d6;color:#8a5300;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12.5px">{{ pdf_error }}</div>{% endif %}
+<div class="toolbar">
+  <a class="primary" href="/brands/{{ d.brand.id }}/report.pdf">⬇ ดาวน์โหลด PDF</a>
+  {% for k, label in exports.items() %}<a href="/brands/{{ d.brand.id }}/export/{{ k }}.csv">CSV · {{ label }}</a>{% endfor %}
+  <a href="/brands/{{ d.brand.id }}">← กลับหน้าแบรนด์</a>
+</div>
+{% endif %}
+
+<header>
+  <div>
+    <h1>รายงาน GEO รายเดือน — {{ d.brand.name }}</h1>
+    <div class="sub">{{ d.site }} · ช่วง {{ d.period.from }} ถึง {{ d.period.to }} ({{ d.period.days }} วัน) · คำถามเป้าหมาย {{ d.n_questions }} ข้อ</div>
+  </div>
+  <div class="brandmark">เจอ.AI<small>GEO Platform · สร้าง {{ d.generated_at.replace('T', ' ') }}</small></div>
+</header>
+
+{% set sov = d.sov %}{% set rk = d.rank %}{% set ai = d.ai %}{% set g = d.gsc %}
+<div class="kpis">
+  <div class="kpi"><div class="l">Share of Voice (ผลค้นเว็บ)</div>
+    <div class="v">{{ (sov.latest.sov ~ '%') if sov.latest else '–' }}</div>
+    <div class="s">{% if sov.delta is not none %}<span class="{{ 'up' if sov.delta > 0 else ('down' if sov.delta < 0 else 'flat') }}">{{ '%+d' % sov.delta }} จุด</span> จาก {{ sov.previous.at }}{% elif sov.latest %}{{ sov.latest.hits }}/{{ sov.latest.total }} คำถาม · {{ sov.latest.at }}{% else %}ยังไม่เคยรันมอนิเตอร์{% endif %}</div></div>
+  <div class="kpi"><div class="l">ติดอันดับ Google</div>
+    <div class="v">{{ (rk.latest.ranked ~ '/' ~ rk.latest.total) if rk.latest else '–' }}</div>
+    <div class="s">{% if rk.latest %}{% if rk.latest.avg_pos %}เฉลี่ยอันดับ {{ rk.latest.avg_pos }} · {% endif %}{% if rk.previous %}รอบก่อน {{ rk.previous.ranked }}/{{ rk.previous.total }}{% else %}{{ rk.latest.at }}{% endif %}{% else %}ยังไม่เคยเช็ค{% endif %}</div></div>
+  <div class="kpi"><div class="l">ถูกพูดถึงบนผู้ช่วย AI</div>
+    <div class="v">{{ (ai.rate ~ '%') if ai and ai.asked else '–' }}</div>
+    <div class="s">{% if ai and ai.asked %}อ้างอิง {{ ai.cited }} · เอ่ยชื่อ {{ ai.named }} จาก {{ ai.asked }} คำตอบ{% else %}ยังไม่มีผล{% endif %}</div></div>
+  <div class="kpi"><div class="l">คลิกจาก Google (28 วัน)</div>
+    <div class="v">{{ "{:,}".format(g.clicks) if g and g.linked else '–' }}</div>
+    <div class="s">{% if g and g.linked %}{{ "{:,}".format(g.impressions) }} impressions · index {{ g.indexed }}/{{ g.inspected }}{% else %}ยังไม่ได้เชื่อม Search Console{% endif %}</div></div>
+</div>
+
+{% if d.next_steps %}
+<h2>สิ่งที่ควรทำต่อ</h2>
+<ol class="steps">{% for s in d.next_steps %}<li>{{ s }}</li>{% endfor %}</ol>
+{% endif %}
+
+<div class="grid2">
+  <div>
+    <h2>Share of Voice รายรอบ</h2>
+    {% if sov.series %}
+    <table><tr><th>วันที่</th><th class="num">SoV</th></tr>
+      {% for at, v in sov.series %}<tr><td>{{ at }}</td><td class="num">{{ v }}%</td></tr>{% endfor %}</table>
+    {% else %}<p class="empty">ยังไม่มีข้อมูล — รันมอนิเตอร์ก่อน</p>{% endif %}
+  </div>
+  <div>
+    <h2>อันดับ Google รายคำถาม</h2>
+    {% if rk.rows %}
+    <table><tr><th>คำถาม</th><th class="num">อันดับ</th></tr>
+      {% for r in rk.rows %}<tr><td>{{ r.question }}</td><td class="num">{{ ('#' ~ r.position) if r.position else '<span class="pill no">ไม่ติด</span>'|safe }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="empty">ยังไม่เคยเช็คอันดับ</p>{% endif %}
+  </div>
+</div>
+
+<h2>Search Console</h2>
+{% if g and g.linked %}
+<table>
+  <tr><th>หน้าคอนเทนต์อยู่ใน index</th><th>Google ยังไม่รู้จัก</th><th>เห็นแล้วยังไม่อ่าน</th><th>อ่านแล้วไม่เก็บ</th><th>ถูกบล็อก</th><th>sitemap</th><th>ซิงค์</th></tr>
+  <tr><td><b>{{ g.indexed }}/{{ g.inspected }}</b></td><td>{{ g.unknown }}</td><td>{{ g.discovered }}</td><td>{{ g.crawled }}</td><td>{{ g.blocked }}</td><td>{{ 'ส่งแล้ว' if g.sitemap_submitted else 'ยังไม่ได้ส่ง' }}</td><td>{{ g.at }}</td></tr>
+</table>
+{% if g.top_queries %}
+<p class="note" style="margin:8px 0 4px">คำค้นที่คนเจอเว็บ (28 วัน)</p>
+<table><tr><th>คำค้น</th><th class="num">คลิก</th><th class="num">Impr.</th><th class="num">อันดับ</th></tr>
+  {% for q in g.top_queries %}<tr><td>{{ q.query }}</td><td class="num">{{ q.clicks }}</td><td class="num">{{ q.impressions }}</td><td class="num">{{ q.position or '–' }}</td></tr>{% endfor %}</table>
+{% endif %}
+{% elif g %}<p class="empty">ยังไม่ได้เชื่อม — {{ g.reason }}</p>
+{% else %}<p class="empty">ยังไม่เคยซิงค์ Search Console</p>{% endif %}
+
+<div class="grid2">
+  <div>
+    <h2>ผู้ช่วย AI</h2>
+    {% if ai and ai.engines %}
+    <table><tr><th>AI</th><th class="num">อ้างอิง</th><th class="num">เอ่ยชื่อ</th><th class="num">ถาม</th></tr>
+      {% for e in ai.engines %}<tr><td>{{ e.label }}</td><td class="num">{{ e.cited }}</td><td class="num">{{ e.named }}</td><td class="num">{{ e.asked }}</td></tr>{% endfor %}</table>
+    <p class="note">ถามเมื่อ {{ ai.at }}{% if ai.cost_usd %} · ค่าใช้จ่าย ${{ '%.2f' % ai.cost_usd }}{% endif %}</p>
+    {% else %}<p class="empty">ยังไม่มีผล (ยังไม่ได้ถามหรือยังไม่มีคีย์)</p>{% endif %}
+    {% if d.serp %}
+    <p class="note">Google AI Overview พูดถึงเรา {{ d.serp.overview_hit }}/{{ d.serp.overview_shown }} (ไม่แสดง {{ d.serp.overview_none }} ข้อ) · AI Mode {{ d.serp.mode_hit }}/{{ d.serp.mode_shown }} · {{ d.serp.at }}</p>
+    {% endif %}
+  </div>
+  <div>
+    <h2>สุขภาพและความเร็วเว็บ</h2>
+    {% set h = d.health %}
+    {% if h %}
+    <p style="margin:4px 0">{% if h.ok %}<span class="pill ok">ผ่านทุกข้อ</span>{% else %}<span class="pill no">ไม่ผ่าน {{ h.n_fail }} ข้อ</span>{% endif %} <span class="note">{{ h.at }}</span></p>
+    {% if h.fails %}<ul style="margin:4px 0 8px;padding-left:18px">{% for f in h.fails %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+    {% else %}<p class="empty">ยังไม่เคยตรวจสุขภาพเว็บ</p>{% endif %}
+    {% set sp = d.speed %}
+    {% if sp %}
+    <p style="margin:4px 0">ความเร็ว (PageSpeed): มือถือ <b>{{ sp.mobile if sp.mobile is not none else '–' }}</b> · เดสก์ท็อป <b>{{ sp.desktop if sp.desktop is not none else '–' }}</b>{% if sp.seo is not none %} · SEO {{ sp.seo }}{% endif %} <span class="note">{{ sp.at }}</span></p>
+    {% if sp.error %}<p class="note">{{ sp.error }}</p>{% endif %}
+    {% else %}<p class="empty">ยังไม่เคยสแกนความเร็ว</p>{% endif %}
+  </div>
+</div>
+
+<h2>คอนเทนต์</h2>
+{% set c = d.content %}
+<table>
+  <tr><th>ทั้งหมด</th><th>เผยแพร่แล้ว</th><th>เผยแพร่ในช่วงนี้</th><th>ร่าง</th><th>เผยแพร่ล่าสุด</th><th>ช่องว่าง (ยังไม่มีคอนเทนต์)</th></tr>
+  <tr><td>{{ c.total }}</td><td>{{ c.published }}</td><td><b>{{ c.published_period }}</b></td><td>{{ c.drafts }}</td><td>{{ c.latest or '–' }}</td><td>{{ d.gaps.critical }} / {{ d.gaps.total }}</td></tr>
+</table>
+{% if c.recent %}
+<table style="margin-top:6px"><tr><th>เผยแพร่ใหม่ในช่วงนี้</th><th class="num">วันที่</th></tr>
+  {% for x in c.recent %}<tr><td>{{ x.title }}</td><td class="num">{{ x.at }}</td></tr>{% endfor %}</table>
+{% endif %}
+
+<footer>
+  <span>SoV = แบรนด์โผล่ในผลค้นเว็บของคำถามแนว AI · ผู้ช่วย AI = ChatGPT/Perplexity/Gemini ตอบจริง · index/คลิกจาก Google Search Console</span>
+  <span>เจอ.AI · {{ d.period.to }}</span>
+</footer>
+</div>
+</body>
+</html>
