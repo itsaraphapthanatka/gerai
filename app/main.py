@@ -1145,6 +1145,9 @@ def brand_ai(request: Request, brand_id: int):
         "brand": brand, "report": report, "matrix": matrix, "rivals": rivals,
         "engines": ai_visibility.ENGINES,
         "available": ai_visibility.available_engines(),
+        # เก็บเป็น USD (ค่าจริงจาก API) — บาทเป็นแค่การแสดงผล อัตราตั้งทับได้ด้วย GEO_FX_THB
+        "cost_30d": db.ai_cost_30d(brand_id),
+        "fx": float(os.getenv("GEO_FX_THB", "33.6")),
         "running": brand_id in _ai_running or request.query_params.get("running"),
     })
 

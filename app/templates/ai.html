@@ -66,22 +66,29 @@
     <div class="sov {{ 'pos' if report.named else 'no' }}">{{ report.named }}</div>
     <div class="muted">จาก {{ report.asked }} คำตอบ</div>
   </div>
+  <div style="text-align:center">
+    <div class="muted">ค่าใช้จ่ายรอบนี้</div>
+    <div class="sov" style="font-size:30px">${{ '%.3f' % (report.cost_usd or 0) }}</div>
+    <div class="muted">≈ ฿{{ '%.1f' % ((report.cost_usd or 0) * fx) }} · {{ "{:,}".format(report.tokens_in or 0) }} in / {{ "{:,}".format(report.tokens_out or 0) }} out · ค้น {{ report.searches or 0 }}</div>
+  </div>
   <div style="margin-left:auto;text-align:right">
     <div class="muted">ถามล่าสุด</div>
     <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
+    <div class="muted" style="font-size:12px">30 วันล่าสุดรวม ${{ '%.2f' % cost_30d }} ≈ ฿{{ '%.0f' % (cost_30d * fx) }}</div>
   </div>
 </div>
 
 <h2>แยกตามเจ้า</h2>
 <div class="card">
   <table>
-    <tr><th>AI</th><th>ถามได้</th><th>อ้างอิงเว็บเรา</th><th>เอ่ยชื่อ</th><th>หมายเหตุ</th></tr>
+    <tr><th>AI</th><th>ถามได้</th><th>อ้างอิงเว็บเรา</th><th>เอ่ยชื่อ</th><th>ค่าใช้จ่าย</th><th>หมายเหตุ</th></tr>
     {% for e, v in report.by_engine.items() %}
     <tr>
       <td><b>{{ v.label }}</b></td>
       <td>{{ v.asked }}</td>
       <td>{% if v.cited %}<span class="pill ok">{{ v.cited }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
       <td>{% if v.named %}<span class="pill ok">{{ v.named }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+      <td class="muted" style="font-size:12px">{% if v.asked %}${{ '%.3f' % (v.cost_usd or 0) }}<br>{{ "{:,}".format(v.tokens_in or 0) }}/{{ "{:,}".format(v.tokens_out or 0) }} tok{% else %}–{% endif %}</td>
       <td class="muted" style="font-size:12px">
         {%- if v.skipped %}ข้าม {{ v.skipped }} — ยังไม่มีคีย์{% endif %}
         {%- if v.errors %} <span class="pill no">ผิดพลาด {{ v.errors }}</span>{% endif %}
@@ -129,7 +136,8 @@
 <p class="muted" style="font-size:12px">
   <b>อ้างอิง</b> = AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง) ·
   <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น ·
-  ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI
+  ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI ·
+  <b>ค่าใช้จ่าย</b>คำนวณจาก token/จำนวนค้นที่ API แต่ละเจ้าส่งกลับจริง × ราคาทางการ (USD) ส่วนบาทเป็นค่าประมาณที่อัตรา {{ fx }}
 </p>
 {% endif %}
 {% endblock %}

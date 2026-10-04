@@ -186,6 +186,102 @@ def _dedupe(urls: list) -> list:
     return out
 
 
+# ---------- usage: ดึง token/จำนวนค้นจาก response ของแต่ละเจ้า ----------
+# ค่าใช้จ่ายจริงต้องมาจาก usage ที่ API ส่งกลับ ไม่ใช่ประมาณจากความยาวข้อความ —
+# ตอนประเมินด้วยมือสมมติ 5,000 token/คำถาม ซึ่งอาจคลาดได้เป็นเท่าตัว
+def _i(x) -> int:
+    try:
+        return int(x or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def usage_claude(resp: dict) -> dict:
+    u = resp.get("usage") or {}
+    # cache write/read มีราคาต่างจาก input ปกติ แต่เราไม่ได้ใช้ cache ในการเรียกนี้ จึงรวมเข้า in
+    # ให้ภาพรวมถูก (ถ้าวันหน้าเปิด cache ค่อยแยก)
+    return {"in": _i(u.get("input_tokens")) + _i(u.get("cache_creation_input_tokens"))
+                  + _i(u.get("cache_read_input_tokens")),
+            "out": _i(u.get("output_tokens")),
+            "searches": _i((u.get("server_tool_use") or {}).get("web_search_requests"))}
+
+
+def usage_openai(resp: dict) -> dict:
+    u = resp.get("usage") or {}
+    # Responses API ไม่สรุปจำนวนค้นใน usage — นับจาก output item ชนิด web_search_call
+    n = sum(1 for it in (resp.get("output") or []) if it.get("type") == "web_search_call")
+    return {"in": _i(u.get("input_tokens")), "out": _i(u.get("output_tokens")), "searches": n}
+
+
+def usage_perplexity(resp: dict) -> dict:
+    u = resp.get("usage") or {}
+    # sonar คิด "request fee" ต่อคำขอ ไม่ใช่ต่อครั้งที่ค้น — 1 คำขอ = 1 หน่วย
+    return {"in": _i(u.get("prompt_tokens")), "out": _i(u.get("completion_tokens")), "searches": 1}
+
+
+def usage_gemini(resp: dict) -> dict:
+    u = resp.get("usageMetadata") or {}
+    grounded = any(((c.get("groundingMetadata") or {}).get("groundingChunks"))
+                   for c in (resp.get("candidates") or []))
+    return {"in": _i(u.get("promptTokenCount")), "out": _i(u.get("candidatesTokenCount")),
+            "searches": 1 if grounded else 0}
+
+
+USAGE = {"claude": usage_claude, "chatgpt": usage_openai,
+         "perplexity": usage_perplexity, "gemini": usage_gemini}
+
+# ราคาทางการ ณ 4 ต.ค. 2026 (USD) — in/out ต่อ 1M token · search ต่อ 1,000 ครั้ง
+# ตั้งทับได้ด้วย GEO_AI_PRICES เป็น JSON รูปเดียวกัน เพราะราคาเปลี่ยนบ่อยกว่าที่จะ deploy ตาม
+# ที่มา: docs.perplexity.ai/getting-started/pricing · developers.openai.com/api/docs/pricing
+#        ai.google.dev/gemini-api/docs/pricing · platform.claude.com/docs/en/about-claude/pricing
+_DEFAULT_PRICES = {
+    "claude": {
+        "claude-opus-5-5":   {"in": 4.00, "out": 20.00, "search": 10.0},
+        "claude-sonnet-5-5": {"in": 2.00, "out": 10.00, "search": 10.0},
+        "claude-haiku-4-5":  {"in": 1.00, "out": 5.00,  "search": 10.0},
+    },
+    "chatgpt": {   # web search $10/1k สำหรับ reasoning model + token ของผลค้นคิดตามโมเดล
+        "gpt-5":      {"in": 1.25, "out": 10.00, "search": 10.0},
+        "gpt-5-mini": {"in": 0.25, "out": 2.00,  "search": 10.0},
+        "gpt-5-nano": {"in": 0.05, "out": 0.40,  "search": 10.0},
+    },
+    "perplexity": {   # "search" = request fee ระดับ medium context ($5/$8/$12 ตาม low/med/high)
+        "sonar":     {"in": 1.00, "out": 1.00,  "search": 8.0},
+        "sonar-pro": {"in": 3.00, "out": 15.00, "search": 10.0},
+    },
+    "gemini": {   # grounding ฟรี 1,500 ครั้ง/วันสำหรับ 2.5 (เราใช้ไม่ถึง 200/สัปดาห์) จึงคิด 0
+        "gemini-2.5-flash": {"in": 0.30, "out": 2.50,  "search": 0.0},
+        "gemini-2.5-pro":   {"in": 1.25, "out": 10.00, "search": 0.0},
+    },
+}
+
+
+def prices() -> dict:
+    raw = os.getenv("GEO_AI_PRICES", "").strip()
+    if not raw:
+        return _DEFAULT_PRICES
+    try:
+        over = json.loads(raw)
+        out = {e: dict(m) for e, m in _DEFAULT_PRICES.items()}
+        for e, models in over.items():
+            out.setdefault(e, {}).update(models or {})
+        return out
+    except Exception:
+        return _DEFAULT_PRICES
+
+
+def estimate_cost(engine: str, model: str, usage: dict) -> float:
+    """USD ของการเรียก 1 ครั้ง — โมเดลที่ไม่รู้ราคาใช้ราคาของโมเดลตั้งต้นของเจ้านั้น
+    (ดีกว่าให้เป็น 0 แล้วหลอกว่าฟรี)"""
+    table = prices().get(engine) or {}
+    p = table.get(model) or table.get(MODELS.get(engine, "")) or next(iter(table.values()), None)
+    if not p or not usage:
+        return 0.0
+    return round(usage.get("in", 0) / 1e6 * p["in"]
+                 + usage.get("out", 0) / 1e6 * p["out"]
+                 + usage.get("searches", 0) / 1000 * p["search"], 6)
+
+
 # ---------- เรียก API จริง ----------
 # โมเดลและ endpoint ตั้งทับได้ด้วย env — สเปกของแต่ละเจ้าเปลี่ยนบ่อยกว่าที่โค้ดนี้จะตามทัน
 # และแก้ env ง่ายกว่ารอ deploy ใหม่เวลาผู้ให้บริการขยับชื่อโมเดล
@@ -266,7 +362,9 @@ def ask(engine: str, question: str) -> dict:
     try:
         raw = CALLERS[engine](question)
         text, cites = PARSERS[engine](raw)
-        return {"ok": True, "skip": False, "text": text, "citations": cites, "reason": ""}
+        usage = USAGE[engine](raw)
+        return {"ok": True, "skip": False, "text": text, "citations": cites, "reason": "",
+                "usage": usage, "cost_usd": estimate_cost(engine, MODELS[engine], usage)}
     except Exception as e:
         return {"ok": False, "skip": False, "text": "", "citations": [],
                 "reason": f"{type(e).__name__}: {str(e)[:120]}"}
@@ -293,7 +391,11 @@ def check_brand(brand, questions, aliases=()) -> dict:
             rows.append({"engine": e, "question_id": qq.get("id"), "question": text,
                          "status": v["status"], "cited": v["cited"], "named": v["named"],
                          "others": v["others"], "reason": r["reason"],
-                         "answer": (r["text"] or "")[:1500], "checked_at": checked_at})
+                         "answer": (r["text"] or "")[:1500], "checked_at": checked_at,
+                         # skip/error ไม่มี usage — บันทึก 0 (error ที่เรียกสำเร็จบางส่วนอาจถูกคิดเงิน
+                         # แต่เราไม่มีตัวเลข จึงไม่เดา)
+                         "usage": r.get("usage") or {"in": 0, "out": 0, "searches": 0},
+                         "cost_usd": r.get("cost_usd") or 0.0})
     return summarize(rows, checked_at, apex)
 
 
@@ -310,6 +412,10 @@ def summarize(rows: list, checked_at: str, apex: str = "") -> dict:
             "named": sum(1 for r in el if r["named"]),
             "skipped": sum(1 for r in er if r["status"] == SKIP),
             "errors": sum(1 for r in er if r["status"] == ERROR),
+            "cost_usd": round(sum(r.get("cost_usd") or 0 for r in er), 4),
+            "tokens_in": sum((r.get("usage") or {}).get("in", 0) for r in er),
+            "tokens_out": sum((r.get("usage") or {}).get("out", 0) for r in er),
+            "searches": sum((r.get("usage") or {}).get("searches", 0) for r in er),
         }
     return {
         "checked_at": checked_at, "apex": apex, "rows": rows, "by_engine": by_engine,
@@ -318,4 +424,9 @@ def summarize(rows: list, checked_at: str, apex: str = "") -> dict:
         "named": sum(1 for r in live if r["named"]),
         # เอ่ยถึงกี่ % ของคำถามที่ถามได้จริง — ไม่หารด้วยคำถามที่ข้ามเพราะไม่มีคีย์
         "rate": round(100 * sum(1 for r in live if r["named"] or r["cited"]) / len(live)) if live else None,
+        # ค่าใช้จ่ายจริงของรอบนี้จาก usage ที่ API ส่งกลับ — ไม่ใช่ประมาณการ
+        "cost_usd": round(sum(r.get("cost_usd") or 0 for r in rows), 4),
+        "tokens_in": sum((r.get("usage") or {}).get("in", 0) for r in rows),
+        "tokens_out": sum((r.get("usage") or {}).get("out", 0) for r in rows),
+        "searches": sum((r.get("usage") or {}).get("searches", 0) for r in rows),
     }

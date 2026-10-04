@@ -55,7 +55,7 @@ def run_targets(targets, rank=False, health=False, uptime=False, ai=False):
                 # ถ้าเหมารวมว่า "ยังไม่ได้ตั้งคีย์" คนจะไปใส่คีย์ซ้ำทั้งที่ปัญหาคือคีย์ผิด
                 errs = {v["label"]: v["errors"] for v in s["by_engine"].values() if v["errors"]}
                 if s["asked"]:
-                    tail = f"ถูกพูดถึง {s['rate']}% ({eng})"
+                    tail = f"ถูกพูดถึง {s['rate']}% ({eng}) · ${s.get('cost_usd', 0):.3f}"
                     if errs:
                         tail += " · ผิดพลาด: " + ", ".join(f"{k} {n}" for k, n in errs.items())
                 elif errs:

@@ -201,6 +201,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "facts", "TEXT")           # ข้อมูลจริงของแบรนด์ (ลูกค้ากรอกเอง)
         _ensure_column(c, "brands", "site_context", "TEXT")    # เนื้อหาจากเว็บจริง (cache สำหรับ grounding)
         _ensure_column(c, "brands", "schema_type", "TEXT")     # schema.org @type ขององค์กร (ว่าง = เดาจากชื่อ/ตลาด)
+        _ensure_column(c, "ai_visibility", "cost_usd", "REAL")  # ค่าใช้จ่ายจริงต่อรอบ จาก usage ที่ API ส่งกลับ
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -573,11 +574,20 @@ def add_ai_visibility(brand_id: int, res: dict) -> None:
     import json as _j
     with get_conn() as c:
         c.execute(
-            q("INSERT INTO ai_visibility(brand_id,checked_at,asked,cited,named,rate,report)"
-              " VALUES(?,?,?,?,?,?,?)"),
+            q("INSERT INTO ai_visibility(brand_id,checked_at,asked,cited,named,rate,cost_usd,report)"
+              " VALUES(?,?,?,?,?,?,?,?)"),
             (brand_id, res["checked_at"], res["asked"], res["cited"], res["named"],
-             res["rate"], _j.dumps(res, ensure_ascii=False)),
+             res["rate"], res.get("cost_usd") or 0.0, _j.dumps(res, ensure_ascii=False)),
         )
+
+
+def ai_cost_30d(brand_id: int) -> float:
+    """ค่าใช้จ่ายรวม 30 วันล่าสุดของแบรนด์ (USD) — ตอบคำถาม "แพงไหม" ด้วยของจริงแทนการประเมิน"""
+    since = (datetime.datetime.now() - datetime.timedelta(days=30)).isoformat(timespec="seconds")
+    with get_conn() as c:
+        r = c.execute(q("SELECT COALESCE(SUM(cost_usd),0) AS s FROM ai_visibility WHERE brand_id=? AND checked_at>=?"),
+                      (brand_id, since)).fetchone()
+    return float(r["s"] or 0)
 
 
 def last_ai_visibility(brand_id: int):
