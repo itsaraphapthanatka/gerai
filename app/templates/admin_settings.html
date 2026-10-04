@@ -83,10 +83,12 @@
     {# OpenRouter = คีย์เดียวถึงทั้ง 4 เจ้า ใช้ตัวค้นของเจ้าของโมเดลจริง — ถ้ามีคีย์ตรงของเจ้าไหน ระบบใช้คีย์ตรงก่อน #}
     <label>{{ openrouter.label }} API key — <b>คีย์เดียวใช้ได้ทั้ง 4 เจ้า</b> {% if or_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
     <input type="password" name="{{ openrouter.db_key }}" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if or_set else 'วางคีย์จาก ' ~ openrouter.hint }}" autocomplete="off">
+    {% if or_mask %}<div class="keymask">ในระบบ: <code>{{ or_mask }}</code></div>{% endif %}
     <div class="muted" style="font-size:11.5px;margin:4px 0 14px">ราคา token เท่าซื้อตรง (+5.5% ตอนเติมเครดิต) · ค้นเว็บด้วยตัวค้นของ OpenAI/Anthropic/Google/Perplexity เอง · เจ้าที่ใส่คีย์ตรงไว้ด้านล่างจะใช้คีย์ตรงก่อน</div>
     {% for e, spec in ai_engines.items() %}
     <label{% if not loop.first %} style="margin-top:12px"{% endif %}>{{ spec.label }} API key {% if ai_set[e] %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
     <input type="password" name="{{ spec.db_key }}" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if ai_set[e] else 'วางคีย์จาก ' ~ spec.hint }}" autocomplete="off">
+    {% if ai_mask[e] %}<div class="keymask">ในระบบ: <code>{{ ai_mask[e] }}</code></div>{% endif %}
     {% endfor %}
     <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
   </form>
@@ -94,4 +96,31 @@
     ทางที่ง่ายสุดคือ <b>OpenRouter คีย์เดียว</b> แล้วค่อยเลือกเปิดเจ้าไหนทีหลัง · ถ้าจะซื้อตรง แนะนำเริ่มที่ <b>Gemini</b> (grounding ฟรี 1,500 ครั้ง/วัน) หรือ <b>Perplexity</b> (ค้นเว็บในตัว ถูก) · บันทึกแล้วไปที่แบรนด์ → "มองเห็นบน AI" → ถามแบรนด์เดียวก่อนเพื่อยืนยันว่าผลออกมาสมเหตุสมผล ก่อนปล่อยให้รันรายสัปดาห์
   </div>
 </div>
+<style>
+  .keyrow { display:flex; align-items:center; gap:6px; }
+  .keyrow input { flex:1; min-width:0; }
+  .eye { flex:0 0 auto; background:rgba(148,151,169,0.12); color:var(--ink); border:0; border-radius:10px;
+         padding:0 11px; height:40px; font-size:16px; line-height:1; cursor:pointer; }
+  .eye:hover { background:rgba(148,151,169,0.22); filter:none; }
+  .keymask { font-size:11.5px; color:var(--silver); margin:4px 0 0; }
+  .keymask code { font-size:11.5px; letter-spacing:.5px; }
+</style>
+<script>
+// ปุ่มตาเปิด/ปิดดูค่าในช่องคีย์ก่อนกดบันทึก — ช่อง password ซ่อนสิ่งที่วางลงไป
+// ทำให้เช็คไม่ได้ว่าวางครบหรือติดช่องว่าง/ตัวอักษรเกินมา ซึ่งเป็นสาเหตุหลักที่คีย์ "ใส่แล้วไม่ทำงาน"
+document.querySelectorAll('input[type="password"]').forEach(function (inp) {
+  var row = document.createElement('div'); row.className = 'keyrow';
+  inp.parentNode.insertBefore(row, inp); row.appendChild(inp);
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'eye'; btn.textContent = '\u{1F441}'; btn.title = 'แสดง/ซ่อนคีย์';
+  btn.setAttribute('aria-label', 'แสดงหรือซ่อนคีย์'); btn.setAttribute('aria-pressed', 'false');
+  btn.addEventListener('click', function () {
+    var show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.textContent = show ? '\u{1F648}' : '\u{1F441}';
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+  });
+  row.appendChild(btn);
+});
+</script>
 {% endblock %}

@@ -1769,6 +1769,9 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "openrouter": ai_visibility.OPENROUTER,
         "or_set": bool(db.get_setting(ai_visibility.OPENROUTER["db_key"])
                        or os.getenv(ai_visibility.OPENROUTER["env"])),
+        # รูปปิดกลางของคีย์ที่บันทึกไว้ (หัว 4 ท้าย 4) — ให้ยืนยันได้ว่าใส่ตัวไหน ไม่ส่งคีย์เต็มออกไป
+        "ai_mask": {e: ai_visibility.stored_key_preview(spec) for e, spec in ai_visibility.ENGINES.items()},
+        "or_mask": ai_visibility.stored_key_preview(ai_visibility.OPENROUTER),
         "saved": saved, "error": error,
     }
 

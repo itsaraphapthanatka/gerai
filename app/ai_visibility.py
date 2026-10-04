@@ -100,6 +100,25 @@ def _raw_key(spec: dict) -> str:
     return raw or (os.getenv(spec["env"]) or "").strip()
 
 
+def mask_key(raw: str) -> str:
+    """รูปปิดกลางของคีย์สำหรับให้คนยืนยันว่า "ในระบบคือตัวไหน" โดยไม่ส่งคีย์เต็มออกหน้าเว็บ
+    คีย์จริงทุกเจ้ายาว 39–100+ ตัว โชว์หัว 4 ท้าย 4 พอให้เทียบกับหน้า console ของผู้ให้บริการได้
+    คีย์สั้นผิดปกติ (placeholder) บอกตรง ๆ ว่าไม่ถูกใช้ แทนที่จะปิดเป็นจุดให้ดูเหมือนปกติ"""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    if len(raw) < MIN_KEY_LEN:
+        return f"สั้นผิดปกติ ({len(raw)} ตัวอักษร) — ไม่ถูกใช้"
+    if len(raw) >= 20:
+        return f"{raw[:4]}••••••••{raw[-4:]}"
+    return f"••••{raw[-4:]}"
+
+
+def stored_key_preview(spec: dict) -> str:
+    """คีย์ที่บันทึกไว้ (DB ก่อน แล้ว .env) ในรูปปิดกลาง — ว่าง = ยังไม่ได้ตั้ง"""
+    return mask_key(_raw_key(spec))
+
+
 def key_problem(engine: str) -> str:
     """เหตุผลที่เจ้านี้ใช้ไม่ได้ — แยก "ไม่ได้ตั้ง" กับ "ตั้งแต่ใช้ไม่ได้" ให้คนอ่านรู้ว่าต้องทำอะไร
     ตรวจทั้งคีย์ตรงและ OpenRouter เพราะ placeholder ค้างได้ทั้งสองที่"""
