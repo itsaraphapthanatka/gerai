@@ -2164,7 +2164,8 @@ def admin_confirm_payment(request: Request, pid: int):
 def admin_home(request: Request):
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
-    return templates.TemplateResponse(request, "admin.html", _admin_ctx())
+    # error จาก redirect ของฟอร์มแก้อีเมล (รูปแบบผิด/ซ้ำ) — เทมเพลตมี {% if error %} รออยู่แล้ว
+    return templates.TemplateResponse(request, "admin.html", {**_admin_ctx(), "error": request.query_params.get("error")})
 
 
 @app.post("/admin/tenants")
