@@ -2177,6 +2177,20 @@ def admin_create_tenant(request: Request, email: str = Form(...), password: str 
     return _redirect("/admin")
 
 
+@app.post("/admin/tenants/{tid}/email")
+def admin_set_email(request: Request, tid: int, email: str = Form(...)):
+    """แก้อีเมลบัญชีลูกค้า/แอดมิน — บัญชีที่สร้างตอนตั้งระบบใช้ @geo.local ฯลฯ ซึ่งแคมเปญ/Autopilot ส่งไปแล้วไม่มีใครได้รับ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    import re as _re
+    e = (email or "").strip().lower()
+    if not _re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e):
+        return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote("รูปแบบอีเมลไม่ถูกต้อง"))
+    if not db.set_email(tid, e):
+        return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote(f"อีเมล {e} ถูกใช้กับบัญชีอื่นแล้ว"))
+    return _redirect("/admin")
+
+
 @app.post("/admin/tenants/{tid}/plan")
 def admin_set_plan(request: Request, tid: int, plan: str = Form(...)):
     if not _is_admin(request):
@@ -2329,17 +2343,19 @@ def admin_email_smtp(request: Request, host: str = Form(""), port: str = Form(""
 
 @app.post("/admin/email/test")
 def admin_email_test(request: Request, host: str = Form(""), port: str = Form(""), user: str = Form(""), password: str = Form(""),
-                     from_: str = Form(""), from_name: str = Form(""), tls: str = Form("starttls")):
-    """บันทึกค่าที่กรอกไว้ก่อน แล้วส่งทดสอบถึงอีเมลของแอดมินที่ล็อกอิน — จะได้รู้ทันทีว่า host/port/รหัสถูก"""
+                     from_: str = Form(""), from_name: str = Form(""), tls: str = Form("starttls"), test_to: str = Form("")):
+    """บันทึกค่าที่กรอกไว้ก่อน แล้วส่งทดสอบถึงที่อยู่ที่กรอก (ดีฟอลต์ = อีเมลแอดมินที่ล็อกอิน) — รู้ทันทีว่า host/port/รหัส/โดเมนผู้ส่งถูก"""
     if not _is_admin(request):
         return _redirect("/login")
     mailer.save_config(host, port, user, password, from_, from_name, tls)
     me = db.get_tenant(_tid(request))
+    to = (test_to or "").strip() or me["email"]
     try:
-        mailer.send(me["email"], "ทดสอบ SMTP จาก เจอ.AI",
+        mailer.send(to, "ทดสอบ SMTP จาก เจอ.AI",
                     mailer.wrap_html("SMTP ใช้งานได้", "<p>ถ้าคุณได้รับอีเมลนี้ แปลว่าการตั้งค่า SMTP ถูกต้อง แคมเปญและ Autopilot จะส่งรายงานผ่านช่องทางนี้</p>",
                                      f"ส่งจาก {BASE_URL}/admin/email"))
-        notice = {"ok": True, "msg": f"ส่งอีเมลทดสอบถึง {me['email']} แล้ว — เช็คกล่องจดหมาย (และ Spam) "}
+        notice = {"ok": True, "msg": f"ส่งอีเมลทดสอบถึง {to} แล้ว — เช็คกล่องจดหมาย (และ Spam)"}
+        db.add_email_log(None, me["id"], to, None, True, "")
     except Exception as e:
         notice = {"ok": False, "msg": f"ส่งไม่สำเร็จ: {type(e).__name__}: {str(e)[:200]}"}
     return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request, notice))

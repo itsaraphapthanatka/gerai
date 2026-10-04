@@ -303,6 +303,16 @@ def set_admin(tenant_id: int, is_admin: bool = True) -> None:
         c.execute(q("UPDATE tenants SET is_admin=? WHERE id=?"), (1 if is_admin else 0, tenant_id))
 
 
+def set_email(tenant_id: int, email: str) -> bool:
+    """เปลี่ยนอีเมลบัญชี — False ถ้าซ้ำกับบัญชีอื่น (email เป็น UNIQUE) · บัญชีตัวอย่าง/ทดสอบใช้ @…local ซึ่งส่งอีเมลไม่ถึงใคร"""
+    with get_conn() as c:
+        dup = c.execute(q("SELECT id FROM tenants WHERE email=? AND id<>?"), (email, tenant_id)).fetchone()
+        if dup:
+            return False
+        c.execute(q("UPDATE tenants SET email=? WHERE id=?"), (email, tenant_id))
+    return True
+
+
 def set_password(tenant_id: int, password_hash: str) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE tenants SET password_hash=? WHERE id=?"), (password_hash, tenant_id))

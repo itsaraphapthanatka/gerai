@@ -25,6 +25,12 @@ def config() -> dict | None:
         return None
     c["smtp_tls"] = c["smtp_tls"] if c["smtp_tls"] in TLS_MODES else "starttls"
     c["smtp_port"] = int(c["smtp_port"] or DEFAULT_PORT[c["smtp_tls"]])
+    # พอร์ตกับโหมดเข้ารหัสต้องคู่กัน: 465/2465 = SSL ตั้งแต่ต่อ, 587/2587 = STARTTLS — คนเลือกสลับกันบ่อย
+    # (รอบแรกของจริง: 465 + STARTTLS → รอ banner ที่ไม่มีวันมาจน timeout) จึงยึดตามพอร์ตเป็นหลัก
+    if c["smtp_port"] in (465, 2465) and c["smtp_tls"] == "starttls":
+        c["smtp_tls"] = "ssl"
+    elif c["smtp_port"] in (587, 2587) and c["smtp_tls"] == "ssl":
+        c["smtp_tls"] = "starttls"
     if c["smtp_pass"]:
         try:
             c["smtp_pass"] = wp_client.decrypt(c["smtp_pass"])

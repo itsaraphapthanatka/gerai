@@ -41,3 +41,16 @@ assert cp.recipients_of("brand:20", tenants, brands) == []
 assert cp.audience_label("brand:30", tenants, brands) == "แบรนด์ C1" and cp.audience_label("tenant:1", tenants, brands) == "ลูกค้า A" and cp.audience_label("all", tenants, brands) == "ทุกลูกค้า"
 print("recipients_of: all/tenant/brand · ข้ามลูกค้าไม่มีอีเมล OK")
 print("ALL EMAIL TESTS OK")
+
+# พอร์ตกับโหมดเข้ารหัสไม่คู่กัน → ยึดตามพอร์ต (465 ต้อง SSL, 587 ต้อง STARTTLS)
+import app.db as _db
+_store = {"smtp_host": "smtp.resend.com", "smtp_port": "465", "smtp_user": "resend", "smtp_pass": "", "smtp_from": "r@x.com", "smtp_from_name": "", "smtp_tls": "starttls"}
+_orig = _db.get_setting
+_db.get_setting = lambda k, default=None: _store.get(k, default)
+assert mail.config()["smtp_tls"] == "ssl" and mail.config()["smtp_port"] == 465
+_store.update(smtp_port="587", smtp_tls="ssl"); assert mail.config()["smtp_tls"] == "starttls"
+_store.update(smtp_port="", smtp_tls="ssl"); assert mail.config()["smtp_port"] == 465
+_store.update(smtp_port="2465", smtp_tls="starttls"); assert mail.config()["smtp_tls"] == "ssl"
+_db.get_setting = _orig
+print("config: 465/2465→SSL · 587→STARTTLS · พอร์ตว่างใช้ค่าดีฟอลต์ของโหมด OK")
+print("ALL EMAIL TESTS OK (incl. port/tls)")

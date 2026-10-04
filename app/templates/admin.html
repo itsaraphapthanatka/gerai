@@ -63,7 +63,13 @@
     <tbody>
     {% for t in tenants %}
     <tr>
-      <td><b>{{ t['email'] }}</b></td>
+      <td>
+        {# แก้อีเมลได้ตรงนี้ — บัญชีที่สร้างตอนตั้งระบบเป็น @…local ซึ่งแคมเปญ/Autopilot ส่งไปแล้วไม่มีใครได้รับ #}
+        <form method="post" action="/admin/tenants/{{ t['id'] }}/email" style="display:flex;gap:4px;align-items:center;min-width:240px">
+          <input type="email" name="email" value="{{ t['email'] }}" required style="font-size:13px;padding:5px 8px;flex:1;{{ 'border-color:var(--danger)' if t['email'].endswith(('.local', '.invalid', '.test')) }}" title="{{ 'อีเมลนี้ส่งไม่ถึงใคร — เปลี่ยนเป็นอีเมลจริงเพื่อรับรายงาน' if t['email'].endswith(('.local', '.invalid', '.test')) else 'อีเมลบัญชี' }}">
+          <button type="submit" class="btn sm" style="font-size:12px;padding:5px 9px">บันทึก</button>
+        </form>
+      </td>
       <td class="muted">{{ t['name'] or '—' }}</td>
       <td>{% if t['is_admin'] %}<span class="pill admin">ADMIN</span>{% else %}<span class="pill ok">ลูกค้า</span>{% endif %}</td>
       <td style="text-align:center">{{ t['brand_count'] }}</td>

@@ -31,8 +31,12 @@
       <input type="text" name="from_name" value="{{ smtp.smtp_from_name or 'เจอ.AI' }}" autocomplete="off">
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button type="submit">บันทึก</button>
-        <button type="submit" formaction="/admin/email/test" class="btn" style="background:transparent;color:var(--ink);border:1px solid var(--border)" {{ 'disabled' if not smtp.ready }}>ส่งอีเมลทดสอบถึง {{ me_email }}</button>
       </div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="email" name="test_to" value="{{ me_email }}" placeholder="อีเมลที่จะรับทดสอบ" style="flex:1;min-width:200px" title="เปลี่ยนเป็นอีเมลไหนก็ได้ที่คุณเปิดดูได้">
+        <button type="submit" formaction="/admin/email/test" class="btn" style="background:transparent;color:var(--ink);border:1px solid var(--border)">ส่งอีเมลทดสอบ</button>
+      </div>
+      {% if me_email.endswith(('.local', '.invalid', '.test')) %}<div class="muted" style="font-size:11.5px;margin-top:4px">อีเมลบัญชีแอดมินตอนนี้ ({{ me_email }}) เป็นที่อยู่สมมติ — แก้ได้ที่ <a class="link" href="/admin">แผงผู้ดูแล → ลูกค้า</a></div>{% endif %}
     </form>
   </div>
 
