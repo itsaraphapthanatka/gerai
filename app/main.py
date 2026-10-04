@@ -1133,12 +1133,14 @@ def brand_ai(request: Request, brand_id: int):
     if report:
         from collections import Counter
         # แถว = คำถาม (คงลำดับ) · คอลัมน์ = เจ้า — เรียงใน Python ให้ template เรียบ
-        order, cells = [], {}
+        order, cells, links = [], {}, {}
         for r in report["rows"]:
             if r["question"] not in cells:
-                order.append(r["question"]); cells[r["question"]] = {}
+                order.append(r["question"]); cells[r["question"]] = {}; links[r["question"]] = {}
             cells[r["question"]][r["engine"]] = r["status"]
-        matrix = [{"q": qq, "cells": cells[qq]} for qq in order]
+            # รายงานเก่า (ก่อนเก็บ URL เต็ม) ไม่มี citations — ให้เป็นลิสต์ว่าง หน้าเว็บจะไม่พัง
+            links[r["question"]][r["engine"]] = r.get("citations") or []
+        matrix = [{"q": qq, "cells": cells[qq], "links": links[qq]} for qq in order]
         cnt = Counter(h for r in report["rows"] for h in (r.get("others") or []))
         rivals = cnt.most_common(8)
     return templates.TemplateResponse(request, "ai.html", {

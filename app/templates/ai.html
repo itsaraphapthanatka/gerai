@@ -120,6 +120,27 @@
       </td>
       {% endfor %}
     </tr>
+    {# ลิงก์ที่ AI อ้างจริงต่อคำถาม — path บอกประเภทหน้า (หน้ารวมประกาศ / โครงการ / รายงาน) ซึ่งคือสิ่งที่ต้องเลียนแบบ #}
+    {% set nlinks = m.links.values() | map('length') | sum %}
+    {% if nlinks %}
+    <tr><td colspan="{{ 1 + engines|length }}" style="padding:0 0 10px 12px;border-top:0">
+      <details><summary class="muted" style="cursor:pointer;font-size:12px">ลิงก์ที่ถูกอ้าง {{ nlinks }} รายการ</summary>
+        <div style="font-size:12px;margin-top:6px;line-height:1.7">
+        {% for e, spec in engines.items() if m.links.get(e) %}
+          <div><b>{{ spec.label }}</b>
+          {% for u in m.links[e] %}
+            <div style="padding-left:12px;word-break:break-all">
+              {% set h = u.replace('https://','').replace('http://','').replace('www.','') %}
+              <a class="link" href="{{ u }}" target="_blank" rel="noopener">{{ h[:110] }}{{ '…' if h|length > 110 else '' }}</a>
+              {%- if u.startswith('https://') and '/' not in h %} <span class="muted">(Gemini ให้แค่โดเมน ไม่มี path)</span>{% endif %}
+            </div>
+          {% endfor %}
+          </div>
+        {% endfor %}
+        </div>
+      </details>
+    </td></tr>
+    {% endif %}
     {% endfor %}
   </table>
 </div>

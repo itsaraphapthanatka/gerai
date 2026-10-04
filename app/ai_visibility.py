@@ -35,6 +35,7 @@ SYSTEM_PROMPT = ("คุณคือผู้ช่วยค้นหาสิ�
                  "พร้อมลิงก์แหล่งอ้างอิงจากการค้นเว็บ กระชับ ห้ามถามกลับหรือขอข้อมูลเพิ่ม "
                  "ถ้าคำถามกว้างให้เลือกตีความที่พบบ่อยที่สุดแล้วตอบเลย")
 MAX_OUT = int(os.getenv("GEO_AI_MAX_OUT", "3000"))              # เพดาน output ต่อคำตอบ — ลดค่าใช้จ่าย
+ANSWER_CHARS = int(os.getenv("GEO_AI_ANSWER_CHARS", "6000"))    # เก็บคำตอบกี่ตัวอักษร — 1,500 ตัดลิงก์ท้ายคำตอบหาย
 OPENAI_EFFORT = os.getenv("GEO_AI_OPENAI_EFFORT", "low")        # reasoning ของ gpt-5: low พอสำหรับงานแนะนำ
 SEARCH_CTX = os.getenv("GEO_AI_SEARCH_CTX", "low")              # ขนาดผลค้นที่ป้อนโมเดล (OpenAI) — low ถูกสุด
 
@@ -544,7 +545,11 @@ def check_brand(brand, questions, aliases=()) -> dict:
             rows.append({"engine": e, "question_id": qq.get("id"), "question": text,
                          "status": v["status"], "cited": v["cited"], "named": v["named"],
                          "others": v["others"], "reason": r["reason"],
-                         "answer": (r["text"] or "")[:1500], "checked_at": checked_at,
+                         # เก็บ URL เต็ม ไม่ใช่แค่โดเมน — path บอกว่า AI อ้าง "หน้าแบบไหน" (หน้ารวมประกาศ /
+                         # หน้าโครงการ / รายงาน) ซึ่งเป็นสิ่งที่ใช้ตัดสินใจเรื่องคอนเทนต์ได้จริง
+                         # รอบแรกต้องถอดจากข้อความคำตอบที่ถูกตัด ได้ 67 จาก ~90 ลิงก์ และของ Gemini ถอดไม่ได้เลย
+                         "citations": r.get("citations") or [],
+                         "answer": (r["text"] or "")[:ANSWER_CHARS], "checked_at": checked_at,
                          # skip/error ไม่มี usage — บันทึก 0 (error ที่เรียกสำเร็จบางส่วนอาจถูกคิดเงิน
                          # แต่เราไม่มีตัวเลข จึงไม่เดา)
                          "usage": r.get("usage") or {"in": 0, "out": 0, "searches": 0},
