@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Autopilot — {{ brand['name'] }}{% endblock %}
+{% block content %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>Autopilot</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ให้ระบบทำงาน GEO ครบวงจรเองทุกสัปดาห์: วัดทุกตัว → เขียนคอนเทนต์ปิดช่องว่าง → ส่งรายงาน แล้วบอกว่าทำอะไรไปบ้าง</p>
+
+{% if saved %}<div class="ok-banner">บันทึกการตั้งค่า Autopilot แล้ว</div>{% endif %}
+
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:300px;max-width:520px">
+    <h2 style="margin-top:0;font-size:17px">ตั้งค่า {% if brand['autopilot'] %}<span class="pill ok" style="font-size:9px">เปิดอยู่</span>{% else %}<span class="pill" style="font-size:9px">ปิด</span>{% endif %}</h2>
+    <form method="post" action="/brands/{{ brand['id'] }}/autopilot/settings">
+      <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" name="on" value="1" {% if brand['autopilot'] %}checked{% endif %} style="width:auto"> เปิด Autopilot (รันอัตโนมัติทุกคืนวันอังคาร 02:00)</label>
+      <label style="margin-top:14px">คอนเทนต์ต่อรอบ</label>
+      <select name="content_n" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px">
+        {% for n in (0, 1, 2, 3) %}<option value="{{ n }}" {% if (brand['autopilot_content'] if brand['autopilot_content'] is not none else 1) == n %}selected{% endif %}>{{ 'วัดอย่างเดียว ไม่เขียน' if n == 0 else n ~ ' ชิ้น — เลือกจากคำถามที่ยังไม่มีคอนเทนต์' }}</option>{% endfor %}
+      </select>
+      <label style="margin-top:14px">เมื่อเขียนเสร็จ</label>
+      <select name="mode" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px">
+        {% for k, v in modes.items() %}<option value="{{ k }}" {% if (brand['autopilot_mode'] or 'draft') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+      {% if not can_publish %}<div class="muted" style="font-size:11.5px;margin-top:4px">แผนปัจจุบันไม่มี auto เผยแพร่ — เลือก "เผยแพร่เลย" ระบบจะสร้างเป็นร่างแทน</div>{% endif %}
+      <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+    </form>
+  </div>
+  <div class="card" style="flex:1;min-width:300px">
+    <h2 style="margin-top:0;font-size:17px">สิ่งที่ทำในแต่ละรอบ</h2>
+    <ol style="margin:0;padding-left:20px;line-height:1.8;font-size:13.5px">
+      <li>มอนิเตอร์ SoV · อันดับ Google · Search Console (ส่ง sitemap ให้ถ้ายังไม่ส่ง) · สุขภาพเว็บ · ความเร็ว</li>
+      <li>ถามผู้ช่วย AI และ Google AI Overview/AI Mode <span class="muted">(ข้ามถ้าเพิ่งถามไม่ถึง 3 วัน — มีค่าใช้จ่าย)</span></li>
+      <li>เขียนคอนเทนต์ให้คำถามที่ยังไม่มีคอนเทนต์ตามจำนวนที่ตั้ง แล้วเผยแพร่ตามโหมด</li>
+      <li>สร้างรายงานสรุป ส่งอีเมลให้เจ้าของแบรนด์ <span class="muted">(ต้องตั้ง SMTP ที่ผู้ดูแล → อีเมล)</span> และแจ้งเตือนในแอป</li>
+    </ol>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">ตัววัดที่ไม่มีค่าใช้จ่ายข้ามถ้าทำไปไม่ถึง 20 ชม. (cron รายสัปดาห์อาจเพิ่งรัน) · ขั้นไหนล้มขั้นอื่นทำต่อ และบันทึกเหตุผลไว้ด้านล่าง</p>
+    <form method="post" action="/brands/{{ brand['id'] }}/autopilot/run" style="margin-top:12px">
+      <button class="btn" type="submit" {{ 'disabled' if running }}>{{ 'กำลังรัน…' if running else 'รันตอนนี้' }}</button>
+      <span class="muted" style="margin-left:8px;font-size:12px">ใช้เวลาหลายนาที — ผลจะขึ้นในตารางด้านล่าง</span>
+    </form>
+  </div>
+</div>
+
+<h2>ประวัติการรัน</h2>
+<div class="card">
+  {% if running and not runs %}<p class="muted">กำลังรันรอบแรก — รอสักครู่แล้วรีเฟรช</p>
+  {% elif not runs %}<p class="muted" style="margin:0">ยังไม่เคยรัน — เปิด Autopilot แล้วรอคืนวันอังคาร หรือกด "รันตอนนี้"</p>
+  {% else %}
+  {% for r in runs %}
+  {% set log = logs[r['id']] %}
+  <details {{ 'open' if loop.first }} style="margin-bottom:10px">
+    <summary style="cursor:pointer">
+      <b>{{ r['started_at'][:16].replace('T', ' ') }}</b>
+      {% if r['ok'] %}<span class="pill ok">สำเร็จ</span>{% else %}<span class="pill no">มีขั้นที่ล้ม {{ log.errors }}</span>{% endif %}
+      <span class="muted" style="font-size:12.5px">· โหมด {{ modes.get(log.mode, log.mode) }} · {{ log.content_n }} ชิ้น{% if log.finished_at %} · ใช้เวลา {{ ((log.finished_at[:19] | replace('T', ' ')) and ((log.steps | map(attribute='seconds') | sum) | round(0) | int)) }} วิ{% endif %}</span>
+    </summary>
+    <table style="margin-top:8px">
+      {% for s in log.steps %}
+      <tr>
+        <td style="width:30%">{{ s.label }}</td>
+        <td style="width:10%">{% if s.status == 'ok' %}<span class="pill ok">ทำแล้ว</span>{% elif s.status == 'error' %}<span class="pill no">ล้ม</span>{% else %}<span class="muted">ข้าม</span>{% endif %}</td>
+        <td class="muted" style="font-size:12.5px">{{ s.detail }}{% if s.seconds %} <span style="opacity:.6">({{ s.seconds }} วิ)</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% if log.content %}
+    <div style="margin-top:8px;font-size:12.5px">คอนเทนต์รอบนี้:
+      {% for c in log.content %}{% if c.id %}<a class="link" href="/content/{{ c.id }}">{{ c.title }}</a> <span class="muted">({{ 'เผยแพร่แล้ว' if c.status == 'published' else ('ร่าง' if c.status == 'draft' else c.status) }})</span>{{ ' · ' if not loop.last }}{% else %}<span class="muted">{{ c.question[:40] }} — โควตาแพ็กเกจเต็ม</span>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </details>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<p class="muted" style="font-size:12px">
+  Autopilot ไม่แทนที่ cron รายตัววัดที่มีอยู่ — มันรวบงานทั้งหมดของแบรนด์ไว้รอบเดียวและ "ทำต่อ" (เขียน/เผยแพร่/ส่งรายงาน) ส่วนตัววัดเดิมยังรันตามเวลาของมัน ·
+  ค่าใช้จ่ายต่อรอบ ≈ ผู้ช่วย AI (~$0.4/แบรนด์) + Serper credits ของ SoV/อันดับ + SerpApi ถ้าเปิด · คอนเทนต์นับโควตาแพ็กเกจตามปกติ
+</p>
+{% endblock %}

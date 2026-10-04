@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -639,6 +639,7 @@ def brand_detail(request: Request, brand_id: int):
          "gsc": db.last_gsc(brand_id),
          "speed": db.last_pagespeed(brand_id),
          "aiserp": db.last_ai_serp(brand_id),
+         "autopilot_last": db.last_autopilot_run(brand_id),
          "gaps": db.get_content_gaps(brand_id),
          "wp": db.get_wp_connection(brand_id),
          "embed_js_url": f"{base_url}/e/{embed_key}.js",
@@ -1451,6 +1452,141 @@ def brand_chat_clear(request: Request, brand_id: int):
     if _brand_for(request, brand_id):
         db.clear_chat(brand_id)
     return _redirect(f"/brands/{brand_id}/chat")
+
+
+# ---------- Autopilot ----------
+def _autopilot_content(brand, n: int, mode: str) -> list:
+    """เขียนคอนเทนต์ให้คำถามที่ยังไม่มีคอนเทนต์ (critical) สูงสุด n ชิ้น แล้วเผยแพร่ตามโหมด — เคารพโควตาแพ็กเกจ"""
+    gaps = db.get_content_gaps(brand["id"])
+    todo = [g for g in gaps["gaps"] if g["level"] == "critical"][:n]
+    tenant = db.get_tenant(brand["tenant_id"])
+    conn = db.get_wp_connection(brand["id"])
+    site = geo_content._site_url(brand)
+    b = _brand_grounded(brand)
+    made = []
+    for g in todo:
+        ok, msg = billing.check(tenant, "content")
+        if not ok:
+            made.append({"question": g["question"], "status": "quota", "msg": msg})
+            break
+        lang = g["lang"] or "th"
+        data = geo_content.generate_content(b, g["question"], lang, geo_content.pick_ctype(g["question"]))
+        cid = db.create_content_item(brand["id"], g["question_id"], lang, data["title"], data["meta_title"],
+                                     data["meta_desc"], data["body_md"], data["schema_json"], "autopilot")
+        if b["auto_image"]:
+            _attach_image(b, cid, g["question"])
+        status = "draft"
+        if mode == "publish" and billing.feature(tenant, "auto_publish"):
+            item = db.get_content(cid)
+            if conn:
+                res = _publish_item(item, conn, brand, status="publish")
+                status = "published" if res["ok"] else f"เผยแพร่ไม่สำเร็จ: {res['msg'][:80]}"
+            else:
+                db.mark_content_published(cid, None, f"{site}/geo/{cid}")
+                status = "published"
+        made.append({"question": g["question"], "id": cid, "title": data["title"], "status": status})
+    return made
+
+
+def _autopilot_report(brand, log) -> str:
+    """รายงานสรุป → อีเมลเจ้าของแบรนด์พร้อม PDF ถ้ามี SMTP · ไม่มีก็บอกว่าดูในระบบ"""
+    tenant = db.get_tenant(brand["tenant_id"])
+    rep = report.collect(brand["id"])
+    if not (mailer.config() and tenant and tenant["email"]):
+        return "ไม่มี SMTP — ดูรายงานได้ที่หน้า รายงาน & ส่งออก"
+    vals = campaigns.values_for(rep, tenant["name"] or "", BASE_URL)
+    subject = campaigns.render_body("Autopilot รายสัปดาห์ — {brand}", vals)
+    body_md = campaigns.render_body(campaigns.DEFAULT_BODY, vals)
+    done = [s for s in log["steps"] if s["status"] == "ok" and s["step"] not in ("report", "notify")]
+    body_md += "\n\n**Autopilot รอบนี้ทำ**\n" + "\n".join(f"- {s['label']}: {s['detail']}" for s in done)
+    attachments = []
+    try:
+        attachments.append((f"geo-report-{brand['name'][:30].replace(' ', '_')}-{rep['period']['to']}.pdf",
+                            report.to_pdf(report.render_html(rep, pdf=True)), "application/pdf"))
+    except Exception:
+        pass
+    mailer.send(tenant["email"], subject, mailer.wrap_html(subject, wp_client.md_to_html(body_md), f"Autopilot ของ เจอ.AI · {BASE_URL}/brands/{brand['id']}/autopilot"),
+                body_md, attachments)
+    db.add_email_log(None, tenant["id"], tenant["email"], brand["id"], True, "")
+    return f"ส่งอีเมลรายงานถึง {tenant['email']}" + (" พร้อม PDF" if attachments else "")
+
+
+def _autopilot_notify(brand, log) -> bool:
+    db.add_notification(brand["tenant_id"], autopilot.notify_text(brand, log), f"/brands/{brand['id']}/autopilot",
+                        "warn" if log.get("errors") else "info")
+    return True
+
+
+def run_autopilot(brand_id: int) -> dict:
+    """รอบ Autopilot ของแบรนด์ — ต่อสายทุกขั้นเข้ากับฟังก์ชันจริง แล้วเก็บ log"""
+    brand = dict(db.get_brand(brand_id))
+    last = {
+        "sov": brand.get("last_run_at"),
+        "rank": db.last_rank_check(brand_id),
+        "gsc": (db.last_gsc(brand_id) or {}).get("synced_at") if db.last_gsc(brand_id) else None,
+        "health": (db.last_health_check(brand_id) or {}).get("checked_at") if db.last_health_check(brand_id) else None,
+        "speed": (db.last_pagespeed(brand_id) or {}).get("checked_at") if db.last_pagespeed(brand_id) else None,
+        "ai": (db.last_ai_visibility(brand_id) or {}).get("checked_at") if db.last_ai_visibility(brand_id) else None,
+        "aiserp": (db.last_ai_serp(brand_id) or {}).get("checked_at") if db.last_ai_serp(brand_id) else None,
+    }
+    actions = {
+        "sov": geo_worker.run_for_brand, "rank": geo_worker.check_rank_for_brand, "gsc": run_gsc_sync,
+        "health": lambda bid: run_health_check(bid, notify_tenant=None), "speed": run_pagespeed,
+        "ai": run_ai_visibility, "aiserp": run_ai_serp,
+        "content": _autopilot_content, "report": _autopilot_report, "notify": _autopilot_notify,
+    }
+    n = brand.get("autopilot_content") if brand.get("autopilot_content") is not None else 1
+    log = autopilot.run(brand, actions, last, content_n=int(n), mode=brand.get("autopilot_mode") or "draft")
+    db.add_autopilot_run(brand_id, log)
+    return log
+
+
+_autopilot_running: set = set()
+
+
+def _autopilot_worker(brand_id: int):
+    try:
+        run_autopilot(brand_id)
+    except Exception:
+        pass
+    finally:
+        _autopilot_running.discard(brand_id)
+
+
+@app.post("/brands/{brand_id}/autopilot/run")
+def run_brand_autopilot(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    if brand_id not in _autopilot_running:
+        _autopilot_running.add(brand_id)
+        import threading
+        threading.Thread(target=_autopilot_worker, args=(brand_id,), daemon=True).start()
+    return _redirect(f"/brands/{brand_id}/autopilot?running=1")
+
+
+@app.post("/brands/{brand_id}/autopilot/settings")
+def save_autopilot(request: Request, brand_id: int, on: str = Form(""), mode: str = Form("draft"), content_n: int = Form(1)):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/login")
+    db.set_autopilot(brand_id, bool(on), mode if mode in autopilot.MODES else "draft", max(0, min(3, content_n)))
+    return _redirect(f"/brands/{brand_id}/autopilot?saved=1")
+
+
+@app.get("/brands/{brand_id}/autopilot")
+def brand_autopilot(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    runs = db.list_autopilot_runs(brand_id, 10)
+    logs = {r["id"]: json.loads(r["report"]) for r in runs if r["report"]}
+    return templates.TemplateResponse(request, "autopilot.html", {
+        "brand": brand, "runs": runs, "logs": logs, "modes": autopilot.MODES,
+        "can_publish": billing.feature(db.get_tenant(brand["tenant_id"]), "auto_publish"),
+        "saved": request.query_params.get("saved"),
+        "running": brand_id in _autopilot_running or request.query_params.get("running"),
+    })
 
 
 # ---------- Google rank tracking ----------

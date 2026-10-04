@@ -144,6 +144,15 @@ def _tables() -> list[str]:
             ok INTEGER NOT NULL DEFAULT 0,
             error TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS autopilot_runs (
+            id {_PK},
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            ok INTEGER NOT NULL DEFAULT 0,
+            summary TEXT,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -263,6 +272,9 @@ def init_db() -> None:
         _ensure_column(c, "brands", "site_context", "TEXT")    # เนื้อหาจากเว็บจริง (cache สำหรับ grounding)
         _ensure_column(c, "brands", "schema_type", "TEXT")     # schema.org @type ขององค์กร (ว่าง = เดาจากชื่อ/ตลาด)
         _ensure_column(c, "ai_visibility", "cost_usd", "REAL")  # ค่าใช้จ่ายจริงต่อรอบ จาก usage ที่ API ส่งกลับ
+        _ensure_column(c, "brands", "autopilot", "INTEGER DEFAULT 0")            # เปิด Autopilot รายสัปดาห์
+        _ensure_column(c, "brands", "autopilot_mode", "TEXT DEFAULT 'draft'")    # draft | publish
+        _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -709,6 +721,36 @@ def pagespeed_history(brand_id: int, limit: int = 8):
             q("SELECT checked_at, perf_mobile, perf_desktop, seo_mobile FROM pagespeed_scans "
               "WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)
         ).fetchall()
+
+
+# ---- Autopilot ----
+def set_autopilot(brand_id: int, on: bool, mode: str, content_n: int) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET autopilot=?, autopilot_mode=?, autopilot_content=? WHERE id=?"),
+                  (1 if on else 0, mode, content_n, brand_id))
+
+
+def autopilot_brands():
+    with get_conn() as c:
+        return c.execute("SELECT * FROM brands WHERE autopilot=1 ORDER BY id").fetchall()
+
+
+def add_autopilot_run(brand_id: int, log: dict) -> None:
+    import json as _j
+    with get_conn() as c:
+        c.execute(q("INSERT INTO autopilot_runs(brand_id,started_at,finished_at,ok,summary,report) VALUES(?,?,?,?,?,?)"),
+                  (brand_id, log["started_at"], log.get("finished_at"), 1 if log.get("ok") else 0,
+                   (log.get("summary") or "")[:600], _j.dumps(log, ensure_ascii=False)))
+
+
+def list_autopilot_runs(brand_id: int, limit: int = 10):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM autopilot_runs WHERE brand_id=? ORDER BY id DESC LIMIT ?"), (brand_id, limit)).fetchall()
+
+
+def last_autopilot_run(brand_id: int):
+    rows = list_autopilot_runs(brand_id, 1)
+    return rows[0] if rows else None
 
 
 # ---- Email campaigns ----

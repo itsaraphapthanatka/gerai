@@ -69,6 +69,8 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
 
 14. **อีเมลแคมเปญ** (`/admin/email`) → ตั้ง SMTP ของตัวเอง (Gmail App Password / SES / Mailgun) → สร้างแคมเปญ ครั้งเดียว/รายสัปดาห์/รายเดือน ส่งถึงทุกลูกค้า, ลูกค้ารายเดียว หรือแบรนด์เดียว · เนื้อความ Markdown ใส่ตัวแปรตัวเลขจริง (`{sov}` `{clicks}` `{next_steps}` …) · แนบ PDF รายงานได้ · log ทุกฉบับ · cron 07:30 ส่งที่ถึงกำหนด (`--email`)
 
+15. **Autopilot** (`/brands/{id}/autopilot`) → เปิดต่อแบรนด์ แล้วทุกคืนวันอังคารระบบวัดทุกตัว (SoV · อันดับ · Search Console · สุขภาพ · ความเร็ว · ผู้ช่วย AI · AI ของ Google — ของแพงข้ามถ้าเพิ่งทำ) → เขียนคอนเทนต์ให้คำถามที่ยังไม่มี (0–3 ชิ้น/รอบ) → เผยแพร่ตามโหมด (ร่าง/เผยแพร่เลย ตามแผน) → ส่งรายงาน PDF ทางอีเมล + แจ้งเตือน · ทุกขั้นบันทึก log ขั้นไหนล้มขั้นอื่นทำต่อ (`--autopilot`)
+
 ## Automation (รันมอนิเตอร์อัตโนมัติ)
 - **Batch job** (สำหรับ cron / Task Scheduler):
   ```powershell
@@ -81,6 +83,7 @@ copy .env.example .env          # แก้ SESSION_SECRET (+ search/LLM ถ้�
   .\.venv\Scripts\python.exe run_monitors.py --all --speed   # สแกนความเร็ว PageSpeed
   .\.venv\Scripts\python.exe run_monitors.py --all --aiserp  # Google AI Overview / AI Mode (SerpApi)
   .\.venv\Scripts\python.exe run_monitors.py --email         # ส่งอีเมลแคมเปญที่ถึงกำหนด
+  .\.venv\Scripts\python.exe run_monitors.py --autopilot     # รอบ Autopilot ของแบรนด์ที่เปิดไว้
   ```
 - **ในแอป** (ไม่ต้องพึ่ง scheduler ภายนอก): ตั้ง `GEO_AUTORUN=1` ใน `.env` → เซิร์ฟเวอร์รันแบรนด์ที่ค้างให้เองทุก `GEO_RUN_CHECK_HOURS` ชั่วโมง
 

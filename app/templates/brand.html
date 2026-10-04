@@ -302,6 +302,11 @@
     <div class="qc-label">Google AI Overview / AI Mode</div>
     <div class="qc-count">{{ 'ยังไม่เคยเช็ค' if not aiserp else (('AI Overview ' ~ aiserp['overview_hit'] ~ '/' ~ aiserp['overview_shown'] ~ ' · AI Mode ' ~ aiserp['mode_hit'] ~ '/' ~ (aiserp['asked'] - aiserp['overview_shown'] if aiserp['asked'] > aiserp['overview_shown'] else aiserp['asked'])) if aiserp['asked'] else 'ยังไม่มีคีย์') }}</div>
   </a>
+  <a href="/brands/{{ brand['id'] }}/autopilot" class="quick-card">
+    <div class="qc-icon">🤖</div>
+    <div class="qc-label">Autopilot</div>
+    <div class="qc-count">{{ ('เปิด · รันล่าสุด ' ~ autopilot_last['started_at'][:10]) if (brand['autopilot'] and autopilot_last) else ('เปิดอยู่ ยังไม่เคยรัน' if brand['autopilot'] else 'ปิด — ให้ระบบทำเองรายสัปดาห์') }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/report" class="quick-card">
     <div class="qc-icon">📄</div>
     <div class="qc-label">รายงาน & ส่งออก</div>

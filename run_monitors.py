@@ -12,6 +12,7 @@
   python run_monitors.py --all --speed      # สแกนความเร็วหน้าแรก (PageSpeed Insights) mobile + desktop
   python run_monitors.py --all --aiserp     # เช็ค Google AI Overview / AI Mode (SerpApi — ต้องมีคีย์)
   python run_monitors.py --email            # ส่งอีเมลแคมเปญที่ถึงกำหนด (cron รายวัน — ไม่ขึ้นกับแบรนด์)
+  python run_monitors.py --autopilot        # รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (cron รายสัปดาห์) · --brand N รันแบรนด์เดียว
 """
 import os
 import sys
@@ -149,6 +150,7 @@ def main():
     ap.add_argument("--speed", action="store_true", help="สแกนความเร็วหน้าแรกด้วย PageSpeed Insights (mobile + desktop)")
     ap.add_argument("--aiserp", action="store_true", help="เช็ค Google AI Overview / AI Mode ผ่าน SerpApi (ต้องมีคีย์)")
     ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
+    ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
     args = ap.parse_args()
     db.init_db()
     if args.email:
@@ -164,9 +166,22 @@ def main():
                   + (f" · รอบถัดไป {r['next_at']}" if r.get("next_at") else " · จบ"))
         return
     brands = db.list_all_brands()
+    if args.autopilot and args.brand is None:
+        brands = [b for b in brands if b["autopilot"]]       # เฉพาะแบรนด์ที่เปิด Autopilot
+        args.all = True
     targets = select_targets(brands, all_=args.all, due=args.due, days=args.days, brand_id=args.brand)
     if not targets:
-        print("ไม่มีแบรนด์ที่ต้องรัน")
+        print("ไม่มีแบรนด์ที่ต้องรัน" + (" — ยังไม่มีแบรนด์ไหนเปิด Autopilot" if args.autopilot else ""))
+        return
+    if args.autopilot:
+        from app.main import run_autopilot
+        print(f"autopilot · {len(targets)} แบรนด์")
+        for b in targets:
+            try:
+                log = run_autopilot(b["id"])
+                print(f"  [{b['id']}] {b['name']}: " + ("สำเร็จ" if log["ok"] else f"ล้ม {log['errors']} ขั้น") + " — " + (log["summary"] or "")[:220])
+            except Exception as e:
+                print(f"  [{b['id']}] {b['name']}: ERROR {e}")
         return
     if args.speed:
         print(f"speed · สแกน {len(targets)} แบรนด์ (mobile + desktop)")
