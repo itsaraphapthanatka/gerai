@@ -1,6 +1,9 @@
 """ทดสอบ M3 platform-side: connector mode + publish ผ่าน Connector (mock network)."""
 import os
 os.environ["LITELLM_BASE_URL"] = ""
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 import re
 import bcrypt
 from fastapi.testclient import TestClient
@@ -45,6 +48,6 @@ print("publish ใช้ connector + ส่ง schema; post#", it["wp_post_id"])
 
 # brand page แสดงโหมด connector
 rb = c.get(f"/brands/{bid}")
-assert "Connector" in rb.text and "push schema" in rb.text
+assert "เชื่อมแล้ว:" in rb.text and "Connector" in rb.text, "หน้าแบรนด์ไม่แสดงสถานะ connector"   # หน้าแบรนด์แสดง site + สถานะที่บันทึกไว้
 print("brand page shows Connector mode")
 print("ALL CONNECTOR TESTS OK")

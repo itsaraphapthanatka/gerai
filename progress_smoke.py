@@ -1,6 +1,9 @@
 """M4 smoke test — SoV impact page (/brands/{id}/impact)"""
 import os, re, json, bcrypt
 os.environ["LITELLM_BASE_URL"] = ""
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 from fastapi.testclient import TestClient
 import app.db as db
 from app.main import app
@@ -65,7 +68,7 @@ print("question_results embedded correctly: OK")
 
 # brand page มีลิงก์ impact
 rb = c.get(f"/brands/{bid}")
-assert "ดู SoV Impact" in rb.text, "ลิงก์ impact ไม่มีในหน้าแบรนด์"
+assert f"/brands/{bid}/impact" in rb.text, "ลิงก์ impact ไม่มีในหน้าแบรนด์"   # เป็น quick-card แล้ว ไม่ใช่ลิงก์ข้อความ
 print("brand page shows impact link: OK")
 
 print("\nALL M4 TESTS OK ✅")

@@ -1,6 +1,9 @@
 """ทดสอบ M1: generate content + schema + assets (DB แยก, ปิด LLM ใช้ template path)."""
 import os
 os.environ["LITELLM_BASE_URL"] = ""  # force template path (deterministic, no network)
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 import re
 import bcrypt
 from fastapi.testclient import TestClient

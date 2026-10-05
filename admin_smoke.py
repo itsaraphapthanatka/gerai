@@ -1,4 +1,8 @@
 """ทดสอบฟีเจอร์ admin god-view + ปิดสมัครเอง (ใช้ DB แยก ตั้งผ่าน GEO_DB_PATH)."""
+import os
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 import re
 import bcrypt
 from fastapi.testclient import TestClient
@@ -39,8 +43,8 @@ assert before == after
 # ลูกค้า login -> ไม่ใช่ admin, เข้าหน้า /
 c2 = TestClient(app)
 r = c2.post("/login", data={"email": "client@jkp.com", "password": "clientpass"})
-print("client login -> final:", str(r.url), "(ควรเป็น /)")
-assert str(r.url).rstrip("/").endswith("8099") or str(r.url).endswith("/")
+print("client login -> final:", str(r.url), "(ควรเป็น /app)")
+assert str(r.url).rstrip("/").endswith("/app"), str(r.url)
 r = c2.get("/admin")
 print("client GET /admin -> final:", str(r.url), "(ต้องไม่ใช่ /admin)")
 assert not str(r.url).rstrip("/").endswith("/admin")
@@ -60,7 +64,7 @@ c3 = TestClient(app)
 db.create_tenant("other@x.com", bcrypt.hashpw(b"otherpass", bcrypt.gensalt()).decode(), "Other")
 c3.post("/login", data={"email": "other@x.com", "password": "otherpass"})
 r = c3.get(f"/brands/{bid}", follow_redirects=False)
-print("other user opens client's brand ->", r.status_code, "->", r.headers.get("location"), "(ควร 303 -> /)")
-assert r.status_code == 303 and r.headers.get("location") == "/"
+print("other user opens client's brand ->", r.status_code, "->", r.headers.get("location"), "(ควร 303 -> /app)")
+assert r.status_code == 303 and r.headers.get("location") == "/app", r.headers.get("location")
 
 print("ALL ADMIN TESTS OK")

@@ -1,6 +1,9 @@
 """ทดสอบ billing: แผน + นับ usage + บังคับโควตา + admin เปลี่ยนแผน."""
 import os
 os.environ["LITELLM_BASE_URL"] = ""
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 import re
 import bcrypt
 from fastapi.testclient import TestClient
@@ -46,8 +49,9 @@ r = c.post("/brands", data={"name": "B2", "domain": "b2.com", "market": "m"})
 assert "/brands/" in str(r.url), "pro ต้องสร้างแบรนด์ที่ 2 ได้"
 print("pro plan allows 2nd brand OK")
 
-# dashboard แสดงแผน + usage
-rd = c.get("/")
-assert "แผน Pro" in rd.text and "แบรนด์ 2/10" in rd.text
+# dashboard แสดงแผน + usage (แดชบอร์ดอยู่ที่ /app — "/" เป็นหน้า landing สาธารณะ)
+rd = c.get("/app")
+pro = billing.PLANS["pro"]
+assert f'<span class="pill admin">{pro["label"]}</span>' in rd.text and f"แบรนด์ 2/{pro['brands']}" in rd.text, rd.url   # ป้ายแผน + usage/เพดาน อ่านจาก PLANS
 print("dashboard shows plan + usage OK")
 print("ALL BILLING TESTS OK")

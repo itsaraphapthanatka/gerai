@@ -1,6 +1,9 @@
 """ทดสอบ M2: encrypt/decrypt + md->html + บันทึก WP connection + publish (mock)."""
 import os
 os.environ["LITELLM_BASE_URL"] = ""  # template path (deterministic)
+import tempfile
+if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
+    os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")
 import re
 import bcrypt
 from fastapi.testclient import TestClient
@@ -32,7 +35,8 @@ rc = c.post(f"/brands/{bid}/content", data={"question_id": qid, "lang": "th"})
 cid = int(re.search(r"/content/(\d+)", str(rc.url)).group(1))
 print("content id", cid)
 
-# 3) save WP connection (fake site; test_connection จะ fail แต่ row ต้องถูกบันทึก + decrypt ได้)
+# 3) save WP connection — mock การทดสอบเชื่อมต่อ (ไม่ยิงเว็บจริง/ไม่พึ่ง DNS) แล้วเช็กว่า row ถูกบันทึก + decrypt ได้
+wp.test_connection = lambda site, user, pw: {"ok": True, "msg": "เชื่อมต่อแล้ว (mock) — ผู้ใช้ admin"}
 c.post(f"/brands/{bid}/wp", data={"site_url": "https://fake.example.com", "user": "admin", "app_password": "abcd efgh ijkl mnop qrst uvwx"})
 conn = db.get_wp_connection(bid)
 assert conn is not None and wp.decrypt(conn["auth_secret"]) == "abcd efgh ijkl mnop qrst uvwx"

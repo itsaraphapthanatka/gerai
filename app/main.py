@@ -51,20 +51,23 @@ async def _no_cache_html(request: Request, call_next):
     return resp
 
 
+# Jinja2 globals ของ base.html — ลงทะเบียนตอน import ไม่ใช่ตอน startup: เป็น lambda ที่ค่อยอ่าน DB ตอน render
+# จึงไม่ต้องรอ startup และ TestClient(app) ที่ไม่ได้เข้า lifespan (สเมอก์เทสต์ทุกตัว) render หน้าได้เหมือน production
+templates.env.globals["sidebar_brands"] = lambda req: (
+    db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []   # sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
+)
+templates.env.globals["unread_count"] = lambda req: (
+    db.count_unread(req.session["tenant_id"]) if req.session.get("tenant_id") else 0
+)
+templates.env.globals["new_contacts_count"] = lambda req: (
+    db.count_new_contacts() if req.session.get("is_admin") else 0
+)
+
+
 @app.on_event("startup")
 def _startup():
     db.init_db()
     _maybe_start_scheduler()
-    # Jinja2 global: sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
-    templates.env.globals["sidebar_brands"] = lambda req: (
-        db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []
-    )
-    templates.env.globals["unread_count"] = lambda req: (
-        db.count_unread(req.session["tenant_id"]) if req.session.get("tenant_id") else 0
-    )
-    templates.env.globals["new_contacts_count"] = lambda req: (
-        db.count_new_contacts() if req.session.get("is_admin") else 0
-    )
 
 
 def _topup_questions(b, n: int) -> list[dict]:
@@ -1965,7 +1968,7 @@ def _published_faqs(brand) -> list[dict]:
     """schema (FAQPage/HowTo) ของคอนเทนต์ที่เผยแพร่แล้ว — รองรับทั้ง dict เดิม และ array ใหม่"""
     out = []
     for item in db.list_content(brand["id"]):
-        if item["status"] == "published" and item.get("schema_json"):
+        if item["status"] == "published" and item["schema_json"]:  # แถว SQLite ไม่มี .get() — ใช้ [] ซึ่งทั้ง sqlite3.Row และ dict_row รองรับ
             try:
                 s = json.loads(item["schema_json"])
                 for o in (s if isinstance(s, list) else [s]):
