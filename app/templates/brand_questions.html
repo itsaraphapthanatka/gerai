@@ -22,7 +22,7 @@
     {% for q in questions %}
     <tr>
       <td class="muted">{{ loop.index }}</td>
-      <td>{{ q['question'] }}</td>
+      <td>{{ q['question'] }}{% if q['source'] == 'auto' %} <span class="pill" style="font-size:10px;vertical-align:middle" title="ระบบคิดเพิ่มให้เองเมื่อคำถามเดิมมีคอนเทนต์ครบแล้ว{% if q['created_at'] %} · {{ q['created_at'][:10] }}{% endif %} — ลบได้ถ้าไม่ตรง">🤖 ระบบเพิ่ม</span>{% endif %}</td>
       <td class="muted">{{ 'ไทย' if q['lang'] == 'th' else 'English' }}</td>
       <td>
         <form method="post" action="/questions/{{ q['id'] }}/delete">

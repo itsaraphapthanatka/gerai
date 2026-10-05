@@ -276,6 +276,8 @@ def init_db() -> None:
         _ensure_column(c, "brands", "autopilot_mode", "TEXT DEFAULT 'draft'")    # draft | publish
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
+        _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
+        _ensure_column(c, "target_questions", "created_at", "TEXT")                # ของเดิมก่อนมีคอลัมน์นี้ = NULL
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -608,11 +610,13 @@ def due_auto_drafts(brand_id: int, cutoff_ts: str):
 
 
 # ---- questions ----
-def add_question(brand_id: int, question: str, lang: str = "th") -> int:
+def add_question(brand_id: int, question: str, lang: str = "th", source: str = "manual") -> int:
+    """source: manual (คนเพิ่ม/กดปุ่มสร้าง) | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ — หน้าเว็บติดป้ายให้ลบได้)"""
+    import datetime
     with get_conn() as c:
         cur = c.execute(
-            q("INSERT INTO target_questions(brand_id,question,lang) VALUES(?,?,?) RETURNING id"),
-            (brand_id, question.strip(), lang),
+            q("INSERT INTO target_questions(brand_id,question,lang,source,created_at) VALUES(?,?,?,?,?) RETURNING id"),
+            (brand_id, question.strip(), lang, source, datetime.datetime.now().isoformat(timespec="seconds")),
         )
         return cur.fetchone()["id"]
 

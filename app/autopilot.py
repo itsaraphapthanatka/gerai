@@ -78,8 +78,12 @@ def summarize_step(step: str, res) -> str:
         if step == "content":
             made = [x for x in r if x.get("id")]
             quota = [x for x in r if x.get("status") == "quota"]
+            top = [x for x in r if x.get("status") == "topup"]
+            if top:  # ปิดครบทุกข้อ → ระบบคิดคำถามใหม่เพิ่มแทน (เขียนให้หลังมอนิเตอร์วัดรอบหน้า)
+                return f"ปิดครบทุกคำถามแล้ว — เพิ่มคำถามใหม่ {len(top[0].get('questions') or [])} ข้อ รอวัดรอบหน้า"
+            note = [x for x in r if x.get("msg") and not x.get("id") and x.get("status") != "quota"]
             if not made and not quota:
-                return "ไม่มีช่องว่างที่ยังไม่มีคอนเทนต์"
+                return note[0]["msg"][:140] if note else "ไม่มีช่องว่างที่ยังไม่มีคอนเทนต์"
             pub = sum(1 for x in made if x.get("status") == "published")
             return f"สร้าง {len(made)} ชิ้น" + (f" เผยแพร่ {pub}" if pub else " (ร่าง)") + (" · โควตาแพ็กเกจเต็ม" if quota else "")
         if step == "report":

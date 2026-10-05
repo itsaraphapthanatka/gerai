@@ -64,7 +64,7 @@
     </table>
     {% if log.content %}
     <div style="margin-top:8px;font-size:12.5px">คอนเทนต์รอบนี้:
-      {% for c in log.content %}{% if c.id %}<a class="link" href="/content/{{ c.id }}">{{ c.title }}</a> <span class="muted">({{ 'เผยแพร่แล้ว' if c.status == 'published' else ('ร่าง' if c.status == 'draft' else c.status) }})</span>{{ ' · ' if not loop.last }}{% else %}<span class="muted">{{ c.question[:40] }} — โควตาแพ็กเกจเต็ม</span>{% endif %}{% endfor %}
+      {% for c in log.content %}{% if c.id %}<a class="link" href="/content/{{ c.id }}">{{ c.title }}</a> <span class="muted">({{ 'เผยแพร่แล้ว' if c.status == 'published' else ('ร่าง' if c.status == 'draft' else c.status) }})</span>{{ ' · ' if not loop.last }}{% elif c.status == 'topup' %}<span class="muted">🤖 ปิดครบทุกคำถามแล้ว — เพิ่มคำถามใหม่ {{ c.questions|length }} ข้อ รอวัดรอบหน้า: {{ c.questions|join(' · ') }}</span>{% elif c.status == 'quota' %}<span class="muted">{{ c.question[:40] }} — โควตาแพ็กเกจเต็ม</span>{% else %}<span class="muted">{{ c.msg }}</span>{% endif %}{% endfor %}
     </div>
     {% endif %}
   </details>

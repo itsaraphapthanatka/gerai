@@ -79,8 +79,17 @@ def classify_market(url: str, name: str = "") -> str:
     return ans[:90]
 
 
-def generate_questions(brand_name: str, domain: str, market: str, n: int = 8) -> list[dict]:
-    """สร้างคำถามเป้าหมาย GEO สำหรับแบรนด์ — คืน list of {question, lang}"""
+def generate_questions(brand_name: str, domain: str, market: str, n: int = 8, existing: list[str] | None = None) -> list[dict]:
+    """สร้างคำถามเป้าหมาย GEO สำหรับแบรนด์ — คืน list of {question, lang}
+    existing = คำถามที่มีอยู่แล้ว → สั่งห้ามซ้ำ/ใกล้เคียง ให้หามุมใหม่ (ใช้ตอนระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)"""
+    n_en = max(1, n // 4)
+    avoid = ""
+    if existing:
+        shown = [f"- {x}" for x in existing[-60:]]  # พอให้โมเดลเห็นภาพ ไม่ยัดจนล้น context
+        avoid = f"""
+คำถามที่มีอยู่แล้ว {len(existing)} ข้อ — ห้ามซ้ำหรือใกล้เคียงกับข้อเหล่านี้ ให้หา "มุมใหม่" (เจตนา/บริบท/ทำเล/งบ/สถานการณ์ที่ยังไม่มี):
+{chr(10).join(shown)}
+"""
     prompt = f"""คุณคือคนธรรมดาที่กำลังพิมพ์ถาม ChatGPT/AI เพื่อหาสินค้า-บริการ ไม่ใช่นักการตลาด
 
 ธุรกิจที่อยากให้โผล่ในคำตอบ AI:
@@ -89,8 +98,8 @@ def generate_questions(brand_name: str, domain: str, market: str, n: int = 8) ->
 - ธุรกิจ/ตลาด: {market}
 
 เขียนคำถาม {n} ข้อ ที่ "ลูกค้าตัวจริง" ของธุรกิจแบบนี้จะพิมพ์ถาม AI จริงๆ
-- ภาษาไทยอย่างน้อย 5-6 ข้อ, อังกฤษ 1-2 ข้อ
-
+- ภาษาไทยอย่างน้อย {n - n_en} ข้อ, อังกฤษ {n_en} ข้อ
+{avoid}
 สไตล์ต้องเหมือนคนพิมพ์จริง (สำคัญที่สุด):
 - ภาษาพูด ไม่เป็นทางการ ลงท้าย มั้ย/ไหม/หน่อย/ดี/อ่ะ ได้
 - สั้นตรงประเด็นแบบที่คนพิมพ์แชท บางข้อห้วนแบบพิมพ์ค้นหาก็ได้

@@ -12,7 +12,7 @@
 <!-- auto สร้างร่าง + โหมดเผยแพร่ -->
 <div class="card" style="margin-bottom:12px;border-color:var(--purple)">
   <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 auto สร้างคอนเทนต์ปิด gap</div>
-  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)</div>
+  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ — แล้ว<b>คิดคำถามใหม่เพิ่มเอง</b> (รอบละ {{ auto_topup[0] }} ข้อ ไม่เกิน {{ auto_topup[1] }} ข้อ/แบรนด์) ให้มอนิเตอร์วัดก่อน ค่อยเขียนต่อ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)</div>
 
   <div style="display:flex;gap:20px;flex-wrap:wrap">
     {% set curw = brand['auto_content_weekly'] or 0 %}
@@ -52,6 +52,12 @@
       {% if not can_images %}<a href="/upgrade" class="link" style="font-size:11px">🔒 อัปเกรด Pro เพื่อใช้</a>{% endif %}
     </form>
   </div>
+  {% if auto_status %}
+  {# สถานะจริงของ auto — ไม่งั้นเห็นแค่ "3 ชิ้น/สัปดาห์" แล้วไม่รู้ว่าทำไมไม่มีอะไรเกิดขึ้น #}
+  <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;border-radius:8px;padding:8px 11px;{% if auto_status.queue.tone == 'warn' %}background:#fff6e6;border:1px solid #ffe2a8{% else %}background:#f3f0ff;border:1px solid #ddd6fe{% endif %}">
+    🤖 {{ auto_status.progress }}<br>{{ auto_status.queue.text }}
+  </div>
+  {% endif %}
   {% if brand['auto_image'] %}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#eef6ff;border:1px solid #cfe3ff;border-radius:8px;padding:8px 11px">
     🖼️ จะ<b>หารูปจากเว็บแบรนด์ก่อน</b> (AI ดูรูปจริงแล้วเลือกที่เกี่ยวข้อง) — ถ้าไม่มี <b>สร้างรูปประกอบให้ด้วย AI</b> · เพิ่มเวลา ~30-60 วิ/ชิ้น

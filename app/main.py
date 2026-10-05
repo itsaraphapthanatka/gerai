@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -67,31 +67,36 @@ def _startup():
     )
 
 
+def _topup_questions(b, n: int) -> list[dict]:
+    """ปิดครบทุกคำถามแล้ว → ให้ AI คิดคำถามใหม่ที่ไม่ซ้ำของเดิม เพิ่มเข้าแบรนด์ (source=auto) — คืนรายการที่เพิ่มจริง
+    ขอเผื่อ 2 เท่าแล้วค่อยกรองซ้ำ เพราะโมเดลชอบวนมุมเดิม"""
+    existing = [qq["question"] for qq in db.list_questions(b["id"])]
+    cands = ai_client.generate_questions(b["name"], b["domain"], b["market"] or "", n=n * 2, existing=existing)
+    picked = auto_content.pick_new(cands, existing, n)
+    for p in picked:
+        p["id"] = db.add_question(b["id"], p["question"], p["lang"], source="auto")
+    return picked
+
+
 def _auto_content_tick(b, weekly: int, now_local):
-    """สร้างร่างคอนเทนต์ปิด gap แบบมีจังหวะ (~weekly ชิ้น/สัปดาห์) — ร่างเท่านั้น ไม่ publish เอง"""
+    """สร้างร่างคอนเทนต์ปิด gap แบบมีจังหวะ (~weekly ชิ้น/สัปดาห์) — ร่างเท่านั้น ไม่ publish เอง
+    ปิดครบทุกข้อแล้วไม่หยุดเงียบ: คิดคำถามใหม่เพิ่ม รอมอนิเตอร์วัด แล้วค่อยเขียน (กติกาทั้งหมดอยู่ใน auto_content)"""
     import datetime as _dt
     bid = b["id"]
-    # เพดานต่อสัปดาห์ (รวมทุกแหล่ง — manual+auto)
+    # ด่านเวลาก่อน (ถูก) — เพดานต่อสัปดาห์รวมทุกแหล่ง + เว้นระยะจากรอบก่อน
     week_ago = (now_local - _dt.timedelta(days=7)).isoformat(timespec="seconds")
-    if db.count_content_since(bid, week_ago) >= weekly:
-        return
-    # เว้นระยะจากร่าง auto ครั้งก่อน เพื่อกระจายให้ทั่วสัปดาห์
-    spacing_s = max(1, 7 // weekly) * 86400
-    last = b["last_auto_content_at"]
-    if last:
-        try:
-            if (now_local - _dt.datetime.fromisoformat(last)).total_seconds() < spacing_s:
-                return
-        except Exception:
-            pass
-    # หา gap ระดับ critical (ยังไม่มีคอนเทนต์) — ถ้าไม่มี = ปิดครบแล้ว หยุดสร้าง
-    crit = [g for g in db.get_content_gaps(bid)["gaps"] if g["level"] == "critical"]
-    if not crit:
+    if auto_content.time_gate(weekly, db.count_content_since(bid, week_ago), b["last_auto_content_at"], now_local):
         return
     ok, _msg = billing.check(db.get_tenant(b["tenant_id"]), "content")
-    if not ok:
-        return  # เกิน quota แพ็กเกจ
-    g = crit[0]
+    d = auto_content.queue_state(db.get_content_gaps(bid), ok)
+    if d["action"] == "topup":
+        _topup_questions(b, d["n"])
+        # นับเป็นรอบหนึ่ง — ไม่งั้นลูป 60 วิจะเรียก AI ซ้ำทุกนาทีถ้าโมเดลให้แต่ของซ้ำ
+        db.touch_auto_content(bid, now_local.isoformat(timespec="seconds"))
+        return
+    if d["action"] != "write":
+        return  # รอวัด / โควตาเต็ม / ถึงเพดานคำถาม — หน้าคอนเทนต์บอกเหตุผลเดียวกันนี้
+    g = d["gap"]
     lang = g["lang"] or "th"
     b = _brand_grounded(b)
     # เลือกรูปแบบ AEO ตามลักษณะคำถาม (เทียบ → comparison, ลิสต์ → listicle)
@@ -825,11 +830,24 @@ def brand_content_list(request: Request, brand_id: int):
             "full": sum(1 for r in vals if r["score"] == r["max"]),
             "low": sum(1 for r in vals if r["score"] < r["max"]),
         }
+    # สถานะจริงของ auto สร้างร่าง — สัปดาห์นี้กี่ชิ้น, คิวถัดไปคืออะไร, ติดอะไร (กติกาเดียวกับตัวที่รันจริง)
+    auto_status = None
+    wk = brand["auto_content_weekly"] or 0
+    if wk > 0:
+        now = _dt.datetime.now()
+        gaps = db.get_content_gaps(brand_id)
+        n_week = db.count_content_since(brand_id, (now - _dt.timedelta(days=7)).isoformat(timespec="seconds"))
+        run_days = brand["auto_run_days"] if brand["auto_run_days"] is not None else int(os.getenv("GEO_RUN_INTERVAL_DAYS", "7"))
+        # last_run_at ไม่ใช่คอลัมน์ของ brands (list_all_brands คำนวณให้) — ใช้รอบล่าสุดจาก gaps แทน
+        nxt = auto_content.next_monitor_at(gaps["last_run_at"], run_days, brand["auto_run_time"], now)
+        last_item = max((ci["created_at"] for ci in content if ci["source"] in ("auto", "autopilot") and ci["created_at"]), default=None)
+        auto_status = auto_content.status(wk, n_week, brand["last_auto_content_at"], gaps, ok, now, next_run_at=nxt, last_item_at=last_item)
     return templates.TemplateResponse(request, "brand_content.html",
         {"brand": brand, "questions": questions, "content": content,
          "can_generate": ok, "limit_msg": limit_msg if not ok else None,
          "publish_eta": publish_eta, "aeo_scores": aeo_scores, "aeo_summary": aeo_summary,
          "can_images": billing.feature(db.get_tenant(brand["tenant_id"]), "images"),
+         "auto_status": auto_status, "auto_topup": (auto_content.TOPUP_N, auto_content.TOPUP_MAX_Q),
          "auto_content_choices": AUTO_CONTENT_CHOICES, "auto_publish_choices": AUTO_PUBLISH_CHOICES})
 
 
@@ -866,13 +884,14 @@ def generate_questions(request: Request, brand_id: int):
     if not brand:
         return _redirect("/login")
     try:
+        existing = [qq["question"] for qq in db.list_questions(brand_id)]
         items = ai_client.generate_questions(
-            brand["name"], brand["domain"], brand["market"] or ""
+            brand["name"], brand["domain"], brand["market"] or "", existing=existing
         )
-        for item in items:
-            if item["question"]:
-                db.add_question(brand_id, item["question"], item["lang"])
-        added = len(items)
+        picked = auto_content.pick_new(items, existing, len(items))  # ตัดที่ซ้ำของเดิม/ซ้ำกันเอง
+        for item in picked:
+            db.add_question(brand_id, item["question"], item["lang"])
+        added = len(picked)
     except Exception as e:
         added = 0
     return _redirect(f"/brands/{brand_id}/questions")
@@ -1475,6 +1494,13 @@ def _autopilot_content(brand, n: int, mode: str) -> list:
     gaps = db.get_content_gaps(brand["id"])
     todo = [g for g in gaps["gaps"] if g["level"] == "critical"][:n]
     tenant = db.get_tenant(brand["tenant_id"])
+    if not todo:
+        # ไม่มีข้อที่ยังไม่มีคอนเทนต์ → กติกาเดียวกับ auto รายสัปดาห์: ปิดครบจริง = คิดคำถามใหม่เพิ่ม, ไม่งั้นบอกว่าติดอะไร
+        qs = auto_content.queue_state(gaps, billing.check(tenant, "content")[0])
+        if qs["action"] == "topup":
+            added = _topup_questions(brand, qs["n"])
+            return [{"status": "topup", "questions": [a["question"] for a in added]}]
+        return [{"status": qs["action"], "msg": qs["text"]}]
     conn = db.get_wp_connection(brand["id"])
     site = geo_content._site_url(brand)
     b = _brand_grounded(brand)
