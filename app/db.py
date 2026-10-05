@@ -278,6 +278,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
         _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
         _ensure_column(c, "target_questions", "created_at", "TEXT")                # ของเดิมก่อนมีคอลัมน์นี้ = NULL
+        _ensure_column(c, "content_items", "image_note", "TEXT")                   # ผลการหารูป: ได้จากไหน / ไม่ได้เพราะอะไร (ไม่เงียบ)
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -583,6 +584,12 @@ def set_brand_site_context(brand_id: int, ctx: str) -> None:
 def update_content_body(content_id: int, body_md: str) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE content_items SET body_md=? WHERE id=?"), (body_md, content_id))
+
+
+def set_image_note(content_id: int, note: str) -> None:
+    """บันทึกผลการหารูปประกอบของชิ้นงาน — หน้าคอนเทนต์โชว์ให้คนรู้ว่าทำไมไม่มีรูป"""
+    with get_conn() as c:
+        c.execute(q("UPDATE content_items SET image_note=? WHERE id=?"), ((note or "")[:300], content_id))
 
 
 def update_content(content_id: int, title, meta_title, meta_desc, body_md, schema_json, source) -> None:

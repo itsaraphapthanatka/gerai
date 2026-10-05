@@ -250,12 +250,15 @@ def _public_base() -> str:
     return os.getenv("PUBLIC_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
 
 
-def _attach_image(brand, content_id: int, topic: str) -> None:
-    """หา/สร้างรูปประกอบ แล้วแปะหัวบทความ (เงียบ ถ้าไม่ได้ก็ข้าม)"""
+def _attach_image(brand, content_id: int, topic: str) -> str:
+    """หา/สร้างรูปประกอบ แล้วแปะหัวบทความ — ได้หรือไม่ได้ก็บันทึกเหตุผลไว้ที่ชิ้นงาน (image_note) ไม่เงียบ · คืน note"""
+    note = ""
     try:
         res = image_finder.image_for_article(brand, topic, geo_content._site_url(brand))
-        if not res:
-            return
+        note = res.get("note") or ""
+        if res["mode"] == "none":
+            db.set_image_note(content_id, "ไม่มีรูป — " + (note or "ไม่ทราบสาเหตุ"))
+            return note
         if res["mode"] == "generated":
             gen_dir = BASE / "static" / "gen"
             gen_dir.mkdir(parents=True, exist_ok=True)
@@ -265,7 +268,7 @@ def _attach_image(brand, content_id: int, topic: str) -> None:
             url = res["url"]
         item = db.get_content(content_id)
         if not item:
-            return
+            return note
         alt = (res.get("alt") or topic).replace("\n", " ").replace("]", "").replace(")", "").strip()
         img = f"![{alt}]({url})"
         body = item["body_md"] or ""
@@ -276,8 +279,14 @@ def _attach_image(brand, content_id: int, topic: str) -> None:
         else:
             body = f"{img}\n\n{body}"
         db.update_content_body(content_id, body)
-    except Exception:
-        pass
+        db.set_image_note(content_id, note)
+    except Exception as e:
+        note = f"ไม่มีรูป — ผิดพลาด {type(e).__name__}: {str(e)[:80]}"
+        try:
+            db.set_image_note(content_id, note)
+        except Exception:
+            pass
+    return note
 
 
 def _brand_grounded(brand):
@@ -848,6 +857,7 @@ def brand_content_list(request: Request, brand_id: int):
          "publish_eta": publish_eta, "aeo_scores": aeo_scores, "aeo_summary": aeo_summary,
          "can_images": billing.feature(db.get_tenant(brand["tenant_id"]), "images"),
          "auto_status": auto_status, "auto_topup": (auto_content.TOPUP_N, auto_content.TOPUP_MAX_Q),
+         "image_cap": image_finder.describe(image_finder.capabilities()) if brand["auto_image"] else None,
          "auto_content_choices": AUTO_CONTENT_CHOICES, "auto_publish_choices": AUTO_PUBLISH_CHOICES})
 
 

@@ -61,6 +61,7 @@
   {% if brand['auto_image'] %}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#eef6ff;border:1px solid #cfe3ff;border-radius:8px;padding:8px 11px">
     🖼️ จะ<b>หารูปจากเว็บแบรนด์ก่อน</b> (AI ดูรูปจริงแล้วเลือกที่เกี่ยวข้อง) — ถ้าไม่มี <b>สร้างรูปประกอบให้ด้วย AI</b> · เพิ่มเวลา ~30-60 วิ/ชิ้น
+    {% if image_cap %}<br>{{ image_cap }}{% endif %}
   </div>
   {% endif %}
   {% if curp >= 0 %}
@@ -155,7 +156,12 @@
     <tbody>
     {% for ci in content %}
     <tr>
-      <td style="max-width:280px">{{ ci['title'] }}</td>
+      <td style="max-width:280px">{{ ci['title'] }}
+        {% if '![' not in (ci['body_md'] or '') %}
+        {# บอกตรง ๆ ว่าชิ้นนี้ไม่มีรูป และเพราะอะไร (image_note) — เมื่อก่อนเงียบจนไม่มีใครรู้ว่ารูปหายไปตั้งแต่ ส.ค. #}
+        <div class="muted" style="font-size:11px;margin-top:2px" title="{{ ci['image_note'] or '' }}">🖼️ ไม่มีรูป{% if ci['image_note'] %} · {{ ci['image_note'].replace('ไม่มีรูป — ', '')[:70] }}{% endif %}</div>
+        {% endif %}
+      </td>
       <td>
         {% set rep = aeo_scores.get(ci['id']) %}
         {% if rep %}
