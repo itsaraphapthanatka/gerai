@@ -16,6 +16,7 @@ from pathlib import Path
 
 PDF_URL = os.getenv("PDF_SERVICE_URL", "http://pdf:3000")
 PERIOD_DAYS = 30
+FRESH_DAYS = 14   # หน้าที่เผยแพร่ไม่เกินนี้ถือว่า "ใหม่" — ยังไม่ติด index ได้ตามปกติ
 PDF_TIMEOUT = 90
 A4 = {"paperWidth": "8.27", "paperHeight": "11.69", "marginTop": "0.5", "marginBottom": "0.5",
       "marginLeft": "0.5", "marginRight": "0.5", "printBackground": "true"}
@@ -100,7 +101,9 @@ def compose(brand: dict, today: datetime.date, runs: list, rank: list, ai, gsc, 
     # คอนเทนต์
     pub = [c for c in content if c.get("status") == "published"]
     pub_period = [c for c in pub if _d(c.get("published_at")) >= since.isoformat()]
+    fresh_since = (today - datetime.timedelta(days=FRESH_DAYS)).isoformat()
     out["content"] = {"total": len(content), "published": len(pub), "published_period": len(pub_period),
+                      "published_fresh": sum(1 for c in pub if _d(c.get("published_at")) >= fresh_since),
                       "drafts": len(content) - len(pub), "latest": _d(max((c.get("published_at") or "" for c in pub), default="")),
                       "recent": [{"title": c.get("title"), "at": _d(c.get("published_at"))} for c in sorted(pub_period, key=lambda c: c.get("published_at") or "", reverse=True)[:8]]}
     out["gaps"] = {"critical": (gaps or {}).get("critical", 0), "total": (gaps or {}).get("total_gaps", 0)}

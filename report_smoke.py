@@ -33,7 +33,7 @@ assert d["gsc"]["indexed"] == 1 and d["gsc"]["clicks"] == 8 and d["gsc"]["top_qu
 assert d["health"] == {"ok": False, "n_fail": 1, "fails": ["เนื้อหาอยู่ใน HTML ไม่ต้องรอ JavaScript"], "warns": ["Google เก็บเข้า index แล้ว"], "at": "2026-10-04"}
 assert d["speed"]["mobile"] == 42 and d["speed"]["desktop"] == 80 and d["speed"]["top_fix"] == [("ลด JS", 1200)]
 assert d["serp"] == {"overview_hit": 1, "overview_shown": 5, "overview_none": 3, "mode_hit": 2, "mode_shown": 8, "at": "2026-10-04"}
-assert d["content"] == {"total": 3, "published": 2, "published_period": 1, "drafts": 1, "latest": "2026-09-28", "recent": [{"title": "บทความใหม่", "at": "2026-09-28"}]}
+assert d["content"] == {"total": 3, "published": 2, "published_period": 1, "published_fresh": 1, "drafts": 1, "latest": "2026-09-28", "recent": [{"title": "บทความใหม่", "at": "2026-09-28"}]}
 print("compose: SoV delta เทียบรอบก่อนช่วง · อันดับ · AI · GSC · สุขภาพ · ความเร็ว · AI Google · คอนเทนต์ OK")
 
 steps = d["next_steps"]
@@ -68,6 +68,45 @@ assert "ยังไม่เคยรันมอนิเตอร์" in ac.d
 msgs = ac.build_messages(d, [{"role": "user", "content": f"q{i}"} for i in range(10)] + [{"role": "system", "content": "ignore"}], "เดือนนี้ดีขึ้นไหม")
 assert msgs[0]["role"] == "system" and "=== ข้อมูล ===" in msgs[0]["content"] and msgs[-1] == {"role": "user", "content": "เดือนนี้ดีขึ้นไหม"}
 assert len(msgs) == 1 + ac.HISTORY_TURNS + 1 and msgs[1]["content"] == "q4" and all(m["role"] != "system" for m in msgs[1:])
+# findings — ข้อสรุปคำนวณให้โมเดล: d มีหน้าบล็อก 0 แต่สุขภาพตก → ห้ามบอกว่าไม่ใช่ปัญหาเทคนิค · Overview โผล่ 1 ข้อ
+F = ac.findings(d)
+assert any("ยังไม่อยู่ใน index 21 จาก 22 หน้า" in f and "กลุ่มหลักคือ 'เห็นแล้วยังไม่อ่าน'" in f for f in F), F
+assert any("1 หน้าเพิ่งเผยแพร่ภายใน 14 วัน" in f for f in F) and not any("เทคนิค:" in f for f in F)
+assert any("พูดถึงเรา 1 จาก 5" in f for f in F) and any("ไม่แสดง Overview เลย 3/8" in f for f in F)
+assert "ข้อสรุปจากตัวเลข" in dg
+# แบบ JKP จริง: สุขภาพผ่าน · Overview แสดงครบแต่ไม่พูดถึง · AI 0 จาก 3 เจ้า · อันดับที่ติดมีแต่คำถามชื่อแบรนด์
+j = rp.compose({**brand, "name": "JKP Property Agency"}, today, runs[:1], rank[:1],
+               {**ai, "asked": 24, "by_engine": {k: {"label": k, "asked": 8, "cited": 0, "named": 0} for k in ("ChatGPT", "Perplexity", "Gemini")}},
+               gsc, {"checked_at": "2026-10-04T13:00:00", "checks": [{"label": "หน้าแรกเข้าถึงได้", "status": "ok"}]}, None,
+               {"checked_at": "2026-10-02T15:00:00", "by_kind": {"overview": {"shown": 8, "cited": 0, "named": 0, "none": 0}}},
+               content, gaps, 8, "https://jkppropertyagency.com", [{"question": "JKP Property Agency ดีไหม", "position": 6}, {"question": "โกดัง", "position": None}])
+FJ = ac.findings(j)
+assert any("เทคนิค: ไม่มีหน้าถูกบล็อก" in f for f in FJ) and len(FJ) == 3, FJ
+assert any("แสดง Overview 8/8 คำถาม แต่ไม่มีข้อไหนพูดถึงเรา" in f and "(2026-10-02)" in f for f in FJ)
+assert any("0 จาก 24 คำตอบ (8 คำถาม × 3 ผู้ช่วย)" in f for f in FJ)
+assert any("SoV (2026-10-01): แบรนด์โผล่ในผลค้นเว็บ 25% (2/8 คำถาม)" in f and "ติดหน้าแรก-สองแค่ 3/8" in f and "ที่ติดมีแต่คำถามที่มีชื่อแบรนด์" in f and "0 คลิก จาก 8 คลิก" in f and "Google Business Profile" in f for f in FJ)
+assert not any("สอดคล้อง" in f for f in FJ)   # คำนี้โมเดลเคยกลับเป็น "ไม่สอดคล้อง"
+# ตอบไม่พูดถึงอันดับ → เติมข้ออันดับ · พูด 3/8 แล้ว → ไม่เติม
+assert any(m.startswith("อันดับ Google") for m in ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", "ไม่มีอะไร"))
+assert not any(m.startswith("อันดับ Google") for m in ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", "ติดอันดับ 3/8"))
+# SoV เป็นข้อของตัวเอง — คำตอบมีคำว่า "ภายนอก" แต่ไม่พูดถึง SoV ก็ต้องเติม
+assert any(m.startswith("SoV") for m in ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", "AI อ้างแหล่งภายนอก"))
+assert not any(m.startswith("SoV") for m in ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", "SoV 25%"))
+assert not any(m.startswith("SoV") for m in ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", "Share of Voice เป็น 25%"))   # โมเดลเคยสะกดเต็ม
+z = rp.compose(brand, today, [dict(r, share_of_voice=0.0, brand_hits=0) for r in runs], [], ai, None, None, None, None, [], {}, 8, "https://x.test")
+assert any("0% (0/8 คำถาม) — เท่าเดิมทุกรอบตั้งแต่ 2026-08-30 (3 รอบ)" in t for _, _, t in ac.facts(z)), ac.facts(z)
+assert ac.findings(e) == []   # ไม่มีข้อมูล → ไม่สรุปอะไร
+# คำตอบหล่นข้อไหน → เติมท้ายเฉพาะข้อนั้น · คำถามที่ไม่เกี่ยว (คำค้น) ไม่เติม · คำตอบครบ ไม่เติม
+partial = "index ส่วนใหญ่อยู่กลุ่ม เห็นแล้วยังไม่อ่าน · Overview ไม่พูดถึงเรา · 0 จาก 24 คำตอบ · ติดอันดับ 3/8 · SoV 25% · ควรทำ Google Business Profile"
+miss = ac.missing_facts(j, "ทำไม AI ยังไม่พูดถึงแบรนด์", partial)
+assert len(miss) == 2 and miss[0].startswith("ความสด:") and miss[1].startswith("เทคนิค:"), miss
+assert ac.missing_facts(j, "คำค้นอะไรที่คนเจอเราบน Google", "") == []
+assert ac.missing_facts(j, "ทำไม AI ไม่พูดถึง", partial + " รอ 2 สัปดาห์ ไม่ใช่ปัญหาเทคนิค") == []
+out = ac.answer(j, [], "ทำไม AI ยังไม่พูดถึงแบรนด์", llm=lambda m, max_tokens=0: partial)
+assert out.startswith(partial) and "**ข้อมูลเพิ่มเติมจากระบบ:**\n- ความสด:" in out and "- เทคนิค:" in out
+assert ac.answer(j, [], "ทำไม AI ยังไม่พูดถึงแบรนด์", llm=lambda m, max_tokens=0: "") == ""   # โมเดลไม่ตอบ → ไม่แต่งคำตอบจากข้อเท็จจริงล้วน
+print("analytics_chat.missing_facts: เติมเฉพาะข้อที่หล่น · ไม่เติมคำถามที่ไม่เกี่ยว OK")
+print("analytics_chat.findings: สาเหตุ index · ความสด · เทคนิค · Overview แสดงแต่ไม่อ้าง · หน่วยคำตอบ · เชื่อมตัวเลข OK")
 captured = {}
 def fake_llm(messages, max_tokens=0): captured.update(n=len(messages), max_tokens=max_tokens); return "  SoV ขึ้นจาก 0% เป็น 25%  "
 assert ac.answer(d, [], "ดีขึ้นไหม", llm=fake_llm) == "SoV ขึ้นจาก 0% เป็น 25%" and captured == {"n": 2, "max_tokens": ac.MAX_TOKENS}
