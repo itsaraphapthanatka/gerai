@@ -60,6 +60,8 @@ r = c.get(f"/q/{q['token']}"); assert r.status_code == 200 and "ยืนยั�
 assert "ติ๊กยอมรับ" in c.post(f"/q/{q['token']}/accept", data={"name": "คุณเอ"}).text
 r = c.post(f"/q/{q['token']}/accept", data={"name": "คุณเอ", "agree": "1"})
 q = db.get_quote(q["id"]); assert q["status"] == "accepted" and q["accepted_name"] == "คุณเอ" and "แจ้งชำระเงินแล้ว" in r.text
+r = a.get("/admin/decisions"); assert "ลูกค้ายืนยันรับข้อเสนอแล้ว" in r.text and q["number"] in r.text and f"/admin/quotes/{q['id']}/confirm" in r.text   # เห็นทันทีที่ลูกค้ายืนยัน
+r = a.get("/admin/leads"); assert "ลูกค้ายืนยันแล้ว รอชำระ" in r.text
 r = c.get(f"/q/{q['token']}/contract"); assert r.status_code == 200 and "สัญญาบริการมาตรฐาน" in r.text and "ร่างมาตรฐาน" in r.text and "คุณเอ" in r.text
 r = c.get(f"/q/{q['token']}.pdf"); assert r.status_code == 200 and r.headers["content-type"].startswith("application/pdf")
 assert c.get(f"/q/{q['token']}/contract.pdf").status_code == 200
@@ -101,6 +103,12 @@ assert "ยืนยัน ไม่รับการติดต่อ" in c.g
 assert "เรียบร้อย" in c.post(f"/u/{t2}").text
 l2 = db.get_lead(l2["id"]); assert l2["status"] == "unsubscribed" and l2["consent"] == 0 and l2["unsub_at"]
 assert db.get_decision(d2[0]["id"])["status"] == "cancelled" and P.ceo_propose(l2) is None
+# ลูกค้าที่ตอบกลับมาเองทั้งที่ยังมีข้อเสนอ "ทัก" ค้าง → ข้อเสนอนั้นถูกยกเลิก ไม่นับเป็นไม่ตรงกัน
+r = c.post("/audit", data={"url": "five.co.th"}); t5 = str(r.url).rsplit("/", 1)[-1]
+c.post(f"/audit/{t5}/contact", data={"email": "hi@five.co.th", "consent": "1"})
+l5 = db.get_lead_by_token(t5); d5 = [d for d in db.list_decisions("proposed") if d["lead_id"] == l5["id"] and d["kind"] == "outreach"]; assert len(d5) == 1
+c.post(f"/audit/{t5}/reply", data={})
+assert db.get_decision(d5[0]["id"])["status"] == "cancelled" and any(d["kind"] == "quote" and d["lead_id"] == l5["id"] for d in db.list_decisions("proposed"))
 assert "ไม่ส่ง" in P.execute_decision(d2[0], "admin") and db.get_lead(l2["id"])["status"] == "unsubscribed"
 st = db.decision_stats(); assert st["rejected"] == 0
 print("unsubscribe: ปิดช่องทาง · ยกเลิกข้อเสนอค้าง · ไม่ทักซ้ำ OK")

@@ -54,6 +54,31 @@ def outreach_footer(lead) -> str:
             "เราจะไม่ติดต่ออีก")
 
 
+def alert_admins(message: str, link: str, type_: str = "lead", subject: str | None = None) -> None:
+    """แจ้งเจ้าของทุกช่องทางที่มี: กระดิ่งในแอป · LINE (ถ้าผูกแล้ว) · อีเมลแอดมินที่ส่งได้ (เฉพาะเรื่องที่ต้องลงมือ มี subject)"""
+    db.notify_admins(message, link, type_)
+    url = f"{public_base()}{link}"
+    try:
+        line_oa.notify_owner(f"{message}\n{url}")
+    except Exception:
+        pass
+    if subject and mailer.config():
+        for t in db.list_all_tenants():
+            if t["is_admin"] and mailer.is_deliverable(t["email"]):
+                try:
+                    mailer.send(t["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(message) + f"</p><p><a href='{url}'>{url}</a></p>"),
+                                text=f"{message}\n{url}")
+                except Exception:
+                    pass
+
+
+def _cancel_pending(lead_id: int, kinds: set, why: str) -> None:
+    """ข้อเสนอที่ค้างแต่หมดความหมายแล้ว (เช่น จะทักทั้งที่ลูกค้าตอบกลับมาเองแล้ว) → ยกเลิก ไม่นับเป็นความเห็นไม่ตรงกัน"""
+    for d in db.list_decisions("proposed", 500):
+        if d["lead_id"] == lead_id and d["kind"] in kinds:
+            db.set_decision(d["id"], "cancelled", "system", why)
+
+
 # ---------- ตรวจเว็บ ----------
 def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
     """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
@@ -145,12 +170,9 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
     if lead["status"] in ("new", "contacted", "lost"):
         db.update_lead(lead["id"], status="replied")
     record(lead["id"], "replied", (message or "").strip()[:500] or f"กดคุยต่อผ่าน{via}", actor)
-    db.notify_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา" + (f": {message.strip()[:80]}" if message.strip() else ""),
-                     f"/admin/leads/{lead['id']}", "lead")
-    try:
-        line_oa.notify_owner(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}\n{public_base()}/admin/leads/{lead['id']}")
-    except Exception:
-        pass
+    _cancel_pending(lead["id"], {"outreach", "lead_review"}, "ลูกค้าตอบกลับมาเองแล้ว ไม่ต้องทัก")
+    alert_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}" + (f": {message.strip()[:80]}" if message.strip() else ""),
+                 f"/admin/leads/{lead['id']}", "lead", subject=f"💬 {lead['domain']} ตอบกลับ — CEO กำลังเสนอใบเสนอราคา")
     if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
         return None
     lead = db.get_lead(lead["id"])
@@ -203,6 +225,7 @@ def send_quote(q, who: str = "admin") -> str:
     sent = _send_text(lead, f"ใบเสนอราคา {q['number']} สำหรับ {lead['domain']}", body)
     db.update_quote(q["id"], status="sent", sent_at=db.now())
     db.update_lead(lead["id"], status="quoted", last_contacted_at=db.now())
+    _cancel_pending(lead["id"], {"outreach", "lead_review"}, f"ส่งใบเสนอราคา {q['number']} แล้ว")
     record(lead["id"], "quote_sent", f"{q['number']} · " + (sent or "ไม่มีช่องทางส่งอัตโนมัติ"), who)
     if sent:
         return f"ส่งใบเสนอราคา {q['number']} แล้ว ({sent})"
@@ -225,8 +248,9 @@ def accept_quote(q, name: str, ip: str = "") -> str:
         return "กรอกชื่อผู้ยืนยัน"
     db.update_quote(q["id"], status="accepted", accepted_at=db.now(), accepted_name=name.strip()[:120], accepted_ip=ip[:64])
     record(q["lead_id"], "quote_accepted", f"{q['number']} โดย {name.strip()[:120]}", "customer")
-    db.notify_admins(f"✅ {db.get_lead(q['lead_id'])['domain']} ยืนยันรับข้อเสนอ {q['number']} รอชำระ {q['first_total']:,} บาท",
-                     f"/admin/leads/{q['lead_id']}", "lead")
+    dom = db.get_lead(q["lead_id"])["domain"]
+    alert_admins(f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} แล้ว (โดย {name.strip()[:60]}) รอชำระ {q['first_total']:,} บาท — เมื่อเงินเข้าแล้วกด \"ยืนยันยอดเข้า\" ระบบจะเปิดบัญชีให้",
+                 f"/admin/leads/{q['lead_id']}", "lead", subject=f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} รอชำระ {q['first_total']:,} บาท")
     return ""
 
 
@@ -239,11 +263,8 @@ def claim_payment(q, slip_path: str | None) -> int:
     proposal = (f"ยืนยันยอดเข้า {q['first_total']:,} บาท จาก {lead['domain']} ({q['number']} · แพ็กเกจ {q['package']})\n"
                 f"เช็กบัญชีรับเงินแล้วกดอนุมัติ → ระบบเปิดบัญชี+แบรนด์ และส่งอีเมลต้อนรับให้ลูกค้าเอง" + ("" if slip_path else "\nลูกค้าไม่ได้แนบสลิป"))
     did = db.add_decision("cfo", "payment", f"ยอดเข้า {q['first_total']:,} บาท — {lead['domain']}", proposal, pl, lead_id=lead["id"])
-    db.notify_admins(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) รอยืนยันยอด", "/admin/decisions", "payment")
-    try:
-        line_oa.notify_owner(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) — เช็กบัญชีแล้วอนุมัติที่ {public_base()}/admin/decisions")
-    except Exception:
-        pass
+    alert_admins(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) — เช็กบัญชีแล้วอนุมัติข้อเสนอของ CFO",
+                 "/admin/decisions", "payment", subject=f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท รอยืนยันยอด")
     return did
 
 

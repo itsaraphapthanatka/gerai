@@ -49,6 +49,25 @@
   <form method="post" action="/admin/digest/run" style="margin-left:auto"><button class="btn ghost sm" type="submit">ทำสรุปเช้าตอนนี้</button></form>
 </div>
 
+{% if awaiting %}
+<h2>ลูกค้ายืนยันรับข้อเสนอแล้ว — รอเงินเข้า</h2>
+{% for q in awaiting %}
+<div class="card" style="border-color:var(--ok,#1c7a44)">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="pill ok">{{ q['status_label'] }}</span>
+    <b>{{ q['domain'] }}</b> · {{ q['number'] }} · แพ็กเกจ {{ q['package'] }}{% if q['setup'] %} + GEO Setup{% endif %}
+    <span style="margin-left:auto;font-weight:700">{{ "{:,}".format(q['first_total']) }} บาท</span>
+  </div>
+  <div class="muted" style="font-size:12.5px;margin:8px 0">ยืนยันโดย {{ q['accepted_name'] }} เมื่อ {{ (q['accepted_at'] or '')[:16].replace('T',' ') }}{% if q['status'] == 'claimed' %} · ลูกค้าแจ้งชำระแล้ว{% if q['slip_path'] %} <a class="link" href="/admin/quotes/{{ q['id'] }}/slip" target="_blank">ดูสลิป ↗</a>{% endif %} — ข้อเสนอของ CFO อยู่ด้านล่าง{% else %} · ลูกค้ายังไม่แจ้งชำระ/แนบสลิป — ถ้าเงินเข้าแล้ว (เช่น แจ้งทาง LINE) กดยืนยันได้เลย{% endif %}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <form method="post" action="/admin/quotes/{{ q['id'] }}/confirm" onsubmit="return confirm('ยืนยันว่ายอด {{ "{:,}".format(q['first_total']) }} บาทเข้าบัญชีแล้ว? ระบบจะเปิดบัญชี+แบรนด์และส่งอีเมลต้อนรับ')"><button class="btn sm" type="submit">✓ ยืนยันยอดเข้าแล้ว เปิดบัญชี</button></form>
+    <a class="link" href="/q/{{ q['token'] }}" target="_blank" style="font-size:12.5px">เปิดใบเสนอราคา ↗</a>
+    <a class="link" href="/admin/leads/{{ q['lead_id'] }}" style="font-size:12.5px">ดูลูกค้า</a>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
 <h2>รออนุมัติ</h2>
 {% if pending %}
 {% for d in pending %}

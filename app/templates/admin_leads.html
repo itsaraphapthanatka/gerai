@@ -37,6 +37,7 @@
             {% for k, label in statuses %}<option value="{{ k }}" {% if l['status']==k %}selected{% endif %}>{{ label }}</option>{% endfor %}
           </select>
         </form>
+        {% if l['quote'] %}<div style="font-size:11.5px;margin-top:4px"><span class="pill {{ 'ok' if l['quote']['status'] in ('accepted','claimed') else '' }}" style="font-size:10px">{{ l['quote']['number'] }}: {{ qstatus.get(l['quote']['status'], l['quote']['status']) }}</span></div>{% endif %}
       </td>
       <td class="muted" style="white-space:nowrap;font-size:12px">{{ (l['created_at'] or '')[:16].replace('T',' ') }}</td>
       <td style="white-space:nowrap">

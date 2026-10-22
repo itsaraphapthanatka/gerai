@@ -441,7 +441,8 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
         return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, error="ติ๊กยินยอมให้ติดต่อกลับก่อน เราถึงจะส่งแผนให้ได้"))
     db.update_lead(lead["id"], name=name.strip()[:120] or None, email=email.strip().lower()[:160] or None,
                    contact=contact.strip()[:160] or None, consent=1)
-    db.notify_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""), "/admin/leads", "lead")
+    pipeline.alert_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""),
+                          f"/admin/leads/{lead['id']}", "lead", subject=f"🎯 ลูกค้าเป้าหมายใหม่: {lead['domain']}")
     try:
         _ceo_propose(db.get_lead(lead["id"]))
     except Exception:
@@ -462,10 +463,11 @@ def admin_leads(request: Request, status: str = "", notice: str = ""):
         rep = json.loads(d["audit_json"]) if d.get("audit_json") else None
         d["sc"] = leads.score_audit(rep) if rep else None
         d["pending"] = db.count_decisions_for_lead(d["id"], "proposed")
+        d["quote"] = next((dict(x) for x in db.list_quotes(d["id"], None, 5) if x["status"] in quotes.OPEN and x["status"] != "draft"), None)
         rows.append(d)
     return templates.TemplateResponse(request, "admin_leads.html",
         {"leads": rows, "statuses": leads.STATUSES, "status_label": leads.STATUS_LABEL, "pipeline": leads.PIPELINE,
-         "funnel": leads.funnel(all_rows), "sources": leads.SOURCES, "filter": status, "notice": notice})
+         "funnel": leads.funnel(all_rows), "sources": leads.SOURCES, "qstatus": quotes.STATUS_LABEL, "filter": status, "notice": notice})
 
 
 @app.post("/admin/leads/import")
@@ -540,8 +542,16 @@ def _decisions_ctx(request: Request, notice: str = ""):
             x["quote"] = dict(qq) if qq else None
         pending.append(x)
     history = [dict(d) for d in db.list_decisions(None, 60) if d["status"] != "proposed"]
+    awaiting = []                                            # ใบเสนอราคาที่ลูกค้ายืนยันแล้ว รอเงินเข้า/รอคุณยืนยัน
+    for st in ("accepted", "claimed"):
+        for qq in db.list_quotes(None, st, 50):
+            x = dict(qq)
+            l = db.get_lead(qq["lead_id"])
+            x["domain"] = l["domain"] if l else "?"
+            x["status_label"] = quotes.STATUS_LABEL.get(qq["status"], qq["status"])
+            awaiting.append(x)
     return {"pending": pending, "history": history, "stats": db.decision_stats(), "mandate": execs.MANDATE,
-            "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice,
+            "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice, "awaiting": awaiting,
             "kpi": execs.kpis(), "gates": [execs.auto_gate(k) for k in execs.KINDS if k != "digest"],
             "paused": execs.paused(), "mode": execs.mode_label()}
 
