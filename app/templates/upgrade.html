@@ -113,4 +113,16 @@
 @media (max-width:560px){ .plans, .addons { grid-template-columns:1fr; } }
 @media (max-width:760px){ .addons { grid-template-columns:1fr; } }
 </style>
+{% if stripe_portal or stripe_invoices %}
+<div class="card" style="margin-top:16px">
+  <h2 style="margin-top:0;font-size:15px">การชำระเงินและใบแจ้งหนี้ (Stripe)</h2>
+  {% if stripe_portal %}<p class="muted" style="font-size:13px">เปลี่ยนบัตร ดูใบแจ้งหนี้ย้อนหลัง หรือยกเลิกการสมัคร ได้เองที่ <a class="btn ghost sm" href="/account/billing">จัดการการสมัคร ↗</a></p>{% endif %}
+  {% if stripe_invoices %}
+  <table style="font-size:13px">
+    <thead><tr><th>วันที่</th><th>เลขที่</th><th>ยอด (บาท)</th><th>สถานะ</th><th></th></tr></thead>
+    <tbody>{% for i in stripe_invoices %}<tr><td class="muted">{{ (i.created_at or '')[:10] }}</td><td>{{ i.number or i.invoice_id }}</td><td>{{ "{:,}".format(i.amount or 0) }}</td><td><span class="pill {{ 'ok' if i.status == 'paid' else '' }}">{{ 'ชำระแล้ว' if i.status == 'paid' else i.status }}</span></td><td>{% if i.hosted_url %}<a class="link" href="{{ i.hosted_url }}" target="_blank">ดูใบแจ้งหนี้</a>{% endif %}{% if i.pdf_url %} · <a class="link" href="{{ i.pdf_url }}">PDF</a>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

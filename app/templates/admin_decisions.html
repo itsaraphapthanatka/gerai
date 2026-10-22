@@ -2,7 +2,7 @@
 {% block title %}การตัดสินใจของผู้บริหารเอเจนต์ — เจอ.AI{% endblock %}
 {% block content %}
 <h1>การตัดสินใจ</h1>
-<p class="muted">ผู้บริหารเอเจนต์ (CEO · CFO · CTO) — <b>{{ mode }}</b> · กรอบอำนาจ: ส่วนลด ≤ {{ mandate.max_discount_pct }}% · ดีล ≤ {{ "{:,}".format(mandate.max_deal_thb) }} บาท/เดือน · คืนเงินใน {{ mandate.refund_days }} วัน · เรื่องเงินรอคนเสมอจนถึงเฟส 3</p>
+<p class="muted">ผู้บริหารเอเจนต์ (CEO · CFO · CTO) — <b>{{ mode }}</b> · กรอบอำนาจ: ส่วนลด ≤ {{ mandate.max_discount_pct }}% · ดีล ≤ {{ "{:,}".format(mandate.max_deal_thb) }} บาท/เดือน · คืนเงินใน {{ mandate.refund_days }} วัน · ยืนยันยอดเข้าและเรื่องนอกกรอบรอคนเสมอ</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if paused %}<div class="err-banner">หยุดฉุกเฉินอยู่ — ไม่มีเรื่องใดทำอัตโนมัติ ข้อเสนอทั้งหมดรอคุณ <form method="post" action="/admin/agents/pause" style="display:inline"><input type="hidden" name="on" value="0"><button class="btn sm" type="submit">เริ่มทำงานต่อ</button></form></div>{% endif %}
 
@@ -26,8 +26,9 @@
         <td>{{ g.stats.decided }}</td>
         <td>{{ g.stats.agreement_pct if g.stats.agreement_pct is not none else '—' }}%</td>
         <td>
-          {% if g.on %}<span class="pill ok">ตัดสินเอง</span> <form method="post" action="/admin/decisions/auto" style="display:inline"><input type="hidden" name="kind" value="{{ g.kind }}"><input type="hidden" name="on" value="0"><button class="btn ghost sm" type="submit">กลับเป็นเสนอ</button></form>
+          {% if g.on %}<span class="pill ok">ตัดสินเอง{% if g.override and not g.passed %} (ปลดล็อกโดยเจ้าของ){% endif %}</span> <form method="post" action="/admin/decisions/auto" style="display:inline"><input type="hidden" name="kind" value="{{ g.kind }}"><input type="hidden" name="on" value="0"><button class="btn ghost sm" type="submit">กลับเป็นเสนอ</button></form>
           {% elif g.allowed %}<span class="pill">เสนอ</span> <form method="post" action="/admin/decisions/auto" style="display:inline"><input type="hidden" name="kind" value="{{ g.kind }}"><input type="hidden" name="on" value="1"><button class="btn sm" type="submit">ให้ตัดสินเอง</button></form>
+          {% elif g.eligible %}<span class="pill">เสนอ</span> <span class="muted" style="font-size:11.5px">{{ g.reason }}</span> <form method="post" action="/admin/decisions/auto" style="display:inline" onsubmit="return confirm('ปลดล็อกโดยไม่รอด่าน: CEO จะทำเรื่อง{{ g.label }}เองทันทีโดยไม่ถามคุณ (หยุดได้ทุกเมื่อ)')"><input type="hidden" name="kind" value="{{ g.kind }}"><input type="hidden" name="on" value="1"><input type="hidden" name="override" value="1"><button class="btn ghost sm" type="submit">ปลดล็อกเลยไม่รอด่าน</button></form>
           {% else %}<span class="pill">เสนอ</span> <span class="muted" style="font-size:11.5px">{{ g.reason }}</span>{% endif %}
         </td>
       </tr>
@@ -36,7 +37,7 @@
     </table>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       {% if not paused %}<form method="post" action="/admin/agents/pause" onsubmit="return confirm('หยุดฉุกเฉิน: ทุกเรื่องกลับมารอคน จนกว่าจะกดเริ่มต่อ')"><input type="hidden" name="on" value="1"><button class="btn ghost sm" type="submit">⏸ หยุดฉุกเฉิน</button></form>{% endif %}
-      <span class="muted" style="font-size:11.5px">สลับได้เมื่อตัดสินแล้ว ≥ 20 เรื่องและตรงกัน ≥ 95% ต่อเรื่อง · เรื่องเงินเปิดได้ในเฟส 3</span>
+      <span class="muted" style="font-size:11.5px">สลับได้เมื่อตัดสินแล้ว ≥ 20 เรื่องและตรงกัน ≥ 95% ต่อเรื่อง หรือเจ้าของปลดล็อกเอง · ข้อเสนอนอกกรอบ CFO รอคนเสมอ · ยืนยันยอดเข้าต้องเป็นคน</span>
     </div>
   </div>
 </div>
@@ -80,6 +81,7 @@
   </div>
   <pre style="white-space:pre-wrap;font-family:inherit;font-size:13.5px;line-height:1.6;margin:12px 0;background:var(--bg,#fafafa);padding:12px;border-radius:8px">{{ d['proposal'] }}</pre>
   {% if d['pl'] and d['pl'].get('cfo') %}<div class="muted" style="font-size:12.5px;margin-bottom:10px">CFO: {{ d['pl']['cfo']['note'] }}{% if not d['pl']['cfo']['ok'] %} <span class="pill no">นอกกรอบ</span>{% endif %}{% if d['pl'].get('source') %} · ร่างโดย {{ d['pl']['source'] }}{% endif %}</div>{% endif %}
+  {% if d['kind'] == 'outreach' and d['pl'] is defined and not d['pl'].get('channel') %}<div class="err-banner" style="font-size:12.5px;margin-bottom:10px">ไม่มีอีเมล/LINE ที่ส่งได้ — อนุมัติไปก็ส่งไม่ได้ เติมอีเมลที่<a class="link" href="/admin/leads/{{ d['lead_id'] }}">หน้าลูกค้า</a>แล้วกด "ให้ CEO เสนอ" ใหม่</div>{% endif %}
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <form method="post" action="/admin/decisions/{{ d['id'] }}/approve"><button class="btn sm" type="submit">✓ อนุมัติและทำเลย</button></form>
     <form method="post" action="/admin/decisions/{{ d['id'] }}/reject" style="display:flex;gap:6px">

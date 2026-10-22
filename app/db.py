@@ -222,7 +222,23 @@ def _tables() -> list[str]:
             brand_id INTEGER,
             decision_id INTEGER,
             notes TEXT,
-            created_by TEXT
+            created_by TEXT,
+            stripe_session_id TEXT,
+            stripe_customer_id TEXT,
+            stripe_subscription_id TEXT,
+            paid_via TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS stripe_invoices (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            quote_id INTEGER,
+            tenant_id INTEGER,
+            invoice_id TEXT UNIQUE,
+            number TEXT,
+            amount INTEGER,
+            status TEXT,
+            hosted_url TEXT,
+            pdf_url TEXT
         )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
@@ -348,6 +364,9 @@ def init_db() -> None:
         for col, ddl in (("line_user_id", "TEXT"), ("package", "TEXT"), ("monthly_thb", "INTEGER"),
                          ("last_contacted_at", "TEXT"), ("unsub_at", "TEXT")):
             _ensure_column(c, "leads", col, ddl)      # เฟส 2: ช่องทาง LINE · ดีล · ขอไม่รับการติดต่อ
+        for col in ("stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via"):
+            _ensure_column(c, "quotes", col, "TEXT")  # Stripe: session/ลูกค้า/การสมัคร และช่องทางที่จ่าย
+        _ensure_column(c, "tenants", "stripe_customer_id", "TEXT")    # ลูกค้าเปิด Customer Portal ของ Stripe จากในแอป
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
         _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
@@ -1285,7 +1304,8 @@ def count_line_audits_since(uid: str, since_ts: str) -> int:
 
 # ---- ใบเสนอราคา (เฟส 2) ----
 QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name", "accepted_ip", "claimed_at", "slip_path",
-                "paid_at", "tenant_id", "brand_id", "decision_id", "notes", "valid_until"}
+                "paid_at", "tenant_id", "brand_id", "decision_id", "notes", "valid_until",
+                "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via"}
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,
@@ -1306,6 +1326,43 @@ def get_quote(qid: int):
 def get_quote_by_token(token: str):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM quotes WHERE token=?"), (token,)).fetchone()
+
+
+def get_quote_by_customer(customer_id: str):
+    if not customer_id:
+        return None
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM quotes WHERE stripe_customer_id=? ORDER BY id DESC LIMIT 1"), (customer_id,)).fetchone()
+
+
+def set_tenant_stripe_customer(tenant_id: int, customer_id: str) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET stripe_customer_id=? WHERE id=?"), (customer_id, tenant_id))
+
+
+def add_stripe_invoice(quote_id, tenant_id, invoice_id: str, amount: int, status: str, hosted_url, pdf_url, number=None) -> None:
+    """เก็บใบแจ้งหนี้/ใบเสร็จของ Stripe ไว้โชว์ให้ลูกค้า (ส่งซ้ำไม่ซ้ำ)"""
+    if not invoice_id:
+        return
+    with get_conn() as c:
+        if c.execute(q("SELECT id FROM stripe_invoices WHERE invoice_id=?"), (invoice_id,)).fetchone():
+            c.execute(q("UPDATE stripe_invoices SET status=?, hosted_url=?, pdf_url=?, amount=? WHERE invoice_id=?"),
+                      (status, hosted_url, pdf_url, amount, invoice_id))
+            return
+        c.execute(q("INSERT INTO stripe_invoices(created_at,quote_id,tenant_id,invoice_id,number,amount,status,hosted_url,pdf_url) VALUES(?,?,?,?,?,?,?,?,?)"),
+                  (now(), quote_id, tenant_id, invoice_id, number, amount, status, hosted_url, pdf_url))
+
+
+def list_stripe_invoices(tenant_id: int, limit: int = 50):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM stripe_invoices WHERE tenant_id=? ORDER BY id DESC LIMIT ?"), (tenant_id, limit)).fetchall()
+
+
+def get_quote_by_subscription(sub_id: str):
+    if not sub_id:
+        return None
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM quotes WHERE stripe_subscription_id=? ORDER BY id DESC LIMIT 1"), (sub_id,)).fetchone()
 
 
 def list_quotes(lead_id: int = None, status: str = None, limit: int = 100):

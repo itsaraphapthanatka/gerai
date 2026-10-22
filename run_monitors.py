@@ -151,9 +151,16 @@ def main():
     ap.add_argument("--aiserp", action="store_true", help="เช็ค Google AI Overview / AI Mode ผ่าน SerpApi (ต้องมีคีย์)")
     ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
     ap.add_argument("--digest", action="store_true", help="สรุปเช้าของผู้บริหารเอเจนต์ (CEO/CFO/CTO) → หน้าการตัดสินใจ + อีเมลแอดมิน")
+    ap.add_argument("--prospect", action="store_true", help="หาลูกค้าเอง: ค้นธุรกิจตามกลุ่มเป้าหมาย → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
     args = ap.parse_args()
     db.init_db()
+    if args.prospect:
+        from app import prospecting
+        res = prospecting.run()
+        print("prospect · " + (res.get("skipped") or f"พบ {res['found']} เว็บ เพิ่ม {res['added']} ตรวจ {res['audited']} มีอีเมล {res['with_email']} เสนอทัก {res['proposed']}"
+                                                   + (f" ล้ม {res['errors']}" if res.get("errors") else "") + f" · {', '.join(res['leads'])}"))
+        return
     if args.digest:
         from app import execs
         res = execs.morning_digest(os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud"))

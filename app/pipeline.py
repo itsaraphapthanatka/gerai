@@ -95,13 +95,34 @@ def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
 # ---------- CEO เสนอ (หรือทำเองเมื่อเรื่องนั้นสลับเป็น auto แล้ว) ----------
 def _maybe_auto(did: int) -> int:
     d = db.get_decision(did)
-    if d and d["status"] == "proposed" and execs.auto_enabled(d["kind"]):
+    if not d or d["status"] != "proposed":
+        return did
+    try:
+        escalate = bool(json.loads(d["payload_json"] or "{}").get("escalate"))
+    except Exception:
+        escalate = False
+    if escalate:                                     # นอกกรอบ CFO → รอคนเสมอ ไม่ว่าโหมดไหน
+        return did
+    if execs.auto_enabled(d["kind"]):
         try:
             result = execute_decision(d, "auto")
             db.set_decision(did, "auto", "ceo", result)
         except Exception as e:                       # ทำเองไม่สำเร็จ → ค้างไว้ให้คนดู ไม่เงียบ
             db.set_decision(did, "proposed", None, f"ทำอัตโนมัติไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
     return did
+
+
+def run_pending_auto(kind: str | None = None) -> int:
+    """ข้อเสนอที่ค้างอยู่ก่อนเปิดโหมดตัดสินเอง → ทำให้เลย (เว้นนอกกรอบ) · เรียกตอนสลับโหมดและตอนสรุปเช้า · คืนจำนวนที่ทำ"""
+    n = 0
+    for d in db.list_decisions("proposed", 500):
+        if kind and d["kind"] != kind:
+            continue
+        if d["kind"] in execs.AUTO_ELIGIBLE and execs.auto_enabled(d["kind"]):
+            _maybe_auto(d["id"])
+            if db.get_decision(d["id"])["status"] == "auto":
+                n += 1
+    return n
 
 
 def ceo_propose(lead) -> int | None:
@@ -116,9 +137,20 @@ def ceo_propose(lead) -> int | None:
         return _maybe_auto(db.add_decision("ceo", "lead_review", f"ไม่รับ {lead['domain']}", pl["reason"], pl, lead_id=lead["id"]))
     pl["cfo"] = execs.cfo_check(pl)
     pl["escalate"] = not pl["cfo"]["ok"]
+    pl["channel"] = send_channel(lead)
     proposal = (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
-                f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
+                f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\nส่งทาง: {pl['channel'] or 'ไม่มีช่องทางอัตโนมัติ — เติมอีเมลที่หน้าลูกค้าก่อน ไม่งั้นอนุมัติแล้วก็ส่งไม่ได้'}"
+                f"\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
     return _maybe_auto(db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} ({pl['package']})", proposal, pl, lead_id=lead["id"]))
+
+
+def send_channel(lead) -> str:
+    """ช่องทางที่ระบบส่งถึงลูกค้ารายนี้ได้เอง ('' = ไม่มี): อีเมลที่ส่งได้ > LINE ที่เขาทักเรามา"""
+    if lead["email"] and mailer.is_deliverable(lead["email"]):
+        return f"อีเมล {lead['email']}"
+    if lead["line_user_id"]:
+        return "LINE (แชตที่ลูกค้าทักมา)"
+    return ""
 
 
 def _send_text(lead, subject: str, body: str) -> str:
@@ -138,11 +170,17 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "outreach" and lead:
         if lead["status"] in leads.NO_CONTACT:
             return f"ไม่ส่ง — ลูกค้าอยู่ในสถานะ {leads.STATUS_LABEL.get(lead['status'], lead['status'])}"
+        if not send_channel(lead):
+            record(lead["id"], "note", "อนุมัติข้อความทักแล้วแต่ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ (เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่)", who)
+            return "ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ สถานะยังเป็นเดิม เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่"
         body = pl.get("body", "") + outreach_footer(lead)
         sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", body)
+        if not sent:
+            record(lead["id"], "note", "ส่งข้อความทักไม่สำเร็จ (ช่องทางไม่ตอบ) — ลองใหม่ได้จากหน้าลูกค้า", who)
+            return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ สถานะยังเป็นเดิม"
         db.update_lead(lead["id"], status="contacted", last_contacted_at=db.now())
-        record(lead["id"], "contacted", sent or "ไม่มีช่องทางส่งอัตโนมัติ — ให้คนส่งเอง", who)
-        return sent or "ไม่มีอีเมล/LINE ที่ส่งได้ — คัดลอกข้อความไปส่งเอง บันทึกสถานะเป็นทักแล้ว"
+        record(lead["id"], "contacted", sent, who)
+        return sent
     if d["kind"] == "lead_review" and lead and pl.get("action") == "decline":
         db.update_lead(lead["id"], status="lost")
         record(lead["id"], "lost", pl.get("reason", ""), who)

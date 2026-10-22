@@ -18,8 +18,9 @@ MANDATE = {
 }
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO"}
 KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "digest": "สรุปเช้า"}
-# เฟส 2: สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ · เรื่องเงิน (quote/payment) เป็นเรื่องสุดท้าย (เฟส 3) จึงยังไม่อยู่ในรายการ
-AUTO_ELIGIBLE = {"lead_review", "outreach"}
+# สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
+# ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
+AUTO_ELIGIBLE = {"lead_review", "outreach", "quote"}
 AUTO_MIN_DECIDED = 20
 AUTO_MIN_AGREEMENT = 95
 PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
@@ -158,25 +159,34 @@ def auto_gate(kind: str) -> dict:
     from . import db
     st = db.decision_stats(kind)
     eligible = kind in AUTO_ELIGIBLE
-    enough = st["decided"] >= AUTO_MIN_DECIDED and (st["agreement_pct"] or 0) >= AUTO_MIN_AGREEMENT
+    override = db.get_setting(f"auto_override_{kind}") == "1"      # เจ้าของสั่งปลดล็อกเองโดยไม่รอด่าน (บันทึกไว้ชัด ๆ)
+    passed = st["decided"] >= AUTO_MIN_DECIDED and (st["agreement_pct"] or 0) >= AUTO_MIN_AGREEMENT
+    enough = passed or override
     on = db.get_setting(f"auto_{kind}") == "1"
     if not eligible:
-        reason = "เรื่องเงิน — เปิดได้ในเฟส 3 เท่านั้น"
+        reason = "ต้องเป็นคนเสมอ — ระบบมองไม่เห็นบัญชีธนาคาร" if kind == "payment" else "เรื่องนี้ยังต้องเป็นคน"
     elif not enough:
         reason = (f"ต้องตัดสินแล้ว ≥ {AUTO_MIN_DECIDED} เรื่องและตรงกัน ≥ {AUTO_MIN_AGREEMENT}% "
                   f"(ตอนนี้ {st['decided']} เรื่อง · {st['agreement_pct'] if st['agreement_pct'] is not None else '—'}%)")
     else:
         reason = ""
-    return {"kind": kind, "label": KINDS.get(kind, kind), "stats": st, "eligible": eligible, "enough": enough,
-            "allowed": eligible and enough, "on": bool(on and eligible and enough), "reason": reason}
+    return {"kind": kind, "label": KINDS.get(kind, kind), "stats": st, "eligible": eligible, "enough": enough, "passed": passed,
+            "override": override, "allowed": eligible and enough, "on": bool(on and eligible and enough), "reason": reason}
 
 
 def auto_enabled(kind: str) -> bool:
     return not paused() and auto_gate(kind)["on"]
 
 
-def set_auto(kind: str, on: bool) -> tuple[bool, str]:
+def set_auto(kind: str, on: bool, override: bool = False) -> tuple[bool, str]:
+    """เปิด/ปิดตัดสินเองต่อเรื่อง · override = เจ้าของสั่งปลดล็อกโดยไม่รอด่าน (ใช้ได้เฉพาะเรื่องที่ไม่ใช่เงิน) · ปิด = ถอนปลดล็อกด้วย"""
     from . import db
+    if kind not in AUTO_ELIGIBLE and on:
+        return False, auto_gate(kind)["reason"]
+    if on and override:
+        db.set_setting(f"auto_override_{kind}", "1")
+    if not on:
+        db.set_setting(f"auto_override_{kind}", "0")
     gate = auto_gate(kind)
     if on and not gate["allowed"]:
         return False, gate["reason"]
@@ -237,7 +247,7 @@ def kpis(phase: int | None = None) -> dict:
 
 
 def digest_text(today: str, leads_new: int, leads_total: int, pending: list, payments: int, cto: dict, stats: dict,
-                kpi: dict | None = None, mode: str = "โหมดเสนอ") -> str:
+                kpi: dict | None = None, mode: str = "โหมดเสนอ", extra: list | None = None) -> str:
     lines = [f"สรุปเช้า {today} — ผู้บริหารเอเจนต์ ({mode})", ""]
     lines.append(f"ลูกค้าเป้าหมาย: ใหม่ 24 ชม. {leads_new} · ทั้งหมด {leads_total}")
     lines.append(f"ข้อเสนอรออนุมัติ: {len(pending)}" + (" — " + "; ".join(d["title"] for d in pending[:5]) if pending else ""))
@@ -245,6 +255,9 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
     if kpi:
         parts = [f"{r['label']} {r['value'] if r['value'] is not None else '—'}/{r['target']}" for r in kpi["rows"] if r["target"] is not None]
         lines.append(f"ด่านเฟส {kpi['phase']}: ผ่าน {kpi['n_pass']}/{kpi['n_rows']} — " + " · ".join(parts))
+    for x in (extra or []):
+        if x:
+            lines.append(x)
     lines.append(f"CFO: การชำระรอยืนยัน {payments} รายการ")
     lines.append("CTO: " + ("สุขภาพเว็บไม่ผ่าน " + ", ".join(cto["unhealthy"]) if cto["unhealthy"] else "สุขภาพเว็บผ่านทุกแบรนด์")
                  + (" · โมเดลถอยกลับ: " + ", ".join(f"{k}: {v}" for k, v in cto["fallbacks"].items()) if cto["fallbacks"] else "")
@@ -254,14 +267,15 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa
+    from . import db, mailer, line_oa, prospecting, pipeline
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
+    pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
     pending = [dict(d) for d in db.list_decisions("proposed", 50)]
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label())
+                       db.decision_stats(), kpi, mode_label(), [prospecting.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

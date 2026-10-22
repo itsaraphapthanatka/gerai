@@ -11,12 +11,13 @@ STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("r
 STATUS_LABEL = dict(STATUSES)
 PIPELINE = ["new", "contacted", "replied", "quoted", "won"]      # ลำดับขั้นดีล (lost / unsubscribed อยู่นอกสาย)
 NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
-SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA"}
+SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง"}
 EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
                "replied": "ตอบกลับ / ขอใบเสนอราคา", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
                "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",
                "provisioned": "เปิดบัญชีและแบรนด์", "won": "ปิดดีล", "lost": "ปิดเป็นไม่สนใจ", "unsubscribed": "ขอไม่รับการติดต่อ",
-               "note": "บันทึก", "status": "เปลี่ยนสถานะ", "line": "ข้อความ LINE"}
+               "note": "บันทึก", "status": "เปลี่ยนสถานะ", "line": "ข้อความ LINE", "prospect": "พบจากการค้นหา",
+               "contact_found": "พบช่องทางติดต่อบนเว็บ", "no_contact": "ไม่พบอีเมลบนเว็บ"}
 LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ

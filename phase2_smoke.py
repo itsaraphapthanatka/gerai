@@ -26,6 +26,7 @@ mailer.send = lambda to, subject, html, text="", attachments=(): sent.append((to
 pushes = []
 LO._post = lambda path, payload: (pushes.append((path, payload)) or True)
 P.RUN_INLINE = True
+L.AUDITS_PER_IP_PER_DAY = 50        # เทสต์ยิงตรวจหลายเว็บจาก IP เดียว
 report.to_pdf = lambda html: b"%PDF-1.4 fake\n" + html.encode("utf-8")[:40]
 c = TestClient(app)
 admin = "admin@test.local"
@@ -87,7 +88,7 @@ assert v["new_paying"] == 1 and v["audits_week"] >= 1 and v["reply_rate"] == 100
 print("payment: แจ้งชำระ → CFO เสนอ → อนุมัติ → บัญชี pro + แบรนด์ auto 3/สัปดาห์ → ปิดดีล → ล็อกอินด้วยรหัสชั่วคราว → เปลี่ยนรหัส OK")
 
 # ---- 5) หน้าแอดมิน ----
-r = a.get("/admin/decisions"); assert "ด่านเฟส 2" in r.text and "โหมดการตัดสินใจต่อเรื่อง" in r.text and "เรื่องเงิน" in r.text
+r = a.get("/admin/decisions"); assert "ด่านเฟส 2" in r.text and "โหมดการตัดสินใจต่อเรื่อง" in r.text and "ระบบมองไม่เห็นบัญชีธนาคาร" in r.text
 r = a.get(f"/admin/leads/{lead['id']}"); assert r.status_code == 200 and q["number"] in r.text and "ไทม์ไลน์" in r.text and "ชำระแล้ว" in r.text
 r = a.get("/admin/leads"); assert "ทักแล้ว → ตอบกลับ" in r.text and f"/admin/leads/{lead['id']}" in r.text
 r = a.get("/admin/settings"); assert "LINE Official Account" in r.text and "ข้อมูลบริษัท" in r.text and "ยังไม่มีคีย์" in r.text
@@ -112,14 +113,50 @@ assert db.get_decision(d5[0]["id"])["status"] == "cancelled" and any(d["kind"] =
 assert "ไม่ส่ง" in P.execute_decision(d2[0], "admin") and db.get_lead(l2["id"])["status"] == "unsubscribed"
 st = db.decision_stats(); assert st["rejected"] == 0
 print("unsubscribe: ปิดช่องทาง · ยกเลิกข้อเสนอค้าง · ไม่ทักซ้ำ OK")
+# ไม่มีอีเมล/LINE → ข้อเสนอบอกไว้ · อนุมัติแล้วส่งไม่ได้ สถานะยังเป็นใหม่ ไม่แกล้งว่าทักแล้ว
+lid6 = db.add_lead("https://six.co.th", "six.co.th", source="prospect"); P.run_lead_audit(lid6, "https://six.co.th")
+did6 = P.ceo_propose(db.get_lead(lid6)); d6 = db.get_decision(did6)
+assert "ไม่มีช่องทางอัตโนมัติ" in d6["proposal"] and not json.loads(d6["payload_json"])["channel"]
+assert "ไม่มีอีเมล/LINE ที่ส่งได้" in a.get("/admin/decisions").text
+r = a.post(f"/admin/decisions/{did6}/approve"); assert "ส่งไม่ได้" in r.text and db.get_lead(lid6)["status"] == "new" and db.get_decision(did6)["status"] == "executed"
+print("no-channel: ข้อเสนอเตือน · อนุมัติแล้วไม่แกล้งว่าทักแล้ว OK")
 
 # ---- 7) สลับโหมดตัดสินเอง: ด่านในโค้ด · เรื่องเงินห้าม · หยุดฉุกเฉิน ----
 g = X.auto_gate("outreach"); assert not g["allowed"] and "20" in g["reason"]
-assert not X.set_auto("outreach", True)[0] and not X.set_auto("quote", True)[0] and not X.set_auto("payment", True)[0]
+assert not X.set_auto("outreach", True)[0] and not X.set_auto("quote", True)[0] and not X.set_auto("payment", True)[0]   # ยังไม่ผ่านด่าน/ยอดเข้าห้าม
+# เจ้าของปลดล็อกเองโดยไม่รอด่าน (เฉพาะเรื่องที่ไม่ใช่เงิน) · ปิดแล้วปลดล็อกหาย
+assert X.set_auto("outreach", True, override=True)[0] and X.auto_enabled("outreach") and X.auto_gate("outreach")["override"] and not X.auto_gate("outreach")["passed"]
+assert not X.set_auto("payment", True, override=True)[0]                                     # ยืนยันยอดเข้าปลดล็อกไม่ได้
+# ใบเสนอราคาปลดล็อกได้: ลูกค้าตอบกลับ → CEO ส่งใบเสนอราคาเองทันที · ส่วนลดเกินกรอบ (นอกกรอบ CFO) ยังรอคน
+assert X.set_auto("quote", True, override=True)[0] and X.auto_enabled("quote")
+r = c.post("/audit", data={"url": "seven.co.th"}); t7 = str(r.url).rsplit("/", 1)[-1]
+c.post(f"/audit/{t7}/contact", data={"email": "hi@seven.co.th", "consent": "1"})
+sent.clear(); c.post(f"/audit/{t7}/reply", data={})
+l7 = db.get_lead_by_token(t7); q7 = db.list_quotes(l7["id"])[0]
+assert q7["status"] == "sent" and l7["status"] == "quoted" and sent and f"/q/{q7['token']}" in sent[-1][2], (dict(q7), l7["status"])
+d7 = [d for d in db.list_decisions(None, 20) if d["lead_id"] == l7["id"] and d["kind"] == "quote"][0]; assert d7["status"] == "auto"
+db.update_quote(q7["id"], status="cancelled")
+did_big = P.propose_quote(db.get_lead(l7["id"]), discount_pct=15); assert db.get_decision(did_big)["status"] == "proposed"   # นอกกรอบ → รอคน
+X.set_auto("quote", False); assert not X.auto_enabled("quote")
+# ข้อเสนอที่ค้างก่อนสลับโหมด: เปิดโหมดผ่านหน้าแอดมิน → ทำให้เลย (รายที่นอกกรอบยังค้าง)
+r = c.post("/audit", data={"url": "eight.co.th"}); t8 = str(r.url).rsplit("/", 1)[-1]
+c.post(f"/audit/{t8}/contact", data={"email": "hi@eight.co.th", "consent": "1"}); c.post(f"/audit/{t8}/reply", data={})
+l8 = db.get_lead_by_token(t8); d8 = [d for d in db.list_decisions("proposed") if d["lead_id"] == l8["id"] and d["kind"] == "quote"]; assert len(d8) == 1
+sent.clear(); r = a.post("/admin/decisions/auto", data={"kind": "quote", "on": "1", "override": "1"})
+_d8 = db.get_decision(d8[0]["id"]); _q8 = db.list_quotes(l8["id"])[0]
+assert _d8["status"] == "auto", (dict(_d8), X.auto_gate("quote"))
+assert _q8["status"] == "sent" and sent, dict(_q8)
+assert "ทำข้อเสนอที่ค้าง" in r.text, [m for m in r.text.split("\n") if "notice" in m or "ok-banner" in m][:3]
+assert db.get_decision(did_big)["status"] == "proposed"                                            # นอกกรอบยังรอคน
+X.set_auto("quote", False)
+X.set_auto("outreach", False); assert not X.auto_enabled("outreach") and not X.auto_gate("outreach")["override"]
+assert "ปลดล็อกเลยไม่รอด่าน" in a.get("/admin/decisions").text
+assert "ปลดล็อกโดยเจ้าของ" in a.post("/admin/decisions/auto", data={"kind": "lead_review", "on": "1", "override": "1"}).text and X.auto_enabled("lead_review")
+X.set_auto("lead_review", False)
 for i in range(20):
     did = db.add_decision("ceo", "outreach", f"t{i}", "p", {}); db.set_decision(did, "executed", "admin", "ok")
 assert X.auto_gate("outreach")["allowed"] and X.set_auto("outreach", True)[0] and X.auto_enabled("outreach")
-assert not X.auto_gate("quote")["eligible"]
+assert not X.auto_gate("payment")["eligible"] and X.auto_gate("quote")["eligible"]
 r = c.post("/audit", data={"url": "three.co.th"}); t3 = str(r.url).rsplit("/", 1)[-1]
 sent.clear(); c.post(f"/audit/{t3}/contact", data={"email": "hi@three.co.th", "consent": "1"})
 l3 = db.get_lead_by_token(t3); d3 = [d for d in db.list_decisions(None, 50) if d["lead_id"] == l3["id"]]

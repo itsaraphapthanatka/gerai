@@ -192,6 +192,51 @@
 </div>
 
 <div class="card">
+  <h2>หาลูกค้าอัตโนมัติ (Prospecting) <span class="pill {{ 'ok' if prospect.enabled else '' }}" style="font-size:10px">{{ 'เปิด' if prospect.enabled else 'ปิด' }}</span></h2>
+  <p class="muted" style="margin:0 0 12px">
+    ทุกเช้า 06:30 ระบบค้นธุรกิจตามกลุ่มเป้าหมายด้านล่าง (หมุนกลุ่ม × จังหวัดไปเรื่อย ๆ ผ่าน {{ prospect.backend }}) กรองโซเชียล/พอร์ทัล/ไดเรกทอรี/ราชการออก
+    → ตรวจเว็บฟรี → หาอีเมลธุรกิจที่เปิดเผยบนเว็บ → CEO ร่างข้อความทักให้คุณอนุมัติในสรุปเช้า 08:00 · รายที่ไม่พบอีเมลจะรออยู่ที่หน้าลูกค้าเป้าหมายให้เติมช่องทางเอง
+  </p>
+  <form method="post" action="/admin/settings/prospect">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="enabled" value="1" {% if prospect.enabled %}checked{% endif %}> เปิดให้หาลูกค้าเองทุกเช้า</label>
+    <label style="margin-top:12px">จำนวนเว็บใหม่ต่อวัน (1–30)</label>
+    <input type="number" name="daily" min="1" max="30" value="{{ prospect.daily }}" style="max-width:120px">
+    <label style="margin-top:12px">กลุ่มเป้าหมาย (บรรทัดละกลุ่ม — ระบบเติมชื่อจังหวัดให้เอง)</label>
+    <textarea name="segments" rows="6" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border)" placeholder="{{ prospect.default_text }}">{{ prospect.segments_text }}</textarea>
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <form method="post" action="/admin/prospect/run" style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button type="submit" class="btn ghost sm">หาตอนนี้</button>
+    <input type="number" name="limit" min="1" max="30" value="5" style="max-width:90px"> <span class="muted" style="font-size:12px">เว็บ · ราวครึ่งนาทีต่อเว็บ</span>
+  </form>
+  {% if prospect.last %}<div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.7">รอบล่าสุด {{ (prospect.last.at or '')[:16].replace('T',' ') }}: {% if prospect.last.skipped %}{{ prospect.last.skipped }}{% else %}คำค้น {{ prospect.last.queries|join(' · ') }}<br>พบ {{ prospect.last.found }} เว็บ · เพิ่ม {{ prospect.last.added }} · ตรวจ {{ prospect.last.audited }} · มีอีเมล {{ prospect.last.with_email }} · เสนอทัก {{ prospect.last.proposed }}{% if prospect.last.errors %} · ล้ม {{ prospect.last.errors }}{% endif %}{% if prospect.last.leads %}<br>{{ prospect.last.leads|join(', ') }}{% endif %}{% endif %}</div>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Stripe — รับบัตร ต่ออายุอัตโนมัติ ยืนยันยอดเอง <span class="pill {{ 'ok' if stripe.ready else '' }}" style="font-size:10px">{{ stripe.status }}</span></h2>
+  <p class="muted" style="margin:0 0 12px">
+    ลูกค้าที่ยืนยันใบเสนอราคาจะได้ปุ่ม "ชำระผ่าน Stripe" (Checkout แบบรายเดือน + GEO Setup ในบิลแรก) จ่ายสำเร็จแล้ว Stripe แจ้งกลับทาง webhook →
+    ระบบเปิดบัญชี+แบรนด์และส่งอีเมลต้อนรับเองทันที ไม่ต้องรอคนเช็กบัญชี · ต่ออายุ/เก็บเงินไม่สำเร็จ/ยกเลิก มาทาง webhook เช่นกัน (ยกเลิก = ลดแผนเป็น free)
+  </p>
+  <form method="post" action="/admin/settings/stripe">
+    <label>Secret key (sk_live_… หรือ sk_test_…) {% if stripe.secret_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว ({{ stripe.mode }})</span>{% endif %}</label>
+    <input type="password" name="secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if stripe.secret_set else 'Stripe Dashboard → Developers → API keys → Secret key' }}" autocomplete="off">
+    {% if stripe.key_mask %}<div class="keymask">ในระบบ: <code>{{ stripe.key_mask }}</code></div>{% endif %}
+    <label style="margin-top:12px">Webhook signing secret (whsec_…) {% if stripe.whsec_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="whsec" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if stripe.whsec_set else 'Developers → Webhooks → Add endpoint → Signing secret' }}" autocomplete="off">
+    {% if stripe.whsec_mask %}<div class="keymask">ในระบบ: <code>{{ stripe.whsec_mask }}</code></div>{% endif %}
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">
+    1. Stripe Dashboard → Developers → <b>Webhooks</b> → Add endpoint · URL <code>{{ public_base }}{{ stripe.webhook_path }}</code> · เลือก events: <code>{{ stripe.events|join('</code> <code>')|safe }}</code> → คัดลอก Signing secret มาวางด้านบน (บัญชีเดียวกับ hopai.online ได้ แค่เพิ่ม endpoint ที่สอง)<br>
+    2. ระบบสร้างสินค้า/ราคาในแคตตาล็อก Stripe ให้เองครั้งแรกที่มีคนจ่าย (Pro, Agency รายเดือน · GEO Setup ครั้งเดียว) ส่วนลดเป็นคูปองของ Stripe → ใบแจ้งหนี้โชว์ส่วนลดชัด · Checkout ขอเลขผู้เสียภาษีและที่อยู่ออกบิลให้ธุรกิจไทย<br>
+    3. ตั้งครั้งเดียวใน Dashboard (ไม่ต้องแก้โค้ด): Settings → <b>Billing → Revenue recovery</b> เปิด Smart Retries + อีเมลเตือนลูกค้า · <b>Customer portal</b> เปิดใช้ (ลูกค้าเปลี่ยนบัตร/ยกเลิกเองจากเมนู "อัปเกรดแผน") · <b>Branding</b> ใส่โลโก้ · <b>Emails</b> ส่งใบเสร็จอัตโนมัติ<br>
+    4. ชำระรายเดือนผ่าน Stripe รับเฉพาะบัตร — PromptPay ของ Stripe ใช้กับรายเดือนไม่ได้ ระบบจึงยังมีช่องทาง "โอน PromptPay + แนบสลิป" ไว้ให้ลูกค้าที่ไม่ใช้บัตร (คุณยืนยันยอดเองเหมือนเดิม)<br>
+    5. ถ้า webhook ยังไม่มาตอนลูกค้ากลับจากหน้าชำระ ระบบจะถาม Stripe ตรง ๆ และยืนยันให้เลย · Stripe Connect ไม่จำเป็นกับธุรกิจนี้ (ไม่ได้จ่ายเงินต่อให้บุคคลที่สาม)
+  </div>
+</div>
+
+<div class="card">
   <h2>ข้อมูลบริษัท — ใบเสนอราคาและสัญญาบริการ</h2>
   <p class="muted" style="margin:0 0 12px">แสดงบนใบเสนอราคา/สัญญาที่ส่งให้ลูกค้าเป้าหมาย · ว่าง = ใช้ชื่อ "เจอ.AI" อย่างเดียว · สัญญาเป็น "ร่างมาตรฐาน" จนกว่าจะติ๊กว่าทนายตรวจแล้ว</p>
   <form method="post" action="/admin/settings/company">

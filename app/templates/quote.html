@@ -100,8 +100,18 @@
       <div class="ok">ยืนยันยอดชำระแล้ว บัญชีและแบรนด์ของคุณเปิดใช้งานแล้ว เข้าสู่ระบบได้ที่ <a href="/login">{{ base }}/login</a> (รายละเอียดส่งไปทางอีเมล)</div>
     {% elif q.status == 'claimed' %}
       <div class="ok">ได้รับแจ้งชำระเงินแล้ว ทีมงานกำลังตรวจยอดและจะเปิดบัญชีให้ภายใน 1 วันทำการ</div>
+    {% elif q.status == 'accepted' and just_paid %}
+      <div class="ok">ได้รับการชำระจาก Stripe แล้ว ระบบกำลังเปิดบัญชีให้ (ไม่เกิน 1 นาที) — รีเฟรชหน้านี้ หรือรออีเมลต้อนรับ</div>
     {% elif q.status == 'accepted' %}
       <div class="ok">ยืนยันรับข้อเสนอแล้วโดย {{ q.accepted_name }} เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }} — ขั้นสุดท้ายคือชำระงวดแรก</div>
+      {% if stripe_ready %}
+      <div class="cta" style="margin-top:14px">
+        <h2>ชำระด้วยบัตรเครดิต/เดบิต</h2>
+        <p>งวดแรก {{ "{:,}".format(q.first_total) }} บาท จากนั้น {{ "{:,}".format(q.net) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
+        <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error }}</div>{% endif %}<button type="submit">ชำระผ่าน Stripe</button></form>
+      </div>
+      <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)</summary>
+      {% endif %}
       <div class="pay">
         <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">ช่องทางชำระจะแจ้งทางอีเมล/LINE</div>{% endif %}</div>
         <div>
@@ -115,6 +125,7 @@
           </form>
         </div>
       </div>
+      {% if stripe_ready %}</details>{% endif %}
     {% elif expired %}
       <div class="warn">ใบเสนอราคานี้หมดอายุเมื่อ {{ q.valid_until }} — ตอบกลับอีเมลหรือทัก LINE เพื่อขอใบใหม่ได้ครับ</div>
     {% elif q.status in ('sent','viewed') %}

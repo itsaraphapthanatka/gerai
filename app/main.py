@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -614,6 +614,7 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
             "status_label": quotes.STATUS_LABEL.get(q["status"], q["status"]), "expired": quotes.is_expired(q),
             "ppid": ppid, "ppname": ppname,
             "qr": promptpay.qr_data_uri(ppid, q["first_total"]) if (ppid and q["status"] == "accepted" and not pdf) else None,
+            "stripe_ready": stripe_pay.available() and not pdf, "stripe_mode": stripe_pay.mode(),
             "error": error, "pdf": pdf, "base": _public_base()}
 
 
@@ -690,13 +691,55 @@ def contract_page(request: Request, token: str):
 
 
 @app.get("/q/{token}")
-def quote_page(request: Request, token: str):
+def quote_page(request: Request, token: str, paid: int = 0):
     q = db.get_quote_by_token(token)
     if not q or (q["status"] == "draft" and not _is_admin(request)):
         return _redirect("/")
     pipeline.view_quote(q)
+    if paid and q["status"] != "paid":                      # กลับจาก Stripe แต่ webhook ยังไม่มา → ถาม Stripe ตรง ๆ
+        stripe_pay.sync_session(db.get_quote(q["id"]))
     q = db.get_quote(q["id"])
-    return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"])))
+    ctx = _quote_ctx(q, db.get_lead(q["lead_id"]))
+    ctx["just_paid"] = bool(paid) and q["status"] != "paid"
+    return templates.TemplateResponse(request, "quote.html", ctx)
+
+
+@app.post("/q/{token}/stripe")
+def quote_stripe(request: Request, token: str):
+    """ลูกค้าเลือกจ่ายด้วยบัตร → สร้าง Checkout แล้วพาไป Stripe · กลับมาที่หน้านี้พร้อม ?paid=1"""
+    q = db.get_quote_by_token(token)
+    if not q:
+        return _redirect("/")
+    if q["status"] not in ("accepted", "claimed"):
+        return _redirect(f"/q/{token}")
+    lead = db.get_lead(q["lead_id"])
+    try:
+        url = stripe_pay.create_checkout(q, lead, _public_base(), _company().get("name") or "เจอ.AI")
+    except Exception as e:
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=f"เปิดหน้าชำระเงินไม่ได้: {str(e)[:160]}"))
+    pipeline.record(lead["id"], "note", f"ลูกค้าเปิดหน้าชำระ Stripe ({q['number']})", "customer")
+    return _redirect(url)
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Stripe ยิง event มาที่นี่ — ตรวจลายเซ็นก่อนเสมอ · ตอบ 200 เสมอเมื่อลายเซ็นถูก (กัน Stripe ยิงซ้ำไม่รู้จบ) แต่บันทึกผลไว้"""
+    body = await request.body()
+    if not stripe_pay.verify(body, request.headers.get("stripe-signature", "")):
+        return Response("bad signature", status_code=400)
+    try:
+        evt = json.loads(body or b"{}")
+    except Exception:
+        return Response("bad json", status_code=400)
+    try:
+        res = stripe_pay.handle_event(evt)
+    except Exception as e:
+        res = f"error:{type(e).__name__}: {str(e)[:120]}"
+        db.notify_admins(f"⚠️ Stripe webhook {evt.get('type')} ทำไม่สำเร็จ: {res}", "/admin/decisions", "payment")
+    return JSONResponse({"ok": True, "result": res})
+
+
+
 
 
 @app.post("/q/{token}/accept")
@@ -869,14 +912,18 @@ def admin_quote_slip(request: Request, qid: int):
 
 
 @app.post("/admin/decisions/auto")
-def admin_decisions_auto(request: Request, kind: str = Form(""), on: str = Form("0")):
-    """สลับเรื่องหนึ่งเป็น 'ตัดสินเองในกรอบ' — โค้ดตรวจด่าน (≥ 20 เรื่อง · ≥ 95%) ไม่ใช่แค่ปุ่ม"""
+def admin_decisions_auto(request: Request, kind: str = Form(""), on: str = Form("0"), override: str = Form("")):
+    """สลับเรื่องหนึ่งเป็น 'ตัดสินเองในกรอบ' — โค้ดตรวจด่าน (≥ 20 เรื่อง · ≥ 95%) · override = เจ้าของปลดล็อกเองโดยไม่รอด่าน"""
     if not _is_admin(request):
         return _redirect("/login")
     if kind not in execs.KINDS or kind == "digest":
         return _redirect("/admin/decisions?notice=ไม่รู้จักเรื่องนี้")
-    ok, reason = execs.set_auto(kind, on == "1")
-    note = (f"{execs.KINDS[kind]}: {'ตัดสินเองในกรอบตั้งแต่ตอนนี้' if on == '1' else 'กลับเป็นโหมดเสนอ'}" if ok else f"สลับไม่ได้ — {reason}")
+    ok, reason = execs.set_auto(kind, on == "1", override=bool(override))
+    note = (f"{execs.KINDS[kind]}: {'ตัดสินเองในกรอบตั้งแต่ตอนนี้' + (' (ปลดล็อกโดยเจ้าของ ไม่รอด่าน)' if override else '') if on == '1' else 'กลับเป็นโหมดเสนอ'}" if ok else f"สลับไม่ได้ — {reason}")
+    if ok and on == "1":
+        done = pipeline.run_pending_auto(kind)                 # ข้อเสนอที่ค้างอยู่ก่อนสลับ → ทำให้เลย
+        if done:
+            note += f" · ทำข้อเสนอที่ค้าง {done} เรื่องให้แล้ว"
     return _redirect(f"/admin/decisions?notice={note}")
 
 
@@ -1027,7 +1074,24 @@ def _upgrade_ctx(request, notice=None):
     tenant = db.get_tenant(tid)
     return {"plans": billing.PLANS, "addons": billing.ADDONS, "current": billing.plan_key(tenant),
             "usage": billing.usage(tid), "requested": tenant["requested_plan"], "notice": notice,
-            "is_admin": bool(tenant and tenant["is_admin"])}
+            "is_admin": bool(tenant and tenant["is_admin"]),
+            "stripe_portal": bool(tenant and tenant["stripe_customer_id"] and stripe_pay.available()),
+            "stripe_invoices": [dict(r) for r in db.list_stripe_invoices(tid)]}
+
+
+@app.get("/account/billing")
+def account_billing(request: Request):
+    """ลูกค้าที่จ่ายผ่าน Stripe → Customer Portal (เปลี่ยนบัตร ดูใบแจ้งหนี้ ยกเลิก) · ต้องเปิด portal ใน Stripe Dashboard ครั้งเดียว"""
+    tid = _tid(request)
+    if not tid:
+        return _redirect("/login")
+    t = db.get_tenant(tid)
+    if not (t and t["stripe_customer_id"] and stripe_pay.available()):
+        return _redirect("/upgrade")
+    try:
+        return _redirect(stripe_pay.portal_url(t["stripe_customer_id"], f"{_public_base()}/upgrade"))
+    except Exception as e:
+        return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request, notice=f"เปิดหน้าจัดการการสมัครไม่ได้: {str(e)[:160]}"))
 
 
 @app.get("/upgrade")
@@ -2893,7 +2957,8 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "llm_tasks": ai_client.TASKS, "llm_choices": ai_client.MODEL_CHOICES,
         "llm_status": {t: ai_client.task_status(t) for t in ai_client.TASKS},
         # เฟส 2: LINE OA + ข้อมูลบริษัทบนใบเสนอราคา/สัญญา
-        "line": line_oa.public_config(), "company": _company(), "public_base": _public_base(),
+        "line": line_oa.public_config(), "company": _company(), "public_base": _public_base(), "prospect": prospecting.public_config(),
+        "stripe": stripe_pay.public_config(),
         "saved": saved, "error": error,
     }
 
@@ -2994,6 +3059,51 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
     else:
         line_oa.save_config(token, secret)
         db.set_setting("line_bot_name", bot_name.strip()[:60])
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/prospect")
+def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    prospecting.save_config(segments, daily, bool(enabled))
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/prospect/run")
+def admin_prospect_run(request: Request, limit: str = Form("")):
+    """หาลูกค้าตอนนี้ — รันเบื้องหลัง (ตรวจเว็บละราวครึ่งนาที) แล้วดูผลที่หน้าลูกค้าเป้าหมาย"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    try:
+        n = int(limit or 0) or None
+    except ValueError:
+        n = None
+    pipeline._spawn(lambda: prospecting.run(n))
+    return _redirect("/admin/leads?notice=เริ่มหาลูกค้าแล้ว ใช้เวลาราวครึ่งนาทีต่อเว็บ รีเฟรชหน้านี้สักครู่ · ข้อเสนอทักจะไปรอที่หน้าการตัดสินใจ")
+
+
+@app.post("/admin/leads/{lead_id}/contact")
+def admin_lead_contact(request: Request, lead_id: int, name: str = Form(""), email: str = Form(""), contact: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    import re as _re
+    e = email.strip().lower()
+    if e and not _re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e):
+        return _redirect(f"/admin/leads/{lead_id}?notice=รูปแบบอีเมลไม่ถูกต้อง")
+    db.update_lead(lead_id, name=name.strip()[:120] or None, email=e[:160] or None, contact=contact.strip()[:160] or None)
+    db.add_lead_event(lead_id, "note", f"แก้ช่องทางติดต่อ: {e or '—'} · {contact.strip() or '—'}", request.session.get("email") or "admin")
+    return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกช่องทางติดต่อแล้ว")
+
+
+@app.post("/admin/settings/stripe")
+def admin_settings_stripe(request: Request, secret: str = Form(""), whsec: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    stripe_pay.save_config(secret, whsec)
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 
