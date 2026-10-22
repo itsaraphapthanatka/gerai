@@ -117,6 +117,11 @@ def push(user_id: str, texts: list[str]) -> bool:
     return _post("/message/push", {"to": user_id, "messages": _messages(texts)})
 
 
+def broadcast(texts: list[str]) -> bool:
+    """ส่งถึงผู้ติดตาม OA ทุกคน (นับโควตาต่อผู้รับ — แผนฟรี 200 ข้อความ/เดือน)"""
+    return _post("/message/broadcast", {"messages": _messages(texts)})
+
+
 def notify_owner(text: str) -> bool:
     oid = owner_id()
     return push(oid, [text]) if oid else False

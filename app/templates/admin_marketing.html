@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}การตลาด (CMO) — เจอ.AI{% endblock %}
+{% block content %}
+<h1>การตลาด <span class="pill {{ 'ok' if cfg.enabled else '' }}" style="font-size:11px;vertical-align:middle">{{ 'เปิด' if cfg.enabled else 'ปิด' }}</span></h1>
+<p class="muted">CMO เอเจนต์ทำปากกรวยให้เต็ม: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA เอง · โพสต์บทความ/ชวนตรวจเว็บฟรี/เคสศึกษาทาง LINE OA และ Facebook Page · ทุกลิงก์ติดรหัสช่องทางให้รู้ว่าลีดมาจากไหน · โพสต์ไปรอที่<a class="link" href="/admin/decisions">หน้าการตัดสินใจ</a>ก่อน (สถานะตอนนี้: {% if gate.on %}ตัดสินเอง{% else %}โหมดเสนอ{% endif %})</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="err-banner">{{ error }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ลีดจากช่องทาง (ตรวจเว็บฟรี)</h2>
+    <table style="font-size:13px">
+      <thead><tr><th>ช่องทาง</th><th>7 วัน</th><th>28 วัน</th></tr></thead>
+      <tbody>
+      {% set keys = (attr7.keys()|list + attr28.keys()|list)|unique|list %}
+      {% for k in keys %}<tr><td>{{ k }}</td><td>{{ attr7.get(k, 0) }}</td><td>{{ attr28.get(k, 0) }}</td></tr>{% endfor %}
+      {% if not keys %}<tr><td colspan="3" class="muted">ยังไม่มีลีดในช่วงนี้</td></tr>{% endif %}
+      </tbody>
+    </table>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">line/fb = จากโพสต์ของ CMO · line_chat = ทักมาตรวจในแชต · prospect = ระบบหาเอง · direct = เข้าลิงก์ตรง · ลิงก์สำหรับโพสต์เอง: <code>{{ base }}/audit?src=&lt;ช่องทาง&gt;</code></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">คอนเทนต์ของเจอ.AI</h2>
+    {% if self_brand %}
+    <div style="font-size:13px">แบรนด์ <b>{{ self_brand.name }}</b> · ร่างรอ QA {{ self_drafts }} ชิ้น — CMO เผยแพร่ให้เองวันละไม่เกิน 2 ชิ้นที่ผ่าน QA (AEO ขาดได้ไม่เกิน 1 ข้อ ไม่มีคำโฆษณาต้องห้าม) · <a class="link" href="/brands/{{ self_brand.id }}/content">ดูคอนเทนต์</a></div>
+    {% else %}<div class="muted" style="font-size:13px">ยังไม่ตั้งแบรนด์ของตัวเอง (settings self_brand_id)</div>{% endif %}
+    <form method="post" action="/admin/marketing/run" style="margin-top:12px"><button class="btn sm" type="submit">รันรอบการตลาดตอนนี้</button> <span class="muted" style="font-size:12px">ปกติรันเองทุกวัน 09:00</span></form>
+    {% if cfg.last %}<div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.7">รอบล่าสุด {{ (cfg.last.at or '')[:16].replace('T',' ') }}: {% if cfg.last.skipped %}{{ cfg.last.skipped }}{% else %}เผยแพร่ {{ cfg.last.published|length }} · เสนอโพสต์ {{ cfg.last.proposed }} · ช่องทาง {{ cfg.last.channels|join(', ') or 'ยังไม่มี' }}{% endif %}</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ตั้งค่า</h2>
+    <form method="post" action="/admin/marketing/settings" style="display:grid;gap:8px;font-size:13px">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="enabled" value="1" {% if cfg.enabled %}checked{% endif %}> เปิดฝ่ายการตลาด (รันทุกเช้า 09:00)</label>
+      <label>โพสต์ต่อช่องทางต่อสัปดาห์ (1–14) <input type="number" name="weekly" min="1" max="14" value="{{ cfg.weekly }}" style="width:80px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="line" value="1" {% if cfg.line %}checked{% endif %}> โพสต์ทาง LINE OA (broadcast ถึงผู้ติดตาม) {% if not cfg.line_ready %}<span class="pill" style="font-size:10px">ยังไม่มีคีย์ LINE</span>{% else %}<span class="pill ok" style="font-size:10px">พร้อม</span>{% endif %}</label>
+      <label>Facebook Page ID {% if cfg.fb_page_name %}<span class="pill ok" style="font-size:10px">{{ cfg.fb_page_name }}</span>{% endif %}<input type="text" name="fb_page_id" value="{{ cfg.fb_page_id }}" placeholder="ตัวเลข Page ID (ระบบตรวจกับ token แล้วแก้ให้เอง)" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+      <label>Page access token {% if cfg.fb_token_set %}<span class="pill ok" style="font-size:10px">ตั้งแล้ว</span>{% endif %}{% if cfg.fb_valid == '0' %}<span class="pill no" style="font-size:10px">ใช้ไม่ได้ — วางใหม่</span>{% endif %}{% if cfg.fb_expires %}<span class="pill {{ 'ok' if cfg.fb_expires == '0' else '' }}" style="font-size:10px">{{ 'ไม่หมดอายุ' if cfg.fb_expires == '0' else 'หมดอายุ ' ~ cfg.fb_expires }}</span>{% endif %}<input type="password" name="fb_token" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_token_set else 'วาง token จาก Graph API Explorer (เพจ เจอ.AI · pages_manage_posts + pages_read_engagement)' }}" autocomplete="off" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+      {% if cfg.fb_scopes %}<div class="muted" style="font-size:11px">สิทธิ์ของ token: {{ cfg.fb_scopes }}</div>{% endif %}
+      {% if cfg.fb_missing %}<div class="err-banner" style="font-size:12px">token นี้ขาดสิทธิ์ {{ cfg.fb_missing|join(', ') }} — โพสต์ไม่ได้ ให้ไปที่ Graph API Explorer เพิ่มสิทธิ์เหล่านี้ที่ "เพิ่มสิทธิ์การอนุญาต" ก่อนกด Generate แล้วติ๊กอนุญาตเพจในหน้าต่าง Facebook จากนั้นวางโทเค็นใหม่</div>{% endif %}
+      <label>Meta App ID {% if cfg.fb_app_set %}<span class="pill ok" style="font-size:10px">ตั้งแล้ว</span>{% endif %}<input type="text" name="fb_app_id" placeholder="จากแอป Meta (ตั้งค่าแอป → ข้อมูลพื้นฐาน) — ใช้แปลง token ให้ไม่หมดอายุ" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+      <label>Meta App secret<input type="password" name="fb_app_secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_app_set else 'App secret ของแอปเดียวกัน' }}" autocomplete="off" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+      <div><button class="btn sm" type="submit">บันทึก</button></div>
+    </form>
+    {% if cfg.fb_ready %}<form method="post" action="/admin/marketing/fb-test" style="margin-top:8px"><button class="btn ghost sm" type="submit">ทดสอบสิทธิ์โพสต์ Facebook (ไม่เผยแพร่)</button></form>{% endif %}
+    <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.7">Facebook: token จาก Graph API Explorer หมดอายุใน ~1 ชั่วโมง — ใส่ App ID + App secret ของแอปที่ใช้ออก token ด้วย ระบบจะแปลงเป็น token ถาวรของเพจให้เองตอนบันทึก และบอกว่าสิทธิ์ครบไหม · โควตา LINE broadcast นับต่อผู้รับ (ฟรี 200/เดือน)</div>
+  </div>
+</div>
+
+<h2>โพสต์</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if posts %}
+  <table>
+    <thead><tr><th>เมื่อ</th><th>ช่องทาง</th><th>ประเภท</th><th>หัวข้อ</th><th>สถานะ</th></tr></thead>
+    <tbody>
+    {% for p in posts %}
+    <tr>
+      <td class="muted" style="white-space:nowrap;font-size:12px">{{ (p.published_at or p.created_at or '')[:16].replace('T',' ') }}</td>
+      <td>{{ p.channel_label }}</td>
+      <td>{{ p.kind_label }}</td>
+      <td><details><summary style="cursor:pointer">{{ p.title }}</summary><pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;margin-top:6px">{{ p.text }}</pre></details></td>
+      <td>{% if p.status == 'published' %}<span class="pill ok">โพสต์แล้ว</span>{% elif p.status == 'proposed' %}<span class="pill">รออนุมัติ</span>{% elif p.status == 'failed' %}<span class="pill no">ล้ม</span>{% else %}<span class="pill">{{ p.status }}</span>{% endif %}<div class="muted" style="font-size:11px">{{ p.result or '' }}</div></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div style="padding:18px" class="muted">ยังไม่มีโพสต์ — เกิดเมื่อมีบทความใหม่ของเจอ.AI หรือกด "รันรอบการตลาดตอนนี้"</div>{% endif %}
+</div>
+
+<h2>เคสศึกษา — อนุญาตให้ใช้ชื่อแบรนด์</h2>
+<div class="card">
+  <p class="muted" style="font-size:12.5px">CMO เขียนเคสศึกษาเดือนละเรื่องจากตัวเลขจริงของลูกค้าที่ใช้บริการ ≥ 28 วัน · ไม่ติ๊ก = เล่าแบบไม่ระบุชื่อ ("ธุรกิจ…") · ติ๊ก = ใช้ชื่อแบรนด์ได้ (ขอความยินยอมลูกค้าก่อน)</p>
+  <div style="display:grid;gap:6px;font-size:13px">
+  {% for b in brands %}
+    <form method="post" action="/admin/marketing/brand/{{ b.id }}/case-study" style="display:flex;gap:8px;align-items:center">
+      <input type="hidden" name="ok" value="{{ 0 if b.case_study_ok else 1 }}">
+      <span style="min-width:220px"><b>{{ b.name }}</b> <span class="muted">{{ b.domain }}</span></span>
+      <span class="pill {{ 'ok' if b.case_study_ok else '' }}" style="font-size:10px">{{ 'ใช้ชื่อได้' if b.case_study_ok else 'ไม่ระบุชื่อ' }}</span>
+      <button class="btn ghost sm" type="submit">{{ 'ยกเลิก' if b.case_study_ok else 'อนุญาต' }}</button>
+    </form>
+  {% endfor %}
+  </div>
+</div>
+{% endblock %}

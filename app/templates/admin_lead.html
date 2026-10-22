@@ -27,6 +27,9 @@
       <div><span class="muted">ยินยอมติดต่อ</span> {{ 'ใช่' if lead['consent'] else 'ยังไม่ได้ให้' }}</div>
       <div><span class="muted">เว็บ</span> <a class="link" href="{{ lead['site_url'] }}" target="_blank">{{ lead['site_url'] }}</a></div>
     </div>
+    {% if not lead['email'] and lead['status'] not in ('unsubscribed', 'won') %}
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/find-email" style="margin-top:10px"><button class="btn ghost sm" type="submit">หาอีเมลอีกครั้ง (เว็บ + ผลค้นหา)</button></form>
+    {% endif %}
     <details style="margin-top:10px"><summary class="muted" style="font-size:12.5px;cursor:pointer">แก้ช่องทางติดต่อ</summary>
       <form method="post" action="/admin/leads/{{ lead['id'] }}/contact" style="display:grid;gap:6px;margin-top:8px;font-size:12.5px">
         <input type="text" name="name" value="{{ lead['name'] or '' }}" placeholder="ชื่อผู้ติดต่อ" maxlength="120" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
@@ -75,6 +78,23 @@
     </form>
   </div>
 </div>
+
+{% if last_draft and not channel and lead['status'] in ('new', 'lost') %}
+<h2>ข้อความทักที่ CEO ร่างไว้ — ระบบส่งเองไม่ได้ (ไม่มีอีเมล{% if lead['contact'] %} มีแต่ {{ lead['contact'] }}{% endif %})</h2>
+<div class="card">
+  <p class="muted" style="font-size:12.5px">LINE ไม่ให้บอทส่งหา OA หรือผู้ใช้ที่ยังไม่ได้เพิ่มเราเป็นเพื่อน ถ้าจะทักรายนี้ให้คัดลอกข้อความไปวางในแชตของเขาเอง แล้วกด "บันทึกว่าส่งแล้ว"{% if lead['contact'] and lead['contact'].startswith('http') %} · <a class="link" href="{{ lead['contact'] }}" target="_blank">เปิดแชต LINE ของเขา ↗</a>{% endif %}</p>
+  <textarea id="draftbox" readonly rows="8" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border)">{{ last_draft.subject }}
+
+{{ last_draft.body }}</textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn ghost sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('draftbox').value).then(()=>{this.textContent='คัดลอกแล้ว ✓'})">คัดลอกข้อความ</button>
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/mark-contacted" style="display:flex;gap:6px;align-items:center">
+      <input type="text" name="via" value="LINE" maxlength="40" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
+      <button class="btn sm" type="submit">บันทึกว่าส่งแล้ว</button>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <h2>ใบเสนอราคา</h2>
 <div class="card" style="padding:0;overflow:hidden">

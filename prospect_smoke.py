@@ -35,13 +35,21 @@ c = PR.find_contact("https://lawfirm.co.th", fetch=lambda u: pages.get(u.rstrip(
 assert c["email"] == "info@lawfirm.co.th" and c["line"] == "https://lin.ee/abc123" and c["n"] == 3, c
 c2 = PR.find_contact("https://nothing.co.th", fetch=lambda u: "<html>hi</html>"); assert c2["email"] == "" and c2["n"] == 0
 c3 = PR.find_contact("https://gmailonly.co.th", fetch=lambda u: "ติดต่อ shopowner@gmail.com"); assert c3["email"] == "shopowner@gmail.com"   # อีเมลธุรกิจที่เปิดเผย แม้เป็น gmail
-print("contact: mailto/regex · หน้าติดต่อ · ชอบ info@ บนโดเมนเดียวกัน · ข้าม noreply/รูป OK")
+# เว็บไม่มีอีเมล → หาจากผลค้นหา (รับเฉพาะโดเมน/โดเมนหลักเดียวกัน)
+rows_s = [{"title": "CBRE Thailand - ติดต่อ", "url": "https://x.com/dir", "snippet": "อีเมล bangkok@cbre.co.th โทร 02 · spam@gmail.com"}, {"title": "job", "url": "https://y.com", "snippet": "hr@cbre.co.th"}]
+assert PR.find_email_via_search("property.cbre.co.th", search=lambda q, n: rows_s) == "bangkok@cbre.co.th"
+assert PR.find_email_via_search("nothing.co.th", search=lambda q, n: []) == ""
+assert PR._rank_email("hr@x.co.th") > PR._rank_email("bangkok@x.co.th") > PR._rank_email("info@x.co.th")      # กล่อง HR เอาไว้ท้าย
+c4 = PR.find_contact("https://noemail.co.th", fetch=lambda u: "<html>hi</html>", search=lambda q, n: [{"title": "x", "url": "u", "snippet": "sales@noemail.co.th"}])
+assert c4["email"] == "sales@noemail.co.th" and c4["source"] == "ผลค้นหา"
+assert PR.find_contact("https://noemail.co.th", fetch=lambda u: "<html>hi</html>", search=False)["email"] == ""
+print("contact: mailto/regex · หน้าติดต่อ · ชอบ info@ บนโดเมนเดียวกัน · ข้าม noreply/รูป · หาจากผลค้นหาเมื่อเว็บไม่มี OK")
 
 # ---- รอบค้นหา ----
 results = [{"url": "https://www.facebook.com/x", "title": "fb"}, {"url": "https://lawfirm.co.th/", "title": "สำนักงานกฎหมาย เอ"},
            {"url": "https://pantip.com/topic/1", "title": "p"}, {"url": "https://shop.co.th", "title": "ร้าน"}, {"url": "not a url", "title": ""}]
 db.add_lead("https://shop.co.th", "shop.co.th", source="import")           # รู้จักแล้ว → ข้าม
-contact = lambda site: {"email": "info@lawfirm.co.th", "line": "", "n": 1} if "lawfirm" in site else {"email": "", "line": "", "n": 0}
+contact = lambda site: {"email": "info@lawfirm.co.th", "line": "", "n": 1, "source": "เว็บ"} if "lawfirm" in site else {"email": "", "line": "", "n": 0, "source": ""}
 res = PR.run(limit=5, search=lambda q, n: results, contact=contact)
 assert res["found"] == 1 and res["added"] == 1 and res["audited"] == 1 and res["with_email"] == 1 and res["proposed"] == 1 and res["leads"] == ["lawfirm.co.th"], res
 l = db.find_lead_by_domain("lawfirm.co.th")
@@ -51,9 +59,9 @@ assert {"prospect", "audit", "contact_found"} <= {e["kind"] for e in db.list_lea
 assert PR.last_run()["added"] == 1 and "หาลูกค้าเอง" in PR.status_text() and "เสนอทัก 1" in PR.status_text()
 res = PR.run(limit=5, search=lambda q, n: results, contact=contact); assert res["found"] == 0 and res["added"] == 0   # รอบถัดไปไม่เพิ่มซ้ำ
 db.set_setting("prospect_enabled", "0"); assert PR.run(limit=1, search=lambda q, n: results)["skipped"]; db.set_setting("prospect_enabled", "1")
-res = PR.run(limit=5, search=lambda q, n: [{"url": "https://noemail.co.th", "title": "x"}], contact=lambda s: {"email": "", "line": "", "n": 0})
+res = PR.run(limit=5, search=lambda q, n: [{"url": "https://noemail.co.th", "title": "x"}], contact=lambda s: {"email": "", "line": "https://lin.ee/zzz", "n": 0, "source": ""})
 l2 = db.find_lead_by_domain("noemail.co.th")
-assert res["added"] == 1 and res["proposed"] == 0 and "no_contact" in {e["kind"] for e in db.list_lead_events(l2["id"])} and len(db.list_decisions("proposed")) == 1
+assert res["added"] == 1 and res["proposed"] == 0 and "contact_found" in {e["kind"] for e in db.list_lead_events(l2["id"])} and l2["contact"] == "https://lin.ee/zzz" and not l2["email"] and len(db.list_decisions("proposed")) == 1   # มีแต่ LINE → ไม่เสนอทัก
 sh.run_checks = lambda site, **kw: (_ for _ in ()).throw(RuntimeError("down"))
 res = PR.run(limit=5, search=lambda q, n: [{"url": "https://down.co.th", "title": "x"}], contact=contact); assert res["errors"] == 1 and res["audited"] == 0
 sh.run_checks = lambda site, **kw: rep("csr", "indexed")
@@ -71,10 +79,20 @@ PR.find_contact = lambda site, fetch=None: {"email": "hello@third.co.th", "line"
 r = a.post("/admin/prospect/run", data={"limit": "1"}); assert "เริ่มหาลูกค้าแล้ว" in r.text
 l3 = db.find_lead_by_domain("third.co.th"); assert l3 and l3["email"] == "hello@third.co.th" and len(db.list_decisions("proposed")) == 2
 r = a.get("/admin/leads"); assert "หาเอง" in r.text and "third.co.th" in r.text
-r = a.get(f"/admin/leads/{l2['id']}"); assert "ไม่พบอีเมลบนเว็บ" in r.text and "แก้ช่องทางติดต่อ" in r.text
+r = a.get(f"/admin/leads/{l2['id']}"); assert "พบช่องทางติดต่อบนเว็บ" in r.text and "แก้ช่องทางติดต่อ" in r.text and "หาอีเมลอีกครั้ง" in r.text
+# ให้ CEO เสนอทั้งที่ไม่มีอีเมล → หน้าลูกค้าโชว์ร่างให้คัดลอก + ปุ่มบันทึกว่าส่งเอง · หาอีเมลซ้ำแล้วเจอ → CEO ดำเนินการต่อ
+a.post(f"/admin/leads/{l2['id']}/propose")
+r = a.get(f"/admin/leads/{l2['id']}"); assert "ข้อความทักที่ CEO ร่างไว้" in r.text and "คัดลอกข้อความ" in r.text and "https://lin.ee/zzz" in r.text
+PR.find_contact = lambda site, fetch=None, search=None: {"email": "", "line": "https://lin.ee/zzz", "n": 0, "source": ""}
+r = a.post(f"/admin/leads/{l2['id']}/find-email"); assert "ยังไม่พบอีเมลธุรกิจ" in r.text
+r = a.post(f"/admin/leads/{l2['id']}/mark-contacted", data={"via": "LINE"}); assert "บันทึกว่าทักแล้วทาง LINE" in r.text and db.get_lead(l2["id"])["status"] == "contacted"
+db.update_lead(l2["id"], status="new")
+PR.find_contact = lambda site, fetch=None, search=None: {"email": "owner@noemail.co.th", "line": "", "n": 1, "source": "ผลค้นหา"}
+n_before = len(db.list_decisions(None, 100))
+r = a.post(f"/admin/leads/{l2['id']}/find-email"); assert "พบอีเมล owner@noemail.co.th (จากผลค้นหา)" in r.text and db.get_lead(l2["id"])["email"] == "owner@noemail.co.th"
+assert len(db.list_decisions(None, 100)) == n_before + 1
 assert "รูปแบบอีเมลไม่ถูกต้อง" in a.post(f"/admin/leads/{l2['id']}/contact", data={"email": "not-an-email"}).text
-a.post(f"/admin/leads/{l2['id']}/contact", data={"email": "Owner@NoEmail.co.th", "name": "คุณบี", "contact": "@noemail"})
-l2 = db.get_lead(l2["id"]); assert l2["email"] == "owner@noemail.co.th" and l2["name"] == "คุณบี" and l2["contact"] == "@noemail"
-a.post(f"/admin/leads/{l2['id']}/propose"); assert len(db.list_decisions("proposed")) == 3
+a.post(f"/admin/leads/{l2['id']}/contact", data={"email": "Owner2@NoEmail.co.th", "name": "คุณบี", "contact": "@noemail"})
+l2 = db.get_lead(l2["id"]); assert l2["email"] == "owner2@noemail.co.th" and l2["name"] == "คุณบี" and l2["contact"] == "@noemail"
 print("admin: การ์ดตั้งค่า · บันทึกกลุ่ม/จำนวน · หาตอนนี้ · ป้ายหาเอง · แก้ช่องทางติดต่อแล้วให้ CEO เสนอ OK")
 print("\nprospect_smoke: ผ่านทั้งหมด")

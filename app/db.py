@@ -240,6 +240,21 @@ def _tables() -> list[str]:
             hosted_url TEXT,
             pdf_url TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS posts (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            content_id INTEGER,
+            title TEXT,
+            text TEXT,
+            link TEXT,
+            status TEXT NOT NULL DEFAULT 'proposed',
+            decision_id INTEGER,
+            published_at TEXT,
+            external_id TEXT,
+            result TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -367,6 +382,8 @@ def init_db() -> None:
         for col in ("stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via"):
             _ensure_column(c, "quotes", col, "TEXT")  # Stripe: session/ลูกค้า/การสมัคร และช่องทางที่จ่าย
         _ensure_column(c, "tenants", "stripe_customer_id", "TEXT")    # ลูกค้าเปิด Customer Portal ของ Stripe จากในแอป
+        _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
+        _ensure_column(c, "brands", "case_study_ok", "INTEGER DEFAULT 0")   # อนุญาตให้ใช้ชื่อแบรนด์ในเคสศึกษาของเจอ.AI
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
         _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
@@ -1154,7 +1171,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1390,6 +1407,67 @@ def update_quote(qid: int, **fields) -> None:
 def count_quotes_month(ym: str) -> int:
     with get_conn() as c:
         return c.execute(q("SELECT COUNT(*) AS n FROM quotes WHERE created_at LIKE ?"), (ym + "%",)).fetchone()["n"]
+
+
+def count_audits_by_src(since_ts: str) -> dict:
+    """ลีดที่ตรวจเว็บในช่วงนี้ แยกตามช่องทางที่มา (ไม่ระบุ = direct)"""
+    with get_conn() as c:
+        rows = c.execute(q("SELECT COALESCE(src, 'direct') AS s, COUNT(*) AS n FROM leads WHERE audit_at >= ? GROUP BY COALESCE(src, 'direct') ORDER BY n DESC"),
+                         (since_ts,)).fetchall()
+    return {r["s"]: r["n"] for r in rows}
+
+
+def set_brand_case_study(brand_id: int, ok: bool) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET case_study_ok=? WHERE id=?"), (1 if ok else 0, brand_id))
+
+
+# ---- โพสต์การตลาด (CMO) ----
+POST_FIELDS = {"status", "decision_id", "published_at", "external_id", "result", "text", "title", "link"}
+
+
+def add_post(channel: str, kind: str, content_id, title: str, text: str, link: str | None, status: str = "proposed") -> int:
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO posts(created_at,channel,kind,content_id,title,text,link,status) VALUES(?,?,?,?,?,?,?,?) RETURNING id"),
+                        (now(), channel, kind, content_id, (title or "")[:200], text, link, status))
+        return cur.fetchone()["id"]
+
+
+def get_post(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM posts WHERE id=?"), (pid,)).fetchone()
+
+
+def list_posts(limit: int = 100, channel: str = None):
+    with get_conn() as c:
+        if channel:
+            return c.execute(q("SELECT * FROM posts WHERE channel=? ORDER BY id DESC LIMIT ?"), (channel, limit)).fetchall()
+        return c.execute(q("SELECT * FROM posts ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def update_post(pid: int, **fields) -> None:
+    cols = [k for k in fields if k in POST_FIELDS]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE posts SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (pid,))
+
+
+def count_posts_since(channel: str, since_ts: str, kind: str = None) -> int:
+    """โพสต์ที่ยังเดินอยู่ (ไม่นับที่ถูกปฏิเสธ/ล้ม) ในช่วงเวลา — ใช้คุมโควตาต่อสัปดาห์"""
+    sql, args = "SELECT COUNT(*) AS n FROM posts WHERE channel=? AND created_at >= ? AND status NOT IN ('rejected','failed','cancelled')", [channel, since_ts]
+    if kind:
+        sql += " AND kind=?"
+        args.append(kind)
+    with get_conn() as c:
+        return c.execute(q(sql), tuple(args)).fetchone()["n"]
+
+
+def posted_keys() -> set:
+    """(channel, kind, content_id) ที่เคยเสนอ/โพสต์แล้ว (ยกเว้นที่ล้ม) — กันโพสต์บทความเดิมซ้ำ"""
+    with get_conn() as c:
+        rows = c.execute("SELECT channel, kind, content_id FROM posts WHERE status NOT IN ('failed','cancelled')").fetchall()
+    return {(r["channel"], r["kind"], r["content_id"]) for r in rows}
 
 
 def count_quotes_paid_since(since_ts: str) -> int:

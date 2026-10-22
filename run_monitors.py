@@ -152,9 +152,15 @@ def main():
     ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
     ap.add_argument("--digest", action="store_true", help="สรุปเช้าของผู้บริหารเอเจนต์ (CEO/CFO/CTO) → หน้าการตัดสินใจ + อีเมลแอดมิน")
     ap.add_argument("--prospect", action="store_true", help="หาลูกค้าเอง: ค้นธุรกิจตามกลุ่มเป้าหมาย → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก")
+    ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
     args = ap.parse_args()
     db.init_db()
+    if args.cmo:
+        from app import marketing
+        res = marketing.run()
+        print("cmo · " + (res.get("skipped") or f"เผยแพร่ {len(res['published'])} บทความ · เสนอโพสต์ {res['proposed']} · ช่องทาง {', '.join(res['channels']) or 'ยังไม่มี'} · ลีด 7 วัน {res['attribution']}"))
+        return
     if args.prospect:
         from app import prospecting
         res = prospecting.run()

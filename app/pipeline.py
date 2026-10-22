@@ -191,6 +191,10 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "payment" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return confirm_payment(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "post" and pl.get("post_id"):
+        from . import marketing
+        post = db.get_post(pl["post_id"])
+        return marketing.publish_post(post) if post else "ไม่พบโพสต์"
     return "รับทราบ"
 
 
@@ -427,7 +431,7 @@ def line_site_request(user_id: str, url: str, reply_token: str | None = None) ->
         lid = recent["id"]
     else:
         lid = db.add_lead(site, dom, source="line")
-        db.update_lead(lid, line_user_id=user_id, contact="LINE")
+        db.update_lead(lid, line_user_id=user_id, contact="LINE", src="line_chat")
     record(lid, "line", f"ขอตรวจ {dom}", "customer")
     line_oa.reply(reply_token, [f"รับเรื่องแล้วครับ กำลังตรวจ {dom} ใช้เวลาราวครึ่งนาที เดี๋ยวส่งผลมาที่แชตนี้"])
 

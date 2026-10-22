@@ -16,11 +16,11 @@ MANDATE = {
     "ai_cost_cap_thb": 570,     # ต้นทุน AI/เครื่องมือต่อลูกค้าต่อเดือน (จากแผน)
     "min_margin_pct": 70,
 }
-AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO"}
-KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "digest": "สรุปเช้า"}
+AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO"}
+KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "digest": "สรุปเช้า"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
 # ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
-AUTO_ELIGIBLE = {"lead_review", "outreach", "quote"}
+AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post"}
 AUTO_MIN_DECIDED = 20
 AUTO_MIN_AGREEMENT = 95
 PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
@@ -225,7 +225,7 @@ def kpis(phase: int | None = None) -> dict:
             pl = {}
         if pl.get("escalate") or (isinstance(pl.get("cfo"), dict) and not pl["cfo"].get("ok", True)):
             esc += 1
-    vals = {"audits_week": db.count_events("audit", wk),
+    vals = {"audits_week": db.count_events("audit", wk), "audits_by_src": db.count_audits_by_src(wk),
             "reply_rate": round(len(replied & contacted) / len(contacted) * 100) if contacted else None,
             "close_rate": round(len(paid) / len(replied) * 100) if replied else None,
             "new_paying": db.count_quotes_paid_since(PLAN_START),
@@ -267,7 +267,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -275,7 +275,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [prospecting.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [prospecting.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

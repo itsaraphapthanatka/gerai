@@ -46,6 +46,9 @@ BLOCK_SUFFIXES = (".go.th", ".ac.th", ".or.th", ".mi.th", ".net.th", ".gov", ".e
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 SKIP_EMAIL = re.compile(r"(noreply|no-reply|donotreply|example\.|sentry|wixpress|@2x|\.png|\.jpg|\.jpeg|\.gif|\.svg|\.webp|schema\.org|w3\.org|yourdomain|domain\.com)", re.I)
 PREFER = ("info", "contact", "sales", "hello", "hi", "admin", "office", "marketing", "support", "cs", "enquiry", "inquiry")
+# กล่องที่ไม่ใช่ที่ขายของ (ฝ่ายบุคคล บัญชี กฎหมาย ไอที) — เอาไว้ท้ายสุด ใช้เมื่อไม่มีอย่างอื่นจริง ๆ
+AVOID = ("hr", "career", "careers", "job", "jobs", "recruit", "recruitment", "press", "media", "invoice", "billing", "accounting",
+         "accounts", "account", "finance", "privacy", "dpo", "legal", "webmaster", "abuse", "security", "it", "dev", "noc", "payroll")
 CONTACT_HINT = re.compile(r"contact|ติดต่อ|about|เกี่ยวกับ", re.I)
 LINE_RE = re.compile(r"https?://(?:line\.me/(?:R/)?ti/p/|lin\.ee/)[A-Za-z0-9@_\-~%]+")
 LINK_RE = re.compile(r'<a[^>]+href="([^"#]+)"[^>]*>(.*?)</a>', re.I | re.S)
@@ -148,8 +151,36 @@ def _fetch(url: str) -> str:
         return ""
 
 
-def find_contact(site_url: str, fetch=None) -> dict:
-    """อีเมลธุรกิจที่เปิดเผยบนหน้าแรก/หน้าติดต่อ (ชอบ info@/contact@/sales@ บนโดเมนเดียวกัน) + ลิงก์ LINE ถ้ามี"""
+def _rank_email(e: str):
+    local = e.split("@")[0]
+    tier = 0 if any(local.startswith(p) for p in PREFER) else (2 if any(local == a or local.startswith(a + ".") or local.startswith(a + "-") for a in AVOID) else 1)
+    return (tier, len(e))
+
+
+def find_email_via_search(domain: str, search=None) -> str:
+    """เว็บไม่มีอีเมล → ถามเครื่องมือค้นหาว่าธุรกิจนี้ประกาศอีเมลไว้ที่ไหน (ไดเรกทอรี โปรไฟล์ ประกาศงาน) รับเฉพาะอีเมลบนโดเมน/โดเมนหลักเดียวกัน"""
+    search = search or geo_worker.search
+    a = apex(domain)
+    found = set()
+    for qtext in (f'"@{a}"', f"{a} อีเมล ติดต่อ", f"{a} email contact"):
+        try:
+            rows = search(qtext, 10)
+        except Exception:
+            rows = []
+        for r in rows or []:
+            text = f"{r.get('title') or ''} {r.get('snippet') or ''}"
+            for m in EMAIL_RE.finditer(text):
+                e = m.group(0).strip().lower().rstrip(".")
+                if (e.endswith("@" + a) or e.endswith("." + a)) and not SKIP_EMAIL.search(e):
+                    found.add(e)
+        if found:
+            break
+    return sorted(found, key=_rank_email)[0] if found else ""
+
+
+def find_contact(site_url: str, fetch=None, search=None) -> dict:
+    """อีเมลธุรกิจที่เปิดเผยบนหน้าแรก/หน้าติดต่อ (ชอบ info@/contact@/sales@ บนโดเมนเดียวกัน) + ลิงก์ LINE ถ้ามี
+    ไม่เจอบนเว็บ → หาจากผลค้นหา (search=False ปิดขั้นนี้)"""
     fetch = fetch or _fetch
     emails, line = set(), ""
     host = leads.domain_of(site_url)
@@ -181,9 +212,12 @@ def find_contact(site_url: str, fetch=None) -> dict:
     clean = sorted({e.strip().lower().rstrip(".") for e in emails if e and not SKIP_EMAIL.search(e)})
     same = [e for e in clean if e.split("@")[-1].endswith(host)]
     others = [e for e in clean if e not in same]
-    rank = lambda e: (0 if any(e.split("@")[0].startswith(p) for p in PREFER) else 1, len(e))
-    ordered = sorted(same, key=rank) + sorted(others, key=rank)
-    return {"email": ordered[0] if ordered else "", "line": line, "n": len(clean)}
+    ordered = sorted(same, key=_rank_email) + sorted(others, key=_rank_email)
+    email, source = (ordered[0] if ordered else ""), "เว็บ"
+    if not email and search is not False:
+        email = find_email_via_search(host, None if search is None else search)
+        source = "ผลค้นหา" if email else ""
+    return {"email": email, "line": line, "n": len(clean), "source": source}
 
 
 # ---------- รอบหาลูกค้า ----------
@@ -219,7 +253,7 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
            "errors": 0, "leads": []}
     for site, dom, title, q in cands[:limit]:
         lid = db.add_lead(site, dom, source="prospect")
-        db.update_lead(lid, notes=f"พบจากคำค้น: {q}" + (f" · {title}" if title else ""))
+        db.update_lead(lid, notes=f"พบจากคำค้น: {q}" + (f" · {title}" if title else ""), src="prospect")
         pipeline.record(lid, "prospect", f"คำค้น: {q}" + (f" · {title}" if title else ""), "prospecting")
         out["added"] += 1
         out["leads"].append(dom)
@@ -236,7 +270,8 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
             c = {"email": "", "line": "", "n": 0}
         if c.get("email") or c.get("line"):
             db.update_lead(lid, email=(c.get("email") or None), contact=(c.get("line") or None))
-            pipeline.record(lid, "contact_found", (c.get("email") or "") + (f" · {c['line']}" if c.get("line") else ""), "prospecting")
+            pipeline.record(lid, "contact_found", (c.get("email") or "") + (f" (จาก{c['source']})" if c.get("email") and c.get("source") else "")
+                            + (f" · {c['line']}" if c.get("line") else ""), "prospecting")
         else:
             pipeline.record(lid, "no_contact", "ไม่พบอีเมลธุรกิจบนเว็บ — เพิ่มช่องทางเองที่หน้าลูกค้า แล้วกดให้ CEO เสนอ", "prospecting")
         if c.get("email"):
@@ -247,4 +282,18 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
             except Exception:
                 out["errors"] += 1
     db.set_setting("prospect_last", json.dumps(out, ensure_ascii=False))
+    return out
+
+
+def refind_contact(lead) -> dict:
+    """หาช่องทางติดต่อซ้ำให้ลูกค้าเป้าหมายที่ยังไม่มีอีเมล (เว็บ + ผลค้นหา) · เจอแล้วบันทึกและให้ CEO เสนอต่อ"""
+    c = find_contact(lead["site_url"])
+    out = {"email": c.get("email") or "", "line": c.get("line") or "", "source": c.get("source") or "", "proposed": None}
+    if c.get("email") and not lead["email"]:
+        db.update_lead(lead["id"], email=c["email"], contact=lead["contact"] or (c.get("line") or None))
+        pipeline.record(lead["id"], "contact_found", f"{c['email']} (จาก{c.get('source') or 'เว็บ'}) — หาซ้ำ", "prospecting")
+        if lead["status"] in ("new", "lost") and lead["audit_json"]:
+            out["proposed"] = pipeline.ceo_propose(db.get_lead(lead["id"]))
+    elif c.get("line") and not lead["contact"]:
+        db.update_lead(lead["id"], contact=c["line"])
     return out

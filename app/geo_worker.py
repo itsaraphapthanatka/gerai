@@ -26,9 +26,9 @@ def domain_of(url: str) -> str:
         return ""
 
 
-def _row(title, url, i: int) -> dict:
+def _row(title, url, i: int, snippet=None) -> dict:
     u = str(url or "")
-    return {"title": str(title or ""), "url": u, "domain": domain_of(u), "position": i + 1}
+    return {"title": str(title or ""), "url": u, "domain": domain_of(u), "position": i + 1, "snippet": str(snippet or "")}
 
 
 def _ddgs_search(query: str, limit: int) -> list[dict]:
@@ -41,7 +41,7 @@ def _ddgs_search(query: str, limit: int) -> list[dict]:
         for i, hit in enumerate(ddg.text(query, max_results=limit)):
             if i >= limit:
                 break
-            out.append(_row(hit.get("title"), hit.get("href") or hit.get("url"), i))
+            out.append(_row(hit.get("title"), hit.get("href") or hit.get("url"), i, hit.get("body")))
     return out
 
 
@@ -56,7 +56,7 @@ def _brave_search(query: str, limit: int) -> list[dict]:
     )
     r.raise_for_status()
     results = ((r.json().get("web") or {}).get("results")) or []
-    return [_row(x.get("title"), x.get("url"), i) for i, x in enumerate(results[:limit])]
+    return [_row(x.get("title"), x.get("url"), i, x.get("description")) for i, x in enumerate(results[:limit])]
 
 
 def _serper_search(query: str, limit: int, page: int = 1) -> list[dict]:
@@ -73,7 +73,7 @@ def _serper_search(query: str, limit: int, page: int = 1) -> list[dict]:
     )
     r.raise_for_status()
     results = r.json().get("organic") or []
-    return [_row(x.get("title"), x.get("link"), i) for i, x in enumerate(results[:limit])]
+    return [_row(x.get("title"), x.get("link"), i, x.get("snippet")) for i, x in enumerate(results[:limit])]
 
 
 def _cfg(db_key: str, env_key: str) -> str:

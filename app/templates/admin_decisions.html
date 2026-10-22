@@ -13,7 +13,7 @@
       <thead><tr><th>ตัวชี้วัด</th><th>ตอนนี้</th><th>เป้า</th><th></th></tr></thead>
       <tbody>{% for r in kpi.rows %}<tr><td>{{ r.label }}</td><td><b>{{ r.value if r.value is not none else '—' }}</b></td><td class="muted">{{ r.target if r.target is not none else '—' }}</td><td>{% if r.ok is none %}<span class="muted">ไม่วัด</span>{% elif r.ok %}<span class="pill ok">ผ่าน</span>{% else %}<span class="pill no">ยัง</span>{% endif %}</td></tr>{% endfor %}</tbody>
     </table>
-    <div class="muted" style="font-size:11.5px;margin-top:8px">อัตราคิดจาก {{ kpi.window_days }} วันล่าสุด · ลูกค้าจ่ายสะสมนับตั้งแต่เริ่มแผน · เฟสถัดไปเริ่มเมื่อผ่านทุกข้อ ไม่ใช่ตามปฏิทิน</div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">อัตราคิดจาก {{ kpi.window_days }} วันล่าสุด · ลูกค้าจ่ายสะสมนับตั้งแต่เริ่มแผน · เฟสถัดไปเริ่มเมื่อผ่านทุกข้อ ไม่ใช่ตามปฏิทิน{% if by_src %} · ตรวจฟรี 7 วันตามช่องทาง: {% for k, v in by_src.items() %}{{ k }} {{ v }}{{ ' · ' if not loop.last }}{% endfor %}{% endif %}</div>
   </div>
   <div class="card">
     <h2 style="margin-top:0;font-size:15px">โหมดการตัดสินใจต่อเรื่อง</h2>

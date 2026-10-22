@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -382,32 +382,41 @@ def _ceo_propose(lead) -> int | None:
     return pipeline.ceo_propose(lead)
 
 
+def _src(v: str) -> str:
+    import re as _re
+    v = (v or "").strip().lower()[:24]
+    return v if _re.fullmatch(r"[a-z0-9_-]{1,24}", v) else ""
+
+
 @app.get("/audit")
-def audit_page(request: Request):
-    return templates.TemplateResponse(request, "audit.html", {"error": "", "url": ""})
+def audit_page(request: Request, src: str = ""):
+    return templates.TemplateResponse(request, "audit.html", {"error": "", "url": "", "src": _src(src)})
 
 
 @app.post("/audit")
-def audit_run(request: Request, url: str = Form(""), website: str = Form("")):
+def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form("")):
+    src = _src(src)
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
     if not site:
-        return templates.TemplateResponse(request, "audit.html", {"error": "กรอกที่อยู่เว็บให้ถูกต้อง เช่น example.co.th", "url": url})
+        return templates.TemplateResponse(request, "audit.html", {"error": "กรอกที่อยู่เว็บให้ถูกต้อง เช่น example.co.th", "url": url, "src": src})
     import datetime as _dt
     ip = _client_ip(request)
     since = (_dt.datetime.now() - _dt.timedelta(hours=leads.REUSE_AUDIT_HOURS)).isoformat(timespec="seconds")
     if db.count_audits_since(ip, since) >= leads.AUDITS_PER_IP_PER_DAY:
-        return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {leads.AUDITS_PER_IP_PER_DAY} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url})
+        return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {leads.AUDITS_PER_IP_PER_DAY} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url, "src": src})
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
         return _redirect(f"/audit/{recent['token']}")   # โดเมนเดิมภายใน 24 ชม. ใช้ผลเดิม
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
+    if src and not (recent and recent["src"]):
+        db.update_lead(lid, src=src)                      # ช่องทางที่ลีดมา (รหัสในลิงก์ที่ CMO โพสต์)
     try:
         token = _run_lead_audit(lid, site, ip)
     except Exception:
-        return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url})
+        return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url, "src": src})
     return _redirect(f"/audit/{token}")
 
 
@@ -542,6 +551,7 @@ def _decisions_ctx(request: Request, notice: str = ""):
             x["quote"] = dict(qq) if qq else None
         pending.append(x)
     history = [dict(d) for d in db.list_decisions(None, 60) if d["status"] != "proposed"]
+    kpi = execs.kpis()
     awaiting = []                                            # ใบเสนอราคาที่ลูกค้ายืนยันแล้ว รอเงินเข้า/รอคุณยืนยัน
     for st in ("accepted", "claimed"):
         for qq in db.list_quotes(None, st, 50):
@@ -552,7 +562,8 @@ def _decisions_ctx(request: Request, notice: str = ""):
             awaiting.append(x)
     return {"pending": pending, "history": history, "stats": db.decision_stats(), "mandate": execs.MANDATE,
             "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice, "awaiting": awaiting,
-            "kpi": execs.kpis(), "gates": [execs.auto_gate(k) for k in execs.KINDS if k != "digest"],
+            "kpi": kpi, "by_src": kpi["values"].get("audits_by_src") or {},
+            "gates": [execs.auto_gate(k) for k in execs.KINDS if k != "digest"],
             "paused": execs.paused(), "mode": execs.mode_label()}
 
 
@@ -786,8 +797,19 @@ async def quote_pay(request: Request, token: str, slip: UploadFile = File(None),
 def _lead_ctx(lead, notice: str = "") -> dict:
     rep = json.loads(lead["audit_json"]) if lead["audit_json"] else None
     pending = [dict(d) for d in db.list_decisions("proposed", 300) if d["lead_id"] == lead["id"]]
+    last_draft = None                                                   # ข้อความทักล่าสุดที่ CEO ร่าง (ให้คัดลอกไปส่งเองเมื่อมีแต่ LINE)
+    for d in db.list_decisions(None, 300):
+        if d["lead_id"] == lead["id"] and d["kind"] == "outreach":
+            try:
+                pl = json.loads(d["payload_json"] or "{}")
+            except Exception:
+                pl = {}
+            if pl.get("body"):
+                last_draft = {"subject": pl.get("subject", ""), "body": pl["body"], "when": d["created_at"]}
+                break
     return {"lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
-            "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL,
+            "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL, "last_draft": last_draft,
+            "channel": pipeline.send_channel(lead),
             "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
             "statuses": leads.STATUSES, "sources": leads.SOURCES, "kinds": execs.KINDS, "packages": quotes.PACKAGES,
             "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"],
@@ -821,6 +843,37 @@ def admin_lead_unsubscribe(request: Request, lead_id: int):
     if lead and lead["status"] != "unsubscribed":
         pipeline.unsubscribe(lead, request.session.get("email") or "admin")
     return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกว่าลูกค้าขอไม่รับการติดต่อแล้ว")
+
+
+@app.post("/admin/leads/{lead_id}/find-email")
+def admin_lead_find_email(request: Request, lead_id: int):
+    """หาอีเมลซ้ำ (เว็บ + ผลค้นหา) — เจอแล้ว CEO เสนอ/ส่งต่อเอง"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    try:
+        r = prospecting.refind_contact(lead)
+    except Exception as e:
+        return _redirect(f"/admin/leads/{lead_id}?notice=หาไม่สำเร็จ: {type(e).__name__}")
+    if r["email"]:
+        note = f"พบอีเมล {r['email']} (จาก{r['source']})" + (" — CEO ดำเนินการต่อแล้ว" if r["proposed"] else "")
+    else:
+        note = "ยังไม่พบอีเมลธุรกิจทั้งบนเว็บและผลค้นหา — ส่งข้อความด้านล่างทาง LINE เองได้" + (f" · LINE: {r['line']}" if r["line"] else "")
+    return _redirect(f"/admin/leads/{lead_id}?notice={note}")
+
+
+@app.post("/admin/leads/{lead_id}/mark-contacted")
+def admin_lead_mark_contacted(request: Request, lead_id: int, via: str = Form("LINE")):
+    """เจ้าของส่งข้อความเองทางช่องทางที่ระบบส่งไม่ได้ (เช่น LINE ของลูกค้า) → บันทึกว่าทักแล้ว"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if lead and lead["status"] in ("new", "lost"):
+        db.update_lead(lead_id, status="contacted", last_contacted_at=db.now())
+        db.add_lead_event(lead_id, "contacted", f"ส่งเองทาง {via.strip()[:40] or 'LINE'}", request.session.get("email") or "admin")
+    return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกว่าทักแล้วทาง {via.strip()[:40] or 'LINE'}")
 
 
 @app.post("/admin/leads/{lead_id}/quote")
@@ -3097,6 +3150,61 @@ def admin_lead_contact(request: Request, lead_id: int, name: str = Form(""), ema
     db.update_lead(lead_id, name=name.strip()[:120] or None, email=e[:160] or None, contact=contact.strip()[:160] or None)
     db.add_lead_event(lead_id, "note", f"แก้ช่องทางติดต่อ: {e or '—'} · {contact.strip() or '—'}", request.session.get("email") or "admin")
     return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกช่องทางติดต่อแล้ว")
+
+
+def _marketing_ctx(request: Request, notice: str = "", error: str = ""):
+    sb = marketing.self_brand()
+    posts = []
+    for x in db.list_posts(60):
+        d = dict(x)
+        d["channel_label"] = marketing.CHANNELS.get(d["channel"], d["channel"])
+        d["kind_label"] = marketing.POST_KINDS.get(d["kind"], d["kind"])
+        posts.append(d)
+    brands = [dict(b) for b in db.list_all_brands() if not (sb and b["id"] == sb["id"])]
+    drafts = [i for i in (db.list_content(sb["id"]) if sb else []) if i["status"] == "draft"]
+    return {"cfg": marketing.public_config(), "posts": posts, "brands": brands, "self_brand": dict(sb) if sb else None,
+            "self_drafts": len(drafts), "attr7": marketing.attribution(7), "attr28": marketing.attribution(28),
+            "gate": execs.auto_gate("post"), "notice": notice, "error": error, "base": _public_base()}
+
+
+@app.get("/admin/marketing")
+def admin_marketing(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_marketing.html", _marketing_ctx(request, notice))
+
+
+@app.post("/admin/marketing/settings")
+def admin_marketing_settings(request: Request, enabled: str = Form(""), weekly: str = Form("3"), line: str = Form(""),
+                             fb_page_id: str = Form(""), fb_token: str = Form(""), fb_app_id: str = Form(""), fb_app_secret: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    note = marketing.save_config(bool(enabled), weekly, bool(line), fb_page_id, fb_token, fb_app_id, fb_app_secret)
+    return _redirect(f"/admin/marketing?notice={note}")
+
+
+@app.post("/admin/marketing/run")
+def admin_marketing_run(request: Request):
+    """รันรอบ CMO ตอนนี้ (เบื้องหลัง: เผยแพร่ร่างที่ผ่าน QA · เสนอโพสต์ · เคสศึกษา)"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    pipeline._spawn(lambda: marketing.run())
+    return _redirect("/admin/marketing?notice=เริ่มรอบการตลาดแล้ว รีเฟรชหน้านี้สักครู่ · โพสต์ที่เสนอจะไปรอที่หน้าการตัดสินใจ (หรือโพสต์เองถ้าเปิดโหมดตัดสินเอง)")
+
+
+@app.post("/admin/marketing/fb-test")
+def admin_marketing_fb_test(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    return _redirect(f"/admin/marketing?notice=Facebook: {marketing.fb_test_post()}")
+
+
+@app.post("/admin/marketing/brand/{brand_id}/case-study")
+def admin_marketing_case_study(request: Request, brand_id: int, ok: str = Form("0")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_brand_case_study(brand_id, ok == "1")
+    return _redirect("/admin/marketing?notice=อัปเดตการอนุญาตใช้ชื่อในเคสศึกษาแล้ว")
 
 
 @app.post("/admin/settings/stripe")
