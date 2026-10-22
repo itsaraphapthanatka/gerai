@@ -227,8 +227,13 @@
     {% if stripe.whsec_mask %}<div class="keymask">ในระบบ: <code>{{ stripe.whsec_mask }}</code></div>{% endif %}
     <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
   </form>
+  <form method="post" action="/admin/settings/stripe/webhook" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button type="submit" class="btn ghost sm" {% if not stripe.secret_set %}disabled title="ใส่ secret key ก่อน"{% endif %}>ตั้ง webhook ให้อัตโนมัติ</button>
+    <span class="muted" style="font-size:12px">ใช้ secret key สร้าง endpoint ใน Stripe และเก็บ signing secret ให้เอง (ทำให้ทันทีเมื่อบันทึก secret key ครั้งแรก)</span>
+    {% if stripe_note %}<span class="pill ok" style="font-size:10px">{{ stripe_note }}</span>{% endif %}
+  </form>
   <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">
-    1. Stripe Dashboard → Developers → <b>Webhooks</b> → Add endpoint · URL <code>{{ public_base }}{{ stripe.webhook_path }}</code> · เลือก events: <code>{{ stripe.events|join('</code> <code>')|safe }}</code> → คัดลอก Signing secret มาวางด้านบน (บัญชีเดียวกับ hopai.online ได้ แค่เพิ่ม endpoint ที่สอง)<br>
+    1. วาง secret key แล้วกดบันทึก ระบบจะสร้าง webhook endpoint <code>{{ public_base }}{{ stripe.webhook_path }}</code> พร้อม events <code>{{ stripe.events|join('</code> <code>')|safe }}</code> ให้เอง (บัญชีเดียวกับ hopai.online ได้ เป็น endpoint ที่สอง) · ถ้าอยากสร้างเองใน Dashboard ก็วาง Signing secret ในช่องด้านบนแทน<br>
     2. ระบบสร้างสินค้า/ราคาในแคตตาล็อก Stripe ให้เองครั้งแรกที่มีคนจ่าย (Pro, Agency รายเดือน · GEO Setup ครั้งเดียว) ส่วนลดเป็นคูปองของ Stripe → ใบแจ้งหนี้โชว์ส่วนลดชัด · Checkout ขอเลขผู้เสียภาษีและที่อยู่ออกบิลให้ธุรกิจไทย<br>
     3. ตั้งครั้งเดียวใน Dashboard (ไม่ต้องแก้โค้ด): Settings → <b>Billing → Revenue recovery</b> เปิด Smart Retries + อีเมลเตือนลูกค้า · <b>Customer portal</b> เปิดใช้ (ลูกค้าเปลี่ยนบัตร/ยกเลิกเองจากเมนู "อัปเกรดแผน") · <b>Branding</b> ใส่โลโก้ · <b>Emails</b> ส่งใบเสร็จอัตโนมัติ<br>
     4. ชำระรายเดือนผ่าน Stripe รับเฉพาะบัตร — PromptPay ของ Stripe ใช้กับรายเดือนไม่ได้ ระบบจึงยังมีช่องทาง "โอน PromptPay + แนบสลิป" ไว้ให้ลูกค้าที่ไม่ใช้บัตร (คุณยืนยันยอดเองเหมือนเดิม)<br>

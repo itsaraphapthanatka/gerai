@@ -100,7 +100,13 @@ print("paid: webhook → บัญชี pro + customer ผูก · ใบแ�
 inv2 = dict(inv1, id="in_2", billing_reason="subscription_cycle", amount_paid=891000, number="GEO-0002")
 assert post(event("invoice.paid", inv2)) == "renewed" and len(db.list_stripe_invoices(t["id"])) == 2
 assert any(e["kind"] == "paid" and "ต่ออายุ" in (e["note"] or "") for e in db.list_lead_events(lid))
-assert post(event("invoice.payment_failed", dict(inv2, id="in_3"))) == "failed"
+assert post(event("invoice.payment_failed", dict(inv2, id="in_3", next_payment_attempt=1800000000))) == "failed" and db.get_tenant(t["id"])["plan"] == "pro"
+assert post(event("invoice.payment_failed", dict(inv2, id="in_3b", next_payment_attempt=None))) == "suspended" and db.get_tenant(t["id"])["plan"] == "free"   # ลองครบแล้ว → ระงับ
+assert post(event("invoice.paid", dict(inv2, id="in_3c"))) == "renewed" and db.get_tenant(t["id"])["plan"] == "pro"                                            # จ่ายได้ → คืนแผน
+assert post(event("customer.subscription.updated", {"id": "sub_1", "object": "subscription", "status": "unpaid"})) == "unpaid" and db.get_tenant(t["id"])["plan"] == "free"
+assert post(event("customer.subscription.updated", {"id": "sub_1", "object": "subscription", "status": "active"})) == "reactivated" and db.get_tenant(t["id"])["plan"] == "pro"
+inv_new = {"id": "in_n", "object": "invoice", "billing_reason": "subscription_cycle", "amount_paid": 891000, "parent": {"subscription_details": {"subscription": "sub_1"}}}
+assert post(event("invoice.paid", inv_new)) == "renewed"                                                  # รูปแบบ API ใหม่ (ไม่มี invoice.subscription)
 assert post(event("customer.subscription.updated", {"id": "sub_1", "object": "subscription", "status": "past_due"})) == "past_due"
 assert post(event("customer.subscription.deleted", {"id": "sub_1", "object": "subscription"})) == "cancelled" and db.get_tenant(t["id"])["plan"] == "free"
 assert post(event("customer.subscription.updated", {"id": "sub_1", "object": "subscription", "status": "active"})) == "reactivated" and db.get_tenant(t["id"])["plan"] == "pro"
@@ -135,5 +141,24 @@ admin = "admin@test.local"; db.create_tenant(admin, bcrypt.hashpw(b"pw123456", b
 a = TestClient(app); a.post("/login", data={"email": admin, "password": "pw123456"})
 r = a.get("/admin/settings"); assert "Stripe — รับบัตร" in r.text and "/stripe/webhook" in r.text and "พร้อม (test)" in r.text and "customer.subscription.updated" in r.text
 a.post("/admin/settings/stripe", data={"secret": "", "whsec": "whsec_new_secret_000000"}); assert SP.webhook_secret() == "whsec_new_secret_000000" and SP.secret_key().startswith("sk_test")
-print("admin: การ์ด Stripe · บันทึกคีย์ OK")
+# ตั้ง webhook ให้เอง: ไม่มี → สร้างและเก็บ secret · มีแล้ว+มี secret → ไม่สร้างซ้ำ · มีแต่ไม่มี secret → แทนที่
+hooks = {"data": []}; deleted = []
+SP._get_json = lambda path: hooks if path.startswith("/webhook_endpoints") else fake_get(path)
+SP._delete = lambda path: deleted.append(path)
+def fake_post2(path, data, idem=None):
+    if path == "/webhook_endpoints":
+        e = {"id": f"we_{len(hooks['data']) + 1}", "url": data["url"], "enabled_events": data["enabled_events[]"], "secret": "whsec_fromstripe_abcdef123456"}
+        hooks["data"].append({k: v for k, v in e.items() if k != "secret"}); calls.append((path, data, idem)); return e
+    return fake_post(path, data, idem)
+SP._post = fake_post2
+db.set_setting("stripe_webhook_secret", "")
+r = a.post("/admin/settings/stripe/webhook"); assert "สร้าง webhook และเก็บ signing secret แล้ว" in r.text and SP.webhook_secret() == "whsec_fromstripe_abcdef123456"
+assert calls[-1][1]["url"] == "https://geo.appreview.cloud/stripe/webhook" and "credit_note.created" in calls[-1][1]["enabled_events[]"]
+assert SP.ensure_webhook("https://geo.appreview.cloud") == "มี webhook อยู่แล้วและพร้อมใช้" and len(hooks["data"]) == 1
+db.set_setting("stripe_webhook_secret", "")
+assert "แทนอันเก่า" in SP.ensure_webhook("https://geo.appreview.cloud") and deleted == ["/webhook_endpoints/we_1"] and SP.webhook_secret()
+# บันทึก secret key ครั้งแรกโดยยังไม่มี webhook secret → ตั้งให้เอง
+db.set_setting("stripe_webhook_secret", ""); hooks["data"].clear()
+r = a.post("/admin/settings/stripe", data={"secret": "sk_test_zzzzzzzzzzzzzzzz", "whsec": ""}); assert SP.webhook_secret() and len(hooks["data"]) == 1
+print("admin: การ์ด Stripe · บันทึกคีย์ · ตั้ง webhook ให้เอง (สร้าง/มีแล้ว/แทนที่) OK")
 print("\nstripe_smoke: ผ่านทั้งหมด")

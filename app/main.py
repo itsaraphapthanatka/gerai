@@ -3101,10 +3101,28 @@ def admin_lead_contact(request: Request, lead_id: int, name: str = Form(""), ema
 
 @app.post("/admin/settings/stripe")
 def admin_settings_stripe(request: Request, secret: str = Form(""), whsec: str = Form("")):
+    """บันทึกคีย์ · ถ้าใส่ secret key แล้วยังไม่มี webhook secret → ตั้ง webhook ให้เองทันที"""
     if not _is_admin(request):
         return _redirect("/login")
     stripe_pay.save_config(secret, whsec)
-    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+    error = None
+    if stripe_pay.available() and not stripe_pay.webhook_secret():
+        try:
+            stripe_pay.ensure_webhook(_public_base())
+        except Exception as e:
+            error = f"บันทึกคีย์แล้ว แต่ตั้ง webhook อัตโนมัติไม่สำเร็จ: {str(e)[:160]} — กด \"ตั้ง webhook ให้อัตโนมัติ\" อีกครั้ง หรือสร้างเองใน Dashboard"
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=not error, error=error))
+
+
+@app.post("/admin/settings/stripe/webhook")
+def admin_settings_stripe_webhook(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    try:
+        note = stripe_pay.ensure_webhook(_public_base())
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True) | {"stripe_note": note})
+    except Exception as e:
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error=f"ตั้ง webhook ไม่สำเร็จ: {str(e)[:160]}"))
 
 
 @app.post("/admin/settings/company")

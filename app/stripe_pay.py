@@ -150,6 +150,7 @@ def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None)
         "client_reference_id": f"quote-{q['id']}",
         "metadata[quote_id]": str(q["id"]), "metadata[lead_id]": str(q["lead_id"]), "metadata[domain]": lead["domain"],
         "subscription_data[metadata][quote_id]": str(q["id"]), "subscription_data[metadata][domain]": lead["domain"],
+        "subscription_data[billing_mode][type]": "flexible",            # โหมดเรียกเก็บแบบยืดหยุ่น (ค่าแนะนำของ Stripe)
         "success_url": f"{base}/q/{q['token']}?paid=1", "cancel_url": f"{base}/q/{q['token']}", "locale": "th",
         "line_items[0][price]": prices["plan"], "line_items[0][quantity]": "1",
         "tax_id_collection[enabled]": "true", "billing_address_collection": "required",
@@ -174,6 +175,36 @@ def create_checkout(q, lead, base: str, company: str = "เจอ.AI") -> str:
     resp = _post("/checkout/sessions", checkout_params(q, lead, base, prices, coupon), idem=f"geo-checkout-{q['id']}-{int(time.time()) // 600}")
     db.update_quote(q["id"], stripe_session_id=resp.get("id"))
     return resp["url"]
+
+
+def _delete(path: str) -> None:
+    r = httpx.delete(f"{API}{path}", auth=(secret_key(), ""), timeout=TIMEOUT)
+    if r.status_code >= 400:
+        body = r.json() if r.content else {}
+        raise RuntimeError((body.get("error") or {}).get("message") or f"Stripe HTTP {r.status_code}")
+
+
+def ensure_webhook(base: str) -> str:
+    """ตั้ง webhook endpoint ให้เองด้วย secret key ของเจ้าของ — Stripe คืน signing secret ครั้งเดียวตอนสร้าง ระบบเก็บเข้ารหัสทันที
+    (ไม่ต้องคัดลอกผ่านแชต) · มี endpoint ของ URL นี้อยู่แล้วแต่ไม่มี secret → สร้างใหม่แทนอันเก่า"""
+    if not available():
+        raise RuntimeError("ยังไม่ได้ใส่ secret key")
+    url = f"{base}/stripe/webhook"
+    mine = [e for e in (_get_json("/webhook_endpoints?limit=100").get("data") or []) if e.get("url") == url]
+    if mine and webhook_secret():
+        e = mine[0]
+        if set(e.get("enabled_events") or []) != set(EVENTS):
+            _post(f"/webhook_endpoints/{e['id']}", {"enabled_events[]": list(EVENTS)})
+            return "มี webhook อยู่แล้ว — อัปเดตรายการ event ให้ครบ"
+        return "มี webhook อยู่แล้วและพร้อมใช้"
+    for e in mine:                                    # มีแต่เราไม่มี secret (สร้างจากที่อื่น) → แทนที่
+        _delete(f"/webhook_endpoints/{e['id']}")
+    created = _post("/webhook_endpoints", {"url": url, "description": "geo.appreview.cloud (เจอ.AI) — quotes, subscriptions, invoices",
+                                           "enabled_events[]": list(EVENTS)})
+    if not created.get("secret"):
+        raise RuntimeError("Stripe ไม่คืน signing secret")
+    db.set_setting("stripe_webhook_secret", wp_client.encrypt(created["secret"]))
+    return "สร้าง webhook และเก็บ signing secret แล้ว" + (" (แทนอันเก่าที่ไม่มี secret)" if mine else "")
 
 
 def portal_url(customer_id: str, return_url: str) -> str:
@@ -206,6 +237,16 @@ def sign(payload: bytes, whsec: str, ts: int | None = None) -> str:
     ts = ts or int(time.time())
     mac = hmac.new(whsec.encode("utf-8"), f"{ts}.".encode("utf-8") + payload, hashlib.sha256).hexdigest()
     return f"t={ts},v1={mac}"
+
+
+def _invoice_subscription(inv: dict) -> str:
+    """id การสมัครของใบแจ้งหนี้ — รองรับทั้ง API เก่า (invoice.subscription) และใหม่ (invoice.parent.subscription_details.subscription)"""
+    sub = inv.get("subscription")
+    if not sub:
+        sub = ((inv.get("parent") or {}).get("subscription_details") or {}).get("subscription")
+    if isinstance(sub, dict):
+        sub = sub.get("id")
+    return sub or ""
 
 
 def _quote_of_session(obj: dict):
@@ -251,8 +292,7 @@ def handle_event(evt: dict) -> str:
     if typ == "checkout.session.completed":
         return _paid_session(obj)
     if typ.startswith("invoice."):
-        sub = obj.get("subscription") if isinstance(obj.get("subscription"), str) else (obj.get("subscription") or {}).get("id")
-        q = db.get_quote_by_subscription(sub) if sub else None
+        q = db.get_quote_by_subscription(_invoice_subscription(obj))
     elif typ.startswith("customer.subscription."):
         q = db.get_quote_by_subscription(obj.get("id"))
     elif typ in ("charge.refunded", "credit_note.created"):
@@ -275,9 +315,16 @@ def handle_event(evt: dict) -> str:
         return "renewed"
     if typ == "customer.subscription.updated":
         st = obj.get("status") or ""
-        if st in ("past_due", "unpaid"):
-            pipeline.record(q["lead_id"], "note", f"Stripe: การสมัครอยู่ในสถานะ {st} (ค้างชำระ) — Smart Retries กำลังลองเก็บเงินใหม่", "stripe")
-            pipeline.alert_admins(f"⚠️ {lead['domain']} ค้างชำระรายเดือน (Stripe {st})", f"/admin/leads/{lead['id']}", "payment",
+        if st == "unpaid":                                          # Stripe หมดความพยายามแล้วทำเครื่องหมายว่าไม่ได้ชำระ → ระงับบริการ
+            if q["tenant_id"]:
+                db.set_plan(q["tenant_id"], "free")
+            pipeline.record(q["lead_id"], "note", "Stripe: การสมัครเป็น unpaid (ค้างชำระจนหมดความพยายาม) — ระงับบริการ", "stripe")
+            pipeline.alert_admins(f"⛔ {lead['domain']} ค้างชำระจนหมดความพยายาม — ระงับบริการแล้ว", f"/admin/leads/{lead['id']}", "payment",
+                                  subject=f"⛔ {lead['domain']} ค้างชำระ ระงับบริการแล้ว")
+            return "unpaid"
+        if st == "past_due":
+            pipeline.record(q["lead_id"], "note", "Stripe: การสมัครอยู่ในสถานะ past_due (ค้างชำระ) — Smart Retries กำลังลองเก็บเงินใหม่", "stripe")
+            pipeline.alert_admins(f"⚠️ {lead['domain']} ค้างชำระรายเดือน (Stripe past_due)", f"/admin/leads/{lead['id']}", "payment",
                                   subject=f"⚠️ {lead['domain']} ค้างชำระรายเดือน")
             return "past_due"
         if st == "active" and q["tenant_id"] and db.get_tenant(q["tenant_id"]) and db.get_tenant(q["tenant_id"])["plan"] != q["package"]:
@@ -297,8 +344,16 @@ def handle_event(evt: dict) -> str:
         db.notify_admins(f"🧾 {lead['domain']} มีใบลดหนี้ {amt:,} บาท (Stripe)", f"/admin/leads/{lead['id']}", "payment")
         return "credit_note"
     if typ == "invoice.payment_failed":
-        pipeline.record(q["lead_id"], "note", "Stripe เก็บเงินรอบเดือนไม่สำเร็จ — Stripe จะลองใหม่เอง ถ้าไม่ผ่านจะยกเลิกการสมัคร", "stripe")
-        pipeline.alert_admins(f"⚠️ {lead['domain']} เก็บเงินรายเดือนผ่าน Stripe ไม่สำเร็จ", f"/admin/leads/{lead['id']}", "payment",
+        final = "next_payment_attempt" in obj and obj["next_payment_attempt"] is None and obj.get("billing_reason") != "subscription_create"
+        if final:                                                   # Smart Retries ลองครบแล้วยังไม่ผ่าน → ระงับบริการตามสัญญา (ไม่ต้องพึ่งค่าใน Dashboard)
+            if q["tenant_id"]:
+                db.set_plan(q["tenant_id"], "free")
+            pipeline.record(q["lead_id"], "note", "Stripe เก็บเงินรายเดือนไม่สำเร็จครบทุกครั้ง — ระงับบริการ (ลดแผนเป็น free) จนกว่าจะชำระ", "stripe")
+            pipeline.alert_admins(f"⛔ {lead['domain']} เก็บเงินรายเดือนไม่สำเร็จครบทุกครั้ง — ระงับบริการแล้ว", f"/admin/leads/{lead['id']}", "payment",
+                                  subject=f"⛔ {lead['domain']} ค้างชำระ ระงับบริการแล้ว")
+            return "suspended"
+        pipeline.record(q["lead_id"], "note", "Stripe เก็บเงินรอบเดือนไม่สำเร็จ — Smart Retries จะลองใหม่เอง ถ้าไม่ผ่านครบทุกครั้งระบบจะระงับบริการ", "stripe")
+        pipeline.alert_admins(f"⚠️ {lead['domain']} เก็บเงินรายเดือนผ่าน Stripe ไม่สำเร็จ (กำลังลองใหม่)", f"/admin/leads/{lead['id']}", "payment",
                               subject=f"⚠️ {lead['domain']} เก็บเงินรายเดือนไม่สำเร็จ")
         return "failed"
     if typ == "customer.subscription.deleted":
