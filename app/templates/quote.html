@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ใบเสนอราคา {{ q.number }} · เจอ.AI</title>
+{% if not pdf %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon-32.png">
+{% endif %}
+<style>
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--font:{% if pdf %}'Sarabun',sans-serif{% else %}'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif{% endif %}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:24px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand a{color:inherit;text-decoration:none}
+  h1{font-size:clamp(24px,4.5vw,32px);line-height:1.2;letter-spacing:-.4px;margin-bottom:4px}
+  .sub{color:var(--slate);margin-bottom:22px}
+  .pill{display:inline-block;font-size:12.5px;padding:3px 10px;border-radius:999px;background:var(--surface);color:var(--slate);vertical-align:middle}
+  .pill.ok{background:#e8f7ee;color:#1c7a44}.pill.warn{background:#fff4e5;color:#9a5b00}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+  .box{background:var(--surface);border-radius:14px;padding:14px 18px;font-size:14.5px}
+  .box b{display:block;color:var(--stone);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  h2{font-size:17px;margin:26px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--hairline);vertical-align:top}
+  th{color:var(--stone);font-weight:600;font-size:12.5px}
+  td.num,th.num{text-align:right;white-space:nowrap}
+  tr.total td{font-weight:700;border-bottom:0;font-size:16px}
+  .item{border:1px solid var(--hairline);border-radius:14px;padding:12px 16px;margin-bottom:8px;font-size:14.5px}
+  .item .lb{font-weight:600}.item .why{color:var(--slate);font-size:14px;margin-top:2px}
+  ul.perks{columns:2;gap:24px;padding-left:20px;font-size:14.5px}
+  ol.terms{padding-left:20px;font-size:14.5px;color:var(--slate)}
+  ol.terms li{margin-bottom:6px}
+  .cta{background:var(--primary);color:#fff;border-radius:18px;padding:24px;margin-top:30px}
+  .cta h2{margin-top:0;color:#fff}
+  .cta p{color:#d6d6dc;font-size:14.5px;margin-bottom:14px}
+  .cta form{display:grid;gap:10px}
+  .cta input[type=text]{font:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid #333;background:#141414;color:#fff}
+  .cta label.consent{font-size:13.5px;color:#d6d6dc;display:flex;gap:8px;align-items:flex-start}
+  .cta label.consent a{color:#fff}
+  .cta button{font:inherit;font-weight:600;font-size:16px;padding:13px 22px;border-radius:9999px;border:0;background:#fff;color:#0a0a0a;cursor:pointer}
+  .pay{border:1px solid var(--hairline);border-radius:18px;padding:24px;margin-top:30px;display:grid;grid-template-columns:200px 1fr;gap:22px;align-items:start}
+  .pay img{width:200px;height:200px;border-radius:12px;border:1px solid var(--hairline)}
+  .pay .amt{font-size:26px;font-weight:700;letter-spacing:-.5px}
+  .pay input[type=file]{font:inherit;font-size:14px}
+  .pay button{font:inherit;font-weight:600;font-size:15px;padding:11px 20px;border-radius:9999px;border:0;background:var(--primary);color:#fff;cursor:pointer;margin-top:10px}
+  .ok{background:#e8f7ee;color:#1c7a44;padding:12px 16px;border-radius:12px;margin-top:26px}
+  .warn{background:#fff4e5;color:#9a5b00;padding:12px 16px;border-radius:12px;margin-top:26px}
+  .err{background:#fdeaea;color:#c0392b;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:14px}
+  .hp{position:absolute;left:-9999px;opacity:0}
+  .foot{color:var(--stone);font-size:12.5px;margin-top:28px;line-height:1.7}
+  .foot a{color:inherit}
+  @media (max-width:600px){.grid{grid-template-columns:1fr}.pay{grid-template-columns:1fr}ul.perks{columns:1}}
+  @media print{.cta,.pay form,.noprint{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span>{% if pdf %}เจอ.AI{% else %}<a href="/">เจอ.AI</a>{% endif %}{% if company.name %} · {{ company.name }}{% endif %}</span>
+    {% if not pdf %}<span class="noprint"><a href="/q/{{ q.token }}.pdf">ดาวน์โหลด PDF</a> · <a href="/q/{{ q.token }}/contract">สัญญาบริการ</a></span>{% endif %}</div>
+  <h1>ใบเสนอราคา {{ q.number }} <span class="pill {{ 'ok' if q.status in ('accepted','claimed','paid') else ('warn' if expired else '') }}">{{ status_label }}</span></h1>
+  <p class="sub">ออกเมื่อ {{ (q.created_at or '')[:10] }} · ใช้ได้ถึง {{ q.valid_until }} · สำหรับเว็บ <b>{{ lead.domain }}</b></p>
+
+  <div class="grid">
+    <div class="box"><b>ผู้เสนอ</b>{{ company.name or 'เจอ.AI' }}{% if company.address %}<br>{{ company.address }}{% endif %}{% if company.tax_id %}<br>เลขประจำตัวผู้เสียภาษี {{ company.tax_id }}{% endif %}</div>
+    <div class="box"><b>ผู้รับ</b>{{ lead.name or 'ทีม ' ~ lead.domain }}<br>{{ lead.domain }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</div>
+  </div>
+
+  {% if summary %}
+  <h2>ที่มาของข้อเสนอ — ผลตรวจเว็บเมื่อ {{ (lead.audit_at or '')[:10] }}</h2>
+  {% for s in summary %}<div class="item"><div class="lb">{{ s.label }}</div><div class="why">{{ s.why }}</div></div>{% endfor %}
+  {% endif %}
+
+  <h2>รายการ</h2>
+  <table>
+    <thead><tr><th>บริการ</th><th>รอบ</th><th class="num">บาท</th></tr></thead>
+    <tbody>
+      <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
+      {% if q.discount_pct %}<tr><td>ส่วนลด {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(q.price - q.net) }}</td></tr>{% endif %}
+      {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }}</div></td><td>ครั้งเดียว</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
+      <tr><td>ค่าบริการสุทธิต่อเดือน (รอบถัดไป)</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
+      <tr class="total"><td>ยอดชำระงวดแรก</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>สิ่งที่รวมอยู่ในแพ็กเกจ {{ plan.label }}</h2>
+  <ul class="perks">{% for p in plan.perks %}<li>{{ p }}</li>{% endfor %}</ul>
+
+  <h2>เงื่อนไขหลัก</h2>
+  <ol class="terms">{% for t in terms %}<li>{{ t }}</li>{% endfor %}</ol>
+  <p class="sub" style="font-size:13.5px">ฉบับเต็มอยู่ใน<a href="{{ base }}/q/{{ q.token }}/contract">สัญญาบริการมาตรฐาน</a>{% if not company.contract_reviewed %} (ร่างมาตรฐาน อยู่ระหว่างให้ที่ปรึกษากฎหมายตรวจ){% endif %}</p>
+
+  {% if not pdf %}
+    {% if q.status == 'paid' %}
+      <div class="ok">ยืนยันยอดชำระแล้ว บัญชีและแบรนด์ของคุณเปิดใช้งานแล้ว เข้าสู่ระบบได้ที่ <a href="/login">{{ base }}/login</a> (รายละเอียดส่งไปทางอีเมล)</div>
+    {% elif q.status == 'claimed' %}
+      <div class="ok">ได้รับแจ้งชำระเงินแล้ว ทีมงานกำลังตรวจยอดและจะเปิดบัญชีให้ภายใน 1 วันทำการ</div>
+    {% elif q.status == 'accepted' %}
+      <div class="ok">ยืนยันรับข้อเสนอแล้วโดย {{ q.accepted_name }} เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }} — ขั้นสุดท้ายคือชำระงวดแรก</div>
+      <div class="pay">
+        <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">ช่องทางชำระจะแจ้งทางอีเมล/LINE</div>{% endif %}</div>
+        <div>
+          <div class="amt">{{ "{:,}".format(q.first_total) }} บาท</div>
+          <div class="sub" style="margin-bottom:8px">{% if ppid %}สแกน PromptPay ({{ ppname }}) ยอดตามนี้ แล้วแนบสลิปด้านล่าง{% else %}โอนตามช่องทางที่ทีมงานแจ้ง แล้วแนบสลิปด้านล่าง{% endif %}</div>
+          <form method="post" action="/q/{{ q.token }}/pay" enctype="multipart/form-data">
+            {% if error %}<div class="err">{{ error }}</div>{% endif %}
+            <input type="file" name="slip" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+            <div><button type="submit">แจ้งชำระเงินแล้ว</button></div>
+          </form>
+        </div>
+      </div>
+    {% elif expired %}
+      <div class="warn">ใบเสนอราคานี้หมดอายุเมื่อ {{ q.valid_until }} — ตอบกลับอีเมลหรือทัก LINE เพื่อขอใบใหม่ได้ครับ</div>
+    {% elif q.status in ('sent','viewed') %}
+      <div class="cta">
+        <h2>ยืนยันรับข้อเสนอ</h2>
+        <p>กรอกชื่อและยอมรับเงื่อนไข จากนั้นจะได้ช่องทางชำระงวดแรก บริการเริ่มเมื่อเรายืนยันยอด</p>
+        <form method="post" action="/q/{{ q.token }}/accept">
+          {% if error %}<div class="err">{{ error }}</div>{% endif %}
+          <input type="text" name="name" placeholder="ชื่อ-นามสกุลผู้ยืนยัน" maxlength="120" value="{{ lead.name or '' }}">
+          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+          <label class="consent"><input type="checkbox" name="agree" value="1"> ข้าพเจ้ายอมรับเงื่อนไขข้างต้นและ<a href="{{ base }}/q/{{ q.token }}/contract" target="_blank">สัญญาบริการมาตรฐาน</a> ในนามของ {{ lead.domain }}</label>
+          <button type="submit">ยืนยันรับข้อเสนอ</button>
+        </form>
+      </div>
+    {% elif q.status == 'cancelled' %}
+      <div class="warn">ใบเสนอราคานี้ถูกยกเลิกแล้ว</div>
+    {% endif %}
+  {% endif %}
+
+  <p class="foot">เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน · ใบเสนอราคานี้สร้างจากระบบอัตโนมัติ ราคาตามตารางแพ็กเกจมาตรฐาน{% if not pdf %} · <a href="{{ base }}/audit/{{ lead.token }}">ดูผลตรวจเว็บ</a>{% endif %}</p>
+</div>
+</body>
+</html>

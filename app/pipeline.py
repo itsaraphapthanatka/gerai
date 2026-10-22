@@ -1,0 +1,396 @@
+"""เส้นทางลูกค้าทั้งสาย (เฟส 2): ตรวจเว็บ → ทัก → ตอบกลับ → ใบเสนอราคา → ยืนยัน → ชำระ → เปิดบัญชี+แบรนด์
+รวมตรรกะที่เคยอยู่ใน main.py ไว้ที่เดียว ให้เส้นทางเว็บ, LINE, หน้าแอดมิน และ cron ใช้ร่วมกัน
+ผู้บริหารเอเจนต์ยังเสนอก่อนทำ เว้นเรื่องที่สลับเป็นตัดสินเองแล้ว (execs.auto_enabled) · ทุกจุดสัมผัสลง lead_events"""
+from __future__ import annotations
+import datetime
+import html as _html
+import json
+import os
+import secrets
+import threading
+
+import bcrypt
+
+from . import db, execs, leads, line_oa, mailer, quotes as Q, site_health
+
+RUN_INLINE = False          # True = งานเบื้องหลัง (ตรวจเว็บจาก LINE) รันในเธรดเดียว — ใช้ตอนทดสอบ
+
+
+def public_base() -> str:
+    return os.getenv("PUBLIC_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
+
+
+def record(lead_id: int, kind: str, note: str = "", actor: str = "system") -> None:
+    db.add_lead_event(lead_id, kind, note, actor)
+
+
+def _hash_pw(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+
+def _ensure_token(lead):
+    if not lead["token"]:
+        db.update_lead(lead["id"], token=leads.new_token())
+        lead = db.get_lead(lead["id"])
+    return lead
+
+
+def result_url(lead, via: str = "") -> str:
+    lead = _ensure_token(lead)
+    return f"{public_base()}/audit/{lead['token']}" + (f"?via={via}" if via else "")
+
+
+def unsubscribe_url(lead) -> str:
+    lead = _ensure_token(lead)
+    return f"{public_base()}/u/{lead['token']}"
+
+
+def quote_url(q) -> str:
+    return f"{public_base()}/q/{q['token']}"
+
+
+def outreach_footer(lead) -> str:
+    return (f"\n\n— เจอ.AI (ข้อความนี้ส่งจากระบบอัตโนมัติ) · ไม่อยากรับการติดต่อจากเรา กดที่ {unsubscribe_url(lead)} "
+            "เราจะไม่ติดต่ออีก")
+
+
+# ---------- ตรวจเว็บ ----------
+def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
+    """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
+    report = site_health.run_checks(site)
+    sc = leads.score_audit(report)
+    lead = db.get_lead(lead_id)
+    token = lead["token"] or leads.new_token()
+    db.update_lead(lead_id, audit_json=json.dumps(report, ensure_ascii=False), audit_at=db.now(),
+                   score=sc["score"], token=token, **({"ip": ip} if ip else {}))
+    record(lead_id, "audit", f"ตก {sc['n_fail']} ข้อ · โอกาส {sc['level']} {sc['score']}/100")
+    return token
+
+
+# ---------- CEO เสนอ (หรือทำเองเมื่อเรื่องนั้นสลับเป็น auto แล้ว) ----------
+def _maybe_auto(did: int) -> int:
+    d = db.get_decision(did)
+    if d and d["status"] == "proposed" and execs.auto_enabled(d["kind"]):
+        try:
+            result = execute_decision(d, "auto")
+            db.set_decision(did, "auto", "ceo", result)
+        except Exception as e:                       # ทำเองไม่สำเร็จ → ค้างไว้ให้คนดู ไม่เงียบ
+            db.set_decision(did, "proposed", None, f"ทำอัตโนมัติไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
+    return did
+
+
+def ceo_propose(lead) -> int | None:
+    """CEO คัด + ร่างข้อความทัก · CFO ตรวจราคากับกรอบ → แถวใน decisions (รอคน หรือทำเองถ้าเรื่องนั้นเป็น auto)"""
+    if lead["status"] in leads.NO_CONTACT:
+        return None                                  # ไม่ทักซ้ำคนที่ขอไม่รับ/ปิดไปแล้ว
+    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
+    if not report:
+        return None
+    pl = execs.ceo_review_lead(lead, report, result_url(lead, "mail"))
+    if pl["action"] == "decline":
+        return _maybe_auto(db.add_decision("ceo", "lead_review", f"ไม่รับ {lead['domain']}", pl["reason"], pl, lead_id=lead["id"]))
+    pl["cfo"] = execs.cfo_check(pl)
+    pl["escalate"] = not pl["cfo"]["ok"]
+    proposal = (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
+                f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
+    return _maybe_auto(db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} ({pl['package']})", proposal, pl, lead_id=lead["id"]))
+
+
+def _send_text(lead, subject: str, body: str) -> str:
+    """ส่งถึงลูกค้าทางที่มี: อีเมลที่ส่งได้ก่อน → LINE → ไม่มี (คืน '' ให้คนส่งเอง)"""
+    if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
+        mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+        return f"ส่งอีเมลถึง {lead['email']} แล้ว"
+    if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
+        return "ส่งทาง LINE แล้ว"
+    return ""
+
+
+def execute_decision(d, who: str) -> str:
+    """ทำตามข้อเสนอที่อนุมัติ (หรือ auto): ทัก · ปิดลูกค้าที่ไม่รับ · ส่งใบเสนอราคา · ยืนยันยอดเข้าแล้วเปิดบัญชี"""
+    pl = json.loads(d["payload_json"] or "{}")
+    lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+    if d["kind"] == "outreach" and lead:
+        if lead["status"] in leads.NO_CONTACT:
+            return f"ไม่ส่ง — ลูกค้าอยู่ในสถานะ {leads.STATUS_LABEL.get(lead['status'], lead['status'])}"
+        body = pl.get("body", "") + outreach_footer(lead)
+        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", body)
+        db.update_lead(lead["id"], status="contacted", last_contacted_at=db.now())
+        record(lead["id"], "contacted", sent or "ไม่มีช่องทางส่งอัตโนมัติ — ให้คนส่งเอง", who)
+        return sent or "ไม่มีอีเมล/LINE ที่ส่งได้ — คัดลอกข้อความไปส่งเอง บันทึกสถานะเป็นทักแล้ว"
+    if d["kind"] == "lead_review" and lead and pl.get("action") == "decline":
+        db.update_lead(lead["id"], status="lost")
+        record(lead["id"], "lost", pl.get("reason", ""), who)
+        return "ปิดลูกค้ารายนี้ตามที่ CEO เสนอ"
+    if d["kind"] == "quote" and pl.get("quote_id"):
+        q = db.get_quote(pl["quote_id"])
+        return send_quote(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "payment" and pl.get("quote_id"):
+        q = db.get_quote(pl["quote_id"])
+        return confirm_payment(q, who) if q else "ไม่พบใบเสนอราคา"
+    return "รับทราบ"
+
+
+# ---------- จุดสัมผัสจากลูกค้า ----------
+def mark_opened(lead) -> None:
+    """ลูกค้าเปิดผลตรวจจากลิงก์ในอีเมล (?via=mail) — นับครั้งแรกครั้งเดียว"""
+    if lead["status"] in ("contacted", "quoted") and not any(e["kind"] == "opened" for e in db.list_lead_events(lead["id"], 200)):
+        record(lead["id"], "opened", "", "customer")
+
+
+def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str = "customer") -> int | None:
+    """ลูกค้ากด 'คุยต่อ/ขอใบเสนอราคา' หรือพิมพ์สนใจทาง LINE → สถานะตอบกลับ → CEO เสนอใบเสนอราคา (ถ้ายังไม่มีใบค้าง)"""
+    if lead["status"] == "unsubscribed":
+        return None
+    if lead["status"] in ("new", "contacted", "lost"):
+        db.update_lead(lead["id"], status="replied")
+    record(lead["id"], "replied", (message or "").strip()[:500] or f"กดคุยต่อผ่าน{via}", actor)
+    db.notify_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา" + (f": {message.strip()[:80]}" if message.strip() else ""),
+                     f"/admin/leads/{lead['id']}", "lead")
+    try:
+        line_oa.notify_owner(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}\n{public_base()}/admin/leads/{lead['id']}")
+    except Exception:
+        pass
+    if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
+        return None
+    lead = db.get_lead(lead["id"])
+    return propose_quote(lead) if lead["audit_json"] else None
+
+
+def unsubscribe(lead, actor: str = "customer") -> None:
+    """ขอไม่รับการติดต่อ: ปิดทุกช่องทาง ยกเลิกข้อเสนอที่ค้าง (ไม่นับเป็นไม่ตรงกัน) เก็บเวลาไว้เป็นหลักฐาน"""
+    db.update_lead(lead["id"], status="unsubscribed", consent=0, unsub_at=db.now())
+    record(lead["id"], "unsubscribed", "", actor)
+    for d in db.list_decisions("proposed", 500):
+        if d["lead_id"] == lead["id"]:
+            db.set_decision(d["id"], "cancelled", "system", "ลูกค้าขอไม่รับการติดต่อ")
+
+
+# ---------- ใบเสนอราคา ----------
+def create_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None,
+                 created_by: str = "ceo", notes: str = ""):
+    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
+    if setup is None:
+        setup = Q.needs_setup(report)
+    pr = Q.price_for(package, discount_pct, setup)
+    ym = db.now()[:7]
+    qid = db.add_quote(lead["id"], Q.number(ym, db.count_quotes_month(ym) + 1), leads.new_token(), pr["package"], pr["price"],
+                       pr["discount_pct"], pr["net"], pr["setup"], pr["setup_price"], pr["first_total"], Q.valid_until(), created_by, notes)
+    db.update_lead(lead["id"], package=package, monthly_thb=pr["net"])
+    return db.get_quote(qid)
+
+
+def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None) -> int:
+    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน — เรื่องเงินไม่เป็น auto ในเฟส 2 จึงรอคนเสมอ"""
+    q = create_quote(lead, package, discount_pct, setup, created_by="ceo")
+    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"]})
+    pl = {"quote_id": q["id"], "number": q["number"], "package": q["package"], "price": q["price"], "discount_pct": q["discount_pct"],
+          "net": q["net"], "setup": bool(q["setup"]), "first_total": q["first_total"], "cfo": cfo, "escalate": not cfo["ok"]}
+    did = db.add_decision("ceo", "quote", f"เสนอราคา {lead['domain']} ({q['number']})",
+                          execs.quote_proposal_text(lead, q, cfo, quote_url(q)), pl, lead_id=lead["id"])
+    db.update_quote(q["id"], decision_id=did)
+    return _maybe_auto(did)
+
+
+def send_quote(q, who: str = "admin") -> str:
+    lead = db.get_lead(q["lead_id"])
+    if lead["status"] == "unsubscribed":
+        return "ไม่ส่ง — ลูกค้าขอไม่รับการติดต่อ"
+    url = quote_url(q)
+    greet = lead["name"] or f"ทีม {lead['domain']}"
+    body = (f"สวัสดีครับ คุณ{greet}\n\nตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {lead['domain']} มาให้ครับ\n\n{Q.summary_text(q, lead['domain'])}\n\n"
+            f"เปิดดูรายละเอียด เงื่อนไข และยืนยันรับข้อเสนอได้ที่ {url}\nมีคำถามตอบอีเมลนี้ได้เลยครับ" + outreach_footer(lead))
+    sent = _send_text(lead, f"ใบเสนอราคา {q['number']} สำหรับ {lead['domain']}", body)
+    db.update_quote(q["id"], status="sent", sent_at=db.now())
+    db.update_lead(lead["id"], status="quoted", last_contacted_at=db.now())
+    record(lead["id"], "quote_sent", f"{q['number']} · " + (sent or "ไม่มีช่องทางส่งอัตโนมัติ"), who)
+    if sent:
+        return f"ส่งใบเสนอราคา {q['number']} แล้ว ({sent})"
+    return f"สร้างใบเสนอราคา {q['number']} แล้ว แต่ไม่มีอีเมล/LINE ที่ส่งได้ — ส่งลิงก์ {url} ให้ลูกค้าเอง"
+
+
+def view_quote(q) -> None:
+    if q["status"] == "sent":
+        db.update_quote(q["id"], status="viewed", viewed_at=db.now())
+        record(q["lead_id"], "quote_viewed", q["number"], "customer")
+
+
+def accept_quote(q, name: str, ip: str = "") -> str:
+    """ลูกค้ายืนยันรับข้อเสนอ (ชื่อ + ติ๊กยอมรับเงื่อนไข) → รอชำระ · คืนข้อความผิดพลาด ('' = สำเร็จ)"""
+    if Q.is_expired(q):
+        return "ใบเสนอราคานี้หมดอายุแล้ว ติดต่อเราเพื่อขอใบใหม่"
+    if q["status"] not in ("sent", "viewed"):
+        return "" if q["status"] in ("accepted", "claimed", "paid") else "ใบเสนอราคานี้ใช้ไม่ได้แล้ว"
+    if len((name or "").strip()) < 2:
+        return "กรอกชื่อผู้ยืนยัน"
+    db.update_quote(q["id"], status="accepted", accepted_at=db.now(), accepted_name=name.strip()[:120], accepted_ip=ip[:64])
+    record(q["lead_id"], "quote_accepted", f"{q['number']} โดย {name.strip()[:120]}", "customer")
+    db.notify_admins(f"✅ {db.get_lead(q['lead_id'])['domain']} ยืนยันรับข้อเสนอ {q['number']} รอชำระ {q['first_total']:,} บาท",
+                     f"/admin/leads/{q['lead_id']}", "lead")
+    return ""
+
+
+def claim_payment(q, slip_path: str | None) -> int:
+    """ลูกค้าแจ้งชำระ (แนบสลิป) → CFO เสนอ 'ยืนยันยอดเข้า' ให้เจ้าของเช็กบัญชีแล้วกดอนุมัติ → เปิดบัญชี"""
+    db.update_quote(q["id"], status="claimed", claimed_at=db.now(), slip_path=slip_path)
+    lead = db.get_lead(q["lead_id"])
+    record(lead["id"], "payment_claimed", f"{q['number']} ยอด {q['first_total']:,} บาท" + (" · แนบสลิป" if slip_path else ""), "customer")
+    pl = {"quote_id": q["id"], "number": q["number"], "amount": q["first_total"], "package": q["package"], "slip": bool(slip_path)}
+    proposal = (f"ยืนยันยอดเข้า {q['first_total']:,} บาท จาก {lead['domain']} ({q['number']} · แพ็กเกจ {q['package']})\n"
+                f"เช็กบัญชีรับเงินแล้วกดอนุมัติ → ระบบเปิดบัญชี+แบรนด์ และส่งอีเมลต้อนรับให้ลูกค้าเอง" + ("" if slip_path else "\nลูกค้าไม่ได้แนบสลิป"))
+    did = db.add_decision("cfo", "payment", f"ยอดเข้า {q['first_total']:,} บาท — {lead['domain']}", proposal, pl, lead_id=lead["id"])
+    db.notify_admins(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) รอยืนยันยอด", "/admin/decisions", "payment")
+    try:
+        line_oa.notify_owner(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) — เช็กบัญชีแล้วอนุมัติที่ {public_base()}/admin/decisions")
+    except Exception:
+        pass
+    return did
+
+
+def provision_customer(q) -> dict:
+    """เปิดบัญชี (ถ้ายังไม่มี) + ตั้งแผน + สร้างแบรนด์จากโดเมนลูกค้า + เปิดคอนเทนต์อัตโนมัติแบบร่างเหมือนลูกค้ารายอื่น"""
+    lead = db.get_lead(q["lead_id"])
+    email = (lead["email"] or "").lower().strip() or f"{lead['domain']}@geo.local"     # ไม่มีอีเมล = ที่อยู่สมมติ ให้แอดมินแก้ทีหลัง
+    tenant = db.get_tenant_by_email(email)
+    temp_pw, created = None, False
+    if tenant:
+        tid = tenant["id"]
+    else:
+        temp_pw = secrets.token_urlsafe(9)
+        tid = db.create_tenant(email, _hash_pw(temp_pw), lead["name"] or lead["domain"], is_admin=False)
+        created = True
+    db.set_plan(tid, q["package"])
+    existing = [b for b in db.list_all_brands() if leads.domain_of(b["domain"]) == lead["domain"]]
+    if existing:
+        bid = existing[0]["id"]
+    else:
+        bid = db.create_brand(tid, lead["name"] or lead["domain"], lead["site_url"], "")
+        db.set_auto_content(bid, 3)
+        db.set_autopilot(bid, True, "draft", 1)
+    return {"tenant_id": tid, "brand_id": bid, "email": email, "temp_password": temp_pw, "created": created, "brand_new": not existing}
+
+
+def confirm_payment(q, who: str = "admin") -> str:
+    """เจ้าของ/CFO ยืนยันยอดเข้า → เปิดบัญชีและแบรนด์ → ลูกค้าเป้าหมายปิดดีล → อีเมลต้อนรับ"""
+    if q["status"] == "paid":
+        return "ใบนี้ยืนยันไปแล้ว"
+    prov = provision_customer(q)
+    db.update_quote(q["id"], status="paid", paid_at=db.now(), tenant_id=prov["tenant_id"], brand_id=prov["brand_id"])
+    lead = db.get_lead(q["lead_id"])
+    db.update_lead(lead["id"], status="won", package=q["package"], monthly_thb=q["net"])
+    record(lead["id"], "paid", f"{q['number']} ยอด {q['first_total']:,} บาท", who)
+    record(lead["id"], "provisioned", f"บัญชี #{prov['tenant_id']} ({'ใหม่' if prov['created'] else 'เดิม'}) · แบรนด์ #{prov['brand_id']}", who)
+    record(lead["id"], "won", f"แพ็กเกจ {q['package']} {q['net']:,} บาท/เดือน", who)
+    base = public_base()
+    note = ""
+    if mailer.is_deliverable(prov["email"]) and mailer.config():
+        pw_line = f"<p>รหัสผ่านชั่วคราว: <code>{_html.escape(prov['temp_password'])}</code> — เข้าแล้วเปลี่ยนได้ที่เมนู <b>บัญชี → เปลี่ยนรหัสผ่าน</b></p>" if prov["temp_password"] else "<p>ใช้บัญชีเดิมที่มีอยู่เข้าสู่ระบบได้เลย</p>"
+        html = mailer.wrap_html(f"บัญชีของ {lead['domain']} พร้อมแล้ว",
+                                f"<p>ขอบคุณที่ใช้บริการเจอ.AI ครับ เรายืนยันยอดชำระตามใบเสนอราคา {q['number']} แล้ว</p>"
+                                f"<p>เข้าสู่ระบบ: <a href='{base}/login'>{base}/login</a><br>อีเมล: {_html.escape(prov['email'])}</p>{pw_line}"
+                                f"<p>ขั้นต่อไป: เปิดแบรนด์ของคุณในระบบ → หน้า \"ติดตั้ง\" เพื่อเชื่อม /geo, llms.txt และ sitemap เข้ากับเว็บ จากนั้นระบบจะคิดคำถาม วัดผล และร่างคอนเทนต์ให้ทุกสัปดาห์ (เริ่มเป็นโหมดร่าง คุณตรวจก่อนเผยแพร่ได้)</p>"
+                                f"<p>สัญญาบริการ: <a href='{base}/q/{q['token']}/contract'>{base}/q/{q['token']}/contract</a></p>",
+                                "ข้อความนี้ส่งจากระบบของเจอ.AI")
+        try:
+            mailer.send(prov["email"], f"บัญชีเจอ.AI ของ {lead['domain']} พร้อมแล้ว", html,
+                        text=f"ยืนยันยอดชำระ {q['number']} แล้ว เข้าสู่ระบบที่ {base}/login ด้วยอีเมล {prov['email']}")
+            note = f" · ส่งอีเมลต้อนรับถึง {prov['email']}"
+        except Exception as e:
+            note = f" · ส่งอีเมลต้อนรับไม่สำเร็จ ({type(e).__name__})"
+    else:
+        note = " · ไม่มีอีเมลจริงของลูกค้า — แจ้งรหัสเข้าใช้เอง (แก้อีเมลบัญชีที่หน้าผู้ดูแล)"
+    return (f"ยืนยันยอด {q['first_total']:,} บาทแล้ว · เปิดบัญชี{'ใหม่' if prov['created'] else 'เดิม'} + แบรนด์{'ใหม่' if prov['brand_new'] else 'เดิม'} "
+            f"แพ็กเกจ {q['package']} · ลูกค้า {lead['domain']} ปิดดีล" + note)
+
+
+# ---------- LINE: ลูกค้าทักเข้ามาเอง ----------
+def _spawn(fn) -> None:
+    if RUN_INLINE:
+        fn()
+    else:
+        threading.Thread(target=fn, daemon=True).start()
+
+
+def line_result_message(lead) -> str:
+    rep = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
+    sc = leads.score_audit(rep)
+    top = leads.public_summary(rep, 3)
+    lines = [f"ผลตรวจ {lead['domain']}: ผ่าน {sc['n_ok']} ข้อ ต้องแก้ {sc['n_fail']} ข้อ"]
+    lines += [f"• {s['label']} — {s['why']}" for s in top]
+    lines.append(f"ดูผลเต็ม: {result_url(lead, 'line')}")
+    lines.append("อยากให้ส่งแผนแก้พร้อมราคา พิมพ์ \"สนใจ\" ได้เลยครับ")
+    return "\n".join(lines)
+
+
+def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
+    """ข้อความจากผู้ใช้ LINE: รหัสผูกเจ้าของ · ที่อยู่เว็บ → ตรวจฟรี · 'สนใจ' → ขอใบเสนอราคา · อื่น ๆ → วิธีใช้ · คืนชื่อกิ่งที่เดิน"""
+    t = (text or "").strip()
+    if t and t == line_oa.link_code():
+        line_oa.set_owner(user_id)
+        line_oa.reply(reply_token, ["ผูกบัญชีเจ้าของแล้ว ✓ จากนี้สรุปเช้า lead ใหม่ และข้อเสนอที่รออนุมัติจะส่งมาที่นี่"])
+        return "owner_linked"
+    url = leads.first_url(t)
+    if url:
+        return line_site_request(user_id, url, reply_token)
+    lead = db.get_lead_by_line_user(user_id)
+    if lead and any(k in t for k in ("สนใจ", "ราคา", "ใบเสนอ", "แพ็กเกจ", "คุยต่อ")):
+        if not lead["consent"]:
+            db.update_lead(lead["id"], consent=1, contact=lead["contact"] or "LINE")
+        did = lead_replied(lead, t, via="LINE")
+        line_oa.reply(reply_token, [f"รับทราบครับ ทีม {line_oa.bot_name()} จะส่งใบเสนอราคาสำหรับ {lead['domain']} ให้ภายใน 1 วันทำการ"
+                                    + (" (รอเจ้าของอนุมัติ)" if did else "")])
+        return "replied"
+    line_oa.reply(reply_token, [f"พิมพ์ที่อยู่เว็บของคุณมาได้เลย (เช่น example.co.th) {line_oa.bot_name()} จะตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI ให้ฟรี ใช้เวลาราวครึ่งนาที"])
+    return "help"
+
+
+def line_site_request(user_id: str, url: str, reply_token: str | None = None) -> str:
+    site = leads.normalize_url(url)
+    if not site:
+        line_oa.reply(reply_token, ["อ่านที่อยู่เว็บไม่ออก ลองพิมพ์แบบ example.co.th"])
+        return "bad_url"
+    since = (datetime.datetime.now() - datetime.timedelta(hours=leads.REUSE_AUDIT_HOURS)).isoformat(timespec="seconds")
+    if db.count_line_audits_since(user_id, since) >= leads.LINE_AUDITS_PER_USER_PER_DAY:
+        line_oa.reply(reply_token, [f"วันนี้ตรวจครบ {leads.LINE_AUDITS_PER_USER_PER_DAY} เว็บแล้ว พรุ่งนี้ตรวจต่อได้ครับ"])
+        return "limit"
+    dom = leads.domain_of(site)
+    recent = db.find_lead_by_domain(dom)
+    if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
+        if not recent["line_user_id"]:
+            db.update_lead(recent["id"], line_user_id=user_id)
+        record(recent["id"], "line", f"ขอผลตรวจซ้ำ (ใช้ผลเดิมใน {leads.REUSE_AUDIT_HOURS} ชม.)", "customer")
+        line_oa.reply(reply_token, [line_result_message(db.get_lead(recent["id"]))])
+        return "cached"
+    if recent and not recent["line_user_id"]:
+        db.update_lead(recent["id"], line_user_id=user_id)
+        lid = recent["id"]
+    elif recent:
+        lid = recent["id"]
+    else:
+        lid = db.add_lead(site, dom, source="line")
+        db.update_lead(lid, line_user_id=user_id, contact="LINE")
+    record(lid, "line", f"ขอตรวจ {dom}", "customer")
+    line_oa.reply(reply_token, [f"รับเรื่องแล้วครับ กำลังตรวจ {dom} ใช้เวลาราวครึ่งนาที เดี๋ยวส่งผลมาที่แชตนี้"])
+
+    def work():
+        try:
+            run_lead_audit(lid, site)
+            line_oa.push(user_id, [line_result_message(db.get_lead(lid))])
+        except Exception as e:
+            line_oa.push(user_id, [f"ตรวจ {dom} ไม่สำเร็จ ({type(e).__name__}) ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้"])
+    _spawn(work)
+    return "started"
+
+
+def handle_line_webhook(body: dict) -> list[str]:
+    """รับ event ที่ตรวจลายเซ็นแล้ว · คืนรายการกิ่งที่เดิน (ไว้ log/ทดสอบ)"""
+    out = []
+    for ev in line_oa.parse_events(body):
+        if ev["type"] == "follow":
+            line_oa.reply(ev["reply_token"], [f"สวัสดีครับ นี่คือ {line_oa.bot_name()} 👋 พิมพ์ที่อยู่เว็บของคุณมาได้เลย เราจะตรวจฟรีว่าเว็บโผล่ใน Google และคำตอบของ AI หรือยัง"])
+            out.append("follow")
+        elif ev["type"] == "message" and ev["text"]:
+            out.append(line_text(ev["user_id"], ev["text"], ev["reply_token"]))
+        else:
+            out.append(ev["type"] or "ignored")
+    return out

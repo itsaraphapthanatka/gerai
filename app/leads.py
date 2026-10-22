@@ -7,9 +7,17 @@ import secrets
 from urllib.parse import urlparse
 
 STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("replied", "ตอบกลับ"),
-            ("quoted", "เสนอราคาแล้ว"), ("won", "ปิดดีล"), ("lost", "ไม่สนใจ")]
+            ("quoted", "เสนอราคาแล้ว"), ("won", "ปิดดีล"), ("lost", "ไม่สนใจ"), ("unsubscribed", "ขอไม่รับการติดต่อ")]
 STATUS_LABEL = dict(STATUSES)
-SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง"}
+PIPELINE = ["new", "contacted", "replied", "quoted", "won"]      # ลำดับขั้นดีล (lost / unsubscribed อยู่นอกสาย)
+NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
+SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA"}
+EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
+               "replied": "ตอบกลับ / ขอใบเสนอราคา", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
+               "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",
+               "provisioned": "เปิดบัญชีและแบรนด์", "won": "ปิดดีล", "lost": "ปิดเป็นไม่สนใจ", "unsubscribed": "ขอไม่รับการติดต่อ",
+               "note": "บันทึก", "status": "เปลี่ยนสถานะ", "line": "ข้อความ LINE"}
+LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ
 # ข้อที่วัดจากข้อมูลในแพลตฟอร์มของเรา (คอนเทนต์ที่เราเผยแพร่ให้ / ปลั๊กอิน WordPress) — เว็บคนนอกยังไม่มี จึงไม่นับและไม่โชว์
@@ -111,3 +119,26 @@ def parse_import(text: str) -> list[dict]:
 
 def new_token() -> str:
     return secrets.token_urlsafe(9)
+
+
+def funnel(rows) -> dict:
+    """นับลูกค้าต่อขั้น + อัตราแปลงสะสม (ทักแล้ว → ตอบกลับ → ปิดดีล) จากแถว leads · ขั้นถัดไปนับรวมเป็น 'ถึงขั้นก่อนหน้าแล้ว' ด้วย"""
+    n = {k: 0 for k, _ in STATUSES}
+    for r in rows:
+        n[r["status"]] = n.get(r["status"], 0) + 1
+    reached = lambda stage: sum(n.get(k, 0) for k in PIPELINE[PIPELINE.index(stage):])
+    contacted, replied, won = reached("contacted"), reached("replied"), n.get("won", 0)
+    return {"n": n, "contacted": contacted, "replied": replied, "quoted": reached("quoted"), "won": won,
+            "reply_rate": round(replied / contacted * 100) if contacted else None,
+            "close_rate": round(won / replied * 100) if replied else None}
+
+
+def first_url(text: str) -> str | None:
+    """ดึงที่อยู่เว็บตัวแรกจากข้อความแชต ('ช่วยตรวจ shop.co.th หน่อย' → 'shop.co.th')"""
+    for tok in re.split(r"\s+", text or ""):
+        t = tok.strip("()[]<>\"'“”‘’,;!?")
+        if not t or "@" in t:
+            continue
+        if re.match(r"^(https?://)?[\w.\-฀-๿]+\.[a-z฀-๿]{2,}(:\d+)?(/\S*)?$", t, re.I) and normalize_url(t):
+            return t
+    return None

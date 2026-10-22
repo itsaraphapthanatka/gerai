@@ -187,6 +187,43 @@ def _tables() -> list[str]:
             decided_by TEXT,
             result TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS lead_events (
+            id {_PK},
+            lead_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            note TEXT,
+            actor TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS quotes (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            lead_id INTEGER NOT NULL,
+            number TEXT NOT NULL,
+            token TEXT NOT NULL,
+            package TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            discount_pct REAL NOT NULL DEFAULT 0,
+            net INTEGER NOT NULL,
+            setup INTEGER NOT NULL DEFAULT 0,
+            setup_price INTEGER NOT NULL DEFAULT 0,
+            first_total INTEGER NOT NULL,
+            valid_until TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            sent_at TEXT,
+            viewed_at TEXT,
+            accepted_at TEXT,
+            accepted_name TEXT,
+            accepted_ip TEXT,
+            claimed_at TEXT,
+            slip_path TEXT,
+            paid_at TEXT,
+            tenant_id INTEGER,
+            brand_id INTEGER,
+            decision_id INTEGER,
+            notes TEXT,
+            created_by TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -308,6 +345,9 @@ def init_db() -> None:
         _ensure_column(c, "ai_visibility", "cost_usd", "REAL")  # ค่าใช้จ่ายจริงต่อรอบ จาก usage ที่ API ส่งกลับ
         _ensure_column(c, "brands", "autopilot", "INTEGER DEFAULT 0")            # เปิด Autopilot รายสัปดาห์
         _ensure_column(c, "brands", "autopilot_mode", "TEXT DEFAULT 'draft'")    # draft | publish
+        for col, ddl in (("line_user_id", "TEXT"), ("package", "TEXT"), ("monthly_thb", "INTEGER"),
+                         ("last_contacted_at", "TEXT"), ("unsub_at", "TEXT")):
+            _ensure_column(c, "leads", col, ddl)      # เฟส 2: ช่องทาง LINE · ดีล · ขอไม่รับการติดต่อ
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
         _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
@@ -1094,7 +1134,8 @@ def get_content_gaps(brand_id: int):
 
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
-LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain"}
+LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1188,16 +1229,115 @@ def set_decision(did: int, status: str, decided_by: str = None, result: str = No
                   (status, now(), decided_by, result, did))
 
 
-def decision_stats() -> dict:
-    """ตรงกับเจ้าของ = อนุมัติ (approved/executed) ÷ ที่ตัดสินแล้วทั้งหมด — ตัวเลขด่าน 1 (ต้อง ≥ 95%)"""
+def decision_stats(kind: str = None) -> dict:
+    """ตรงกับเจ้าของ = อนุมัติ (approved/executed) ÷ ที่ตัดสินแล้วทั้งหมด — ตัวเลขด่าน (ต้อง ≥ 95%) · kind = นับเฉพาะเรื่องนั้น"""
     with get_conn() as c:
-        rows = c.execute("SELECT status, COUNT(*) AS n FROM decisions WHERE kind != 'digest' GROUP BY status").fetchall()
+        if kind:
+            rows = c.execute(q("SELECT status, COUNT(*) AS n FROM decisions WHERE kind=? GROUP BY status"), (kind,)).fetchall()
+        else:
+            rows = c.execute("SELECT status, COUNT(*) AS n FROM decisions WHERE kind != 'digest' GROUP BY status").fetchall()
     by = {r["status"]: r["n"] for r in rows}
     agreed = by.get("approved", 0) + by.get("executed", 0)
     decided = agreed + by.get("rejected", 0)
     return {"proposed": by.get("proposed", 0), "agreed": agreed, "rejected": by.get("rejected", 0), "decided": decided,
             "agreement_pct": round(agreed / decided * 100) if decided else None}
 
+
+
+def list_decisions_since(since_ts: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM decisions WHERE created_at >= ? AND kind != 'digest' ORDER BY id DESC"), (since_ts,)).fetchall()
+
+
+# ---- ไทม์ไลน์ลูกค้าเป้าหมาย (เฟส 2) ----
+def add_lead_event(lead_id: int, kind: str, note: str = "", actor: str = "system") -> int:
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO lead_events(lead_id,created_at,kind,note,actor) VALUES(?,?,?,?,?) RETURNING id"),
+                        (lead_id, now(), kind, (note or "")[:1000], actor))
+        return cur.fetchone()["id"]
+
+
+def list_lead_events(lead_id: int, limit: int = 100):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM lead_events WHERE lead_id=? ORDER BY id DESC LIMIT ?"), (lead_id, limit)).fetchall()
+
+
+def leads_with_event(kind: str, since_ts: str) -> set:
+    with get_conn() as c:
+        rows = c.execute(q("SELECT DISTINCT lead_id FROM lead_events WHERE kind=? AND created_at >= ?"), (kind, since_ts)).fetchall()
+    return {r["lead_id"] for r in rows}
+
+
+def count_events(kind: str, since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM lead_events WHERE kind=? AND created_at >= ?"), (kind, since_ts)).fetchone()["n"]
+
+
+def get_lead_by_line_user(uid: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE line_user_id=? ORDER BY id DESC LIMIT 1"), (uid,)).fetchone()
+
+
+def count_line_audits_since(uid: str, since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE line_user_id=? AND audit_at >= ?"), (uid, since_ts)).fetchone()["n"]
+
+
+# ---- ใบเสนอราคา (เฟส 2) ----
+QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name", "accepted_ip", "claimed_at", "slip_path",
+                "paid_at", "tenant_id", "brand_id", "decision_id", "notes", "valid_until"}
+
+
+def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,
+              setup: bool, setup_price: int, first_total: int, valid_until: str, created_by: str = "ceo", notes: str = "") -> int:
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO quotes(created_at,lead_id,number,token,package,price,discount_pct,net,setup,setup_price,"
+                          "first_total,valid_until,status,created_by,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?) RETURNING id"),
+                        (now(), lead_id, number, token, package, price, discount_pct, net, 1 if setup else 0, setup_price,
+                         first_total, valid_until, created_by, notes or None))
+        return cur.fetchone()["id"]
+
+
+def get_quote(qid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM quotes WHERE id=?"), (qid,)).fetchone()
+
+
+def get_quote_by_token(token: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM quotes WHERE token=?"), (token,)).fetchone()
+
+
+def list_quotes(lead_id: int = None, status: str = None, limit: int = 100):
+    sql, args = "SELECT * FROM quotes WHERE 1=1", []
+    if lead_id is not None:
+        sql += " AND lead_id=?"
+        args.append(lead_id)
+    if status:
+        sql += " AND status=?"
+        args.append(status)
+    sql += " ORDER BY id DESC LIMIT ?"
+    args.append(limit)
+    with get_conn() as c:
+        return c.execute(q(sql), tuple(args)).fetchall()
+
+
+def update_quote(qid: int, **fields) -> None:
+    cols = [k for k in fields if k in QUOTE_FIELDS]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE quotes SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (qid,))
+
+
+def count_quotes_month(ym: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM quotes WHERE created_at LIKE ?"), (ym + "%",)).fetchone()["n"]
+
+
+def count_quotes_paid_since(since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM quotes WHERE status='paid' AND paid_at >= ?"), (since_ts,)).fetchone()["n"]
 
 # ---- WordPress connections ----
 def upsert_wp_connection(brand_id, site_url, auth_user, auth_secret, status, mode="rest", api_key=None) -> None:

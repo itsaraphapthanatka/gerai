@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ lead['domain'] }} — ลูกค้าเป้าหมาย{% endblock %}
+{% block content %}
+<p class="muted" style="margin-bottom:6px"><a class="link" href="/admin/leads">← ลูกค้าเป้าหมาย</a></p>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+  <h1 style="margin:0">{{ lead['domain'] }}</h1>
+  {% if sc %}<span class="pill {{ 'no' if sc.score >= 50 else ('admin' if sc.score >= 25 else 'ok') }}">โอกาส {{ sc.level }} {{ sc.score }}</span>{% endif %}
+  <span class="pill">{{ sources.get(lead['source'], lead['source']) }}</span>
+  <form method="post" action="/admin/leads/{{ lead['id'] }}/status" style="margin-left:auto">
+    <select name="status" onchange="this.form.submit()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
+      {% for k, label in statuses %}<option value="{{ k }}" {% if lead['status']==k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+<p class="muted">สร้างเมื่อ {{ (lead['created_at'] or '')[:16].replace('T',' ') }}{% if lead['last_contacted_at'] %} · ทักล่าสุด {{ lead['last_contacted_at'][:16].replace('T',' ') }}{% endif %}{% if lead['package'] %} · แพ็กเกจ {{ lead['package'] }} {{ "{:,}".format(lead['monthly_thb'] or 0) }} บาท/เดือน{% endif %}</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if lead['status'] == 'unsubscribed' %}<div class="err-banner">ลูกค้าขอไม่รับการติดต่อเมื่อ {{ (lead['unsub_at'] or '')[:16].replace('T',' ') }} — ระบบไม่ส่งข้อความใด ๆ ถึงรายนี้อีก</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ติดต่อ</h2>
+    <div style="font-size:13.5px;line-height:1.8">
+      <div><span class="muted">ชื่อ</span> {{ lead['name'] or '—' }}</div>
+      <div><span class="muted">อีเมล</span> {{ lead['email'] or '—' }}</div>
+      <div><span class="muted">LINE/โทร</span> {{ lead['contact'] or '—' }}{% if lead['line_user_id'] %} <span class="pill ok" style="font-size:10px">LINE ผูกแล้ว</span>{% endif %}</div>
+      <div><span class="muted">ยินยอมติดต่อ</span> {{ 'ใช่' if lead['consent'] else 'ยังไม่ได้ให้' }}</div>
+      <div><span class="muted">เว็บ</span> <a class="link" href="{{ lead['site_url'] }}" target="_blank">{{ lead['site_url'] }}</a></div>
+    </div>
+    {% if lead['status'] != 'unsubscribed' %}
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/unsubscribe" style="margin-top:10px" onsubmit="return confirm('บันทึกว่าลูกค้าขอไม่รับการติดต่อ? ข้อเสนอที่ค้างจะถูกยกเลิก')"><button class="btn ghost sm" type="submit">ลูกค้าขอไม่รับการติดต่อ</button></form>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ผลตรวจเว็บ {% if lead['token'] and lead['audit_json'] %}<a class="link" href="/audit/{{ lead['token'] }}" target="_blank" style="font-size:12px;font-weight:400">เปิดหน้าผล ↗</a>{% endif %}</h2>
+    {% if sc %}
+    <div class="muted" style="font-size:12.5px">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }} · ผ่าน {{ sc.n_ok }} ตก {{ sc.n_fail }}</div>
+    {% for s in summary %}<div style="font-size:13.5px;margin-top:6px"><b>{{ s.label }}</b><div class="muted" style="font-size:12.5px">{{ s.why }}</div></div>{% endfor %}
+    {% if not summary %}<div class="muted" style="font-size:13px;margin-top:6px">ผ่านทุกข้อที่ตรวจ</div>{% endif %}
+    {% else %}<p class="muted" style="font-size:13px">ยังไม่ตรวจ</p>{% endif %}
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/audit" style="margin-top:10px"><button class="btn ghost sm" type="submit">{{ 'ตรวจใหม่' if sc else 'ตรวจเว็บ' }} (ราวครึ่งนาที)</button></form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ให้ผู้บริหารเอเจนต์ทำ</h2>
+    {% if pending %}
+      <div class="muted" style="font-size:13px">ข้อเสนอรออนุมัติ {{ pending|length }} เรื่อง — <a class="link" href="/admin/decisions">ไปหน้าการตัดสินใจ</a></div>
+      {% for d in pending %}<div style="font-size:13px;margin-top:4px"><span class="pill">{{ kinds.get(d['kind'], d['kind']) }}</span> {{ d['title'] }}</div>{% endfor %}
+    {% elif lead['status'] in ('unsubscribed', 'won') %}
+      <div class="muted" style="font-size:13px">ไม่มีงานให้เสนอสำหรับสถานะนี้</div>
+    {% else %}
+      <form method="post" action="/admin/leads/{{ lead['id'] }}/propose" style="display:inline"><button class="btn sm" type="submit" {% if not lead['audit_json'] %}disabled title="ต้องตรวจเว็บก่อน"{% endif %}>CEO คัด + ร่างข้อความทัก</button></form>
+      <div class="muted" style="font-size:12px;margin-top:6px">หรือสร้างใบเสนอราคาเองด้านล่าง (ถือเป็นการตัดสินใจของคุณ ส่งได้ทันที)</div>
+    {% endif %}
+    <h3 style="font-size:13.5px;margin:14px 0 6px">ใบเสนอราคาใหม่</h3>
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/quote" style="display:grid;gap:8px;font-size:13px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select name="package" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
+          {% for k in packages %}<option value="{{ k }}">{{ plans[k].label }} {{ "{:,}".format(plans[k].price) }} บาท/เดือน</option>{% endfor %}
+        </select>
+        <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลด %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
+      </div>
+      <label style="font-size:12.5px"><input type="checkbox" name="setup" value="1" {% if needs_setup %}checked{% endif %}> รวม GEO Setup ครั้งเดียว {{ "{:,}".format(setup_price) }} บาท{% if needs_setup %} (แนะนำ: เว็บตกข้อโครงสร้าง){% endif %}</label>
+      <label style="font-size:12.5px"><input type="checkbox" name="send" value="1" checked> ส่งให้ลูกค้าทันที (อีเมล/LINE ที่มี)</label>
+      <div><button class="btn ghost sm" type="submit" {% if lead['status'] == 'unsubscribed' %}disabled{% endif %}>สร้างใบเสนอราคา</button></div>
+    </form>
+  </div>
+</div>
+
+<h2>ใบเสนอราคา</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if quotes %}
+  <table>
+    <thead><tr><th>เลขที่</th><th>แพ็กเกจ</th><th>สุทธิ/เดือน</th><th>งวดแรก</th><th>สถานะ</th><th>ใช้ได้ถึง</th><th></th></tr></thead>
+    <tbody>
+    {% for q in quotes %}
+    <tr>
+      <td><b>{{ q['number'] }}</b><div class="muted" style="font-size:11.5px">{{ (q['created_at'] or '')[:10] }} · โดย {{ q['created_by'] }}</div></td>
+      <td>{{ q['package'] }}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}</td>
+      <td>{{ "{:,}".format(q['net']) }}</td>
+      <td>{{ "{:,}".format(q['first_total']) }}</td>
+      <td><span class="pill {{ 'ok' if q['status'] in ('paid','accepted','claimed') else ('no' if q['status'] in ('expired','cancelled') else '') }}">{{ qstatus.get(q['status'], q['status']) }}</span>{% if q['accepted_name'] %}<div class="muted" style="font-size:11.5px">ยืนยันโดย {{ q['accepted_name'] }}</div>{% endif %}</td>
+      <td class="muted" style="font-size:12px">{{ q['valid_until'] }}</td>
+      <td style="white-space:nowrap;font-size:12.5px">
+        <a class="link" href="/q/{{ q['token'] }}" target="_blank">เปิด ↗</a>
+        {% if q['status'] in ('draft','sent','viewed') and lead['status'] != 'unsubscribed' %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/send" style="display:inline"><button class="btn ghost sm" type="submit">{{ 'ส่งซ้ำ' if q['status'] != 'draft' else 'ส่ง' }}</button></form>{% endif %}
+        {% if q['slip_path'] %} · <a class="link" href="/admin/quotes/{{ q['id'] }}/slip" target="_blank">สลิป</a>{% endif %}
+        {% if q['status'] in ('accepted','claimed') %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/confirm" style="display:inline" onsubmit="return confirm('ยืนยันว่ายอด {{ "{:,}".format(q['first_total']) }} บาทเข้าบัญชีแล้ว? ระบบจะเปิดบัญชี+แบรนด์และส่งอีเมลต้อนรับ')"><button class="btn sm" type="submit">ยืนยันยอดเข้า</button></form>{% endif %}
+        {% if q['status'] in ('draft','sent','viewed','accepted') %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/cancel" style="display:inline"><button class="btn ghost sm" type="submit">ยกเลิก</button></form>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div style="padding:18px" class="muted">ยังไม่มีใบเสนอราคา — เกิดเองเมื่อลูกค้ากด "ขอใบเสนอราคา" (CEO เสนอให้คุณอนุมัติ) หรือสร้างเองด้านบน</div>{% endif %}
+</div>
+
+<h2>ไทม์ไลน์</h2>
+<div class="card">
+  <form method="post" action="/admin/leads/{{ lead['id'] }}/note" style="display:flex;gap:8px;margin-bottom:12px">
+    <input type="text" name="note" placeholder="บันทึก เช่น โทรคุยแล้ว นัดสาธิตพุธหน้า" maxlength="500" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+    <button class="btn ghost sm" type="submit">บันทึก</button>
+  </form>
+  {% if events %}
+  <div style="display:grid;gap:6px;font-size:13px">
+  {% for e in events %}
+    <div style="display:flex;gap:10px;align-items:baseline"><span class="muted" style="white-space:nowrap;font-size:12px;min-width:120px">{{ (e['created_at'] or '')[:16].replace('T',' ') }}</span><b style="min-width:150px">{{ labels.get(e['kind'], e['kind']) }}</b><span>{{ e['note'] or '' }}</span><span class="muted" style="font-size:11.5px;margin-left:auto">{{ e['actor'] }}</span></div>
+  {% endfor %}
+  </div>
+  {% else %}<div class="muted" style="font-size:13px">ยังไม่มีเหตุการณ์</div>{% endif %}
+</div>
+{% endblock %}

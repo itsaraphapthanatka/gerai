@@ -5,6 +5,11 @@
 <p class="muted">รายชื่อจากหน้า "ตรวจเว็บฟรี" และที่นำเข้าเอง · CEO เอเจนต์คัดและร่างข้อความทักให้ แล้วคุณกดยืนยันที่หน้า <a class="link" href="/admin/decisions">การตัดสินใจ</a></p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 
+<div class="card" style="margin-bottom:14px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+  {% for k in pipeline %}<div style="text-align:center;min-width:76px"><div class="muted" style="font-size:12px">{{ status_label[k] }}</div><div class="sov">{{ funnel.n.get(k, 0) }}</div></div>{% if not loop.last %}<div class="muted">→</div>{% endif %}{% endfor %}
+  <div class="muted" style="font-size:12.5px;line-height:1.7;margin-left:auto">ทักแล้ว → ตอบกลับ <b>{{ funnel.reply_rate if funnel.reply_rate is not none else '—' }}%</b> · ตอบกลับ → ปิดดีล <b>{{ funnel.close_rate if funnel.close_rate is not none else '—' }}%</b><br>ไม่สนใจ {{ funnel.n.get('lost', 0) }} · ขอไม่รับการติดต่อ {{ funnel.n.get('unsubscribed', 0) }} · ด่านดูที่<a class="link" href="/admin/decisions">หน้าการตัดสินใจ</a></div>
+</div>
+
 <div class="card" style="margin-bottom:14px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <a class="btn ghost sm {{ 'active' if not filter }}" href="/admin/leads">ทั้งหมด</a>
@@ -21,7 +26,7 @@
     <tbody>
     {% for l in leads %}
     <tr style="{% if l['status']=='new' %}background:var(--purple-tint){% endif %}">
-      <td><b>{{ l['domain'] }}</b>{% if l['token'] and l['audit_json'] %} <a class="link" href="/audit/{{ l['token'] }}" target="_blank" style="font-size:12px">ผลตรวจ ↗</a>{% endif %}
+      <td><a class="link" href="/admin/leads/{{ l['id'] }}"><b>{{ l['domain'] }}</b></a>{% if l['token'] and l['audit_json'] %} <a class="link" href="/audit/{{ l['token'] }}" target="_blank" style="font-size:12px">ผลตรวจ ↗</a>{% endif %}
         {% if l['sc'] %}<div class="muted" style="font-size:11.5px">{{ l['sc'].n_fail }} ข้อตก · {{ l['sc'].reasons[0] if l['sc'].reasons else 'ผ่านทุกข้อ' }}</div>{% endif %}</td>
       <td class="muted">{{ sources.get(l['source'], l['source']) }}</td>
       <td>{% if l['sc'] %}<span class="pill {{ 'no' if l['sc'].score >= 50 else ('admin' if l['sc'].score >= 25 else 'ok') }}">{{ l['sc'].level }} {{ l['sc'].score }}</span>{% else %}<span class="muted">ยังไม่ตรวจ</span>{% endif %}</td>
@@ -35,6 +40,7 @@
       </td>
       <td class="muted" style="white-space:nowrap;font-size:12px">{{ (l['created_at'] or '')[:16].replace('T',' ') }}</td>
       <td style="white-space:nowrap">
+        <a class="btn ghost sm" href="/admin/leads/{{ l['id'] }}">เปิด</a>
         {% if not l['audit_json'] %}<form method="post" action="/admin/leads/{{ l['id'] }}/audit" style="display:inline"><button class="btn ghost sm" type="submit">ตรวจเว็บ</button></form>
         {% elif l['pending'] %}<a class="btn ghost sm" href="/admin/decisions">รอยืนยัน {{ l['pending'] }}</a>
         {% elif l['status'] in ('new', 'replied') %}<form method="post" action="/admin/leads/{{ l['id'] }}/propose" style="display:inline"><button class="btn ghost sm" type="submit">ให้ CEO เสนอ</button></form>{% endif %}

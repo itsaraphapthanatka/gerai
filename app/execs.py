@@ -17,7 +17,20 @@ MANDATE = {
     "min_margin_pct": 70,
 }
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO"}
-KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "digest": "สรุปเช้า"}
+KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "digest": "สรุปเช้า"}
+# เฟส 2: สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ · เรื่องเงิน (quote/payment) เป็นเรื่องสุดท้าย (เฟส 3) จึงยังไม่อยู่ในรายการ
+AUTO_ELIGIBLE = {"lead_review", "outreach"}
+AUTO_MIN_DECIDED = 20
+AUTO_MIN_AGREEMENT = 95
+PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
+# ด่านท้ายเฟส (ตัวเลขจากเอกสารแผน) — ผ่านด้วยตัวเลขจริง ไม่ใช่ตามปฏิทิน
+GATES = {
+    1: {"audits_week": 20, "reply_rate": 10, "close_rate": 20, "new_paying": 1, "agreement": 95, "escalations_week": None},
+    2: {"audits_week": 50, "reply_rate": 15, "close_rate": 25, "new_paying": 3, "agreement": 95, "escalations_week": 10},
+    3: {"audits_week": 80, "reply_rate": 15, "close_rate": 30, "new_paying": 5, "agreement": None, "escalations_week": 5},
+}
+GATE_LABEL = {"audits_week": "เว็บที่ตรวจฟรีต่อสัปดาห์", "reply_rate": "ผลตรวจ → คุยต่อ (%)", "close_rate": "คุยต่อ → จ่ายเงิน (%)",
+              "new_paying": "ลูกค้าใหม่ที่จ่ายเงินสะสม", "agreement": "ตัดสินใจตรงกับเจ้าของ (%)", "escalations_week": "เรื่องส่งกลับเจ้าของต่อสัปดาห์ (ไม่เกิน)"}
 FORBIDDEN = re.compile(r"การันตี|รับประกัน(?:อันดับ|ผล)|อันดับ\s*1\s*แน่นอน|100\s*%", re.I)
 MIN_SCORE_TO_PURSUE = 15
 
@@ -121,11 +134,117 @@ def cto_status() -> dict:
             "image_generate": cap.get("generate"), "image_model": cap.get("image_model")}
 
 
-def digest_text(today: str, leads_new: int, leads_total: int, pending: list, payments: int, cto: dict, stats: dict) -> str:
-    lines = [f"สรุปเช้า {today} — ผู้บริหารเอเจนต์ (โหมดเสนอ)", ""]
+def current_phase() -> int:
+    from . import db
+    try:
+        return int(db.get_setting("agent_phase") or 2)
+    except ValueError:
+        return 2
+
+
+def paused() -> bool:
+    """ปุ่มหยุดฉุกเฉิน: ไม่มีเรื่องใดทำอัตโนมัติ (ข้อเสนอยังสร้างได้ แต่รอคนทั้งหมด)"""
+    from . import db
+    return db.get_setting("agents_paused") == "1"
+
+
+def set_paused(on: bool) -> None:
+    from . import db
+    db.set_setting("agents_paused", "1" if on else "0")
+
+
+def auto_gate(kind: str) -> dict:
+    """เรื่องนี้สลับเป็นตัดสินเองได้ไหม: อยู่ในรายการเฟสนี้ + ตัดสินแล้ว ≥ 20 เรื่อง + ตรงกัน ≥ 95% · บังคับในโค้ด ไม่ใช่แค่ปุ่ม"""
+    from . import db
+    st = db.decision_stats(kind)
+    eligible = kind in AUTO_ELIGIBLE
+    enough = st["decided"] >= AUTO_MIN_DECIDED and (st["agreement_pct"] or 0) >= AUTO_MIN_AGREEMENT
+    on = db.get_setting(f"auto_{kind}") == "1"
+    if not eligible:
+        reason = "เรื่องเงิน — เปิดได้ในเฟส 3 เท่านั้น"
+    elif not enough:
+        reason = (f"ต้องตัดสินแล้ว ≥ {AUTO_MIN_DECIDED} เรื่องและตรงกัน ≥ {AUTO_MIN_AGREEMENT}% "
+                  f"(ตอนนี้ {st['decided']} เรื่อง · {st['agreement_pct'] if st['agreement_pct'] is not None else '—'}%)")
+    else:
+        reason = ""
+    return {"kind": kind, "label": KINDS.get(kind, kind), "stats": st, "eligible": eligible, "enough": enough,
+            "allowed": eligible and enough, "on": bool(on and eligible and enough), "reason": reason}
+
+
+def auto_enabled(kind: str) -> bool:
+    return not paused() and auto_gate(kind)["on"]
+
+
+def set_auto(kind: str, on: bool) -> tuple[bool, str]:
+    from . import db
+    gate = auto_gate(kind)
+    if on and not gate["allowed"]:
+        return False, gate["reason"]
+    db.set_setting(f"auto_{kind}", "1" if on else "0")
+    return True, ""
+
+
+def mode_label() -> str:
+    if paused():
+        return "หยุดฉุกเฉิน"
+    on = [KINDS[k] for k in AUTO_ELIGIBLE if auto_gate(k)["on"]]
+    return "โหมดเสนอ" + (f" · ตัดสินเอง: {', '.join(on)}" if on else "")
+
+
+def quote_proposal_text(lead, q, cfo: dict, url: str) -> str:
+    from . import quotes as Q
+    who = lead["domain"] + (f" ({lead['name']})" if lead["name"] else "")
+    return f"ส่งใบเสนอราคาให้ {who}\n{Q.summary_text(q, lead['domain'])}\nCFO: {cfo['note']}\nลิงก์ที่ลูกค้าจะได้รับ: {url}"
+
+
+def kpis(phase: int | None = None) -> dict:
+    """ตัวเลขด่านของเฟสปัจจุบัน: ตรวจฟรี/สัปดาห์ · อัตราคุยต่อและปิดดีล (28 วัน) · ลูกค้าจ่ายสะสม · ความเห็นตรงกัน · เรื่องส่งกลับ/สัปดาห์"""
+    from . import db
+    phase = phase or current_phase()
+    now = datetime.datetime.now()
+    wk = (now - datetime.timedelta(days=7)).isoformat(timespec="seconds")
+    m28 = (now - datetime.timedelta(days=28)).isoformat(timespec="seconds")
+    contacted = db.leads_with_event("contacted", m28)
+    replied = db.leads_with_event("replied", m28)
+    paid = db.leads_with_event("paid", m28)
+    esc = 0
+    for d in db.list_decisions_since(wk):
+        try:
+            pl = json.loads(d["payload_json"] or "{}")
+        except Exception:
+            pl = {}
+        if pl.get("escalate") or (isinstance(pl.get("cfo"), dict) and not pl["cfo"].get("ok", True)):
+            esc += 1
+    vals = {"audits_week": db.count_events("audit", wk),
+            "reply_rate": round(len(replied & contacted) / len(contacted) * 100) if contacted else None,
+            "close_rate": round(len(paid) / len(replied) * 100) if replied else None,
+            "new_paying": db.count_quotes_paid_since(PLAN_START),
+            "agreement": db.decision_stats()["agreement_pct"],
+            "escalations_week": esc}
+    rows = []
+    for k, target in GATES.get(phase, GATES[2]).items():
+        v = vals[k]
+        if target is None:
+            ok = None
+        elif k == "escalations_week":
+            ok = v <= target
+        else:
+            ok = v is not None and v >= target
+        rows.append({"key": k, "label": GATE_LABEL[k], "value": v, "target": target, "ok": ok})
+    judged = [r for r in rows if r["ok"] is not None]
+    return {"phase": phase, "values": vals, "rows": rows, "n_pass": sum(1 for r in judged if r["ok"]), "n_rows": len(judged),
+            "passed": bool(judged) and all(r["ok"] for r in judged), "window_days": 28}
+
+
+def digest_text(today: str, leads_new: int, leads_total: int, pending: list, payments: int, cto: dict, stats: dict,
+                kpi: dict | None = None, mode: str = "โหมดเสนอ") -> str:
+    lines = [f"สรุปเช้า {today} — ผู้บริหารเอเจนต์ ({mode})", ""]
     lines.append(f"ลูกค้าเป้าหมาย: ใหม่ 24 ชม. {leads_new} · ทั้งหมด {leads_total}")
     lines.append(f"ข้อเสนอรออนุมัติ: {len(pending)}" + (" — " + "; ".join(d["title"] for d in pending[:5]) if pending else ""))
-    lines.append(f"ตัดสินใจตรงกับเจ้าของ: {stats.get('agreement_pct', '-')}% จาก {stats.get('decided', 0)} เรื่อง")
+    lines.append(f"ตัดสินใจตรงกับเจ้าของ: {stats.get('agreement_pct') if stats.get('agreement_pct') is not None else '-'}% จาก {stats.get('decided', 0)} เรื่อง")
+    if kpi:
+        parts = [f"{r['label']} {r['value'] if r['value'] is not None else '—'}/{r['target']}" for r in kpi["rows"] if r["target"] is not None]
+        lines.append(f"ด่านเฟส {kpi['phase']}: ผ่าน {kpi['n_pass']}/{kpi['n_rows']} — " + " · ".join(parts))
     lines.append(f"CFO: การชำระรอยืนยัน {payments} รายการ")
     lines.append("CTO: " + ("สุขภาพเว็บไม่ผ่าน " + ", ".join(cto["unhealthy"]) if cto["unhealthy"] else "สุขภาพเว็บผ่านทุกแบรนด์")
                  + (" · โมเดลถอยกลับ: " + ", ".join(f"{k}: {v}" for k, v in cto["fallbacks"].items()) if cto["fallbacks"] else "")
@@ -134,14 +253,16 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 
 
 def morning_digest(base_url: str) -> dict:
-    """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง"""
-    from . import db, mailer
+    """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
+    from . import db, mailer, line_oa
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pending = [dict(d) for d in db.list_decisions("proposed", 50)]
+    kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
-                       pending, len(db.list_pending_payments()), cto_status(), db.decision_stats())
-    db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending)}, status="auto")
+                       pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
+                       db.decision_stats(), kpi, mode_label())
+    db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():
         for t in db.list_all_tenants():
@@ -152,4 +273,9 @@ def morning_digest(base_url: str) -> dict:
                     sent.append(t["email"])
                 except Exception:
                     pass
-    return {"text": text, "sent_to": sent, "pending": len(pending)}
+    try:
+        if line_oa.notify_owner(text[:4500] + f"\n\n{base_url}/admin/decisions"):
+            sent.append("LINE")
+    except Exception:
+        pass
+    return {"text": text, "sent_to": sent, "pending": len(pending), "kpi": kpi}

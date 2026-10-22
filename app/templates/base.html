@@ -181,6 +181,7 @@
     <span class="section-label">หลัก</span>
     <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> หน้าหลัก</a>
     <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> อัปเกรดแผน</a>
+    <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> รหัสผ่าน</a>
     {% if request.session.get('is_admin') %}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> ผู้ดูแลระบบ</a>
     <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> ผู้ติดต่อ{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>

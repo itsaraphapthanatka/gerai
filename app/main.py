@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -375,28 +375,11 @@ def _client_ip(request: Request) -> str:
 
 
 def _run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
-    """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
-    report = site_health.run_checks(site)
-    sc = leads.score_audit(report)
-    token = leads.new_token()
-    db.update_lead(lead_id, audit_json=json.dumps(report, ensure_ascii=False), audit_at=db.now(),
-                   score=sc["score"], token=token, **({"ip": ip} if ip else {}))
-    return token
+    return pipeline.run_lead_audit(lead_id, site, ip)
 
 
 def _ceo_propose(lead) -> int | None:
-    """CEO คัด + ร่างข้อความทัก (โหมดเสนอ) · CFO ตรวจราคากับกรอบ → แถวใน decisions รอคนกดยืนยัน"""
-    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
-    if not report:
-        return None
-    result_url = f"{_public_base()}/audit/{lead['token']}" if lead["token"] else _public_base()
-    pl = execs.ceo_review_lead(lead, report, result_url)
-    if pl["action"] == "decline":
-        return db.add_decision("ceo", "lead_review", f"ไม่รับ {lead['domain']}", pl["reason"], pl, lead_id=lead["id"])
-    pl["cfo"] = execs.cfo_check(pl)
-    proposal = (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
-                f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
-    return db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} ({pl['package']})", proposal, pl, lead_id=lead["id"])
+    return pipeline.ceo_propose(lead)
 
 
 @app.get("/audit")
@@ -428,18 +411,20 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form("")):
     return _redirect(f"/audit/{token}")
 
 
-def _audit_result_ctx(lead, sent=False, error=""):
+def _audit_result_ctx(lead, sent=False, error="", replied=False):
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
     return {"lead": lead, "report": report, "score": leads.score_audit(report), "summary": leads.public_summary(report),
-            "sent": sent or bool(lead["consent"]), "error": error}
+            "sent": sent or bool(lead["consent"]), "error": error, "replied": replied}
 
 
 @app.get("/audit/{token}")
-def audit_result(request: Request, token: str, sent: int = 0):
+def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = ""):
     lead = db.get_lead_by_token(token)
     if not lead:
         return _redirect("/audit")
-    return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent)))
+    if via == "mail":
+        pipeline.mark_opened(lead)
+    return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)))
 
 
 @app.post("/audit/{token}/contact")
@@ -468,15 +453,19 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
 def admin_leads(request: Request, status: str = "", notice: str = ""):
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
+    all_rows = db.list_leads(None, 5000)
     rows = []
-    for l in db.list_leads(status or None):
+    for l in all_rows:
+        if status and l["status"] != status:
+            continue
         d = dict(l)
         rep = json.loads(d["audit_json"]) if d.get("audit_json") else None
         d["sc"] = leads.score_audit(rep) if rep else None
         d["pending"] = db.count_decisions_for_lead(d["id"], "proposed")
         rows.append(d)
     return templates.TemplateResponse(request, "admin_leads.html",
-        {"leads": rows, "statuses": leads.STATUSES, "sources": leads.SOURCES, "filter": status, "notice": notice})
+        {"leads": rows, "statuses": leads.STATUSES, "status_label": leads.STATUS_LABEL, "pipeline": leads.PIPELINE,
+         "funnel": leads.funnel(all_rows), "sources": leads.SOURCES, "filter": status, "notice": notice})
 
 
 @app.post("/admin/leads/import")
@@ -497,9 +486,16 @@ def admin_leads_import(request: Request, text: str = Form("")):
 def admin_lead_status(request: Request, lead_id: int, status: str = Form("new")):
     if not _is_admin(request):
         return _redirect("/login")
-    if status in leads.STATUS_LABEL:
-        db.update_lead(lead_id, status=status)
-    return _redirect("/admin/leads")
+    lead = db.get_lead(lead_id)
+    who = request.session.get("email") or "admin"
+    if lead and status in leads.STATUS_LABEL and status != lead["status"]:
+        if status == "unsubscribed":
+            pipeline.unsubscribe(lead, who)
+        else:
+            db.update_lead(lead_id, status=status)
+            db.add_lead_event(lead_id, "status", f"{leads.STATUS_LABEL[lead['status']]} → {leads.STATUS_LABEL[status]}", who)
+    ref = request.headers.get("referer") or ""
+    return _redirect(f"/admin/leads/{lead_id}" if f"/admin/leads/{lead_id}" in ref else "/admin/leads")
 
 
 @app.post("/admin/leads/{lead_id}/audit")
@@ -528,23 +524,7 @@ def admin_lead_propose(request: Request, lead_id: int):
 
 
 def _execute_decision(d, who: str) -> str:
-    """ทำตามข้อเสนอที่อนุมัติ — ตอนนี้: ส่งข้อความทัก (ถ้ามีอีเมลที่ส่งได้) / ปิดลูกค้าที่ CEO ไม่รับ"""
-    import html as _html
-    pl = json.loads(d["payload_json"] or "{}")
-    lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
-    if d["kind"] == "outreach" and lead:
-        body = pl.get("body", "") + f"\n\n— เจอ.AI · ไม่อยากรับอีเมลจากเรา ตอบกลับว่า \"ไม่รับ\" ได้เลย เราจะไม่ติดต่ออีก"
-        if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
-            mailer.send(lead["email"], pl.get("subject", f"ผลตรวจเว็บ {lead['domain']}"),
-                        mailer.wrap_html(pl.get("subject", ""), "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
-            db.update_lead(lead["id"], status="contacted")
-            return f"ส่งอีเมลถึง {lead['email']} แล้ว"
-        db.update_lead(lead["id"], status="contacted")
-        return "ไม่มีอีเมลที่ส่งได้ — คัดลอกข้อความไปส่งทาง LINE/โทรเอง บันทึกสถานะเป็นทักแล้ว"
-    if d["kind"] == "lead_review" and lead and pl.get("action") == "decline":
-        db.update_lead(lead["id"], status="lost")
-        return "ปิดลูกค้ารายนี้ตามที่ CEO เสนอ"
-    return "รับทราบ"
+    return pipeline.execute_decision(d, who)
 
 
 def _decisions_ctx(request: Request, notice: str = ""):
@@ -555,10 +535,15 @@ def _decisions_ctx(request: Request, notice: str = ""):
             x["pl"] = json.loads(x.get("payload_json") or "{}")
         except Exception:
             x["pl"] = {}
+        if x["pl"].get("quote_id"):
+            qq = db.get_quote(x["pl"]["quote_id"])
+            x["quote"] = dict(qq) if qq else None
         pending.append(x)
     history = [dict(d) for d in db.list_decisions(None, 60) if d["status"] != "proposed"]
     return {"pending": pending, "history": history, "stats": db.decision_stats(), "mandate": execs.MANDATE,
-            "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice}
+            "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice,
+            "kpi": execs.kpis(), "gates": [execs.auto_gate(k) for k in execs.KINDS if k != "digest"],
+            "paused": execs.paused(), "mode": execs.mode_label()}
 
 
 @app.get("/admin/decisions")
@@ -602,6 +587,338 @@ def admin_digest_run(request: Request):
     res = execs.morning_digest(_public_base())
     note = "ทำสรุปเช้าแล้ว" + (f" · ส่งอีเมล {len(res['sent_to'])} ฉบับ" if res["sent_to"] else " · ไม่มีแอดมินที่อีเมลใช้ได้จริง เลยเก็บไว้ที่หน้านี้อย่างเดียว")
     return _redirect(f"/admin/decisions?notice={note}")
+
+
+# ---------- เฟส 2: ตอบกลับ · ขอไม่รับการติดต่อ · ใบเสนอราคา · สัญญา · LINE · ด่าน/โหมดอัตโนมัติ ----------
+def _company() -> dict:
+    return {"name": db.get_setting("company_name") or "", "address": db.get_setting("company_address") or "",
+            "tax_id": db.get_setting("company_tax_id") or "", "signer": db.get_setting("company_signer") or "",
+            "contract_reviewed": db.get_setting("contract_reviewed") == "1"}
+
+
+def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
+    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
+    ppid, ppname = _promptpay_config()
+    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.TERMS,
+            "summary": leads.public_summary(report), "company": _company(),
+            "status_label": quotes.STATUS_LABEL.get(q["status"], q["status"]), "expired": quotes.is_expired(q),
+            "ppid": ppid, "ppname": ppname,
+            "qr": promptpay.qr_data_uri(ppid, q["first_total"]) if (ppid and q["status"] == "accepted" and not pdf) else None,
+            "error": error, "pdf": pdf, "base": _public_base()}
+
+
+def _contract_ctx(q, lead, pdf: bool = False) -> dict:
+    co = _company()
+    return {"q": dict(q), "lead": dict(lead), "company": co, "pdf": pdf, "base": _public_base(),
+            "sections": quotes.contract_sections(co, {"name": lead["name"], "domain": lead["domain"], "email": lead["email"]}, q)}
+
+
+def _render_pdf(request: Request, template: str, ctx: dict, filename: str):
+    html = templates.get_template(template).render({**ctx, "request": request})
+    try:
+        pdf = report.to_pdf(html)
+    except Exception as e:
+        return Response(f"สร้าง PDF ไม่ได้ตอนนี้ ({type(e).__name__}) — เปิดหน้าเว็บแทนได้", status_code=503, media_type="text/plain; charset=utf-8")
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
+
+@app.post("/audit/{token}/reply")
+def audit_reply(request: Request, token: str, message: str = Form(""), website: str = Form("")):
+    """ลูกค้ากด 'ขอใบเสนอราคา' บนหน้าผลตรวจ (ต้องให้ช่องทางติดต่อ+ยินยอมก่อน) → CEO เสนอใบเสนอราคา"""
+    lead = db.get_lead_by_token(token)
+    if not lead or website.strip():
+        return _redirect("/audit")
+    if not lead["consent"]:
+        return _redirect(f"/audit/{token}")
+    try:
+        pipeline.lead_replied(lead, message, via="เว็บ")
+    except Exception:
+        pass
+    return _redirect(f"/audit/{token}?replied=1")
+
+
+@app.get("/u/{token}")
+def unsubscribe_page(request: Request, token: str):
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/")
+    return templates.TemplateResponse(request, "unsubscribe.html", {"lead": dict(lead), "done": lead["status"] == "unsubscribed"})
+
+
+@app.post("/u/{token}")
+def unsubscribe_do(request: Request, token: str):
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/")
+    if lead["status"] != "unsubscribed":
+        pipeline.unsubscribe(lead)
+    return templates.TemplateResponse(request, "unsubscribe.html", {"lead": dict(db.get_lead(lead["id"])), "done": True})
+
+
+@app.get("/q/{token}.pdf")
+def quote_pdf(request: Request, token: str):
+    q = db.get_quote_by_token(token)
+    if not q:
+        return _redirect("/")
+    return _render_pdf(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), pdf=True), f"{q['number']}.pdf")
+
+
+@app.get("/q/{token}/contract.pdf")
+def contract_pdf(request: Request, token: str):
+    q = db.get_quote_by_token(token)
+    if not q:
+        return _redirect("/")
+    return _render_pdf(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"]), pdf=True), f"{q['number']}-contract.pdf")
+
+
+@app.get("/q/{token}/contract")
+def contract_page(request: Request, token: str):
+    q = db.get_quote_by_token(token)
+    if not q:
+        return _redirect("/")
+    return templates.TemplateResponse(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"])))
+
+
+@app.get("/q/{token}")
+def quote_page(request: Request, token: str):
+    q = db.get_quote_by_token(token)
+    if not q or (q["status"] == "draft" and not _is_admin(request)):
+        return _redirect("/")
+    pipeline.view_quote(q)
+    q = db.get_quote(q["id"])
+    return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"])))
+
+
+@app.post("/q/{token}/accept")
+def quote_accept(request: Request, token: str, name: str = Form(""), agree: str = Form(""), website: str = Form("")):
+    q = db.get_quote_by_token(token)
+    if not q or website.strip():
+        return _redirect("/")
+    lead = db.get_lead(q["lead_id"])
+    if not agree:
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error="ติ๊กยอมรับเงื่อนไขและสัญญาก่อน"))
+    err = pipeline.accept_quote(q, name, _client_ip(request))
+    if err:
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err))
+    return _redirect(f"/q/{token}")
+
+
+@app.post("/q/{token}/pay")
+async def quote_pay(request: Request, token: str, slip: UploadFile = File(None), website: str = Form("")):
+    q = db.get_quote_by_token(token)
+    if not q or website.strip():
+        return _redirect("/")
+    if q["status"] not in ("accepted", "claimed"):
+        return _redirect(f"/q/{token}")
+    slip_path = None
+    if slip is not None and slip.filename:
+        data = await slip.read()
+        if data:
+            import secrets as _sec
+            ext = os.path.splitext(slip.filename)[1].lower()
+            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
+                ext = ".jpg"
+            up = BASE.parent / "uploads" / "slips"
+            up.mkdir(parents=True, exist_ok=True)
+            fname = f"q{q['id']}-{_sec.token_hex(6)}{ext}"
+            (up / fname).write_bytes(data[:8_000_000])
+            slip_path = f"slips/{fname}"
+    if q["status"] == "claimed":                       # แจ้งซ้ำ = อัปเดตสลิป ไม่สร้างข้อเสนอใหม่
+        db.update_quote(q["id"], slip_path=slip_path or q["slip_path"], claimed_at=db.now())
+    else:
+        pipeline.claim_payment(q, slip_path)
+    return _redirect(f"/q/{token}")
+
+
+def _lead_ctx(lead, notice: str = "") -> dict:
+    rep = json.loads(lead["audit_json"]) if lead["audit_json"] else None
+    pending = [dict(d) for d in db.list_decisions("proposed", 300) if d["lead_id"] == lead["id"]]
+    return {"lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
+            "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL,
+            "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
+            "statuses": leads.STATUSES, "sources": leads.SOURCES, "kinds": execs.KINDS, "packages": quotes.PACKAGES,
+            "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"],
+            "needs_setup": quotes.needs_setup(rep) if rep else False, "mandate": execs.MANDATE, "notice": notice}
+
+
+@app.get("/admin/leads/{lead_id}")
+def admin_lead(request: Request, lead_id: int, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    return templates.TemplateResponse(request, "admin_lead.html", _lead_ctx(lead, notice))
+
+
+@app.post("/admin/leads/{lead_id}/note")
+def admin_lead_note(request: Request, lead_id: int, note: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if note.strip() and db.get_lead(lead_id):
+        db.add_lead_event(lead_id, "note", note.strip()[:500], request.session.get("email") or "admin")
+    return _redirect(f"/admin/leads/{lead_id}")
+
+
+@app.post("/admin/leads/{lead_id}/unsubscribe")
+def admin_lead_unsubscribe(request: Request, lead_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if lead and lead["status"] != "unsubscribed":
+        pipeline.unsubscribe(lead, request.session.get("email") or "admin")
+    return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกว่าลูกค้าขอไม่รับการติดต่อแล้ว")
+
+
+@app.post("/admin/leads/{lead_id}/quote")
+def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"), discount_pct: str = Form("0"),
+                     setup: str = Form(""), send: str = Form("")):
+    """แอดมินสร้างใบเสนอราคาเอง = การตัดสินใจของเจ้าของ ส่งได้ทันที (CFO ยังบอกว่าอยู่ในกรอบไหม)"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    if lead["status"] == "unsubscribed":
+        return _redirect(f"/admin/leads/{lead_id}?notice=ลูกค้าขอไม่รับการติดต่อ — สร้างใบเสนอราคาไม่ได้")
+    try:
+        disc = float(discount_pct or 0)
+    except ValueError:
+        disc = 0.0
+    who = request.session.get("email") or "admin"
+    try:
+        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who)
+    except ValueError as e:
+        return _redirect(f"/admin/leads/{lead_id}?notice={e}")
+    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"]})
+    note = (pipeline.send_quote(q, who) if send else f"สร้าง {q['number']} เป็นร่างแล้ว") + f" · CFO: {cfo['note']}"
+    return _redirect(f"/admin/leads/{lead_id}?notice={note}")
+
+
+@app.post("/admin/quotes/{qid}/send")
+def admin_quote_send(request: Request, qid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    q = db.get_quote(qid)
+    if not q:
+        return _redirect("/admin/leads")
+    note = pipeline.send_quote(q, request.session.get("email") or "admin")
+    for d in db.list_decisions("proposed", 300):                     # ข้อเสนอ 'ใบเสนอราคา' ของใบนี้ถือว่าอนุมัติแล้ว
+        if d["kind"] == "quote" and json.loads(d["payload_json"] or "{}").get("quote_id") == qid:
+            db.set_decision(d["id"], "executed", request.session.get("email") or "admin", note)
+    return _redirect(f"/admin/leads/{q['lead_id']}?notice={note}")
+
+
+@app.post("/admin/quotes/{qid}/confirm")
+def admin_quote_confirm(request: Request, qid: int):
+    """เจ้าของเช็กบัญชีแล้วยืนยันยอดเข้า → เปิดบัญชี+แบรนด์ (ข้อเสนอ 'ยืนยันยอดเข้า' ของ CFO ถือว่าอนุมัติ)"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    q = db.get_quote(qid)
+    if not q:
+        return _redirect("/admin/leads")
+    who = request.session.get("email") or "admin"
+    try:
+        note = pipeline.confirm_payment(q, who)
+    except Exception as e:
+        note = f"ยืนยันไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+    for d in db.list_decisions("proposed", 300):
+        if d["kind"] == "payment" and json.loads(d["payload_json"] or "{}").get("quote_id") == qid:
+            db.set_decision(d["id"], "executed", who, note)
+    return _redirect(f"/admin/leads/{q['lead_id']}?notice={note}")
+
+
+@app.post("/admin/quotes/{qid}/cancel")
+def admin_quote_cancel(request: Request, qid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    q = db.get_quote(qid)
+    if not q:
+        return _redirect("/admin/leads")
+    who = request.session.get("email") or "admin"
+    db.update_quote(qid, status="cancelled")
+    db.add_lead_event(q["lead_id"], "note", f"ยกเลิกใบเสนอราคา {q['number']}", who)
+    for d in db.list_decisions("proposed", 300):
+        if json.loads(d["payload_json"] or "{}").get("quote_id") == qid:
+            db.set_decision(d["id"], "cancelled", who, "ยกเลิกใบเสนอราคา")
+    return _redirect(f"/admin/leads/{q['lead_id']}?notice=ยกเลิก {q['number']} แล้ว")
+
+
+@app.get("/admin/quotes/{qid}/slip")
+def admin_quote_slip(request: Request, qid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    q = db.get_quote(qid)
+    if not q or not q["slip_path"]:
+        return Response("not found", status_code=404)
+    f = BASE.parent / "uploads" / q["slip_path"]
+    if not f.exists():
+        return Response("not found", status_code=404)
+    ct = {".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf"}.get(f.suffix.lower(), "image/jpeg")
+    return Response(f.read_bytes(), media_type=ct)
+
+
+@app.post("/admin/decisions/auto")
+def admin_decisions_auto(request: Request, kind: str = Form(""), on: str = Form("0")):
+    """สลับเรื่องหนึ่งเป็น 'ตัดสินเองในกรอบ' — โค้ดตรวจด่าน (≥ 20 เรื่อง · ≥ 95%) ไม่ใช่แค่ปุ่ม"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    if kind not in execs.KINDS or kind == "digest":
+        return _redirect("/admin/decisions?notice=ไม่รู้จักเรื่องนี้")
+    ok, reason = execs.set_auto(kind, on == "1")
+    note = (f"{execs.KINDS[kind]}: {'ตัดสินเองในกรอบตั้งแต่ตอนนี้' if on == '1' else 'กลับเป็นโหมดเสนอ'}" if ok else f"สลับไม่ได้ — {reason}")
+    return _redirect(f"/admin/decisions?notice={note}")
+
+
+@app.post("/admin/agents/pause")
+def admin_agents_pause(request: Request, on: str = Form("1")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    execs.set_paused(on == "1")
+    return _redirect("/admin/decisions?notice=" + ("หยุดฉุกเฉินแล้ว — ทุกเรื่องรอคุณ" if on == "1" else "เริ่มทำงานต่อแล้ว"))
+
+
+@app.post("/line/webhook")
+async def line_webhook(request: Request):
+    """LINE ส่ง event มาที่นี่ — ตรวจลายเซ็นก่อนเสมอ (ไม่ตรง = ไม่ใช่ LINE) · Verify ของ LINE ส่ง events ว่างต้องได้ 200"""
+    body = await request.body()
+    if not line_oa.verify(body, request.headers.get("x-line-signature", "")):
+        return Response("bad signature", status_code=403)
+    try:
+        data = json.loads(body or b"{}")
+    except Exception:
+        return Response("bad json", status_code=400)
+    try:
+        handled = pipeline.handle_line_webhook(data)
+    except Exception as e:
+        handled = [f"error:{type(e).__name__}"]
+    return JSONResponse({"ok": True, "handled": handled})
+
+
+@app.get("/account/password")
+def account_password_page(request: Request):
+    tid = _tid(request)
+    if not tid:
+        return _redirect("/login")
+    return templates.TemplateResponse(request, "account_password.html", {"email": db.get_tenant(tid)["email"], "notice": "", "ok": True})
+
+
+@app.post("/account/password")
+def account_password(request: Request, current: str = Form(""), new: str = Form(""), confirm: str = Form("")):
+    tid = _tid(request)
+    if not tid:
+        return _redirect("/login")
+    t = db.get_tenant(tid)
+    if not verify_pw(current, t["password_hash"]):
+        notice, ok = "รหัสผ่านปัจจุบันไม่ถูกต้อง", False
+    elif len(new) < 8:
+        notice, ok = "รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร", False
+    elif new != confirm:
+        notice, ok = "รหัสผ่านใหม่สองช่องไม่ตรงกัน", False
+    else:
+        db.set_password(tid, hash_pw(new))
+        notice, ok = "เปลี่ยนรหัสผ่านแล้ว", True
+    return templates.TemplateResponse(request, "account_password.html", {"email": t["email"], "notice": notice, "ok": ok})
 
 
 # ---------- PWA (manifest + service worker) ----------
@@ -2565,6 +2882,8 @@ def _settings_ctx(request: Request, saved=False, error=None):
         # โมเดลต่องาน — ตอนนี้มีแค่ตัวคิดคำถาม (local | gemini)
         "llm_tasks": ai_client.TASKS, "llm_choices": ai_client.MODEL_CHOICES,
         "llm_status": {t: ai_client.task_status(t) for t in ai_client.TASKS},
+        # เฟส 2: LINE OA + ข้อมูลบริษัทบนใบเสนอราคา/สัญญา
+        "line": line_oa.public_config(), "company": _company(), "public_base": _public_base(),
         "saved": saved, "error": error,
     }
 
@@ -2653,6 +2972,31 @@ def admin_settings_llm(request: Request, task: str = Form(""), model: str = Form
         return _redirect("/login")
     if task in ai_client.TASKS and model in dict(ai_client.MODEL_CHOICES):
         db.set_setting(f"llm_{task}", model)
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/line")
+def admin_settings_line(request: Request, token: str = Form(""), secret: str = Form(""), unlink: str = Form(""), bot_name: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if unlink:
+        db.set_setting("line_owner_user_id", "")
+    else:
+        line_oa.save_config(token, secret)
+        db.set_setting("line_bot_name", bot_name.strip()[:60])
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/company")
+def admin_settings_company(request: Request, name: str = Form(""), address: str = Form(""), tax_id: str = Form(""),
+                           signer: str = Form(""), contract_reviewed: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_setting("company_name", name.strip()[:160])
+    db.set_setting("company_address", address.strip()[:300])
+    db.set_setting("company_tax_id", tax_id.strip()[:20])
+    db.set_setting("company_signer", signer.strip()[:160])
+    db.set_setting("contract_reviewed", "1" if contract_reviewed else "0")
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

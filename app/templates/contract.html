@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>สัญญาบริการ {{ q.number }} · เจอ.AI</title>
+{% if not pdf %}<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="/static/favicon-32.png">{% endif %}
+<style>
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:{% if pdf %}'Sarabun',sans-serif{% else %}'IBM Plex Sans Thai',system-ui,sans-serif{% endif %};color:var(--primary);background:#fff;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .brand a{color:inherit;text-decoration:none}
+  h1{font-size:clamp(22px,4vw,30px);line-height:1.25;margin-bottom:6px}
+  .sub{color:var(--slate);margin-bottom:18px;font-size:14.5px}
+  .draft{background:#fff4e5;color:#9a5b00;padding:10px 14px;border-radius:12px;font-size:14px;margin-bottom:20px}
+  h2{font-size:16px;margin:22px 0 6px}
+  p{font-size:14.5px;margin-bottom:8px}
+  .sig{border:1px solid var(--hairline);border-radius:14px;padding:16px 18px;margin-top:28px;font-size:14.5px;background:var(--surface)}
+  .foot{color:var(--stone);font-size:12.5px;margin-top:28px}
+  .foot a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span>{% if pdf %}เจอ.AI{% else %}<a href="/">เจอ.AI</a>{% endif %}</span>{% if not pdf %}<span><a href="/q/{{ q.token }}">ใบเสนอราคา {{ q.number }}</a> · <a href="/q/{{ q.token }}/contract.pdf">PDF</a></span>{% endif %}</div>
+  <h1>สัญญาบริการมาตรฐาน</h1>
+  <p class="sub">อ้างอิงใบเสนอราคา {{ q.number }} · เว็บไซต์ {{ lead.domain }} · ฉบับ {{ (q.created_at or '')[:10] }}</p>
+  {% if not company.contract_reviewed %}<div class="draft">ร่างมาตรฐาน — ฉบับนี้อยู่ระหว่างให้ที่ปรึกษากฎหมายตรวจทาน ข้อความอาจปรับเล็กน้อยก่อนฉบับลงนามจริง สาระสำคัญ (ราคา คืนเงิน 7 วัน ยกเลิกได้ทุกเมื่อ ไม่รับประกันผล) จะไม่เปลี่ยน</div>{% endif %}
+  {% for s in sections %}
+  <h2>{{ s.h }}</h2>
+  {% for para in s.p %}<p>{{ para }}</p>{% endfor %}
+  {% endfor %}
+  <div class="sig">
+    <b>การยืนยัน</b><br>
+    {% if q.accepted_at %}ผู้รับบริการยืนยันรับข้อเสนอและสัญญานี้ผ่านระบบโดย <b>{{ q.accepted_name }}</b> เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }}{% if q.accepted_ip %} (IP {{ q.accepted_ip }}){% endif %}
+    {% else %}ยังไม่ได้ยืนยัน — ยืนยันได้จากหน้าใบเสนอราคา {{ q.number }}{% endif %}<br>
+    ผู้ให้บริการ: {{ company.name or 'เจอ.AI' }}{% if company.signer %} โดย {{ company.signer }}{% endif %}
+  </div>
+  <p class="foot">เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน</p>
+</div>
+</body>
+</html>

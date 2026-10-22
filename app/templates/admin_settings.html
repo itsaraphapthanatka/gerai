@@ -167,6 +167,47 @@
     SerpApi: สมัครที่ <code>serpapi.com</code> → Your Account → API Key · แผนฟรี 100 search/เดือน (พอทดลอง 1 แบรนด์ 6 คำถาม × 2 แบบ ≈ 12/รอบ) · บันทึกแล้วไปที่แบรนด์ → "Google AI Overview / AI Mode" → เช็คแบรนด์เดียวก่อน
   </div>
 </div>
+<div class="card">
+  <h2>LINE Official Account — ลูกค้าทักมาตรวจเว็บเอง · แจ้งเตือนเจ้าของ <span class="pill {{ 'ok' if line.ready else '' }}" style="font-size:10px">{{ line.status }}</span></h2>
+  <p class="muted" style="margin:0 0 12px">
+    ลูกค้าพิมพ์ที่อยู่เว็บใน OA → ระบบตรวจฟรีแล้วส่งผลกลับในแชต (เป็นลูกค้าเป้าหมายแหล่ง "LINE OA") · พิมพ์ "สนใจ" → CEO เสนอใบเสนอราคา ·
+    เจ้าของผูกบัญชีแล้วรับสรุปเช้า lead ใหม่ และข้อเสนอรออนุมัติทาง LINE
+  </p>
+  <form method="post" action="/admin/settings/line">
+    <label>Channel access token (long-lived) {% if line.token_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="token" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if line.token_set else 'วางจาก LINE Developers → Messaging API → Channel access token' }}" autocomplete="off">
+    <label style="margin-top:12px">Channel secret {% if line.secret_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
+    <input type="password" name="secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if line.secret_set else 'วางจาก Basic settings → Channel secret' }}" autocomplete="off">
+    <label style="margin-top:12px">ชื่อที่บอทใช้แนะนำตัวในแชท</label>
+    <input type="text" name="bot_name" value="{{ line.bot_name }}" placeholder="ตามชื่อ OA เช่น Hop (ว่าง = เจอ.AI)" maxlength="60">
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">
+    1. LINE Developers → สร้าง Messaging API channel (หรือใช้ OA เดิม) → เปิด <b>Use webhook</b> และตั้ง Webhook URL เป็น <code>{{ public_base }}{{ line.webhook_path }}</code> · ปิด Auto-reply ของ OA Manager<br>
+    2. วาง token และ secret ด้านบน แล้วกด Verify ใน LINE Developers (ต้องตอบ 200)<br>
+    3. ผูกเจ้าของ: เพิ่ม OA เป็นเพื่อนแล้วพิมพ์รหัส <code style="font-size:13px">{{ line.link_code }}</code> ในแชต — {% if line.owner_set %}ผูกแล้ว (<code>{{ line.owner_mask }}</code>){% else %}ยังไม่ผูก{% endif %}
+    {% if line.owner_set %}<form method="post" action="/admin/settings/line" style="display:inline;margin-left:6px"><input type="hidden" name="unlink" value="1"><button type="submit" class="btn ghost sm" style="font-size:11px">ยกเลิกการผูก</button></form>{% endif %}<br>
+    แผนฟรีของ LINE ส่ง push ได้ 200 ข้อความ/เดือน (reply ไม่นับ) — ผลตรวจที่ตอบในแชตใช้ reply ส่วนผลที่ตรวจเสร็จทีหลังและแจ้งเตือนเจ้าของใช้ push
+  </div>
+</div>
+
+<div class="card">
+  <h2>ข้อมูลบริษัท — ใบเสนอราคาและสัญญาบริการ</h2>
+  <p class="muted" style="margin:0 0 12px">แสดงบนใบเสนอราคา/สัญญาที่ส่งให้ลูกค้าเป้าหมาย · ว่าง = ใช้ชื่อ "เจอ.AI" อย่างเดียว · สัญญาเป็น "ร่างมาตรฐาน" จนกว่าจะติ๊กว่าทนายตรวจแล้ว</p>
+  <form method="post" action="/admin/settings/company">
+    <label>ชื่อผู้ให้บริการ (บริษัท/บุคคล)</label>
+    <input type="text" name="name" value="{{ company.name }}" placeholder="เช่น บริษัท กู๊ดนิวส์ จำกัด">
+    <label style="margin-top:12px">ที่อยู่</label>
+    <input type="text" name="address" value="{{ company.address }}" placeholder="ที่อยู่สำหรับออกเอกสาร">
+    <label style="margin-top:12px">เลขประจำตัวผู้เสียภาษี</label>
+    <input type="text" name="tax_id" value="{{ company.tax_id }}" placeholder="13 หลัก (ไม่บังคับ)">
+    <label style="margin-top:12px">ผู้ลงนามฝั่งผู้ให้บริการ</label>
+    <input type="text" name="signer" value="{{ company.signer }}" placeholder="ชื่อ-ตำแหน่ง">
+    <label style="margin-top:12px;display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="contract_reviewed" value="1" {% if company.contract_reviewed %}checked{% endif %}> ทนาย/ที่ปรึกษากฎหมายตรวจสัญญามาตรฐานแล้ว (เอาป้าย "ร่าง" ออก)</label>
+    <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
+  </form>
+</div>
+
 <style>
   .keyrow { display:flex; align-items:center; gap:6px; }
   .keyrow input { flex:1; min-width:0; }

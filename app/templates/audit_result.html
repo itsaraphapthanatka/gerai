@@ -75,7 +75,24 @@
   <div class="item"><div class="lb">รายงานผลจริงทุกเดือน</div><div class="why">ตัวเลขจาก Search Console และการถาม AI จริง ไม่ใช่ตัวเลขประมาณ</div></div>
 
   {% if sent %}
-  <div class="ok">รับเรื่องแล้ว ทีมเจอ.AI จะส่งแผนแก้ให้ภายใน 1 วันทำการ ขอบคุณครับ</div>
+    {% if replied or lead['status'] in ('replied', 'quoted') %}
+    <div class="ok">รับเรื่องแล้ว ทีมเจอ.AI กำลังจัดทำใบเสนอราคาให้ จะส่งถึงคุณภายใน 1 วันทำการ</div>
+    {% elif lead['status'] == 'won' %}
+    <div class="ok">คุณเป็นลูกค้าของเจอ.AI แล้ว เข้าสู่ระบบได้ที่ <a href="/login">/login</a></div>
+    {% elif lead['status'] == 'unsubscribed' %}
+    <div class="ok">เราบันทึกว่าคุณไม่ต้องการรับการติดต่อแล้ว</div>
+    {% else %}
+    <div class="ok">รับเรื่องแล้ว ทีมเจอ.AI จะส่งแผนแก้ให้ภายใน 1 วันทำการ ขอบคุณครับ</div>
+    <div class="cta" style="margin-top:14px">
+      <h2>อยากได้ใบเสนอราคาเลยไหม</h2>
+      <p>กดปุ่มเดียว ระบบจะทำใบเสนอราคาจากผลตรวจนี้ (แพ็กเกจมาตรฐาน ไม่มีค่าใช้จ่ายจนกว่าคุณจะยืนยัน)</p>
+      <form method="post" action="/audit/{{ lead['token'] }}/reply">
+        <input type="text" name="message" placeholder="คำถามหรือสิ่งที่อยากให้ดูเป็นพิเศษ (ไม่บังคับ)" maxlength="500" style="grid-column:1/-1">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+        <button type="submit">ขอใบเสนอราคา</button>
+      </form>
+    </div>
+    {% endif %}
   {% else %}
   <div class="cta">
     <h2>ให้ทีมเจอ.AI ส่งแผนแก้ให้ฟรี</h2>

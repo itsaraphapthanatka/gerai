@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>ขอไม่รับการติดต่อ · เจอ.AI</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;color:#0a0a0a;background:#fff;line-height:1.6}
+  .wrap{max-width:560px;margin:0 auto;padding:60px 24px}
+  .brand{font-weight:700;color:#45515e;margin-bottom:24px}.brand a{color:inherit;text-decoration:none}
+  h1{font-size:26px;margin-bottom:10px}p{color:#45515e;margin-bottom:18px}
+  button{font:inherit;font-weight:600;font-size:16px;padding:12px 22px;border-radius:9999px;border:0;background:#0a0a0a;color:#fff;cursor:pointer}
+  .ok{background:#e8f7ee;color:#1c7a44;padding:14px 16px;border-radius:12px}
+</style>
+</head>
+<body><div class="wrap">
+  <div class="brand"><a href="/">เจอ.AI</a></div>
+  {% if done %}
+  <h1>เรียบร้อย</h1>
+  <div class="ok">เราบันทึกว่า {{ lead.domain }} ไม่ต้องการรับการติดต่อจากเจอ.AI แล้ว ข้อเสนอที่ค้างอยู่ถูกยกเลิกทั้งหมด และเราจะไม่ส่งข้อความถึงคุณอีก</div>
+  {% else %}
+  <h1>ขอไม่รับการติดต่อ</h1>
+  <p>กดปุ่มด้านล่าง เจอ.AI จะหยุดส่งอีเมลและข้อความทุกช่องทางถึง {{ lead.domain }} ทันที และลบช่องทางติดต่อออกจากรายชื่อที่ติดต่อได้</p>
+  <form method="post" action="/u/{{ lead.token }}"><button type="submit">ยืนยัน ไม่รับการติดต่อ</button></form>
+  {% endif %}
+</div></body></html>
