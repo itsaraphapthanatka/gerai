@@ -23,6 +23,95 @@ def _chat(messages: list[dict], max_tokens: int = 2048, timeout: int = 120) -> s
     return data["choices"][0]["message"]["content"].strip()
 
 
+# ---- เลือกโมเดลต่องาน (ตั้งผ่านหน้าตั้งค่าระบบ → settings llm_<task>) ----
+# ทุกงานใช้โมเดลในเครื่องผ่าน proxy (_chat) เป็นค่าเริ่มต้น · งาน "คิดคำถาม" สลับไป Gemini ได้
+# ด้วยคีย์ Gemini ตัวเดียวกับที่ใช้วัดผู้ช่วย AI — Gemini ตอบไม่ได้/ไม่มีคีย์ → ถอยมาใช้โมเดลในเครื่องเอง งานไม่ล้ม
+TASKS = {"questions": "ตัวคิดคำถามเป้าหมาย"}
+MODEL_CHOICES = [("local", "โมเดลในเครื่อง (ค่าเริ่มต้น)"), ("gemini", "Gemini (คีย์เดียวกับผู้ช่วย AI)")]
+GEMINI_TIMEOUT = 120
+_LAST_FALLBACK: dict = {}   # task → เหตุผลครั้งล่าสุดที่ Gemini ใช้ไม่ได้ (หน้าตั้งค่าโชว์ให้เห็น ไม่เงียบ)
+
+
+def _read_setting(key: str):
+    """อ่าน settings จาก DB — แยกเป็นฟังก์ชันให้เทสต์ฉีดค่าได้ และเลี่ยง import วนตอนโหลดโมดูล"""
+    from . import db
+    return db.get_setting(key)
+
+
+def task_setting(task: str) -> str:
+    """ค่าที่แอดมินเลือกไว้ (local|gemini) — อ่านทุกครั้ง เปลี่ยนในหน้าตั้งค่าแล้วมีผลทันที"""
+    try:
+        v = (_read_setting(f"llm_{task}") or "").strip().lower()
+    except Exception:
+        v = ""
+    return v if v in dict(MODEL_CHOICES) else "local"
+
+
+def _gemini_conf():
+    """(key, model, base) จากโมดูลผู้ช่วย AI — import ตอนเรียก เพราะ ai_visibility ไม่ได้พึ่งโมดูลนี้แต่กลับกัน"""
+    from . import ai_visibility as av
+    return av._key("gemini"), av.MODELS["gemini"], av.BASES["gemini"]
+
+
+def gemini_body(messages: list[dict], max_tokens: int, json_mode: bool) -> dict:
+    """แปลง messages แบบ chat → รูปแบบ generateContent (system → systemInstruction, ที่เหลือรวมเป็น user เดียว)"""
+    system = [str(m["content"]) for m in messages if m.get("role") == "system"]
+    users = [str(m["content"]) for m in messages if m.get("role") != "system"]
+    gen = {"maxOutputTokens": max_tokens}
+    if json_mode:
+        gen["responseMimeType"] = "application/json"   # บังคับให้ตอบเป็น JSON ล้วน ไม่มีข้อความห่อ
+    body = {"contents": [{"role": "user", "parts": [{"text": "\n\n".join(users)}]}], "generationConfig": gen}
+    if system:
+        body["systemInstruction"] = {"parts": [{"text": "\n".join(system)}]}
+    return body
+
+
+def gemini_text(resp: dict) -> str:
+    cands = resp.get("candidates") or [{}]
+    parts = ((cands[0].get("content") or {}).get("parts")) or []
+    return "".join(p.get("text", "") for p in parts)
+
+
+def gemini_chat(messages: list[dict], max_tokens: int = 2048, timeout: int = GEMINI_TIMEOUT, json_mode: bool = False) -> str:
+    key, model, base = _gemini_conf()
+    if not key:
+        raise RuntimeError("ไม่มีคีย์ Gemini")
+    req = urllib.request.Request(
+        f"{base}/v1beta/models/{model}:generateContent?key={key}",
+        data=json.dumps(gemini_body(messages, max_tokens, json_mode)).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.loads(r.read())
+    text = gemini_text(data)
+    if not text.strip():
+        reason = ((data.get("candidates") or [{}])[0]).get("finishReason") or "ไม่มีคำตอบ"
+        raise RuntimeError(f"Gemini ตอบว่าง ({reason})")
+    return text
+
+
+def chat_for(task: str, messages: list[dict], max_tokens: int = 2048, timeout: int = 120, json_mode: bool = False) -> str:
+    """เรียกโมเดลตามที่ตั้งไว้สำหรับงานนี้ — Gemini ใช้ไม่ได้ก็ถอยมาโมเดลในเครื่อง และจำเหตุผลไว้โชว์"""
+    if task_setting(task) == "gemini":
+        try:
+            out = gemini_chat(messages, max_tokens=max_tokens, timeout=timeout, json_mode=json_mode)
+            _LAST_FALLBACK.pop(task, None)
+            return out
+        except Exception as e:
+            _LAST_FALLBACK[task] = f"{type(e).__name__}: {str(e)[:120]}"
+    return _chat(messages, max_tokens=max_tokens, timeout=timeout)
+
+
+def task_status(task: str) -> dict:
+    """สำหรับหน้าตั้งค่า: เลือกอะไรไว้ · Gemini พร้อมไหม · ชื่อโมเดล · เหตุผลที่ถอยกลับครั้งล่าสุด"""
+    try:
+        key, model, _ = _gemini_conf()
+    except Exception:
+        key, model = None, None
+    return {"choice": task_setting(task), "gemini_ready": bool(key), "gemini_model": model,
+            "local_model": MODEL, "fallback": _LAST_FALLBACK.get(task)}
+
+
 def _fetch_text(url: str, timeout: int = 18) -> str:
     """ดึงหน้าแรกของเว็บไซต์ → คืน title + meta description + headings + เนื้อหาย่อ"""
     if not url.startswith(("http://", "https://")):
@@ -124,7 +213,7 @@ def generate_questions(brand_name: str, domain: str, market: str, n: int = 8, ex
 ]
 ห้ามมีข้อความอื่นนอกจาก JSON"""
 
-    raw = _chat([{"role": "user", "content": prompt}])
+    raw = chat_for("questions", [{"role": "user", "content": prompt}], json_mode=True)
 
     # parse JSON — รองรับ markdown code block และทั้ง string[] และ object[]
     m = re.search(r'\[[\s\S]*\]', raw)

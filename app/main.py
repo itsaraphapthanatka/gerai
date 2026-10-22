@@ -2284,6 +2284,9 @@ def _settings_ctx(request: Request, saved=False, error=None):
         # SerpApi (AI Overview / AI Mode) + PageSpeed key — โชว์แค่รูปปิดกลาง
         "serpapi": ai_serp.SPEC, "serpapi_set": ai_serp.available(), "serpapi_mask": ai_serp.key_preview(),
         "psi": pagespeed.SPEC, "psi_set": bool(pagespeed._key()), "psi_mask": pagespeed.key_preview(),
+        # โมเดลต่องาน — ตอนนี้มีแค่ตัวคิดคำถาม (local | gemini)
+        "llm_tasks": ai_client.TASKS, "llm_choices": ai_client.MODEL_CHOICES,
+        "llm_status": {t: ai_client.task_status(t) for t in ai_client.TASKS},
         "saved": saved, "error": error,
     }
 
@@ -2362,6 +2365,16 @@ def admin_settings_serp(request: Request, serpapi_key: str = Form(""), pagespeed
     for k, v in (("serpapi_key", serpapi_key), ("pagespeed_key", pagespeed_key)):
         if v.strip():                           # เว้นว่าง = คงคีย์เดิม
             db.set_setting(k, v.strip())
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/llm")
+def admin_settings_llm(request: Request, task: str = Form(""), model: str = Form("local")):
+    """เลือกโมเดลต่องาน — ค่าอยู่ใน settings llm_<task> มีผลทันทีกับทั้งปุ่มสร้างคำถามและการเติมคำถามอัตโนมัติ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    if task in ai_client.TASKS and model in dict(ai_client.MODEL_CHOICES):
+        db.set_setting(f"llm_{task}", model)
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

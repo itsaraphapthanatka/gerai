@@ -97,6 +97,29 @@
   </div>
 </div>
 <div class="card">
+  <h2>โมเดลต่องาน — ตัวคิดคำถาม</h2>
+  <p class="muted" style="margin:0 0 12px">
+    งานเขียนทุกอย่างใช้โมเดลในเครื่องผ่าน proxy (<code>{{ llm_status.questions.local_model }}</code>) ·
+    เฉพาะ <b>คิดคำถามเป้าหมาย</b> (ปุ่ม "สร้างคำถาม" และการเติมคำถามอัตโนมัติเมื่อปิดครบทุกข้อ) สลับไปใช้ Gemini ได้
+    ด้วยคีย์ Gemini ตัวเดียวกับการ์ดผู้ช่วย AI — คำถามเจาะจงและเหมือนคนจริงกว่า เร็วกว่าเท่าตัว ค่าใช้จ่ายราว 0.07 บาท/รอบ ·
+    Gemini ตอบไม่ได้จะถอยมาใช้โมเดลในเครื่องเอง และบอกไว้ตรงนี้
+  </p>
+  {% for t, label in llm_tasks.items() %}{% set st = llm_status[t] %}
+  <form method="post" action="/admin/settings/llm" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="hidden" name="task" value="{{ t }}">
+    <label style="margin:0">{{ label }}</label>
+    <select name="model" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px">
+      {% for v, name in llm_choices %}<option value="{{ v }}" {% if st.choice == v %}selected{% endif %}>{{ name }}{% if v == 'gemini' and st.gemini_model %} · {{ st.gemini_model }}{% endif %}</option>{% endfor %}
+    </select>
+    <button type="submit">บันทึก</button>
+    {% if st.choice == 'gemini' and not st.gemini_ready %}<span class="pill no">ยังไม่มีคีย์ Gemini — ใส่ที่การ์ดผู้ช่วย AI ก่อน ตอนนี้ยังใช้โมเดลในเครื่อง</span>
+    {% elif st.choice == 'gemini' %}<span class="pill ok">ใช้ Gemini อยู่</span>{% endif %}
+    {% if st.fallback %}<span class="muted" style="font-size:12px">ครั้งล่าสุด Gemini ใช้ไม่ได้ ({{ st.fallback }}) จึงใช้โมเดลในเครื่องแทน</span>{% endif %}
+  </form>
+  {% endfor %}
+</div>
+
+<div class="card">
   <h2>Google Search Console — index จริง · ส่ง sitemap · คลิก</h2>
   <p class="muted" style="margin:0 0 12px">
     ใช้บัญชีบริการ (service account) ของ Google Cloud หนึ่งบัญชี แล้วให้ลูกค้าเพิ่มอีเมลของมันเป็นผู้ใช้ใน Search Console ของแต่ละเว็บ — ไม่ต้องขอรหัสผ่านใคร
