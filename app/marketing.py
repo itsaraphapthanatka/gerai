@@ -295,6 +295,37 @@ def compose(channel: str, kind: str, item=None, case: dict | None = None) -> dic
     return {"title": "ชวนตรวจเว็บฟรี", "text": text, "link": audit_link(src), "content_id": None}
 
 
+def write_post(channel: str, kind: str, item=None, case: dict | None = None, llm=None) -> dict:
+    """ให้โมเดลเขียนโพสต์ตามทักษะ CMO จากข้อเท็จจริงที่มี (บทความ/เคส) — ผิดกติกาหรือล้ม → แม่แบบ (compose) · ลิงก์ติดรหัสช่องทางต้องอยู่ครบ"""
+    base = compose(channel, kind, item, case)
+    if kind == "audit_cta" and item is None and case is None:
+        return base                                                 # ข้อความชวนตรวจใช้แม่แบบที่พิสูจน์แล้ว
+    if llm is None:
+        from . import ai_client
+        llm = lambda msgs: ai_client.chat_for("marketing", msgs, max_tokens=700, json_mode=True)
+    src = SRC.get(channel, channel)
+    limit = "ไม่เกิน 400 ตัวอักษร ขึ้นบรรทัดใหม่บ่อย" if channel == "line" else "ไม่เกิน 120 คำ เว้นบรรทัดระหว่างย่อหน้า"
+    facts = (f"หัวข้อบทความ: {item['title']}\nสาระสำคัญ: {hook(item, 400)}\nลิงก์บทความ: {article_link(item['id'])}" if item is not None
+             else f"หัวข้อ: {case['title']}\nเนื้อหา: {case['body']}")
+    prompt = (f"เขียนโพสต์สำหรับ {CHANNELS.get(channel, channel)} ของ เจอ.AI ประเภท {POST_KINDS.get(kind, kind)} ภาษาไทย {limit}\n"
+              f"ใช้ได้เฉพาะข้อเท็จจริงต่อไปนี้ ห้ามเพิ่มตัวเลข/ผลลัพธ์ ห้ามคำว่า การันตี/รับประกัน:\n{facts}\n"
+              f"ปิดท้ายด้วย CTA ชวนตรวจเว็บฟรีพร้อมลิงก์นี้ตรงตัว: {audit_link(src)}\n"
+              'ตอบเป็น JSON: {"text": "เนื้อโพสต์ทั้งหมด"}')
+    try:
+        raw = llm([{"role": "user", "content": prompt}])
+        m = re.search(r"\{[\s\S]*\}", raw or "")
+        text = str((json.loads(m.group(0)) if m else {}).get("text") or "").strip()
+        if len(text) < 60 or execs.FORBIDDEN.search(text):
+            raise ValueError("ไม่ผ่านกติกา")
+        if audit_link(src) not in text:
+            text += f"\n\nตรวจเว็บฟรี: {audit_link(src)}"
+        if item is not None and article_link(item["id"]) not in text:
+            text += f"\nอ่านบทความ: {article_link(item['id'])}"
+        return {**base, "text": text[:4800 if channel == "line" else 60000], "source": "llm"}
+    except Exception:
+        return {**base, "source": "template"}
+
+
 # ---------- 3) เคสศึกษาจากผลจริง ----------
 def metrics_for(brand) -> dict:
     """ตัวเลขจริงที่มีอยู่ของแบรนด์: คอนเทนต์ที่เผยแพร่ · วันที่เริ่ม · การมองเห็น (จาก monitoring_runs ถ้ามีคอลัมน์ตัวเลข)"""
@@ -413,6 +444,9 @@ def _propose(channel: str, kind: str, c: dict) -> int:
     return did
 
 
+_LLM = None   # เทสต์ตั้งเป็นฟังก์ชันปลอมได้ · None = ใช้โมเดลตามตั้งค่า
+
+
 def propose_posts(now: datetime.datetime | None = None) -> dict:
     """ต่อช่องทาง: บทความใหม่ที่ยังไม่โพสต์ (ใหม่ก่อน) + โพสต์ชวนตรวจเว็บฟรีสัปดาห์ละครั้ง ภายในโควตาต่อสัปดาห์"""
     now = now or datetime.datetime.now()
@@ -429,7 +463,7 @@ def propose_posts(now: datetime.datetime | None = None) -> dict:
                 break
             if (ch, "article", it["id"]) in done:
                 continue
-            _propose(ch, "article", compose(ch, "article", it))
+            _propose(ch, "article", write_post(ch, "article", it, llm=_LLM))
             budget -= 1
             n += 1
         if budget > 0 and not db.count_posts_since(ch, wk, kind="audit_cta"):
@@ -461,7 +495,7 @@ def propose_case_studies(now: datetime.datetime | None = None, llm=None) -> int:
     for ch in channels():
         if db.count_posts_since(ch, month, kind="case_study"):
             continue
-        _propose(ch, "case_study", compose(ch, "case_study", case=case))
+        _propose(ch, "case_study", write_post(ch, "case_study", case=case, llm=_LLM))
         n += 1
     return n
 

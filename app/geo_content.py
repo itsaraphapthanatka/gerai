@@ -15,7 +15,8 @@ def _llm_chat(prompt: str, max_tokens: int = 1300):
     try:
         from . import ai_client
         if ai_client.API_KEY:
-            return ai_client._chat([{"role": "user", "content": prompt}], max_tokens=max_tokens)
+            # ผ่านตัวเลือกโมเดลต่องาน "content" → แนบทักษะ Delivery/QA เป็น system prompt ให้เอง (ถอยกลับโมเดลในเครื่องถ้า Gemini ล้ม)
+            return ai_client.chat_for("content", [{"role": "user", "content": prompt}], max_tokens=max_tokens)
     except Exception:
         pass
     # (legacy) LiteLLM ถ้าตั้ง LITELLM_BASE_URL ไว้

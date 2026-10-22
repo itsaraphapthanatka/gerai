@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}ทักษะเอเจนต์ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ทักษะเอเจนต์</h1>
+<p class="muted">คู่มือความเชี่ยวชาญของแต่ละเอเจนต์ (CEO · CFO · CTO · CMO · Prospecting · Delivery) — ใช้เป็นคำสั่งระบบของโมเดลตอนร่างข้อความทัก โพสต์ เคสศึกษา และคอนเทนต์ และเป็นเช็กลิสต์ที่คนอ่านได้ แก้ได้ที่นี่ มีผลกับงานถัดไปทันที ไม่ต้อง deploy · กรอบอำนาจ (ตัวเลขที่โค้ดบังคับ) อยู่ด้านล่าง</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="err-banner">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0;font-size:15px">กรอบอำนาจที่โค้ดบังคับ (CFO ตรวจทุกข้อเสนอ)</h2>
+  <form method="post" action="/admin/skills/mandate" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;font-size:13px">
+    {% for k, label in mandate_label.items() %}
+    <label>{{ label }}<input type="number" name="{{ k }}" value="{{ mandate[k] }}" min="0" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"><span class="muted" style="font-size:11px">ค่าเริ่มต้นตามแผน {{ mandate_default[k] }}</span></label>
+    {% endfor %}
+    <div style="align-self:end"><button class="btn sm" type="submit">บันทึกกรอบอำนาจ</button></div>
+  </form>
+  <div class="muted" style="font-size:11.5px;margin-top:8px">ข้อเสนอที่เกินกรอบ (ส่วนลดเกิน วงเงินเกิน กำไรต่ำกว่าเกณฑ์) จะส่งกลับมารอคุณเสมอ ไม่ว่าเรื่องนั้นจะเปิดโหมดตัดสินเองหรือไม่ · การแก้ที่นี่ถูกบันทึกในประวัติการตัดสินใจว่าเป็นของบอร์ด</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px">
+{% for s in skills %}
+  <div class="card">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <h2 style="margin:0;font-size:15px">{{ s.label }}</h2>
+      {% if s.overridden %}<span class="pill admin" style="font-size:10px">แก้ทับแล้ว</span>{% else %}<span class="pill" style="font-size:10px">ค่าเริ่มต้น</span>{% endif %}
+      <span class="muted" style="font-size:11px;margin-left:auto">{{ s.chars }} ตัวอักษร · v{{ s.version }}</span>
+    </div>
+    <div class="muted" style="font-size:12px;margin:6px 0">{% if s.tasks %}ใช้เป็น system prompt ของงาน: {% for t in s.tasks %}<code>{{ tasks.get(t, t) }}</code>{{ ', ' if not loop.last }}{% endfor %}{% else %}ใช้เป็นคู่มือ/เช็กลิสต์ (ตรรกะบังคับในโค้ด){% endif %}</div>
+    {% if edit == s.name %}
+    <form method="post" action="/admin/skills/{{ s.name }}">
+      <textarea name="text" rows="22" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;padding:10px;border-radius:8px;border:1px solid var(--border);line-height:1.5">{{ s.text }}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn sm" type="submit">บันทึก</button>
+        <a class="btn ghost sm" href="/admin/skills">ยกเลิก</a>
+      </div>
+    </form>
+    {% else %}
+    <details><summary class="muted" style="cursor:pointer;font-size:12.5px">อ่านทักษะ</summary><pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.6;margin-top:8px;max-height:420px;overflow:auto">{{ s.text }}</pre></details>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <a class="btn ghost sm" href="/admin/skills?edit={{ s.name }}">แก้ไข</a>
+      {% if s.overridden %}<form method="post" action="/admin/skills/{{ s.name }}/reset" onsubmit="return confirm('คืนค่าเริ่มต้นของทักษะนี้?')"><button class="btn ghost sm" type="submit">คืนค่าเริ่มต้น</button></form>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

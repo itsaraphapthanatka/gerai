@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -3205,6 +3205,64 @@ def admin_marketing_case_study(request: Request, brand_id: int, ok: str = Form("
         return _redirect("/login")
     db.set_brand_case_study(brand_id, ok == "1")
     return _redirect("/admin/marketing?notice=อัปเดตการอนุญาตใช้ชื่อในเคสศึกษาแล้ว")
+
+
+def _skills_ctx(request: Request, notice: str = "", error: str = "", edit: str = ""):
+    items = skills.summary()
+    for it in items:
+        it["text"] = skills.load(it["name"])
+    return {"skills": items, "edit": edit, "mandate": execs.MANDATE.as_dict(), "mandate_default": execs.MANDATE_DEFAULT,
+            "mandate_label": execs.MANDATE_LABEL, "task_skill": skills.TASK_SKILL, "tasks": ai_client.TASKS, "notice": notice, "error": error}
+
+
+@app.get("/admin/skills")
+def admin_skills(request: Request, notice: str = "", edit: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_skills.html", _skills_ctx(request, notice, edit=edit))
+
+
+@app.post("/admin/skills/mandate")
+def admin_skills_mandate(request: Request, max_discount_pct: str = Form(""), max_deal_thb: str = Form(""), refund_days: str = Form(""),
+                         ai_cost_cap_thb: str = Form(""), min_margin_pct: str = Form("")):
+    """แก้กรอบอำนาจ (ส่วนลด วงเงิน คืนเงิน เพดาน AI กำไรขั้นต่ำ) — มีผลทันทีกับ CFO · บันทึกเป็นการตัดสินใจของบอร์ด"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    changed = []
+    for key, val in (("max_discount_pct", max_discount_pct), ("max_deal_thb", max_deal_thb), ("refund_days", refund_days),
+                     ("ai_cost_cap_thb", ai_cost_cap_thb), ("min_margin_pct", min_margin_pct)):
+        if val.strip() == "":
+            continue
+        try:
+            old_v = execs.MANDATE[key]
+            execs.set_mandate(key, val)
+            if execs.MANDATE[key] != old_v:
+                changed.append(f"{execs.MANDATE_LABEL[key]}: {old_v} → {execs.MANDATE[key]}")
+        except ValueError as e:
+            return _redirect(f"/admin/skills?notice=ค่าไม่ถูกต้อง ({execs.MANDATE_LABEL.get(key, key)}): {e}")
+    if changed:
+        db.add_decision("ceo", "digest", "บอร์ดแก้กรอบอำนาจ", "\n".join(changed), {"mandate": execs.MANDATE.as_dict()}, status="auto")
+    return _redirect("/admin/skills?notice=" + ("แก้กรอบอำนาจแล้ว: " + " · ".join(changed) if changed else "ไม่มีค่าที่เปลี่ยน"))
+
+
+@app.post("/admin/skills/{name}/reset")
+def admin_skill_reset(request: Request, name: str):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if name in skills.AGENTS:
+        skills.reset(name)
+    return _redirect(f"/admin/skills?notice=คืนค่าเริ่มต้นของทักษะ {skills.AGENTS.get(name, name)} แล้ว")
+
+
+@app.post("/admin/skills/{name}")
+def admin_skill_save(request: Request, name: str, text: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    try:
+        skills.save(name, text)
+    except ValueError as e:
+        return _redirect(f"/admin/skills?notice={e}")
+    return _redirect(f"/admin/skills?notice=บันทึกทักษะ {skills.AGENTS.get(name, name)} แล้ว มีผลกับงานถัดไปทันที")
 
 
 @app.post("/admin/settings/stripe")

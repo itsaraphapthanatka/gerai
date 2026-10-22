@@ -26,7 +26,8 @@ def _chat(messages: list[dict], max_tokens: int = 2048, timeout: int = 120) -> s
 # ---- เลือกโมเดลต่องาน (ตั้งผ่านหน้าตั้งค่าระบบ → settings llm_<task>) ----
 # ทุกงานใช้โมเดลในเครื่องผ่าน proxy (_chat) เป็นค่าเริ่มต้น · งาน "คิดคำถาม" สลับไป Gemini ได้
 # ด้วยคีย์ Gemini ตัวเดียวกับที่ใช้วัดผู้ช่วย AI — Gemini ตอบไม่ได้/ไม่มีคีย์ → ถอยมาใช้โมเดลในเครื่องเอง งานไม่ล้ม
-TASKS = {"questions": "ตัวคิดคำถามเป้าหมาย", "sales": "ตัวร่างข้อความทักลูกค้า (CEO เอเจนต์)"}
+TASKS = {"questions": "ตัวคิดคำถามเป้าหมาย", "sales": "ตัวร่างข้อความทักลูกค้า (CEO เอเจนต์)",
+         "marketing": "ตัวเขียนโพสต์/เคสศึกษา (CMO เอเจนต์)", "content": "ตัวเขียนคอนเทนต์ให้ลูกค้า (Delivery)"}
 MODEL_CHOICES = [("local", "โมเดลในเครื่อง (ค่าเริ่มต้น)"), ("gemini", "Gemini (คีย์เดียวกับผู้ช่วย AI)")]
 GEMINI_TIMEOUT = 120
 _LAST_FALLBACK: dict = {}   # task → เหตุผลครั้งล่าสุดที่ Gemini ใช้ไม่ได้ (หน้าตั้งค่าโชว์ให้เห็น ไม่เงียบ)
@@ -92,6 +93,8 @@ def gemini_chat(messages: list[dict], max_tokens: int = 2048, timeout: int = GEM
 
 def chat_for(task: str, messages: list[dict], max_tokens: int = 2048, timeout: int = 120, json_mode: bool = False) -> str:
     """เรียกโมเดลตามที่ตั้งไว้สำหรับงานนี้ — Gemini ใช้ไม่ได้ก็ถอยมาโมเดลในเครื่อง และจำเหตุผลไว้โชว์"""
+    from . import skills as _skills
+    messages = _skills.with_skill(task, messages)        # ทักษะของเอเจนต์เป็น system prompt (ceo/cmo/delivery)
     if task_setting(task) == "gemini":
         try:
             out = gemini_chat(messages, max_tokens=max_tokens, timeout=timeout, json_mode=json_mode)

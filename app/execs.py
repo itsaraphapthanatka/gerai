@@ -8,14 +8,55 @@ import re
 
 from . import leads as L
 
-MANDATE = {
-    "mode": "propose",          # propose = เสนอทุกเรื่อง คนกดยืนยัน (เฟส 1) · auto = ทำเองในกรอบ (หลังผ่านด่าน)
+MANDATE_DEFAULT = {
     "max_discount_pct": 10,
     "max_deal_thb": 50000,      # ต่อรายต่อเดือน
     "refund_days": 7,
     "ai_cost_cap_thb": 570,     # ต้นทุน AI/เครื่องมือต่อลูกค้าต่อเดือน (จากแผน)
     "min_margin_pct": 70,
 }
+MANDATE_LABEL = {"max_discount_pct": "ส่วนลดสูงสุด (%)", "max_deal_thb": "วงเงินต่อดีล (บาท/เดือน)", "refund_days": "คืนเงินเต็มภายใน (วัน)",
+                 "ai_cost_cap_thb": "เพดานต้นทุน AI ต่อลูกค้า (บาท/เดือน)", "min_margin_pct": "กำไรขั้นต้นขั้นต่ำ (%)"}
+
+
+class _Mandate(dict):
+    """กรอบอำนาจ: ค่าเริ่มต้นจากแผน แก้ทับได้ที่หน้าทักษะเอเจนต์ (settings mandate_<key>) — อ่านสดทุกครั้งที่ใช้"""
+    def __getitem__(self, key):
+        if key == "mode":
+            return "propose"
+        try:
+            from . import db
+            v = db.get_setting(f"mandate_{key}")
+        except Exception:                      # DB ยังไม่พร้อม (เช่น เรียกจากตรรกะล้วนก่อน init_db) → ใช้ค่าเริ่มต้น
+            v = None
+        if v is not None and str(v).strip() != "":
+            try:
+                return int(float(v))
+            except ValueError:
+                pass
+        return MANDATE_DEFAULT[key]
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def as_dict(self) -> dict:
+        return {k: self[k] for k in MANDATE_DEFAULT}
+
+
+MANDATE = _Mandate()
+
+
+def set_mandate(key: str, value) -> None:
+    from . import db
+    if key not in MANDATE_DEFAULT:
+        raise ValueError("ไม่รู้จักกรอบนี้")
+    v = int(float(value))
+    if v < 0:
+        raise ValueError("ค่าต้องไม่ติดลบ")
+    db.set_setting(f"mandate_{key}", str(v))
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO"}
 KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "digest": "สรุปเช้า"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
