@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -366,6 +366,242 @@ async def api_contact(request: Request):
     db.notify_admins(f"📩 ผู้ติดต่อใหม่: {name} ({contact})" + (f" · สนใจ {plan}" if plan else ""),
                      "/admin/contacts", "contact")
     return JSONResponse({"ok": True})
+
+
+# ---------- ลูกค้าเป้าหมาย: ตรวจเว็บฟรี (public) + ผู้บริหารเอเจนต์โหมดเสนอ ----------
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for") or ""
+    return (fwd.split(",")[0].strip() or (request.client.host if request.client else "") or "")[:64]
+
+
+def _run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
+    """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
+    report = site_health.run_checks(site)
+    sc = leads.score_audit(report)
+    token = leads.new_token()
+    db.update_lead(lead_id, audit_json=json.dumps(report, ensure_ascii=False), audit_at=db.now(),
+                   score=sc["score"], token=token, **({"ip": ip} if ip else {}))
+    return token
+
+
+def _ceo_propose(lead) -> int | None:
+    """CEO คัด + ร่างข้อความทัก (โหมดเสนอ) · CFO ตรวจราคากับกรอบ → แถวใน decisions รอคนกดยืนยัน"""
+    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
+    if not report:
+        return None
+    result_url = f"{_public_base()}/audit/{lead['token']}" if lead["token"] else _public_base()
+    pl = execs.ceo_review_lead(lead, report, result_url)
+    if pl["action"] == "decline":
+        return db.add_decision("ceo", "lead_review", f"ไม่รับ {lead['domain']}", pl["reason"], pl, lead_id=lead["id"])
+    pl["cfo"] = execs.cfo_check(pl)
+    proposal = (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
+                f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
+    return db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} ({pl['package']})", proposal, pl, lead_id=lead["id"])
+
+
+@app.get("/audit")
+def audit_page(request: Request):
+    return templates.TemplateResponse(request, "audit.html", {"error": "", "url": ""})
+
+
+@app.post("/audit")
+def audit_run(request: Request, url: str = Form(""), website: str = Form("")):
+    if website.strip():                                   # honeypot: บอทกรอก → เงียบ
+        return _redirect("/audit")
+    site = leads.normalize_url(url)
+    if not site:
+        return templates.TemplateResponse(request, "audit.html", {"error": "กรอกที่อยู่เว็บให้ถูกต้อง เช่น example.co.th", "url": url})
+    import datetime as _dt
+    ip = _client_ip(request)
+    since = (_dt.datetime.now() - _dt.timedelta(hours=leads.REUSE_AUDIT_HOURS)).isoformat(timespec="seconds")
+    if db.count_audits_since(ip, since) >= leads.AUDITS_PER_IP_PER_DAY:
+        return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {leads.AUDITS_PER_IP_PER_DAY} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url})
+    dom = leads.domain_of(site)
+    recent = db.find_lead_by_domain(dom)
+    if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
+        return _redirect(f"/audit/{recent['token']}")   # โดเมนเดิมภายใน 24 ชม. ใช้ผลเดิม
+    lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
+    try:
+        token = _run_lead_audit(lid, site, ip)
+    except Exception:
+        return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url})
+    return _redirect(f"/audit/{token}")
+
+
+def _audit_result_ctx(lead, sent=False, error=""):
+    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
+    return {"lead": lead, "report": report, "score": leads.score_audit(report), "summary": leads.public_summary(report),
+            "sent": sent or bool(lead["consent"]), "error": error}
+
+
+@app.get("/audit/{token}")
+def audit_result(request: Request, token: str, sent: int = 0):
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent)))
+
+
+@app.post("/audit/{token}/contact")
+def audit_contact(request: Request, token: str, name: str = Form(""), email: str = Form(""), contact: str = Form(""),
+                  consent: str = Form(""), website: str = Form("")):
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    if website.strip():
+        return _redirect(f"/audit/{token}")
+    if not (email.strip() or contact.strip()):
+        return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, error="กรอกอีเมลหรือ LINE/เบอร์โทรอย่างน้อยหนึ่งอย่าง"))
+    if not consent:
+        return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, error="ติ๊กยินยอมให้ติดต่อกลับก่อน เราถึงจะส่งแผนให้ได้"))
+    db.update_lead(lead["id"], name=name.strip()[:120] or None, email=email.strip().lower()[:160] or None,
+                   contact=contact.strip()[:160] or None, consent=1)
+    db.notify_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""), "/admin/leads", "lead")
+    try:
+        _ceo_propose(db.get_lead(lead["id"]))
+    except Exception:
+        pass   # ข้อเสนอสร้างทีหลังได้จากหน้าแอดมิน ไม่ให้ลูกค้าเห็น error
+    return _redirect(f"/audit/{token}?sent=1")
+
+
+@app.get("/admin/leads")
+def admin_leads(request: Request, status: str = "", notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    rows = []
+    for l in db.list_leads(status or None):
+        d = dict(l)
+        rep = json.loads(d["audit_json"]) if d.get("audit_json") else None
+        d["sc"] = leads.score_audit(rep) if rep else None
+        d["pending"] = db.count_decisions_for_lead(d["id"], "proposed")
+        rows.append(d)
+    return templates.TemplateResponse(request, "admin_leads.html",
+        {"leads": rows, "statuses": leads.STATUSES, "sources": leads.SOURCES, "filter": status, "notice": notice})
+
+
+@app.post("/admin/leads/import")
+def admin_leads_import(request: Request, text: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    added = skipped = 0
+    for row in leads.parse_import(text):
+        if db.find_lead_by_domain(row["domain"]):
+            skipped += 1
+            continue
+        db.add_lead(row["url"], row["domain"], source="import", name=row["name"], email=row["email"])
+        added += 1
+    return _redirect(f"/admin/leads?notice=นำเข้า {added} ราย" + (f" ข้ามซ้ำ {skipped}" if skipped else ""))
+
+
+@app.post("/admin/leads/{lead_id}/status")
+def admin_lead_status(request: Request, lead_id: int, status: str = Form("new")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    if status in leads.STATUS_LABEL:
+        db.update_lead(lead_id, status=status)
+    return _redirect("/admin/leads")
+
+
+@app.post("/admin/leads/{lead_id}/audit")
+def admin_lead_audit(request: Request, lead_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    try:
+        _run_lead_audit(lead_id, lead["site_url"])
+    except Exception as e:
+        return _redirect(f"/admin/leads?notice=ตรวจ {lead['domain']} ไม่สำเร็จ: {type(e).__name__}")
+    return _redirect(f"/admin/leads?notice=ตรวจ {lead['domain']} แล้ว")
+
+
+@app.post("/admin/leads/{lead_id}/propose")
+def admin_lead_propose(request: Request, lead_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead or not lead["audit_json"]:
+        return _redirect("/admin/leads?notice=ต้องตรวจเว็บก่อน CEO ถึงจะเสนอได้")
+    did = _ceo_propose(lead)
+    return _redirect("/admin/decisions" if did else "/admin/leads?notice=ไม่มีผลตรวจให้เสนอ")
+
+
+def _execute_decision(d, who: str) -> str:
+    """ทำตามข้อเสนอที่อนุมัติ — ตอนนี้: ส่งข้อความทัก (ถ้ามีอีเมลที่ส่งได้) / ปิดลูกค้าที่ CEO ไม่รับ"""
+    import html as _html
+    pl = json.loads(d["payload_json"] or "{}")
+    lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+    if d["kind"] == "outreach" and lead:
+        body = pl.get("body", "") + f"\n\n— เจอ.AI · ไม่อยากรับอีเมลจากเรา ตอบกลับว่า \"ไม่รับ\" ได้เลย เราจะไม่ติดต่ออีก"
+        if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
+            mailer.send(lead["email"], pl.get("subject", f"ผลตรวจเว็บ {lead['domain']}"),
+                        mailer.wrap_html(pl.get("subject", ""), "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+            db.update_lead(lead["id"], status="contacted")
+            return f"ส่งอีเมลถึง {lead['email']} แล้ว"
+        db.update_lead(lead["id"], status="contacted")
+        return "ไม่มีอีเมลที่ส่งได้ — คัดลอกข้อความไปส่งทาง LINE/โทรเอง บันทึกสถานะเป็นทักแล้ว"
+    if d["kind"] == "lead_review" and lead and pl.get("action") == "decline":
+        db.update_lead(lead["id"], status="lost")
+        return "ปิดลูกค้ารายนี้ตามที่ CEO เสนอ"
+    return "รับทราบ"
+
+
+def _decisions_ctx(request: Request, notice: str = ""):
+    pending = []
+    for d in db.list_decisions("proposed", 50):
+        x = dict(d)
+        try:
+            x["pl"] = json.loads(x.get("payload_json") or "{}")
+        except Exception:
+            x["pl"] = {}
+        pending.append(x)
+    history = [dict(d) for d in db.list_decisions(None, 60) if d["status"] != "proposed"]
+    return {"pending": pending, "history": history, "stats": db.decision_stats(), "mandate": execs.MANDATE,
+            "agents": execs.AGENTS, "kinds": execs.KINDS, "notice": notice}
+
+
+@app.get("/admin/decisions")
+def admin_decisions(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_decisions.html", _decisions_ctx(request, notice))
+
+
+@app.post("/admin/decisions/{did}/approve")
+def admin_decision_approve(request: Request, did: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    d = db.get_decision(did)
+    if not d or d["status"] != "proposed":
+        return _redirect("/admin/decisions")
+    who = request.session.get("email") or "admin"
+    try:
+        result = _execute_decision(d, who)
+        db.set_decision(did, "executed", who, result)
+    except Exception as e:
+        db.set_decision(did, "approved", who, f"อนุมัติแล้วแต่ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
+        result = f"ทำไม่สำเร็จ: {type(e).__name__}"
+    return _redirect(f"/admin/decisions?notice={result}")
+
+
+@app.post("/admin/decisions/{did}/reject")
+def admin_decision_reject(request: Request, did: int, reason: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    d = db.get_decision(did)
+    if d and d["status"] == "proposed":
+        db.set_decision(did, "rejected", request.session.get("email") or "admin", reason.strip()[:300] or None)
+    return _redirect("/admin/decisions?notice=ปฏิเสธแล้ว — ระบบนับเป็นการตัดสินใจที่ไม่ตรงกัน")
+
+
+@app.post("/admin/digest/run")
+def admin_digest_run(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    res = execs.morning_digest(_public_base())
+    note = "ทำสรุปเช้าแล้ว" + (f" · ส่งอีเมล {len(res['sent_to'])} ฉบับ" if res["sent_to"] else " · ไม่มีแอดมินที่อีเมลใช้ได้จริง เลยเก็บไว้ที่หน้านี้อย่างเดียว")
+    return _redirect(f"/admin/decisions?notice={note}")
 
 
 # ---------- PWA (manifest + service worker) ----------
@@ -2106,6 +2342,48 @@ def hosted_article(request: Request, key: str, cid: int):
          "canonical": f"{site}/geo/{cid}", "brand_name": brand["name"],
          "site_url": site, "domain": brand["domain"]},
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
+
+
+def _self_brand():
+    """แบรนด์ของเจอ.AI เอง (settings self_brand_id) — ให้โดเมนแพลตฟอร์มมีหน้า GEO เหมือนลูกค้า"""
+    bid = db.get_setting("self_brand_id")
+    try:
+        return db.get_brand(int(bid)) if bid else None
+    except Exception:
+        return None
+
+
+@app.api_route("/geo", methods=["GET", "HEAD"])
+def self_geo_index(request: Request):
+    b = _self_brand()
+    return hosted_index(request, b["embed_key"]) if b else Response("not found", status_code=404)
+
+
+@app.api_route("/geo/{cid}", methods=["GET", "HEAD"])
+def self_geo_article(request: Request, cid: int):
+    b = _self_brand()
+    return hosted_article(request, b["embed_key"], cid) if b else Response("not found", status_code=404)
+
+
+@app.api_route("/llms.txt", methods=["GET", "HEAD"])
+def self_llms():
+    b = _self_brand()
+    return embed_llms(b["embed_key"]) if b else PlainTextResponse("# not found", status_code=404)
+
+
+@app.api_route(geo_content.SITEMAP_PATH, methods=["GET", "HEAD"])
+def self_sitemap():
+    b = _self_brand()
+    return embed_sitemap(b["embed_key"]) if b else PlainTextResponse("not found", status_code=404)
+
+
+@app.api_route("/robots.txt", methods=["GET", "HEAD"])
+def self_robots():
+    """robots.txt ของโดเมนแพลตฟอร์ม — เปิดให้บอท AI และชี้ sitemap เหมือนที่แนะนำลูกค้า (ก่อนหน้านี้ตอบ 404)"""
+    b = _self_brand()
+    if b:
+        return embed_robots(b["embed_key"])
+    return PlainTextResponse("User-agent: *\nAllow: /\n")
 
 
 @app.api_route("/e/{key}/content.json", methods=["GET", "HEAD"])

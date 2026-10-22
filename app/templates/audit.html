@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตรวจเว็บฟรี — เว็บคุณโผล่ใน Google และ AI ไหม · เจอ.AI</title>
+<meta name="description" content="ตรวจ 16 ข้อที่ขวางไม่ให้เว็บธุรกิจโผล่ใน Google และคำตอบของ AI ฟรี ไม่ต้องสมัคร ใช้เวลาครึ่งนาที">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon-32.png">
+<style>
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--purple:#a855f7;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 24px 64px}
+  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:28px}
+  .brand a{color:inherit;text-decoration:none}
+  h1{font-size:clamp(28px,5vw,40px);line-height:1.15;letter-spacing:-.5px;margin-bottom:12px}
+  .sub{color:var(--slate);font-size:17px;margin-bottom:28px}
+  form.audit{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=text]{flex:1 1 320px;font:inherit;font-size:16px;padding:14px 16px;border:1px solid var(--hairline);border-radius:12px;outline:none}
+  input[type=text]:focus{border-color:var(--primary)}
+  button{font:inherit;font-weight:600;font-size:16px;padding:14px 24px;border-radius:9999px;border:1px solid transparent;background:var(--primary);color:#fff;cursor:pointer}
+  button:hover{background:#222}
+  .err{background:#fdeaea;color:#c0392b;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:14px}
+  .note{color:var(--stone);font-size:13px;margin-top:12px}
+  .checks{margin-top:40px;background:var(--surface);border-radius:16px;padding:22px 24px}
+  .checks h2{font-size:16px;margin-bottom:10px}
+  .checks ul{padding-left:18px;color:var(--slate);font-size:14.5px;display:grid;gap:6px}
+  .hp{position:absolute;left:-9999px;opacity:0}
+  .wait{display:none;margin-top:16px;color:var(--slate);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><a href="/">เจอ.AI</a> · ตรวจเว็บฟรี</div>
+  <h1>เว็บคุณโผล่ใน Google และคำตอบของ AI ไหม</h1>
+  <p class="sub">ตรวจ 16 ข้อที่ขวางไม่ให้บอทของ Google, ChatGPT, Gemini และ Perplexity อ่านเว็บคุณ ฟรี ไม่ต้องสมัคร ใช้เวลาราวครึ่งนาที</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form class="audit" method="post" action="/audit" onsubmit="document.getElementById('wait').style.display='block';this.querySelector('button').disabled=true;">
+    <input type="text" name="url" value="{{ url }}" placeholder="เช่น example.co.th" required autofocus autocomplete="url">
+    <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+    <button type="submit">ตรวจเลย</button>
+  </form>
+  <div id="wait" class="wait">กำลังดึงเว็บจริงมาตรวจ 16 ข้อ รอครึ่งนาที…</div>
+  <p class="note">เราดึงเฉพาะหน้าสาธารณะของเว็บ (หน้าแรก robots.txt sitemap) ไม่ล็อกอิน ไม่เก็บข้อมูลส่วนตัวในขั้นนี้</p>
+
+  <div class="checks">
+    <h2>ตรวจอะไรบ้าง</h2>
+    <ul>
+      <li>เนื้อหาอยู่ใน HTML จริงไหม หรือต้องรอ JavaScript ซึ่งบอท AI ไม่รัน</li>
+      <li>robots.txt กันบอท Google หรือบอท AI (GPTBot, ClaudeBot, PerplexityBot) ไว้หรือเปล่า</li>
+      <li>sitemap, canonical, noindex และหน้าซ้ำที่ทำให้ Google ตีตก</li>
+      <li>มีหน้าให้ AI อ่านโดยเฉพาะ (llms.txt, บทความตอบคำถามลูกค้า) หรือยัง</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}ลูกค้าเป้าหมาย — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ลูกค้าเป้าหมาย</h1>
+<p class="muted">รายชื่อจากหน้า "ตรวจเว็บฟรี" และที่นำเข้าเอง · CEO เอเจนต์คัดและร่างข้อความทักให้ แล้วคุณกดยืนยันที่หน้า <a class="link" href="/admin/decisions">การตัดสินใจ</a></p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+
+<div class="card" style="margin-bottom:14px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <a class="btn ghost sm {{ 'active' if not filter }}" href="/admin/leads">ทั้งหมด</a>
+    {% for k, label in statuses %}<a class="btn ghost sm" href="/admin/leads?status={{ k }}" style="{{ 'font-weight:700' if filter == k }}">{{ label }}</a>{% endfor %}
+    <a class="btn sm" href="/audit" target="_blank" style="margin-left:auto">เปิดหน้าตรวจเว็บฟรี ↗</a>
+  </div>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  {% if leads %}
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>เว็บ</th><th>ที่มา</th><th>โอกาส</th><th>ติดต่อ</th><th>สถานะ</th><th>เมื่อ</th><th></th></tr></thead>
+    <tbody>
+    {% for l in leads %}
+    <tr style="{% if l['status']=='new' %}background:var(--purple-tint){% endif %}">
+      <td><b>{{ l['domain'] }}</b>{% if l['token'] and l['audit_json'] %} <a class="link" href="/audit/{{ l['token'] }}" target="_blank" style="font-size:12px">ผลตรวจ ↗</a>{% endif %}
+        {% if l['sc'] %}<div class="muted" style="font-size:11.5px">{{ l['sc'].n_fail }} ข้อตก · {{ l['sc'].reasons[0] if l['sc'].reasons else 'ผ่านทุกข้อ' }}</div>{% endif %}</td>
+      <td class="muted">{{ sources.get(l['source'], l['source']) }}</td>
+      <td>{% if l['sc'] %}<span class="pill {{ 'no' if l['sc'].score >= 50 else ('admin' if l['sc'].score >= 25 else 'ok') }}">{{ l['sc'].level }} {{ l['sc'].score }}</span>{% else %}<span class="muted">ยังไม่ตรวจ</span>{% endif %}</td>
+      <td style="font-size:12.5px">{{ l['name'] or '' }}{% if l['email'] %}<div>{{ l['email'] }}</div>{% endif %}{% if l['contact'] %}<div class="muted">{{ l['contact'] }}</div>{% endif %}{% if not l['email'] and not l['contact'] %}<span class="muted">—</span>{% endif %}{% if l['consent'] %}<div class="muted" style="font-size:11px">ยินยอมติดต่อ ✓</div>{% endif %}</td>
+      <td>
+        <form method="post" action="/admin/leads/{{ l['id'] }}/status" style="display:flex;gap:4px">
+          <select name="status" onchange="this.form.submit()" style="padding:5px 6px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
+            {% for k, label in statuses %}<option value="{{ k }}" {% if l['status']==k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </form>
+      </td>
+      <td class="muted" style="white-space:nowrap;font-size:12px">{{ (l['created_at'] or '')[:16].replace('T',' ') }}</td>
+      <td style="white-space:nowrap">
+        {% if not l['audit_json'] %}<form method="post" action="/admin/leads/{{ l['id'] }}/audit" style="display:inline"><button class="btn ghost sm" type="submit">ตรวจเว็บ</button></form>
+        {% elif l['pending'] %}<a class="btn ghost sm" href="/admin/decisions">รอยืนยัน {{ l['pending'] }}</a>
+        {% elif l['status'] in ('new', 'replied') %}<form method="post" action="/admin/leads/{{ l['id'] }}/propose" style="display:inline"><button class="btn ghost sm" type="submit">ให้ CEO เสนอ</button></form>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีลูกค้าเป้าหมาย — แชร์ลิงก์ <a class="link" href="/audit">/audit</a> หรือวางรายชื่อด้านล่าง</p></div>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0;font-size:15px">นำเข้ารายชื่อ</h2>
+  <p class="muted" style="font-size:12.5px">บรรทัดละราย: <code>โดเมน, อีเมล, ชื่อ</code> (อีเมล/ชื่อไม่บังคับ) · โดเมนซ้ำกับที่มีอยู่จะข้าม · ใช้เฉพาะอีเมลธุรกิจที่เปิดเผยสาธารณะ</p>
+  <form method="post" action="/admin/leads/import">
+    <textarea name="text" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border)" placeholder="example.co.th, contact@example.co.th, คุณสมชาย&#10;another.com"></textarea>
+    <div style="margin-top:8px"><button class="btn sm" type="submit">นำเข้า</button> <span class="muted" style="font-size:12px">แล้วกด "ตรวจเว็บ" รายที่ต้องการ (ครั้งละราวครึ่งนาที)</span></div>
+  </form>
+</div>
+{% endblock %}

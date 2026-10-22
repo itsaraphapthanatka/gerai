@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}การตัดสินใจของผู้บริหารเอเจนต์ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>การตัดสินใจ</h1>
+<p class="muted">ผู้บริหารเอเจนต์ (CEO · CFO · CTO) อยู่ใน<b>โหมดเสนอ</b> ทุกข้อเสนอรอคุณกดยืนยันก่อนทำจริง · กรอบอำนาจ: ส่วนลด ≤ {{ mandate.max_discount_pct }}% · ดีล ≤ {{ "{:,}".format(mandate.max_deal_thb) }} บาท/เดือน · คืนเงินใน {{ mandate.refund_days }} วัน</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+
+<div class="card" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+  <div style="text-align:center"><div class="muted">รออนุมัติ</div><div class="sov {{ 'no' if pending else 'pos' }}">{{ pending|length }}</div></div>
+  <div style="text-align:center"><div class="muted">ตัดสินแล้ว</div><div class="sov">{{ stats.decided }}</div></div>
+  <div style="text-align:center"><div class="muted">ตรงกับเจ้าของ</div><div class="sov {{ 'pos' if stats.agreement_pct is not none and stats.agreement_pct >= 95 else '' }}">{{ stats.agreement_pct if stats.agreement_pct is not none else '—' }}%</div></div>
+  <div class="muted" style="font-size:12px;max-width:360px">ด่าน 1 ต้องตรงกัน ≥ 95% ก่อนสลับให้ตัดสินเองในกรอบ · "อนุมัติ" = ตรง · "ปฏิเสธ" = ไม่ตรง</div>
+  <form method="post" action="/admin/digest/run" style="margin-left:auto"><button class="btn ghost sm" type="submit">ทำสรุปเช้าตอนนี้</button></form>
+</div>
+
+<h2>รออนุมัติ</h2>
+{% if pending %}
+{% for d in pending %}
+<div class="card" style="border-color:var(--purple)">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="pill admin">{{ agents.get(d['agent'], d['agent']) }}</span>
+    <span class="pill">{{ kinds.get(d['kind'], d['kind']) }}</span>
+    <b>{{ d['title'] }}</b>
+    <span class="muted" style="font-size:12px;margin-left:auto">{{ (d['created_at'] or '')[:16].replace('T',' ') }}</span>
+  </div>
+  <pre style="white-space:pre-wrap;font-family:inherit;font-size:13.5px;line-height:1.6;margin:12px 0;background:var(--bg,#fafafa);padding:12px;border-radius:8px">{{ d['proposal'] }}</pre>
+  {% if d['pl'] and d['pl'].get('cfo') %}<div class="muted" style="font-size:12.5px;margin-bottom:10px">CFO: {{ d['pl']['cfo']['note'] }}{% if not d['pl']['cfo']['ok'] %} <span class="pill no">นอกกรอบ</span>{% endif %}{% if d['pl'].get('source') %} · ร่างโดย {{ d['pl']['source'] }}{% endif %}</div>{% endif %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <form method="post" action="/admin/decisions/{{ d['id'] }}/approve"><button class="btn sm" type="submit">✓ อนุมัติและทำเลย</button></form>
+    <form method="post" action="/admin/decisions/{{ d['id'] }}/reject" style="display:flex;gap:6px">
+      <input type="text" name="reason" placeholder="เหตุผล (ไม่บังคับ)" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
+      <button class="btn ghost sm" type="submit">✗ ปฏิเสธ</button>
+    </form>
+    {% if d['lead_id'] %}<a class="link" href="/admin/leads" style="font-size:12.5px">ดูลูกค้า</a>{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><p class="muted">ไม่มีข้อเสนอค้าง — ข้อเสนอใหม่จะเกิดเมื่อมีคนกรอกช่องทางติดต่อหลังตรวจเว็บฟรี หรือเมื่อคุณกด "ให้ CEO เสนอ" ที่หน้าลูกค้าเป้าหมาย</p></div>
+{% endif %}
+
+<h2>ประวัติ</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if history %}
+  <table>
+    <thead><tr><th>เมื่อ</th><th>ใคร</th><th>เรื่อง</th><th>ผล</th></tr></thead>
+    <tbody>
+    {% for d in history %}
+    <tr>
+      <td class="muted" style="white-space:nowrap;font-size:12px">{{ (d['decided_at'] or d['created_at'] or '')[:16].replace('T',' ') }}</td>
+      <td><span class="pill admin">{{ agents.get(d['agent'], d['agent']) }}</span> <span class="muted" style="font-size:12px">{{ kinds.get(d['kind'], d['kind']) }}</span></td>
+      <td><b>{{ d['title'] }}</b>{% if d['kind'] == 'digest' %}<details><summary class="muted" style="font-size:12px;cursor:pointer">ดูสรุป</summary><pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px">{{ d['proposal'] }}</pre></details>{% endif %}</td>
+      <td style="font-size:12.5px">{% if d['status'] == 'executed' %}<span class="pill ok">ทำแล้ว</span>{% elif d['status'] == 'approved' %}<span class="pill ok">อนุมัติ</span>{% elif d['status'] == 'rejected' %}<span class="pill no">ปฏิเสธ</span>{% else %}<span class="pill">{{ d['status'] }}</span>{% endif %} <span class="muted">{{ d['result'] or '' }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div style="text-align:center;padding:24px"><p class="muted">ยังไม่มีประวัติ</p></div>{% endif %}
+</div>
+{% endblock %}

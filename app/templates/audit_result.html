@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ผลตรวจ {{ lead['domain'] }} · เจอ.AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon-32.png">
+<style>
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:24px}
+  .brand a{color:inherit;text-decoration:none}
+  h1{font-size:clamp(24px,4.5vw,34px);line-height:1.2;letter-spacing:-.4px;margin-bottom:6px}
+  .sub{color:var(--slate);margin-bottom:22px}
+  .stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:26px}
+  .stat{background:var(--surface);border-radius:14px;padding:14px 18px;min-width:140px}
+  .stat b{display:block;font-size:26px;letter-spacing:-.5px}
+  .stat span{color:var(--slate);font-size:13px}
+  .bad b{color:#c0392b}.good b{color:#1c7a44}
+  h2{font-size:18px;margin:26px 0 10px}
+  .item{border:1px solid var(--hairline);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+  .item .lb{font-weight:600}
+  .item .why{color:var(--slate);font-size:14.5px;margin-top:3px}
+  .item .dt{color:var(--stone);font-size:12.5px;margin-top:6px}
+  .cta{background:var(--primary);color:#fff;border-radius:18px;padding:24px;margin-top:30px}
+  .cta h2{margin-top:0;color:#fff}
+  .cta p{color:#d6d6dc;font-size:14.5px;margin-bottom:14px}
+  .cta form{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  .cta input[type=text],.cta input[type=email]{font:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid #333;background:#141414;color:#fff}
+  .cta label.consent{grid-column:1/-1;font-size:13px;color:#d6d6dc;display:flex;gap:8px;align-items:flex-start}
+  .cta button{grid-column:1/-1;font:inherit;font-weight:600;font-size:16px;padding:13px 22px;border-radius:9999px;border:0;background:#fff;color:#0a0a0a;cursor:pointer}
+  .ok{background:#e8f7ee;color:#1c7a44;padding:12px 16px;border-radius:12px;margin-top:26px}
+  .err{background:#fdeaea;color:#c0392b;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:14px;grid-column:1/-1}
+  .hp{position:absolute;left:-9999px;opacity:0}
+  .foot{color:var(--stone);font-size:12.5px;margin-top:28px}
+  .foot a{color:inherit}
+  @media (max-width:560px){.cta form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><a href="/">เจอ.AI</a> · <a href="/audit">ตรวจเว็บฟรี</a></div>
+  <h1>ผลตรวจ {{ lead['domain'] }}</h1>
+  <p class="sub">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }} · ดึงหน้าสาธารณะของเว็บจริงมาตรวจ {{ score.n_checked }} ข้อ</p>
+
+  <div class="stats">
+    <div class="stat good"><b>{{ score.n_ok }}</b><span>ข้อที่ผ่าน</span></div>
+    <div class="stat {{ 'bad' if score.n_fail else 'good' }}"><b>{{ score.n_fail }}</b><span>ข้อที่ต้องแก้</span></div>
+    <div class="stat"><b>{{ score.level }}</b><span>โอกาสที่การแก้จะเห็นผล</span></div>
+  </div>
+
+  {% if summary %}
+  <h2>ข้อที่ขวางมากที่สุด</h2>
+  {% for s in summary %}
+  <div class="item">
+    <div class="lb">{{ s.label }}</div>
+    <div class="why">{{ s.why }}</div>
+    {% if s.detail %}<div class="dt">{{ s.detail[:160] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <h2>เว็บผ่านทุกข้อที่ตรวจ</h2>
+  <p class="sub">ขั้นต่อไปคือทำให้ AI "เอ่ยถึง" เมื่อลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้าและมีหน้าให้ AI อ่าน</p>
+  {% endif %}
+
+  <h2>สิ่งที่เจอ.AI ทำให้</h2>
+  <div class="item"><div class="lb">แก้สิ่งที่ขวางบอท</div><div class="why">ติดตั้งหน้า /geo, llms.txt และ sitemap สำหรับ AI บนโดเมนของคุณ แก้ robots, canonical และ index ให้ Google อ่านได้</div></div>
+  <div class="item"><div class="lb">คิดคำถามที่ลูกค้าถาม AI แล้วเขียนคำตอบให้</div><div class="why">วัดทุกสัปดาห์ว่าแบรนด์คุณโผล่ใน ChatGPT, Gemini, Perplexity และ Google AI หรือยัง แล้วเขียนคอนเทนต์ปิดช่องว่างให้อัตโนมัติ</div></div>
+  <div class="item"><div class="lb">รายงานผลจริงทุกเดือน</div><div class="why">ตัวเลขจาก Search Console และการถาม AI จริง ไม่ใช่ตัวเลขประมาณ</div></div>
+
+  {% if sent %}
+  <div class="ok">รับเรื่องแล้ว ทีมเจอ.AI จะส่งแผนแก้ให้ภายใน 1 วันทำการ ขอบคุณครับ</div>
+  {% else %}
+  <div class="cta">
+    <h2>ให้ทีมเจอ.AI ส่งแผนแก้ให้ฟรี</h2>
+    <p>บอกช่องทางติดต่อ เราจะส่งลำดับการแก้และราคาให้ ไม่มีการโทรกวน ไม่ส่งซ้ำถ้าไม่ตอบ</p>
+    <form method="post" action="/audit/{{ lead['token'] }}/contact">
+      {% if error %}<div class="err">{{ error }}</div>{% endif %}
+      <input type="text" name="name" placeholder="ชื่อ (ไม่บังคับ)" maxlength="120">
+      <input type="email" name="email" placeholder="อีเมล" maxlength="160">
+      <input type="text" name="contact" placeholder="LINE ID หรือเบอร์โทร (ถ้าไม่ใช้อีเมล)" maxlength="160" style="grid-column:1/-1">
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <label class="consent"><input type="checkbox" name="consent" value="1"> ยินยอมให้เจอ.AI ติดต่อกลับเรื่องผลตรวจนี้ และเก็บช่องทางติดต่อไว้เพื่อการนี้เท่านั้น ยกเลิกได้ทุกเมื่อโดยตอบกลับว่า "ไม่รับ"</label>
+      <button type="submit">ส่งแผนแก้ให้ฉัน</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <p class="foot">ผลนี้เป็นภาพ ณ เวลาตรวจ รันใหม่ได้ที่ <a href="/audit">ตรวจเว็บฟรี</a> · เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน</p>
+</div>
+</body>
+</html>

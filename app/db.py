@@ -153,6 +153,40 @@ def _tables() -> list[str]:
             summary TEXT,
             report TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS leads (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            site_url TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            name TEXT,
+            email TEXT,
+            contact TEXT,
+            consent INTEGER NOT NULL DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'audit',
+            status TEXT NOT NULL DEFAULT 'new',
+            score INTEGER,
+            audit_json TEXT,
+            audit_at TEXT,
+            token TEXT,
+            notes TEXT,
+            ip TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS decisions (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            agent TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            lead_id INTEGER,
+            brand_id INTEGER,
+            title TEXT NOT NULL,
+            proposal TEXT,
+            payload_json TEXT,
+            status TEXT NOT NULL DEFAULT 'proposed',
+            decided_at TEXT,
+            decided_by TEXT,
+            result TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS rank_results (
             id {_PK},
             brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -1057,6 +1091,112 @@ def get_content_gaps(brand_id: int):
         "total_gaps": len(gaps),
         "q_total": len(questions),
     }
+
+
+# ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
+LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain"}
+
+
+def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
+             ip: str = "", token: str = None, audit_json: str = None, score: int = None) -> int:
+    with get_conn() as c:
+        cur = c.execute(
+            q("INSERT INTO leads(created_at,updated_at,site_url,domain,name,email,contact,source,status,score,audit_json,audit_at,token,ip) "
+              "VALUES(?,?,?,?,?,?,?,?,'new',?,?,?,?,?) RETURNING id"),
+            (now(), now(), site_url, domain, name or None, email or None, contact or None, source, score, audit_json,
+             now() if audit_json else None, token, ip or None),
+        )
+        return cur.fetchone()["id"]
+
+
+def get_lead(lead_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE id=?"), (lead_id,)).fetchone()
+
+
+def get_lead_by_token(token: str):
+    if not token:
+        return None
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE token=?"), (token,)).fetchone()
+
+
+def find_lead_by_domain(domain: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE domain=? ORDER BY id DESC LIMIT 1"), (domain,)).fetchone()
+
+
+def list_leads(status: str = None, limit: int = 200):
+    with get_conn() as c:
+        if status:
+            return c.execute(q("SELECT * FROM leads WHERE status=? ORDER BY id DESC LIMIT ?"), (status, limit)).fetchall()
+        return c.execute(q("SELECT * FROM leads ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def update_lead(lead_id: int, **fields) -> None:
+    """อัปเดตเฉพาะคอลัมน์ที่อนุญาต (กันชื่อคอลัมน์หลุดมาจากฟอร์ม)"""
+    cols = [k for k in fields if k in LEAD_FIELDS]
+    if not cols:
+        return
+    sets = ", ".join(f"{k}=?" for k in cols) + ", updated_at=?"
+    with get_conn() as c:
+        c.execute(q(f"UPDATE leads SET {sets} WHERE id=?"), tuple(fields[k] for k in cols) + (now(), lead_id))
+
+
+def count_audits_since(ip: str, since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE ip=? AND audit_at >= ?"), (ip, since_ts)).fetchone()["n"]
+
+
+def count_leads_since(since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE created_at >= ?"), (since_ts,)).fetchone()["n"]
+
+
+def add_decision(agent: str, kind: str, title: str, proposal: str, payload: dict, lead_id: int = None,
+                 brand_id: int = None, status: str = "proposed") -> int:
+    import json as _json
+    with get_conn() as c:
+        cur = c.execute(
+            q("INSERT INTO decisions(created_at,agent,kind,lead_id,brand_id,title,proposal,payload_json,status) "
+              "VALUES(?,?,?,?,?,?,?,?,?) RETURNING id"),
+            (now(), agent, kind, lead_id, brand_id, title[:200], proposal, _json.dumps(payload or {}, ensure_ascii=False), status),
+        )
+        return cur.fetchone()["id"]
+
+
+def get_decision(did: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM decisions WHERE id=?"), (did,)).fetchone()
+
+
+def list_decisions(status: str = None, limit: int = 100):
+    with get_conn() as c:
+        if status:
+            return c.execute(q("SELECT * FROM decisions WHERE status=? ORDER BY id DESC LIMIT ?"), (status, limit)).fetchall()
+        return c.execute(q("SELECT * FROM decisions ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def count_decisions_for_lead(lead_id: int, status: str = "proposed") -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM decisions WHERE lead_id=? AND status=?"), (lead_id, status)).fetchone()["n"]
+
+
+def set_decision(did: int, status: str, decided_by: str = None, result: str = None) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE decisions SET status=?, decided_at=?, decided_by=?, result=? WHERE id=?"),
+                  (status, now(), decided_by, result, did))
+
+
+def decision_stats() -> dict:
+    """ตรงกับเจ้าของ = อนุมัติ (approved/executed) ÷ ที่ตัดสินแล้วทั้งหมด — ตัวเลขด่าน 1 (ต้อง ≥ 95%)"""
+    with get_conn() as c:
+        rows = c.execute("SELECT status, COUNT(*) AS n FROM decisions WHERE kind != 'digest' GROUP BY status").fetchall()
+    by = {r["status"]: r["n"] for r in rows}
+    agreed = by.get("approved", 0) + by.get("executed", 0)
+    decided = agreed + by.get("rejected", 0)
+    return {"proposed": by.get("proposed", 0), "agreed": agreed, "rejected": by.get("rejected", 0), "decided": decided,
+            "agreement_pct": round(agreed / decided * 100) if decided else None}
 
 
 # ---- WordPress connections ----

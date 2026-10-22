@@ -150,9 +150,16 @@ def main():
     ap.add_argument("--speed", action="store_true", help="สแกนความเร็วหน้าแรกด้วย PageSpeed Insights (mobile + desktop)")
     ap.add_argument("--aiserp", action="store_true", help="เช็ค Google AI Overview / AI Mode ผ่าน SerpApi (ต้องมีคีย์)")
     ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
+    ap.add_argument("--digest", action="store_true", help="สรุปเช้าของผู้บริหารเอเจนต์ (CEO/CFO/CTO) → หน้าการตัดสินใจ + อีเมลแอดมิน")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
     args = ap.parse_args()
     db.init_db()
+    if args.digest:
+        from app import execs
+        res = execs.morning_digest(os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud"))
+        print(res["text"])
+        print(f"digest · ข้อเสนอรอ {res['pending']} · ส่งอีเมล {len(res['sent_to'])} ฉบับ" + (" (" + ", ".join(res["sent_to"]) + ")" if res["sent_to"] else " — ไม่มีแอดมินที่อีเมลใช้ได้จริง"))
+        return
     if args.email:
         # แคมเปญไม่ผูกกับแบรนด์ที่เลือก — ส่งทุกอันที่ถึงกำหนด แล้วจบ
         from app import campaigns, mailer
