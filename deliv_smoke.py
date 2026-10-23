@@ -178,4 +178,21 @@ assert "ส่งอีเมล 30 วัน" in C.handle("อีเมลเ�
 assert "deliv" in O.IDS and any(s_[0] == "deliv" for s_ in O.SCHEDULE) and "deliv" in SK.AGENTS and SK.load("deliv").startswith("# ทักษะ")
 assert "ส่งอีเมล 30 วัน" in (D.status_text() or "")
 print("web/chat: หน้าการส่งอีเมล (ไม่โชว์รหัส) · ตั้ง webhook · เปิด/ปิดทดลอง · ปลดหยุด · ลบกล่อง · แชต CEO · ออฟฟิศ/ทักษะ OK")
+
+# ---- อีเมลทักเป็นข้อความธรรมดา + เลิกรับคลิกเดียว ----
+cfg = {"smtp_from": "report@sender.test", "smtp_from_name": "เจอ.AI"}
+html = mailer.plain_html("สวัสดีครับ\nดูผลที่ https://geo.example/audit/x?via=mail\n\nเจอ.AI")
+assert "<img" not in html and "<table" not in html and "header.png" not in html and '<a href="https://geo.example/audit/x?via=mail">' in html and "<br>" in html
+msg = mailer.build_message(cfg, "a@b.co.th", "s", html, "t", (), "https://geo.example/u/tok")
+assert msg["List-Unsubscribe"].startswith("<https://geo.example/u/tok>") and msg["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+assert "List-Unsubscribe-Post" not in mailer.build_message(cfg, "a@b.co.th", "s", "<p>x</p>")                  # อีเมลอื่นไม่เปลี่ยน
+cap = []; mailer.send = lambda to, subj, html, text="", attachments=(): cap.append((to, html, getattr(mailer._UNSUB_CTX, "url", "")))
+lp = mk("plain.co.th"); P.ceo_propose(lp)
+dp = [x for x in db.list_decisions(None, 20) if x["lead_id"] == lp["id"] and x["kind"] == "outreach"][0]
+if dp["status"] == "proposed":
+    P.execute_decision(dp, "owner")
+to, h, unsub = cap[-1]
+assert to == "info@plain.co.th" and "header.png" not in h and "<table" not in h and unsub.endswith(f"/u/{db.get_lead(lp['id'])['token']}") and getattr(mailer._UNSUB_CTX, "url", "") == ""
+q = P.create_quote(db.get_lead(lp["id"]), "pro"); P.send_quote(q, "admin"); assert "<table" in cap[-1][1] or "header" in cap[-1][1]   # ใบเสนอราคายังใช้แบบมีดีไซน์
+print("plain: อีเมลทักไม่มีแบนเนอร์/ปุ่ม/ตาราง · ลิงก์คลิกได้ · หัวเลิกรับคลิกเดียว · ใบเสนอราคายังใช้แบบเดิม OK")
 print("\ndeliv_smoke: ผ่านทั้งหมด")

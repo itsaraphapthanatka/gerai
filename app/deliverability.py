@@ -436,7 +436,7 @@ def send_placement_test() -> dict:
         token = "JT" + secrets.token_hex(3).upper()
         r = {"seed": s["id"], "label": s["label"], "token": token, "place": "pending", "checked_at": None}
         try:
-            mailer.send(s["user"], f"{subj} [{token}]", mailer.wrap_html(subj, "<p>" + body.replace("\n", "<br>") + "</p>"), text=body)
+            mailer.send(s["user"], f"{subj} [{token}]", mailer.plain_html(body), text=body)      # หน้าตาเดียวกับอีเมลทักจริง
         except Exception as e:
             r.update(place="error", detail=f"ส่งไม่ได้ ({type(e).__name__})")
         test["results"].append(r)

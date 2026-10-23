@@ -69,7 +69,7 @@ def save_config(host: str, port: str, user: str, password: str, from_: str, from
     db.set_setting("smtp_tls", tls if tls in TLS_MODES else "starttls")
 
 
-def build_message(cfg: dict, to: str, subject: str, html: str, text: str = "", attachments=()) -> EmailMessage:
+def build_message(cfg: dict, to: str, subject: str, html: str, text: str = "", attachments=(), unsub_url: str = "") -> EmailMessage:
     """attachments = [(filename, bytes, mime 'application/pdf')] · text ว่าง = ใช้ html ถอดแท็กคร่าว ๆ"""
     import re
     msg = EmailMessage()
@@ -79,7 +79,9 @@ def build_message(cfg: dict, to: str, subject: str, html: str, text: str = "", a
     msg["Message-ID"] = make_msgid(domain=cfg["smtp_from"].split("@")[-1] or "geo.appreview.cloud")
     # ข้อเดียวที่ mail-tester ติ (10/10 ที่เหลือผ่านหมด) — Gmail/Yahoo ใช้ header นี้แยก "จดหมายที่สมัครไว้" ออกจากสแปม
     # ใช้ mailto ไปที่ผู้ส่ง (report@ รับเมลได้แล้วผ่าน Cloudflare Email Routing) คนกดเลิกรับจะมาถึงผู้ดูแลเป็นอีเมลธรรมดา
-    msg["List-Unsubscribe"] = f"<mailto:{cfg['smtp_from']}?subject=unsubscribe>"
+    msg["List-Unsubscribe"] = (f"<{unsub_url}>, " if unsub_url else "") + f"<mailto:{cfg['smtp_from']}?subject=unsubscribe>"
+    if unsub_url:                                          # RFC 8058: กดเลิกรับในกล่องจดหมายได้ทันที (POST /u/<token> ยกเลิกเลย)
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     plain = text or re.sub(r"\s+\n", "\n", re.sub(r"<[^>]+>", "", html.replace("</p>", "\n").replace("<br>", "\n"))).strip()
     msg.set_content(plain)
     msg.add_alternative(html, subtype="html")
@@ -94,7 +96,7 @@ def send(to: str, subject: str, html: str, text: str = "", attachments=()) -> No
     cfg = config()
     if not cfg:
         raise RuntimeError("ยังไม่ได้ตั้งค่า SMTP (ผู้ดูแล → อีเมล)")
-    msg = build_message(cfg, to, subject, html, text, attachments)
+    msg = build_message(cfg, to, subject, html, text, attachments, getattr(_UNSUB_CTX, "url", ""))
     if cfg["smtp_tls"] == "ssl":
         server = smtplib.SMTP_SSL(cfg["smtp_host"], cfg["smtp_port"], timeout=TIMEOUT, context=ssl.create_default_context())
     else:
@@ -107,6 +109,30 @@ def send(to: str, subject: str, html: str, text: str = "", attachments=()) -> No
         if cfg["smtp_user"]:
             server.login(cfg["smtp_user"], cfg["smtp_pass"])
         server.send_message(msg)
+
+
+# ---------- อีเมลแบบคนพิมพ์เอง (อีเมลทัก/ติดตามผล) ----------
+import threading as _th
+_UNSUB_CTX = _th.local()
+
+
+def send_plain(to: str, subject: str, text: str, unsub_url: str = "") -> None:
+    """อีเมลทัก/ติดตามผล: ข้อความแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียวไปที่ลิงก์ของลีด"""
+    _UNSUB_CTX.url = unsub_url
+    try:
+        send(to, subject, plain_html(text), text=text)
+    finally:
+        _UNSUB_CTX.url = ""
+
+
+def plain_html(text: str) -> str:
+    """HTML ขั้นต่ำเหมือนอีเมลที่คนพิมพ์ใน Gmail: ไม่มีแบนเนอร์ รูป ตาราง หรือปุ่ม — ตัวกรองไม่จัดเป็นอีเมลการตลาด
+    (อีเมลทักแบบมีแบนเนอร์+ปุ่มตกแท็บโปรโมชันในการทดสอบกล่องจริง 23 ต.ค.)"""
+    import html as _hh
+    import re as _rr
+    esc = _hh.escape(text or "")
+    esc = _rr.sub(r"(https?://[^\s<]+)", lambda m: f'<a href="{m.group(1)}">{m.group(1)}</a>', esc)
+    return '<div dir="auto">' + esc.replace("\n", "<br>") + "</div>"
 
 
 # ---------- หน้าตาอีเมล (แบบเดียวกับอีเมลแจ้งเตือนของผู้ให้บริการใหญ่: แบนเนอร์ · หัวเรื่องกลาง · ปุ่มหลัก · ท้ายจดหมายบริษัท) ----------

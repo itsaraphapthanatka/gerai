@@ -161,10 +161,14 @@ def send_channel(lead) -> str:
     return ""
 
 
-def _send_text(lead, subject: str, body: str) -> str:
-    """ส่งถึงลูกค้าทางที่มี: อีเมลที่ส่งได้ก่อน → LINE → ไม่มี (คืน '' ให้คนส่งเอง)"""
+def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
+    """ส่งถึงลูกค้าทางที่มี: อีเมลที่ส่งได้ก่อน → LINE → ไม่มี (คืน '' ให้คนส่งเอง)
+    plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)"""
     if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
-        mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+        if plain:
+            mailer.send_plain(lead["email"], subject, body, unsubscribe_url(lead))
+        else:
+            mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
     if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
         return "ส่งทาง LINE แล้ว"
@@ -191,7 +195,7 @@ def execute_decision(d, who: str) -> str:
             record(lead["id"], "note", "อนุมัติข้อความทักแล้วแต่ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ (เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่)", who)
             return "ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ สถานะยังเป็นเดิม เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่"
         body = pl.get("body", "") + outreach_footer(lead)
-        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", body)
+        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", body, plain=True)
         if not sent:
             record(lead["id"], "note", "ส่งข้อความทักไม่สำเร็จ (ช่องทางไม่ตอบ) — ลองใหม่ได้จากหน้าลูกค้า", who)
             return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ สถานะยังเป็นเดิม"
@@ -230,7 +234,7 @@ def execute_decision(d, who: str) -> str:
         why = followup.eligible(lead)
         if why or followup.history(lead["id"])["replied"]:
             return f"ไม่ส่ง — {why or 'ลูกค้าตอบกลับแล้ว'}"
-        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", pl.get("body", "") + outreach_footer(lead))
+        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", pl.get("body", "") + outreach_footer(lead), plain=True)
         if not sent:
             return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ"
         db.update_lead(lead["id"], last_contacted_at=db.now())
