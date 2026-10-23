@@ -38,7 +38,10 @@ PLATFORMS = {"youtube.com", "facebook.com", "instagram.com", "tiktok.com", "link
              "fastwork.co", "fastwork.id", "upwork.com", "fiverr.com", "toptal.com", "clutch.co", "goodfirms.co", "rankfirms.com",
              "jobbkk.com", "jobthai.com", "jobsdb.com", "th.jobsdb.com", "linkedin.com", "yellowpages.co.th", "thaifranchisecenter.com",
              "kaidee.com", "dbd.go.th", "creden.co", "trustpilot.com", "tripadvisor.com", "agoda.com", "booking.com", "hellobacsi.com",
-             "pobpad.com", "sanook.com", "kapook.com", "thairath.co.th", "dailynews.co.th", "bangkokbiznews.com", "prachachat.net"}
+             "pobpad.com", "sanook.com", "kapook.com", "thairath.co.th", "dailynews.co.th", "bangkokbiznews.com", "prachachat.net",
+             # พอร์ทัลประกาศอสังหาฯ — ขึ้นทุกคำค้นบ้าน/คอนโด แต่เป็นที่ลงประกาศ ไม่ใช่คู่แข่งของบริษัท
+             "livinginsider.com", "ddproperty.com", "hipflat.co.th", "hipflat.com", "thinkofliving.com", "propertyhub.in.th", "dotproperty.co.th",
+             "baania.com", "fazwaz.com", "thailand-property.com", "renthub.in.th", "kaidee.com"}
 GROUPS = ["Crawl & Index", "On-page core", "Content", "Schema & links", "Media & speed"]
 SEV_ORDER = {"Error": 0, "Warning": 1, "Notice": 2}
 _SEM = threading.BoundedSemaphore(2)       # รายงานเต็มพร้อมกันได้ไม่เกิน 2 ราย (กันเครื่องเราหนัก)

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}โทรปิดดีล — เจอ.AI{% endblock %}
+{% block content %}
+<h1>โทรปิดดีล</h1>
+<p class="muted">เอเจนต์คัดลีดที่ควรโทรวันนี้ เรียงจากใกล้ปิดที่สุด และเตรียมบทพูดจากรายงานจริงไว้ให้ คุณโทรเองแล้วจดผล ระบบจะนัดโทรรอบถัดไปให้ตามผล</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+<div class="card" style="padding:0;overflow:hidden">
+  {% if items %}
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>ลีด</th><th>ทำไมต้องโทรตอนนี้</th><th>เบอร์</th><th>โทรแล้ว</th><th></th></tr></thead>
+    <tbody>
+    {% for x in items %}
+    <tr>
+      <td><a class="link" href="/admin/leads/{{ x.lead['id'] }}"><b>{{ x.lead['domain'] }}</b></a><div class="muted" style="font-size:11.5px">{{ x.lead['name'] or '' }} · โอกาส {{ x.lead['score'] or '—' }}</div></td>
+      <td style="font-size:13px"><span class="pill {{ 'no' if x.trigger.prio >= 80 else 'admin' }}" style="font-size:10.5px">{{ x.trigger.prio }}</span> {{ x.trigger.why }}</td>
+      <td style="white-space:nowrap;font-size:13px">{% if x.phone %}<a class="link" href="tel:{{ x.phone }}">{{ fmt_phone(x.phone) }}</a>{% else %}<span class="muted">หาเมื่อเปิดบท</span>{% endif %}</td>
+      <td class="muted" style="font-size:12px">{{ x.calls|length }} ครั้ง{% if x.calls %}<div>{{ x.calls[-1].at[:10] }}</div>{% endif %}</td>
+      <td><a class="btn sm" href="/admin/calls/{{ x.lead['id'] }}">เปิดบทโทร</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div style="text-align:center;padding:36px"><p class="muted">วันนี้ยังไม่มีลีดที่ควรโทร — รายชื่อจะขึ้นเมื่อมีคนยืนยันข้อเสนอแล้วไม่จ่าย เปิดใบเสนอราคาแล้วเงียบ ตอบกลับแล้วยังไม่มีใบเสนอราคา หรือโอกาสสูงที่เงียบเกิน 7 วัน</p></div>
+  {% endif %}
+</div>
+{% endblock %}

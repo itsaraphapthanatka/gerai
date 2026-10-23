@@ -92,6 +92,7 @@
     {% elif lead['status'] in ('unsubscribed', 'won') %}
       <div class="muted" style="font-size:13px">ไม่มีงานให้เสนอสำหรับสถานะนี้</div>
     {% else %}
+      <a class="btn ghost sm" href="/admin/calls/{{ lead['id'] }}">📞 บทโทร</a>
       <form method="post" action="/admin/leads/{{ lead['id'] }}/propose" style="display:inline"><button class="btn sm" type="submit" {% if not lead['audit_json'] %}disabled title="ต้องตรวจเว็บก่อน"{% endif %}>CEO คัด + ร่างข้อความทัก</button></form>
       <div class="muted" style="font-size:12px;margin-top:6px">หรือสร้างใบเสนอราคาเองด้านล่าง (ถือเป็นการตัดสินใจของคุณ ส่งได้ทันที)</div>
     {% endif %}

@@ -3489,3 +3489,45 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
         st = deep_audit.start(lead_id)
         note = "เริ่มไต่เว็บใหม่แล้ว (ราว 2 นาที)" if st == "started" else "กำลังทำอยู่แล้ว"
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
+
+
+# ---------- บทโทรปิดดีล: เอเจนต์คัดลีดที่ควรโทรและเตรียมบท คุณโทรเองแล้วจดผล ----------
+@app.get("/admin/calls")
+def admin_calls(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import closer
+    return templates.TemplateResponse(request, "admin_calls.html", {"items": closer.call_list(limit=30), "notice": notice, "fmt_phone": closer.fmt_phone})
+
+
+@app.get("/admin/calls/{lead_id}")
+def admin_call(request: Request, lead_id: int, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import closer
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/calls")
+    d = closer.prepare(lead)
+    return templates.TemplateResponse(request, "admin_call.html", {"lead": lead, "s": closer.script(db.get_lead(lead_id)), "phone": d.get("phone") or "",
+                                                                   "calls": d.get("calls") or [], "outcomes": closer.OUTCOMES, "notice": notice,
+                                                                   "fmt_phone": closer.fmt_phone})
+
+
+@app.post("/admin/calls/{lead_id}/log")
+def admin_call_log(request: Request, lead_id: int, outcome: str = Form(""), note: str = Form(""), phone: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import closer
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/calls")
+    if phone.strip():
+        d = closer._data(lead); d["phone"] = closer.norm_phone(phone) or phone.strip()[:20]; closer._save(lead_id, d); lead = db.get_lead(lead_id)
+    if not outcome:
+        return _redirect(f"/admin/calls/{lead_id}?notice=บันทึกเบอร์แล้ว")
+    try:
+        note_ = closer.log_call(lead, outcome, note, request.session.get("email") or "owner")
+    except ValueError as e:
+        note_ = str(e)
+    return _redirect(f"/admin/calls?notice={lead['domain']}: {note_}")

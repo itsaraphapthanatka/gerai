@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}บทโทร {{ lead['domain'] }} — เจอ.AI{% endblock %}
+{% block content %}
+<p><a class="link" href="/admin/calls">← โทรปิดดีล</a></p>
+<h1 style="margin-bottom:4px">บทโทร · {{ lead['domain'] }}</h1>
+<p class="muted" style="margin-top:0">{{ s.trigger.why }}</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% for nt in s.notes %}<div class="card" style="background:var(--danger-subtle);border-color:transparent;font-size:13.5px">⚠️ {{ nt }}</div>{% endfor %}
+<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px" class="callgrid">
+<div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">1. เปิดสาย</h2>
+    <p style="font-size:15px;line-height:1.6;margin:0">“{{ s.opener }}”</p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">2. สิ่งที่เจอบนเว็บเขา (เลือก 1–2 ข้อพอ)</h2>
+    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.7">{% for p in s.points %}<li>{{ p }}</li>{% endfor %}{% if not s.points %}<li class="muted">ยังไม่มีผลตรวจ — เปิดหน้าลีดแล้วกดตรวจเว็บก่อน</li>{% endif %}</ul>
+    {% if s.context %}<div class="muted" style="font-size:13px;margin-top:8px;line-height:1.7">{% for c in s.context %}• {{ c }}<br>{% endfor %}</div>{% endif %}
+    <div style="font-size:12.5px;margin-top:8px"><a class="link" href="{{ s.report_url }}" target="_blank">เปิดรายงานที่เขาเห็น ↗</a></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">3. ราคา</h2>
+    <p style="margin:0;font-size:14px">{{ s.price }}</p>
+    <p class="muted" style="font-size:12.5px;margin:6px 0 0">ลดได้ไม่เกิน {{ s.max_discount }}% (กรอบ CFO) — เกินกว่านั้นบอกว่าต้องขออนุมัติ</p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">4. ถ้าเขาบอกว่า…</h2>
+    {% for o, a in s.objections %}<div style="margin-bottom:10px"><b style="font-size:13.5px">“{{ o }}”</b><div style="font-size:13.5px;color:var(--cool)">{{ a }}</div></div>{% endfor %}
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">5. ปิด</h2>
+    <p style="margin:0;font-size:14.5px">“{{ s.close }}”</p>
+    {% if s.pay_url %}<p style="font-size:12.5px;margin:8px 0 0">ลิงก์ใบเสนอราคา/ชำระเงิน: <a class="link" href="{{ s.pay_url }}" target="_blank">{{ s.pay_url }}</a></p>{% endif %}
+    <p class="muted" style="font-size:12px;margin:8px 0 0">{{ s.rules }}</p>
+  </div>
+</div>
+<div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">โทร</h2>
+    {% if phone %}<a class="btn" href="tel:{{ phone }}" style="font-size:18px">📞 {{ fmt_phone(phone) }}</a>{% else %}<p class="muted" style="font-size:13px">ไม่พบเบอร์บนเว็บ — ใส่เองด้านล่าง</p>{% endif %}
+    <div class="muted" style="font-size:12.5px;margin-top:8px">{{ lead['name'] or '' }}{% if lead['email'] %}<div>{{ lead['email'] }}</div>{% endif %}{% if lead['contact'] %}<div>{{ lead['contact'] }}</div>{% endif %}</div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">จดผลหลังวางสาย</h2>
+    <form method="post" action="/admin/calls/{{ lead['id'] }}/log" style="display:grid;gap:8px;font-size:13px">
+      {% for k, label in outcomes.items() %}<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="radio" name="outcome" value="{{ k }}"> {{ label }}</label>{% endfor %}
+      <textarea name="note" rows="3" placeholder="สิ่งที่เขาพูด / นัดครั้งหน้า (ไม่บังคับ)" style="font-family:inherit;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--border)"></textarea>
+      <input type="text" name="phone" placeholder="แก้เบอร์ (ถ้าเบอร์ผิด)" style="font-family:inherit;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--border)">
+      <button class="btn sm" type="submit">บันทึก</button>
+      <span class="muted" style="font-size:11.5px">จะจ่าย = ส่งลิงก์ชำระให้ทางอีเมลเอง · ไม่สนใจ = ปิดลีดและยกเลิกข้อความที่ค้าง</span>
+    </form>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ประวัติล่าสุด</h2>
+    <div class="muted" style="font-size:12.5px;line-height:1.7">{% for h in s.history %}{{ h }}<br>{% endfor %}</div>
+    {% if calls %}<h3 style="font-size:13px;margin:10px 0 4px">โทรแล้ว</h3><div style="font-size:12.5px;line-height:1.7">{% for c in calls|reverse %}{{ c.at[:16].replace('T',' ') }} · {{ outcomes.get(c.outcome, c.outcome) }}{% if c.note %} — {{ c.note }}{% endif %}<br>{% endfor %}</div>{% endif %}
+  </div>
+</div>
+</div>
+<style>@media (max-width:820px){.callgrid{grid-template-columns:1fr!important}}</style>
+{% endblock %}

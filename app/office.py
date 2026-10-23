@@ -77,6 +77,7 @@ LEAD_EVENTS = {
     "cs_review_nudge": ("cs", "cs", "ชวน {dom} ตรวจร่างคอนเทนต์"),
     "cs_report": ("cs", "cs", "ส่งรายงานเดือนให้ {dom}"),
     "cs_risk": ("cs", "risk", "{dom} เสี่ยงหลุด"),
+    "call": ("owner", "call", "เจ้าของโทรหา {dom}"),
     "ai_check": ("cto", "audit", "ถาม AI 20 คำถามเรื่อง {dom}"),
 }
 VISITOR_STATUSES = ("new", "contacted", "replied", "quoted", "won")
