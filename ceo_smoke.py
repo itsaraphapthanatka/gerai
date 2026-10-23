@@ -38,7 +38,7 @@ print("contact: ถามยืนยัน → ส่งจริงแม้�
 
 # ใบเสนอราคาเกินกรอบ → CFO เตือน · ยกเลิกได้ · หมดเวลา
 pick.update(action="quote", args={"domain": "shop", "package": "pro", "discount_pct": "25"})
-r = C.handle("ส่งใบเสนอราคา shop ลด 25%"); assert "CFO" in r and "ลด 25%" in r
+r = C.handle("ส่งใบเสนอราคา shop ลด 25%"); assert "CFO" in r and "พิเศษ 25%" in r and "รายปี" in r     # เสนอรายปีก่อน
 assert C.handle("ยกเลิก") == "ยกเลิกแล้ว" and not db.list_quotes(lid)
 C.handle("ส่งใบเสนอราคา shop ลด 25%")
 p = json.loads(db.get_setting(C.PENDING_KEY)); p["at"] = (dt.datetime.now() - dt.timedelta(minutes=40)).isoformat(timespec="seconds"); db.set_setting(C.PENDING_KEY, json.dumps(p))

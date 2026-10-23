@@ -51,7 +51,7 @@ r = c.post(f"/audit/{token}/reply", data={"message": "สนใจครับ"}
 assert db.get_lead(lead["id"])["status"] == "replied"
 qd = [d for d in db.list_decisions("proposed") if d["kind"] == "quote"]; assert len(qd) == 1 and qd[0]["agent"] == "ceo"
 q = db.list_quotes(lead["id"])[0]
-assert q["status"] == "draft" and q["package"] == "pro" and q["setup"] == 1 and q["first_total"] == 19800 and q["number"].startswith("Q"), dict(q)
+assert q["status"] == "draft" and q["package"] == "pro" and q["setup"] == 1 and q["cycle"] == "year" and q["first_total"] == 98604 and q["setup_price"] == 0 and q["number"].startswith("Q"), dict(q)   # เสนอรายปีก่อน (Setup ฟรี)
 c.post(f"/audit/{token}/reply", data={}); assert len(db.list_quotes(lead["id"])) == 1                # ใบเดิมยังเดินอยู่ ไม่สร้างใบใหม่
 assert c.get(f"/q/{q['token']}", follow_redirects=False).status_code == 303                           # ร่างยังไม่เปิดสาธารณะ
 print("reply: เปิดอ่าน → ตอบกลับ → CEO เสนอใบเสนอราคา (Pro + GEO Setup เพราะตกข้อโครงสร้าง) OK")
@@ -59,7 +59,7 @@ print("reply: เปิดอ่าน → ตอบกลับ → CEO เส�
 # ---- 3) อนุมัติ → ส่งใบเสนอราคา → ลูกค้าเปิดดู/ยืนยัน → สัญญา + PDF ----
 sent.clear(); a.post(f"/admin/decisions/{qd[0]['id']}/approve")
 assert sent and f"/q/{q['token']}" in sent[-1][2] and db.get_quote(q["id"])["status"] == "sent" and db.get_lead(lead["id"])["status"] == "quoted"
-r = c.get(f"/q/{q['token']}"); assert r.status_code == 200 and "ยืนยันรับข้อเสนอ" in r.text and "19,800" in r.text and db.get_quote(q["id"])["status"] == "viewed"
+r = c.get(f"/q/{q['token']}"); assert r.status_code == 200 and "ยืนยันรับข้อเสนอ" in r.text and "98,604" in r.text and "เปลี่ยนเป็นรายเดือน" in r.text and db.get_quote(q["id"])["status"] == "viewed"
 assert "ติ๊กยอมรับ" in c.post(f"/q/{q['token']}/accept", data={"name": "คุณเอ"}).text
 r = c.post(f"/q/{q['token']}/accept", data={"name": "คุณเอ", "agree": "1"})
 q = db.get_quote(q["id"]); assert q["status"] == "accepted" and q["accepted_name"] == "คุณเอ" and "แจ้งชำระเงินแล้ว" in r.text

@@ -146,6 +146,8 @@ def parse(text: str, llm=None) -> dict:
             from . import pipeline
             if d["action"] == "quote" and pipeline.YEARLY_RE.search(text):
                 args["cycle"] = "year"
+            elif d["action"] == "quote" and pipeline.MONTHLY_RE.search(text):
+                args["cycle"] = "month"
             return {"action": d["action"], "args": args}
     except Exception:
         pass
@@ -204,7 +206,8 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
             disc = max(0.0, min(50.0, float(str(args.get("discount_pct") or 0).strip("% "))))
         except ValueError:
             disc = 0.0
-        cyc = "year" if str(args.get("cycle") or "").lower() in ("year", "yearly", "annual", "รายปี") else "month"
+        c0 = str(args.get("cycle") or "").lower()
+        cyc = "year" if c0 in ("year", "yearly", "annual", "รายปี") else ("month" if c0 in ("month", "monthly", "รายเดือน") else Q.default_cycle())
         args.update(package=pkg, discount_pct=disc, cycle=cyc)
         pr = Q.price_for(pkg, disc, Q.needs_setup(json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}), cyc)
         warn = execs.cfo_check({"price": pr["price"], "discount_pct": disc, "cycle": cyc})
@@ -324,7 +327,7 @@ def execute(action: str, args: dict) -> str:
         if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
             return f"{lead['domain']} มีใบเสนอราคาที่ยังเปิดอยู่แล้ว — ดูที่ {pipeline.public_base()}/admin/leads/{lead['id']}"
         q = pipeline.create_quote(lead, args.get("package") or "pro", float(args.get("discount_pct") or 0), created_by="owner",
-                                  cycle="year" if args.get("cycle") == "year" else "month")
+                                  cycle=args.get("cycle") if args.get("cycle") in ("year", "month") else Q.default_cycle())
         res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)")
         return f"{res}\n{pipeline.quote_url(q)}"
     if action == "followup":

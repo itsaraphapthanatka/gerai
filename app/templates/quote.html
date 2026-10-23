@@ -98,6 +98,15 @@
     </tbody>
   </table>
 
+  {% if not pdf and q.status in ('draft','sent','viewed') and alt %}
+  <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
+    <div>{% if yearly %}<div class="lb">อยากเริ่มแบบรายเดือนก่อน?</div><div class="why">รายเดือน {{ "{:,}".format(alt.net) }} บาท/เดือน{% if alt.setup_price %} + GEO Setup {{ "{:,}".format(alt.setup_price) }} บาท{% endif %} · ยกเลิกได้ทุกเมื่อ · รายปีที่เสนอไว้ประหยัดกว่า {{ "{:,}".format(alt.saving_year) }} บาท</div>
+      {% else %}<div class="lb">จ่ายรายปีประหยัด {{ "{:,}".format(alt.saving_year) }} บาท</div><div class="why">รายปี {{ "{:,}".format(alt.period_total) }} บาท (เทียบ {{ "{:,}".format(alt.net) }} บาท/เดือน · ลด {{ "%g"|format(yearly_pct) }}%{% if q.setup %} · GEO Setup ฟรี{% endif %}) · คืนเงินเต็มได้ภายใน 7 วันแรก</div>{% endif %}</div>
+    <form method="post" action="/q/{{ q.token }}/cycle"><input type="hidden" name="cycle" value="{{ 'month' if yearly else 'year' }}"><input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <button type="submit" style="background:#fff;color:var(--primary);border:1px solid var(--hairline)">{{ 'เปลี่ยนเป็นรายเดือน' if yearly else 'เปลี่ยนเป็นรายปี' }}</button></form>
+  </div>
+  {% endif %}
+
   <h2>สิ่งที่รวมอยู่ในแพ็กเกจ {{ plan.label }}</h2>
   <ul class="perks">{% for p in plan.perks %}<li>{{ p }}</li>{% endfor %}</ul>
 

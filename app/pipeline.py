@@ -304,13 +304,14 @@ def create_quote(lead, package: str = "pro", discount_pct: float = 0, setup: boo
 
 
 YEARLY_RE = re.compile(r"(รายปี|ทั้งปี|จ่ายปี|12\s*เดือน|annual|yearly|per year)", re.I)
+MONTHLY_RE = re.compile(r"(รายเดือน|จ่ายเดือน|เดือนต่อเดือน|ทีละเดือน|monthly|per month)", re.I)
 
 
 def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None, cycle: str | None = None) -> int:
-    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน · ลูกค้าเอ่ยถึงรายปีในข้อความล่าสุด → เสนอรายปี"""
+    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน · เสนอรายปีก่อน (ค่าเริ่มต้น) ยกเว้นลูกค้าขอรายเดือนเอง · ลูกค้าเปลี่ยนรอบบิลได้ในหน้าใบเสนอราคา"""
     if cycle is None:
         last = next((e["note"] or "" for e in db.list_lead_events(lead["id"], 20) if e["kind"] == "replied"), "")
-        cycle = "year" if YEARLY_RE.search(last) else "month"
+        cycle = "year" if YEARLY_RE.search(last) else ("month" if MONTHLY_RE.search(last) else Q.default_cycle())
     q = create_quote(lead, package, discount_pct, setup, created_by="ceo", cycle=cycle)
     cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": cycle})
     pl = {"quote_id": q["id"], "number": q["number"], "package": q["package"], "price": q["price"], "discount_pct": q["discount_pct"],
@@ -319,6 +320,21 @@ def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bo
                           execs.quote_proposal_text(lead, q, cfo, quote_url(q)), pl, lead_id=lead["id"])
     db.update_quote(q["id"], decision_id=did)
     return _maybe_auto(did)
+
+
+def change_cycle(q, cycle: str, who: str = "customer") -> str:
+    """ลูกค้าสลับรายปี/รายเดือนก่อนยืนยัน (แพ็กเกจ ส่วนลด Setup เดิม) · คืนข้อความผิดพลาด ('' = สำเร็จ)"""
+    if cycle not in Q.CYCLES:
+        return "รอบบิลไม่ถูกต้อง"
+    if q["status"] not in ("draft", "sent", "viewed"):
+        return "ยืนยันข้อเสนอแล้ว เปลี่ยนรอบบิลไม่ได้ — ติดต่อเราเพื่อขอใบใหม่"
+    if Q.cycle_of(q) == cycle:
+        return ""
+    pr = Q.price_for(q["package"], q["discount_pct"], bool(q["setup"]), cycle)
+    db.update_quote(q["id"], cycle=cycle, period_total=pr["period_total"], net=pr["net"], setup_price=pr["setup_price"], first_total=pr["first_total"])
+    db.update_lead(q["lead_id"], monthly_thb=pr["net"])
+    record(q["lead_id"], "note", f"{q['number']} เปลี่ยนเป็น{Q.CYCLES[cycle]} (ยอดแรก {pr['first_total']:,} บาท)", who)
+    return ""
 
 
 def send_quote(q, who: str = "admin") -> str:

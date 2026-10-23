@@ -133,4 +133,27 @@ rn = [m_ for m_ in mails if "ต่ออายุ" in m_[1]]; assert rn and rn[
 assert not any(a_.startswith("renewal") for a_ in S.step(cu, cu["paid_at"] + dt.timedelta(days=340)))   # แจ้งครั้งเดียวต่อปี
 assert "รายปี" in [e for e in db.list_lead_events(lid, 50) if e["kind"] == "won"][0]["note"]
 print("cs: รายงานทุกเดือน · แจ้งต่ออายุล่วงหน้า 30 วัน ครั้งเดียวต่อปี OK")
+
+# ---- เสนอรายปีก่อน (ค่าเริ่มต้น) · ลูกค้าสลับเองได้ก่อนยืนยัน ----
+assert Q.default_cycle() == "year"
+l6 = db.add_lead("https://first.co.th", "first.co.th", source="prospect", email="owner@first.co.th"); db.update_lead(l6, audit_json=json.dumps(REPORT), score=60)
+P.record(l6, "replied", "สนใจครับ ขอใบเสนอราคา", "customer"); P.propose_quote(db.get_lead(l6)); q6 = db.list_quotes(l6)[0]
+assert q6["cycle"] == "year" and q6["first_total"] == 98604                                     # ไม่ได้เอ่ยรอบบิล → รายปี
+l7 = db.add_lead("https://monthly.co.th", "monthly.co.th", source="prospect", email="owner@monthly.co.th"); db.update_lead(l7, audit_json=json.dumps(REPORT), score=60)
+P.record(l7, "replied", "ขอแบบจ่ายรายเดือนก่อนได้ไหม", "customer"); P.propose_quote(db.get_lead(l7)); assert db.list_quotes(l7)[0]["cycle"] == "month"
+alt = Q.alternative(q6); assert alt["cycle"] == "month" and alt["net"] == 9900 and alt["setup_price"] == 9900 and alt["saving_year"] == 9900 * 12 + 9900 - 98604
+assert "หรือเลือกจ่ายรายเดือน 9,900 บาท/เดือน" in Q.summary_text(q6, "first.co.th")
+assert "หรือจ่ายรายปี 98,604 บาท" in Q.summary_text(db.list_quotes(l7)[0], "monthly.co.th")
+P.send_quote(q6, "admin"); q6 = db.get_quote(q6["id"])
+pg = c.get(f"/q/{q6['token']}").text; assert "อยากเริ่มแบบรายเดือนก่อน" in pg and "เปลี่ยนเป็นรายเดือน" in pg
+c.post(f"/q/{q6['token']}/cycle", data={"cycle": "month"}); q6 = db.get_quote(q6["id"])
+assert q6["cycle"] == "month" and q6["first_total"] == 19800 and q6["setup_price"] == 9900 and q6["net"] == 9900 and db.get_lead(l6)["monthly_thb"] == 9900
+assert "จ่ายรายปีประหยัด" in c.get(f"/q/{q6['token']}").text
+c.post(f"/q/{q6['token']}/cycle", data={"cycle": "year"}); q6 = db.get_quote(q6["id"]); assert q6["cycle"] == "year" and q6["first_total"] == 98604 and q6["setup_price"] == 0
+assert P.accept_quote(q6, "คุณเฟิร์ส", "1.1.1.1") == ""
+assert "เปลี่ยนรอบบิลไม่ได้" in P.change_cycle(db.get_quote(q6["id"]), "month") and "เปลี่ยนเป็นรายเดือน" not in c.get(f"/q/{q6['token']}").text
+r = a.get(f"/admin/leads/{l7}").text; assert '<option value="year" selected>' in r
+assert "ถ้าอยากเริ่มเบา ๆ มีรายเดือน 9,900" in CL.script(db.get_lead(l6))["price"]
+db.set_setting("quote_default_cycle", "month"); assert Q.default_cycle() == "month"; db.set_setting("quote_default_cycle", "year")
+print("yearly-first: เสนอรายปีเป็นค่าเริ่มต้น · ขอรายเดือน → รายเดือน · ทางเลือกอีกแบบในอีเมล/หน้าใบ · ลูกค้าสลับเองได้ก่อนยืนยัน · ยืนยันแล้วล็อก · บทโทร OK")
 print("\nannual_smoke: ผ่านทั้งหมด")

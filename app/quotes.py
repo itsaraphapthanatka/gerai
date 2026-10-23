@@ -63,6 +63,26 @@ def price_for(package: str, discount_pct: float = 0, setup: bool = False, cycle:
             "cycle": "month", "period_total": net, "list_period": plan["price"], "yearly_discount": 0}
 
 
+def default_cycle() -> str:
+    """รอบบิลที่เสนอก่อน — เจ้าของสั่ง 24 ต.ค. ให้เสนอรายปีก่อน (รายเดือนเป็นทางเลือกที่ลูกค้าเปลี่ยนเองได้ในหน้าใบเสนอราคา)"""
+    try:
+        from . import db
+        v = db.get_setting("quote_default_cycle") or "year"
+    except Exception:
+        v = "year"
+    return v if v in CYCLES else "year"
+
+
+def alternative(q) -> dict:
+    """ราคาอีกรอบบิลของใบเดียวกัน (แพ็กเกจ/ส่วนลด/Setup เดิม) ไว้โชว์เทียบและให้ลูกค้าเปลี่ยน"""
+    other = "month" if cycle_of(q) == "year" else "year"
+    pr = price_for(q["package"], q["discount_pct"], bool(q["setup"]), other)
+    yearly = pr if other == "year" else price_for(q["package"], q["discount_pct"], bool(q["setup"]), "year")
+    monthly = pr if other == "month" else price_for(q["package"], q["discount_pct"], bool(q["setup"]), "month")
+    saving = monthly["net"] * 12 + monthly["setup_price"] - yearly["period_total"]
+    return {**pr, "saving_year": saving}
+
+
 def cycle_of(q) -> str:
     try:
         return (q["cycle"] if "cycle" in q.keys() else None) or "month"
@@ -97,6 +117,9 @@ def summary_text(q, domain: str) -> str:
         if q["setup"]:
             lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ฟรีเมื่อจ่ายรายปี (ปกติ {setup_addon()['price']:,} บาท)")
         lines.append(f"• ยอดชำระครั้งเดียวทั้งปี {q['first_total']:,} บาท · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
+        alt = alternative(q)
+        lines.append(f"• หรือเลือกจ่ายรายเดือน {alt['net']:,} บาท/เดือน" + (f" + GEO Setup {alt['setup_price']:,} บาท" if alt["setup_price"] else "")
+                     + f" (รายปีประหยัดกว่า {alt['saving_year']:,} บาท) — เปลี่ยนได้ในหน้าใบเสนอราคา")
         return "\n".join(lines)
     lines = [f"ใบเสนอราคา {q['number']} สำหรับ {domain}",
              f"• แพ็กเกจ {label} {q['price']:,} บาท/เดือน"
@@ -104,6 +127,8 @@ def summary_text(q, domain: str) -> str:
     if q["setup"]:
         lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว {q['setup_price']:,} บาท")
     lines.append(f"• ยอดชำระงวดแรก {q['first_total']:,} บาท · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
+    alt = alternative(q)
+    lines.append(f"• หรือจ่ายรายปี {alt['period_total']:,} บาท (ประหยัด {alt['saving_year']:,} บาท" + (" · GEO Setup ฟรี" if q["setup"] else "") + ") — เปลี่ยนได้ในหน้าใบเสนอราคา")
     return "\n".join(lines)
 
 

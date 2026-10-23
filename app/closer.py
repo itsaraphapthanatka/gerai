@@ -186,10 +186,12 @@ def script(lead) -> dict:
     disc = execs.MANDATE["max_discount_pct"]
     yearly = bool(q) and Q.cycle_of(q) == "year"
     price = (f"แพ็กเกจ {q['package'].capitalize()} รายปี {Q.period_total(q):,} บาท (เทียบ {q['net']:,} บาท/เดือน ลด {Q.yearly_discount():.0f}%"
-             + (" · GEO Setup ฟรี" if q["setup"] else "") + ") · คืนเงินได้ภายใน 7 วันแรก") if yearly else \
+             + (" · GEO Setup ฟรี" if q["setup"] else "") + f") · คืนเงินได้ภายใน 7 วันแรก · ถ้าอยากเริ่มเบา ๆ มีรายเดือน {Q.alternative(q)['net']:,} บาท/เดือน") if yearly else \
             (f"แพ็กเกจ {q['package'].capitalize()} {q['net']:,} บาท/เดือน" + (f" + GEO Setup {q['setup_price']:,} บาท (ครั้งเดียว)" if q["setup"] else "")
-             + f" · งวดแรก {q['first_total']:,} บาท" + (f" (ลดแล้ว {q['discount_pct']:.0f}%)" if q["discount_pct"] else "")) if q else \
-            f"แพ็กเกจ Pro {execs._plan('pro')['price']:,} บาท/เดือน (ยังไม่มีใบเสนอราคา — ทำในระบบหลังวางสาย)"
+             + f" · งวดแรก {q['first_total']:,} บาท" + (f" (ลดแล้ว {q['discount_pct']:.0f}%)" if q["discount_pct"] else "")
+             + f" · เสนอรายปีได้ ประหยัด {Q.alternative(q)['saving_year']:,} บาท (Setup ฟรี)") if q else \
+            (f"แพ็กเกจ Pro รายปี {Q.price_for('pro', 0, False, 'year')['period_total']:,} บาท (เทียบ {Q.price_for('pro', 0, False, 'year')['net']:,} บาท/เดือน · Setup ฟรี) "
+             f"หรือรายเดือน {execs._plan('pro')['price']:,} บาท (ยังไม่มีใบเสนอราคา — ทำในระบบหลังวางสาย)")
     comp = rk.get("competitors") or []
     context = []
     if comp and rk.get("n"):

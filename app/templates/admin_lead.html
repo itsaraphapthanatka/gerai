@@ -103,7 +103,7 @@
           {% for k in packages %}<option value="{{ k }}">{{ plans[k].label }} {{ "{:,}".format(plans[k].price) }} บาท/เดือน</option>{% endfor %}
         </select>
         <select name="cycle" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="รายปี: ลด {{ yearly_pct }}% · GEO Setup ฟรี · คืนเงินได้เฉพาะ 7 วันแรก">
-          <option value="month">รายเดือน</option><option value="year">รายปี (ลด {{ yearly_pct }}% · Setup ฟรี)</option>
+          <option value="year" {% if default_cycle == 'year' %}selected{% endif %}>รายปี (ลด {{ yearly_pct }}% · Setup ฟรี)</option><option value="month" {% if default_cycle == 'month' %}selected{% endif %}>รายเดือน</option>
         </select>
         <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลดพิเศษ %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
       </div>

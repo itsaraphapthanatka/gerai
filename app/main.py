@@ -644,6 +644,7 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
     ppid, ppname = _promptpay_config()
     return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q),
             "yearly": quotes.cycle_of(q) == "year", "period_total": quotes.period_total(q), "yearly_pct": quotes.yearly_discount(),
+            "alt": quotes.alternative(q),
             "summary": leads.public_summary(report), "company": _company(),
             "status_label": quotes.STATUS_LABEL.get(q["status"], q["status"]), "expired": quotes.is_expired(q),
             "ppid": ppid, "ppname": ppname,
@@ -736,6 +737,18 @@ def quote_page(request: Request, token: str, paid: int = 0):
     ctx = _quote_ctx(q, db.get_lead(q["lead_id"]))
     ctx["just_paid"] = bool(paid) and q["status"] != "paid"
     return templates.TemplateResponse(request, "quote.html", ctx)
+
+
+@app.post("/q/{token}/cycle")
+def quote_cycle(request: Request, token: str, cycle: str = Form(""), website: str = Form("")):
+    """ลูกค้าเลือกรายปี/รายเดือนเองก่อนยืนยัน"""
+    q = db.get_quote_by_token(token)
+    if not q or website.strip():
+        return _redirect("/")
+    err = pipeline.change_cycle(q, cycle, "customer")
+    if err:
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), error=err))
+    return _redirect(f"/q/{token}")
 
 
 @app.post("/q/{token}/stripe")
@@ -854,7 +867,8 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
             "statuses": leads.STATUSES, "sources": leads.SOURCES, "kinds": execs.KINDS, "packages": quotes.PACKAGES,
             "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"], "yearly_pct": "%g" % quotes.yearly_discount(),
-            "needs_setup": quotes.needs_setup(rep) if rep else False, "mandate": execs.MANDATE, "notice": notice}
+            "needs_setup": quotes.needs_setup(rep) if rep else False, "mandate": execs.MANDATE, "notice": notice,
+            "default_cycle": quotes.default_cycle()}
 
 
 @app.get("/admin/leads/{lead_id}")
@@ -919,7 +933,7 @@ def admin_lead_mark_contacted(request: Request, lead_id: int, via: str = Form("L
 
 @app.post("/admin/leads/{lead_id}/quote")
 def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"), discount_pct: str = Form("0"),
-                     setup: str = Form(""), send: str = Form(""), cycle: str = Form("month")):
+                     setup: str = Form(""), send: str = Form(""), cycle: str = Form("")):
     """แอดมินสร้างใบเสนอราคาเอง = การตัดสินใจของเจ้าของ ส่งได้ทันที (CFO ยังบอกว่าอยู่ในกรอบไหม)"""
     if not _is_admin(request):
         return _redirect("/login")
@@ -934,7 +948,7 @@ def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"),
         disc = 0.0
     who = request.session.get("email") or "admin"
     try:
-        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who, cycle=cycle if cycle in quotes.CYCLES else "month")
+        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who, cycle=cycle if cycle in quotes.CYCLES else quotes.default_cycle())
     except ValueError as e:
         return _redirect(f"/admin/leads/{lead_id}?notice={e}")
     cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": quotes.cycle_of(q)})
