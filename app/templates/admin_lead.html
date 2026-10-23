@@ -102,9 +102,12 @@
         <select name="package" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
           {% for k in packages %}<option value="{{ k }}">{{ plans[k].label }} {{ "{:,}".format(plans[k].price) }} บาท/เดือน</option>{% endfor %}
         </select>
-        <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลด %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
+        <select name="cycle" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="รายปี: ลด {{ yearly_pct }}% · GEO Setup ฟรี · คืนเงินได้เฉพาะ 7 วันแรก">
+          <option value="month">รายเดือน</option><option value="year">รายปี (ลด {{ yearly_pct }}% · Setup ฟรี)</option>
+        </select>
+        <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลดพิเศษ %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
       </div>
-      <label style="font-size:12.5px"><input type="checkbox" name="setup" value="1" {% if needs_setup %}checked{% endif %}> รวม GEO Setup ครั้งเดียว {{ "{:,}".format(setup_price) }} บาท{% if needs_setup %} (แนะนำ: เว็บตกข้อโครงสร้าง){% endif %}</label>
+      <label style="font-size:12.5px"><input type="checkbox" name="setup" value="1" {% if needs_setup %}checked{% endif %}> รวม GEO Setup ครั้งเดียว {{ "{:,}".format(setup_price) }} บาท (รายปีฟรี){% if needs_setup %} (แนะนำ: เว็บตกข้อโครงสร้าง){% endif %}</label>
       <label style="font-size:12.5px"><input type="checkbox" name="send" value="1" checked> ส่งให้ลูกค้าทันที (อีเมล/LINE ที่มี)</label>
       <div><button class="btn ghost sm" type="submit" {% if lead['status'] == 'unsubscribed' %}disabled{% endif %}>สร้างใบเสนอราคา</button></div>
     </form>
@@ -137,7 +140,7 @@
     {% for q in quotes %}
     <tr>
       <td><b>{{ q['number'] }}</b><div class="muted" style="font-size:11.5px">{{ (q['created_at'] or '')[:10] }} · โดย {{ q['created_by'] }}</div></td>
-      <td>{{ q['package'] }}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}</td>
+      <td>{{ q['package'] }}{% if q['cycle'] == 'year' %} <span class="pill ok">รายปี</span>{% endif %}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}</td>
       <td>{{ "{:,}".format(q['net']) }}</td>
       <td>{{ "{:,}".format(q['first_total']) }}</td>
       <td><span class="pill {{ 'ok' if q['status'] in ('paid','accepted','claimed') else ('no' if q['status'] in ('expired','cancelled') else '') }}">{{ qstatus.get(q['status'], q['status']) }}</span>{% if q['accepted_name'] %}<div class="muted" style="font-size:11.5px">ยืนยันโดย {{ q['accepted_name'] }}</div>{% endif %}</td>

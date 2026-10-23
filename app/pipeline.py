@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import html as _html
 import json
+import re
 import os
 import secrets
 import threading
@@ -275,22 +276,29 @@ def unsubscribe(lead, actor: str = "customer") -> None:
 
 # ---------- ใบเสนอราคา ----------
 def create_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None,
-                 created_by: str = "ceo", notes: str = ""):
+                 created_by: str = "ceo", notes: str = "", cycle: str = "month"):
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
     if setup is None:
         setup = Q.needs_setup(report)
-    pr = Q.price_for(package, discount_pct, setup)
+    pr = Q.price_for(package, discount_pct, setup, cycle)
     ym = db.now()[:7]
     qid = db.add_quote(lead["id"], Q.number(ym, db.count_quotes_month(ym) + 1), leads.new_token(), pr["package"], pr["price"],
-                       pr["discount_pct"], pr["net"], pr["setup"], pr["setup_price"], pr["first_total"], Q.valid_until(), created_by, notes)
+                       pr["discount_pct"], pr["net"], pr["setup"], pr["setup_price"], pr["first_total"], Q.valid_until(), created_by, notes,
+                       cycle=pr["cycle"], period_total=pr["period_total"])
     db.update_lead(lead["id"], package=package, monthly_thb=pr["net"])
     return db.get_quote(qid)
 
 
-def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None) -> int:
-    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน — เรื่องเงินไม่เป็น auto ในเฟส 2 จึงรอคนเสมอ"""
-    q = create_quote(lead, package, discount_pct, setup, created_by="ceo")
-    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"]})
+YEARLY_RE = re.compile(r"(รายปี|ทั้งปี|จ่ายปี|12\s*เดือน|annual|yearly|per year)", re.I)
+
+
+def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None, cycle: str | None = None) -> int:
+    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน · ลูกค้าเอ่ยถึงรายปีในข้อความล่าสุด → เสนอรายปี"""
+    if cycle is None:
+        last = next((e["note"] or "" for e in db.list_lead_events(lead["id"], 20) if e["kind"] == "replied"), "")
+        cycle = "year" if YEARLY_RE.search(last) else "month"
+    q = create_quote(lead, package, discount_pct, setup, created_by="ceo", cycle=cycle)
+    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": cycle})
     pl = {"quote_id": q["id"], "number": q["number"], "package": q["package"], "price": q["price"], "discount_pct": q["discount_pct"],
           "net": q["net"], "setup": bool(q["setup"]), "first_total": q["first_total"], "cfo": cfo, "escalate": not cfo["ok"]}
     did = db.add_decision("ceo", "quote", f"เสนอราคา {lead['domain']} ({q['number']})",
@@ -391,7 +399,7 @@ def confirm_payment(q, who: str = "admin") -> str:
     db.update_lead(lead["id"], status="won", package=q["package"], monthly_thb=q["net"])
     record(lead["id"], "paid", f"{q['number']} ยอด {q['first_total']:,} บาท", who)
     record(lead["id"], "provisioned", f"บัญชี #{prov['tenant_id']} ({'ใหม่' if prov['created'] else 'เดิม'}) · แบรนด์ #{prov['brand_id']}", who)
-    record(lead["id"], "won", f"แพ็กเกจ {q['package']} {q['net']:,} บาท/เดือน", who)
+    record(lead["id"], "won", f"แพ็กเกจ {q['package']} " + (f"รายปี {Q.period_total(q):,} บาท/ปี (เทียบ {q['net']:,}/เดือน)" if Q.cycle_of(q) == "year" else f"{q['net']:,} บาท/เดือน"), who)
     base = public_base()
     note = ""
     if mailer.is_deliverable(prov["email"]) and mailer.config():

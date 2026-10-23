@@ -27,16 +27,55 @@ def setup_addon() -> dict:
     return next(a for a in billing.ADDONS if a["key"] == "setup")
 
 
-def price_for(package: str, discount_pct: float = 0, setup: bool = False) -> dict:
-    """คำนวณจากตารางแพ็กเกจ: ราคาเต็ม · ส่วนลด · สุทธิ/เดือน · GEO Setup ครั้งเดียว · ยอดงวดแรก"""
+CYCLES = {"month": "รายเดือน", "year": "รายปี"}
+YEARLY_DISCOUNT_DEFAULT = 17       # ลดเมื่อจ่ายรายปี (เจ้าของกำหนด 23 ต.ค.) · แก้ได้ที่กรอบอำนาจ (mandate_yearly_discount_pct)
+
+
+def yearly_discount() -> float:
+    try:
+        from . import execs
+        return float(execs.MANDATE["yearly_discount_pct"])
+    except Exception:
+        return float(YEARLY_DISCOUNT_DEFAULT)
+
+
+def price_for(package: str, discount_pct: float = 0, setup: bool = False, cycle: str = "month") -> dict:
+    """คำนวณจากตารางแพ็กเกจ · รายเดือน: ราคา − ส่วนลด + GEO Setup ครั้งเดียว
+    · รายปี: 12 เดือน ลด yearly_discount() % (ส่วนลดพิเศษของดีลซ้อนได้อีก) GEO Setup ฟรี จ่ายครั้งเดียวทั้งปี
+    คืน net = เทียบต่อเดือน (ใช้กับ CFO/ลีด/KPI) · period_total = ยอดต่อรอบบิล · first_total = ยอดงวดแรก"""
     if package not in PACKAGES:
         raise ValueError("แพ็กเกจไม่ถูกต้อง")
+    if cycle not in CYCLES:
+        raise ValueError("รอบบิลไม่ถูกต้อง")
     plan = billing.PLANS[package]
     disc = min(100.0, max(0.0, float(discount_pct or 0)))
+    setup_list = setup_addon()["price"] if setup else 0
+    if cycle == "year":
+        yd = yearly_discount()
+        list_period = plan["price"] * 12
+        period_total = round(list_period * (1 - yd / 100) * (1 - disc / 100))
+        return {"package": package, "label": plan["label"], "price": plan["price"], "discount_pct": disc, "net": round(period_total / 12),
+                "setup": bool(setup), "setup_price": 0, "setup_list": setup_list, "first_total": period_total, "perks": plan["perks"],
+                "cycle": "year", "period_total": period_total, "list_period": list_period, "yearly_discount": yd}
     net = round(plan["price"] * (1 - disc / 100))
-    setup_price = setup_addon()["price"] if setup else 0
     return {"package": package, "label": plan["label"], "price": plan["price"], "discount_pct": disc, "net": net,
-            "setup": bool(setup), "setup_price": setup_price, "first_total": net + setup_price, "perks": plan["perks"]}
+            "setup": bool(setup), "setup_price": setup_list, "setup_list": setup_list, "first_total": net + setup_list, "perks": plan["perks"],
+            "cycle": "month", "period_total": net, "list_period": plan["price"], "yearly_discount": 0}
+
+
+def cycle_of(q) -> str:
+    try:
+        return (q["cycle"] if "cycle" in q.keys() else None) or "month"
+    except Exception:
+        return (q.get("cycle") if isinstance(q, dict) else None) or "month"
+
+
+def period_total(q) -> int:
+    try:
+        v = q["period_total"] if "period_total" in q.keys() else None
+    except Exception:
+        v = q.get("period_total") if isinstance(q, dict) else None
+    return int(v) if v else (int(q["first_total"]) if cycle_of(q) == "year" else int(q["net"]))
 
 
 def valid_until(from_dt: datetime.datetime | None = None) -> str:
@@ -50,8 +89,17 @@ def is_expired(q, today: str | None = None) -> bool:
 
 def summary_text(q, domain: str) -> str:
     """สรุปใบเสนอราคาเป็นข้อความ (ใช้ในข้อเสนอของ CEO และอีเมล)"""
+    label = billing.PLANS[q['package']]['label']
+    if cycle_of(q) == "year":
+        lines = [f"ใบเสนอราคา {q['number']} สำหรับ {domain} (รายปี)",
+                 f"• แพ็กเกจ {label} รายปี {period_total(q):,} บาท/ปี (เทียบ {q['net']:,} บาท/เดือน จากปกติ {q['price']:,}"
+                 + f" · ลด {yearly_discount():.0f}%" + (f" และส่วนลดพิเศษอีก {q['discount_pct']:.0f}%" if q["discount_pct"] else "") + ")"]
+        if q["setup"]:
+            lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ฟรีเมื่อจ่ายรายปี (ปกติ {setup_addon()['price']:,} บาท)")
+        lines.append(f"• ยอดชำระครั้งเดียวทั้งปี {q['first_total']:,} บาท · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
+        return "\n".join(lines)
     lines = [f"ใบเสนอราคา {q['number']} สำหรับ {domain}",
-             f"• แพ็กเกจ {billing.PLANS[q['package']]['label']} {q['price']:,} บาท/เดือน"
+             f"• แพ็กเกจ {label} {q['price']:,} บาท/เดือน"
              + (f" ลด {q['discount_pct']:.0f}% เหลือ {q['net']:,} บาท/เดือน" if q["discount_pct"] else "")]
     if q["setup"]:
         lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว {q['setup_price']:,} บาท")
@@ -69,15 +117,35 @@ TERMS = [
 ]
 
 
+TERMS_YEAR = [
+    "ค่าบริการเป็นรายปี ชำระครั้งเดียวล่วงหน้าทั้งปี ต่ออายุอัตโนมัติเมื่อครบปี ยกเลิกการต่ออายุได้ทุกเมื่อ มีผลเมื่อสิ้นปีสัญญา",
+    "ไม่พอใจภายใน 7 วันนับจากชำระ คืนเงินเต็มจำนวน — หลังจากนั้นไม่คืนเงินส่วนที่เหลือของปี แต่ใช้บริการได้จนครบปี",
+    "GEO Setup ฟรีเมื่อจ่ายรายปี และรายงานผลจริงทุกเดือนเหมือนรายเดือน",
+] + TERMS[2:]
+
+
+def terms_for(q) -> list[str]:
+    return TERMS_YEAR if cycle_of(q) == "year" else TERMS
+
+
 def contract_sections(company: dict, customer: dict, q) -> list[dict]:
     """สัญญาบริการมาตรฐาน (ร่าง) — เติมชื่อคู่สัญญา แพ็กเกจ ราคา จากใบเสนอราคา · ทนายตรวจแล้วค่อยเอาป้าย 'ร่าง' ออก"""
     plan = billing.PLANS[q["package"]]
     co = company.get("name") or "เจอ.AI"
     cust = customer.get("name") or customer.get("domain") or "ผู้รับบริการ"
     net = f"{q['net']:,}"
+    yearly = cycle_of(q) == "year"
     items = "; ".join(plan["perks"])
     setup_txt = (f" และงาน GEO Setup ครั้งเดียว (แก้โครงสร้างเว็บให้บอทอ่านได้ ติดตั้ง /geo, llms.txt, sitemap, แก้ robots/canonical/index) "
-                 f"ค่าบริการ {q['setup_price']:,} บาท" if q["setup"] else "")
+                 + ("โดยไม่มีค่าใช้จ่ายเพิ่มเมื่อชำระรายปี" if yearly else f"ค่าบริการ {q['setup_price']:,} บาท") if q["setup"] else "")
+    fee = (f"ค่าบริการ {period_total(q):,} บาทต่อปี (เทียบ {net} บาทต่อเดือน) ชำระครั้งเดียวล่วงหน้าทั้งปีผ่านช่องทางที่ผู้ให้บริการกำหนด (บัตรผ่าน Stripe หรือ PromptPay/โอนเงิน)"
+           if yearly else f"ค่าบริการ {net} บาทต่อเดือน ชำระล่วงหน้าต้นรอบผ่านช่องทางที่ผู้ให้บริการกำหนด (PromptPay หรือโอนเงิน)")
+    term = ("สัญญามีผลหนึ่งปีนับจากวันที่ชำระ และต่ออายุอัตโนมัติครั้งละหนึ่งปี ผู้รับบริการยกเลิกการต่ออายุได้ทุกเมื่อโดยแจ้งผ่านอีเมลหรือระบบ มีผลเมื่อสิ้นปีสัญญาที่ชำระแล้ว"
+            if yearly else "สัญญามีผลเป็นรายเดือนและต่ออายุอัตโนมัติ ผู้รับบริการยกเลิกได้ทุกเมื่อโดยแจ้งผ่านอีเมลหรือระบบ มีผลเมื่อสิ้นรอบที่ชำระแล้ว")
+    refund = ("ภายใน 7 วันนับจากชำระค่าบริการรายปี หากผู้รับบริการไม่พอใจ ผู้ให้บริการคืนเงินเต็มจำนวน หลังพ้น 7 วัน ผู้ให้บริการไม่คืนค่าบริการส่วนที่เหลือของปี แต่ผู้รับบริการใช้บริการได้จนครบปีสัญญา"
+              if yearly else "ภายใน 7 วันนับจากชำระงวดแรก หากผู้รับบริการไม่พอใจ ผู้ให้บริการคืนเงินเต็มจำนวนที่ชำระในงวดนั้น")
+    cap = ("ความรับผิดของผู้ให้บริการภายใต้สัญญานี้จำกัดไม่เกินค่าบริการที่ผู้รับบริการชำระสำหรับปีสัญญาปัจจุบัน" if yearly
+           else "ความรับผิดของผู้ให้บริการภายใต้สัญญานี้จำกัดไม่เกินค่าบริการที่ผู้รับบริการชำระในสามเดือนล่าสุด")
     return [
         {"h": "1. คู่สัญญา", "p": [
             f"ผู้ให้บริการ: {co}" + (f" ที่อยู่ {company['address']}" if company.get("address") else "") + (f" เลขประจำตัวผู้เสียภาษี {company['tax_id']}" if company.get("tax_id") else ""),
@@ -88,13 +156,13 @@ def contract_sections(company: dict, customer: dict, q) -> list[dict]:
             "บริการเริ่มเมื่อผู้ให้บริการยืนยันการชำระงวดแรก และเปิดบัญชีให้ผู้รับบริการเข้าใช้แพลตฟอร์ม",
         ]},
         {"h": "3. ค่าบริการและการชำระเงิน", "p": [
-            f"ค่าบริการ {net} บาทต่อเดือน ชำระล่วงหน้าต้นรอบผ่านช่องทางที่ผู้ให้บริการกำหนด (PromptPay หรือโอนเงิน)",
+            fee,
             "หากค้างชำระเกิน 7 วันนับจากวันครบกำหนด ผู้ให้บริการระงับบริการชั่วคราวได้จนกว่าจะชำระครบ",
             "ราคาตามใบเสนอราคาที่ผู้รับบริการยืนยัน การเปลี่ยนแปลงราคาต้องแจ้งล่วงหน้าอย่างน้อย 30 วันและมีผลรอบถัดไป",
         ]},
         {"h": "4. ระยะเวลาและการยกเลิก", "p": [
-            "สัญญามีผลเป็นรายเดือนและต่ออายุอัตโนมัติ ผู้รับบริการยกเลิกได้ทุกเมื่อโดยแจ้งผ่านอีเมลหรือระบบ มีผลเมื่อสิ้นรอบที่ชำระแล้ว",
-            f"ภายใน 7 วันนับจากชำระงวดแรก หากผู้รับบริการไม่พอใจ ผู้ให้บริการคืนเงินเต็มจำนวนที่ชำระในงวดนั้น",
+            term,
+            refund,
         ]},
         {"h": "5. ขอบเขตและการไม่รับประกันผล", "p": [
             "ผู้ให้บริการไม่รับประกันอันดับบน Google หรือการถูกเอ่ยถึงในคำตอบของ AI เพราะเป็นระบบของบุคคลที่สาม ผู้ให้บริการวัดและรายงานตัวเลขจริงทุกเดือน",
@@ -108,7 +176,7 @@ def contract_sections(company: dict, customer: dict, q) -> list[dict]:
             "คู่สัญญาปฏิบัติตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล ผู้ให้บริการประมวลผลข้อมูลเท่าที่จำเป็นต่อการให้บริการ ไม่เปิดเผยแก่บุคคลภายนอก และลบเมื่อสิ้นสุดสัญญาเว้นแต่กฎหมายกำหนดให้เก็บ",
         ]},
         {"h": "8. ความรับผิด", "p": [
-            "ความรับผิดของผู้ให้บริการภายใต้สัญญานี้จำกัดไม่เกินค่าบริการที่ผู้รับบริการชำระในสามเดือนล่าสุด",
+            cap,
         ]},
         {"h": "9. การสื่อสารอัตโนมัติ", "p": [
             "ข้อความบางส่วนจากผู้ให้บริการส่งโดยระบบอัตโนมัติและระบุไว้เช่นนั้น ผู้รับบริการขอยกเลิกการรับข้อความได้ทุกเมื่อ",

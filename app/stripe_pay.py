@@ -18,7 +18,8 @@ EVENTS = ("checkout.session.completed", "invoice.paid", "invoice.payment_failed"
           "customer.subscription.deleted", "charge.refunded", "credit_note.created")
 CURRENCY = "thb"
 # แคตตาล็อกใน Stripe (สร้างให้เองครั้งแรกที่ใช้ ผูกด้วย lookup_key ที่มีราคาอยู่ในชื่อ — เปลี่ยนราคาในตาราง = ได้ price ใหม่อัตโนมัติ)
-CATALOG = {"pro": ("geo_pro_month", "month"), "agency": ("geo_agency_month", "month"), "setup": ("geo_setup_once", None)}
+CATALOG = {"pro": ("geo_pro_month", "month"), "agency": ("geo_agency_month", "month"), "setup": ("geo_setup_once", None),
+           "pro_year": ("geo_pro_year", "year"), "agency_year": ("geo_agency_year", "year")}   # รายปี = 12 เดือน − ส่วนลดรายปี
 
 
 def _get(key: str) -> str:
@@ -96,12 +97,17 @@ def _get_json(path: str) -> dict:
 def _amount(kind: str) -> int:
     if kind == "setup":
         return int(next(a for a in billing.ADDONS if a["key"] == "setup")["price"])
+    if kind.endswith("_year"):
+        from . import quotes as Q
+        return int(Q.price_for(kind[:-5], 0, False, "year")["period_total"])   # ราคาเปลี่ยน → lookup key ใหม่ ราคาเก่าไม่ถูกแก้
     return int(billing.PLANS[kind]["price"])
 
 
 def _name(kind: str, company: str) -> str:
     if kind == "setup":
         return f"{company} GEO Setup (ครั้งเดียว)"
+    if kind.endswith("_year"):
+        return f"{company} แพ็กเกจ {billing.PLANS[kind[:-5]]['label']} รายปี"
     return f"{company} แพ็กเกจ {billing.PLANS[kind]['label']} รายเดือน"
 
 
@@ -137,9 +143,15 @@ def ensure_coupon(pct: float, product_id: str, package: str) -> str:
         return cid
     except RuntimeError:
         pass
-    _post("/coupons", {"id": cid, "percent_off": str(pct_i), "duration": "forever", "name": f"ส่วนลด {pct_i}% แพ็กเกจ {billing.PLANS[package]['label']}",
+    label = billing.PLANS[package.removesuffix("_year")]["label"] + (" รายปี" if package.endswith("_year") else "")
+    _post("/coupons", {"id": cid, "percent_off": str(pct_i), "duration": "forever", "name": f"ส่วนลด {pct_i}% แพ็กเกจ {label}",
                        "applies_to[products][]": product_id}, idem=f"geo-coupon-{cid}")
     return cid
+
+
+def _cycle(q) -> str:
+    from . import quotes as Q
+    return Q.cycle_of(q)
 
 
 def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None) -> dict:
@@ -155,7 +167,7 @@ def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None)
         "line_items[0][price]": prices["plan"], "line_items[0][quantity]": "1",
         "tax_id_collection[enabled]": "true", "billing_address_collection": "required",
     }
-    if q["setup"] and prices.get("setup"):
+    if q["setup"] and prices.get("setup") and _cycle(q) != "year":      # รายปี Setup ฟรี
         p["line_items[1][price]"] = prices["setup"]
         p["line_items[1][quantity]"] = "1"
     if coupon:
@@ -169,9 +181,10 @@ def create_checkout(q, lead, base: str, company: str = "เจอ.AI") -> str:
     """สร้าง Checkout Session → คืน URL ให้ลูกค้าไปจ่าย (เก็บ session id ไว้เช็กย้อนหลัง) · idempotent ต่อใบเสนอราคาเป็นช่วง 10 นาที"""
     if not available():
         raise RuntimeError("ยังไม่ได้ตั้งค่า Stripe")
-    plan = ensure_price(q["package"], company)
-    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] else None}
-    coupon = ensure_coupon(q["discount_pct"], plan["product"], q["package"]) if q["discount_pct"] else None
+    kind = q["package"] + ("_year" if _cycle(q) == "year" else "")
+    plan = ensure_price(kind, company)
+    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] and _cycle(q) != "year" else None}
+    coupon = ensure_coupon(q["discount_pct"], plan["product"], kind) if q["discount_pct"] else None
     resp = _post("/checkout/sessions", checkout_params(q, lead, base, prices, coupon), idem=f"geo-checkout-{q['id']}-{int(time.time()) // 600}")
     db.update_quote(q["id"], stripe_session_id=resp.get("id"))
     return resp["url"]

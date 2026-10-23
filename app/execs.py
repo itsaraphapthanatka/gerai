@@ -15,9 +15,11 @@ MANDATE_DEFAULT = {
     "refund_days": 7,
     "ai_cost_cap_thb": 570,     # ต้นทุน AI/เครื่องมือต่อลูกค้าต่อเดือน (จากแผน)
     "min_margin_pct": 70,
+    "yearly_discount_pct": 17,  # ส่วนลดมาตรฐานเมื่อจ่ายรายปี (ไม่นับรวมกับส่วนลดสูงสุดของดีล)
 }
 MANDATE_LABEL = {"max_discount_pct": "ส่วนลดสูงสุด (%)", "max_deal_thb": "วงเงินต่อดีล (บาท/เดือน)", "refund_days": "คืนเงินเต็มภายใน (วัน)",
-                 "ai_cost_cap_thb": "เพดานต้นทุน AI ต่อลูกค้า (บาท/เดือน)", "min_margin_pct": "กำไรขั้นต้นขั้นต่ำ (%)"}
+                 "ai_cost_cap_thb": "เพดานต้นทุน AI ต่อลูกค้า (บาท/เดือน)", "min_margin_pct": "กำไรขั้นต้นขั้นต่ำ (%)",
+                 "yearly_discount_pct": "ส่วนลดเมื่อจ่ายรายปี (%)"}
 
 
 class _Mandate(dict):
@@ -153,13 +155,16 @@ def cfo_check(payload: dict) -> dict:
     """CFO ตรวจราคา/ส่วนลด/กำไรกับกรอบอำนาจ — นอกกรอบ = ต้องให้เจ้าของอนุมัติ ไม่ใช่ปฏิเสธ"""
     price = int(payload.get("price") or 0)
     disc = float(payload.get("discount_pct") or 0)
+    yearly = payload.get("cycle") == "year"
     if disc > MANDATE["max_discount_pct"]:
         return {"ok": False, "net": price, "margin_pct": 0,
-                "note": f"ส่วนลด {disc:.0f}% เกินกรอบ {MANDATE['max_discount_pct']}% — ต้องให้เจ้าของอนุมัติ"}
-    net = round(price * (1 - disc / 100))
+                "note": f"ส่วนลด{'พิเศษ' if yearly else ''} {disc:.0f}% เกินกรอบ {MANDATE['max_discount_pct']}% — ต้องให้เจ้าของอนุมัติ"}
+    yd = MANDATE["yearly_discount_pct"] if yearly else 0     # ส่วนลดรายปีเป็นราคามาตรฐาน ไม่กินโควตาส่วนลดของดีล
+    net = round(price * (1 - yd / 100) * (1 - disc / 100))
     margin = round((net - MANDATE["ai_cost_cap_thb"]) / net * 100) if net else 0
     ok = 0 < net <= MANDATE["max_deal_thb"] and margin >= MANDATE["min_margin_pct"]
-    note = f"ราคา {net:,} บาท/เดือน กำไรขั้นต้นราว {margin}% (ต้นทุน AI ไม่เกิน {MANDATE['ai_cost_cap_thb']} บาท)"
+    note = (f"รายปี {net * 12:,} บาท (เทียบ {net:,} บาท/เดือน ลดรายปี {yd}%" + (f" + พิเศษ {disc:.0f}%" if disc else "") + ")" if yearly
+            else f"ราคา {net:,} บาท/เดือน") + f" กำไรขั้นต้นราว {margin}% (ต้นทุน AI ไม่เกิน {MANDATE['ai_cost_cap_thb']} บาท)"
     if not ok:
         note += " — นอกกรอบ ส่งเจ้าของ"
     return {"ok": ok, "net": net, "margin_pct": margin, "note": note}

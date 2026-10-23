@@ -24,7 +24,7 @@ ACTIONS = {
     "find_leads": ("หาลูกค้าใหม่ตามกลุ่มธุรกิจ/พื้นที่", {"segment": "กลุ่มธุรกิจ", "area": "จังหวัด (ไม่บังคับ)", "n": "จำนวน 1-15"}, True),
     "audit": ("ตรวจเว็บฟรีให้เว็บหนึ่ง (เพิ่มเป็นลีด)", {"url": "ที่อยู่เว็บ"}, False),
     "contact_lead": ("ให้ CEO ทักลีดรายนี้ (ร่าง+ส่งข้อความ)", {"domain": "โดเมน"}, True),
-    "quote": ("ทำและส่งใบเสนอราคา", {"domain": "โดเมน", "package": "pro|agency", "discount_pct": "ส่วนลด %"}, True),
+    "quote": ("ทำและส่งใบเสนอราคา", {"domain": "โดเมน", "package": "pro|agency", "discount_pct": "ส่วนลดพิเศษ %", "cycle": "month|year (year = รายปี ลด 17% Setup ฟรี)"}, True),
     "followup": ("ส่งข้อความติดตามผลครั้งถัดไปทันที", {"domain": "โดเมน"}, True),
     "ai_report": ("ถาม ChatGPT 20 คำถามให้ลีด (≈฿40)", {"domain": "โดเมน"}, True),
     "post": ("โพสต์การตลาดทันที", {"kind": "insight|ai_test|tip"}, True),
@@ -136,7 +136,11 @@ def parse(text: str, llm=None) -> dict:
         m = re.search(r"\{[\s\S]*\}", raw or "")
         d = json.loads(m.group(0)) if m else {}
         if d.get("action") in ACTIONS:
-            return {"action": d["action"], "args": d.get("args") or {}}
+            args = d.get("args") or {}
+            from . import pipeline
+            if d["action"] == "quote" and pipeline.YEARLY_RE.search(text):
+                args["cycle"] = "year"
+            return {"action": d["action"], "args": args}
     except Exception:
         pass
     url = L.first_url(text)
@@ -194,11 +198,17 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
             disc = max(0.0, min(50.0, float(str(args.get("discount_pct") or 0).strip("% "))))
         except ValueError:
             disc = 0.0
-        args.update(package=pkg, discount_pct=disc)
-        pr = Q.price_for(pkg, disc, Q.needs_setup(json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}))
-        warn = execs.cfo_check({"price": pr["price"], "discount_pct": disc})
-        return (f"จะส่งใบเสนอราคา {pkg.capitalize()} {pr['net']:,} บาท/เดือน" + (f" (ลด {disc:.0f}%)" if disc else "")
-                + (f" + GEO Setup {pr['setup_price']:,}" if pr["setup"] else "") + f" งวดแรก {pr['first_total']:,} บาท ถึง {lead['domain']} ทาง {ch}"
+        cyc = "year" if str(args.get("cycle") or "").lower() in ("year", "yearly", "annual", "รายปี") else "month"
+        args.update(package=pkg, discount_pct=disc, cycle=cyc)
+        pr = Q.price_for(pkg, disc, Q.needs_setup(json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}), cyc)
+        warn = execs.cfo_check({"price": pr["price"], "discount_pct": disc, "cycle": cyc})
+        if cyc == "year":
+            head = (f"จะส่งใบเสนอราคา {pkg.capitalize()} รายปี {pr['period_total']:,} บาท/ปี (เทียบ {pr['net']:,}/เดือน ลด {pr['yearly_discount']:.0f}%"
+                    + (f" + พิเศษ {disc:.0f}%" if disc else "") + ")" + (" + GEO Setup ฟรี" if pr["setup"] else ""))
+        else:
+            head = (f"จะส่งใบเสนอราคา {pkg.capitalize()} {pr['net']:,} บาท/เดือน" + (f" (ลด {disc:.0f}%)" if disc else "")
+                    + (f" + GEO Setup {pr['setup_price']:,}" if pr["setup"] else ""))
+        return (head + f" งวดแรก {pr['first_total']:,} บาท ถึง {lead['domain']} ทาง {ch}"
                 + ("" if warn["ok"] else f"\n⚠️ CFO: {warn['note']} — คุณเป็นบอร์ด สั่งได้ แต่เกินกรอบที่ตั้งไว้")), "ok"
     if action == "find_leads":
         seg = (args.get("segment") or "").strip()
@@ -294,7 +304,8 @@ def execute(action: str, args: dict) -> str:
         from . import quotes as Q
         if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
             return f"{lead['domain']} มีใบเสนอราคาที่ยังเปิดอยู่แล้ว — ดูที่ {pipeline.public_base()}/admin/leads/{lead['id']}"
-        q = pipeline.create_quote(lead, args.get("package") or "pro", float(args.get("discount_pct") or 0), created_by="owner")
+        q = pipeline.create_quote(lead, args.get("package") or "pro", float(args.get("discount_pct") or 0), created_by="owner",
+                                  cycle="year" if args.get("cycle") == "year" else "month")
         res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)")
         return f"{res}\n{pipeline.quote_url(q)}"
     if action == "followup":

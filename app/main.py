@@ -640,7 +640,8 @@ def _company() -> dict:
 def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
     ppid, ppname = _promptpay_config()
-    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.TERMS,
+    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q),
+            "yearly": quotes.cycle_of(q) == "year", "period_total": quotes.period_total(q), "yearly_pct": quotes.yearly_discount(),
             "summary": leads.public_summary(report), "company": _company(),
             "status_label": quotes.STATUS_LABEL.get(q["status"], q["status"]), "expired": quotes.is_expired(q),
             "ppid": ppid, "ppname": ppname,
@@ -839,7 +840,7 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             "channel": pipeline.send_channel(lead),
             "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
             "statuses": leads.STATUSES, "sources": leads.SOURCES, "kinds": execs.KINDS, "packages": quotes.PACKAGES,
-            "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"],
+            "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"], "yearly_pct": "%g" % quotes.yearly_discount(),
             "needs_setup": quotes.needs_setup(rep) if rep else False, "mandate": execs.MANDATE, "notice": notice}
 
 
@@ -905,7 +906,7 @@ def admin_lead_mark_contacted(request: Request, lead_id: int, via: str = Form("L
 
 @app.post("/admin/leads/{lead_id}/quote")
 def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"), discount_pct: str = Form("0"),
-                     setup: str = Form(""), send: str = Form("")):
+                     setup: str = Form(""), send: str = Form(""), cycle: str = Form("month")):
     """แอดมินสร้างใบเสนอราคาเอง = การตัดสินใจของเจ้าของ ส่งได้ทันที (CFO ยังบอกว่าอยู่ในกรอบไหม)"""
     if not _is_admin(request):
         return _redirect("/login")
@@ -920,10 +921,10 @@ def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"),
         disc = 0.0
     who = request.session.get("email") or "admin"
     try:
-        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who)
+        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who, cycle=cycle if cycle in quotes.CYCLES else "month")
     except ValueError as e:
         return _redirect(f"/admin/leads/{lead_id}?notice={e}")
-    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"]})
+    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": quotes.cycle_of(q)})
     note = (pipeline.send_quote(q, who) if send else f"สร้าง {q['number']} เป็นร่างแล้ว") + f" · CFO: {cfo['note']}"
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
 

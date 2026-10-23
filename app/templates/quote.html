@@ -80,11 +80,21 @@
   <table>
     <thead><tr><th>บริการ</th><th>รอบ</th><th class="num">บาท</th></tr></thead>
     <tbody>
+      {% if yearly %}
+      {% set list_year = q.price * 12 %}{% set after_y = (list_year * (100 - yearly_pct) / 100)|round|int %}
+      <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}<div class="why" style="color:var(--slate);font-size:13px">{{ "{:,}".format(q.price) }} บาท × 12 เดือน</div></td><td>รายปี</td><td class="num">{{ "{:,}".format(list_year) }}</td></tr>
+      <tr><td>ส่วนลดจ่ายรายปี {{ "%g"|format(yearly_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(list_year - after_y) }}</td></tr>
+      {% if q.discount_pct %}<tr><td>ส่วนลดพิเศษ {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(after_y - period_total) }}</td></tr>{% endif %}
+      {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }} · ปกติ {{ "{:,}".format(setup.price) }} บาท</div></td><td>ครั้งเดียว</td><td class="num">ฟรี</td></tr>{% endif %}
+      <tr><td>เทียบเป็นต่อเดือน</td><td>เฉลี่ย</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
+      <tr class="total"><td>ยอดชำระครั้งเดียวทั้งปี</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% else %}
       <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
       {% if q.discount_pct %}<tr><td>ส่วนลด {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(q.price - q.net) }}</td></tr>{% endif %}
       {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }}</div></td><td>ครั้งเดียว</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
       <tr><td>ค่าบริการสุทธิต่อเดือน (รอบถัดไป)</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
       <tr class="total"><td>ยอดชำระงวดแรก</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% endif %}
     </tbody>
   </table>
 
@@ -103,11 +113,11 @@
     {% elif q.status == 'accepted' and just_paid %}
       <div class="ok">ได้รับการชำระจาก Stripe แล้ว ระบบกำลังเปิดบัญชีให้ (ไม่เกิน 1 นาที) — รีเฟรชหน้านี้ หรือรออีเมลต้อนรับ</div>
     {% elif q.status == 'accepted' %}
-      <div class="ok">ยืนยันรับข้อเสนอแล้วโดย {{ q.accepted_name }} เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }} — ขั้นสุดท้ายคือชำระงวดแรก</div>
+      <div class="ok">ยืนยันรับข้อเสนอแล้วโดย {{ q.accepted_name }} เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }} — ขั้นสุดท้ายคือชำระ{{ 'ค่าบริการรายปี' if yearly else 'งวดแรก' }}</div>
       {% if stripe_ready %}
       <div class="cta" style="margin-top:14px">
         <h2>ชำระด้วยบัตรเครดิต/เดบิต</h2>
-        <p>งวดแรก {{ "{:,}".format(q.first_total) }} บาท จากนั้น {{ "{:,}".format(q.net) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
+        <p>{% if yearly %}ชำระครั้งเดียว {{ "{:,}".format(q.first_total) }} บาท ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ · คืนเงินเต็มภายใน 7 วันแรก{% else %}งวดแรก {{ "{:,}".format(q.first_total) }} บาท จากนั้น {{ "{:,}".format(q.net) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
         <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error }}</div>{% endif %}<button type="submit">ชำระผ่าน Stripe</button></form>
       </div>
       <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)</summary>

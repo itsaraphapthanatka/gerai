@@ -410,6 +410,8 @@ def init_db() -> None:
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
         _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
+        _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
+        _ensure_column(c, "quotes", "period_total", "INTEGER")           # ยอดต่อรอบบิล (รายปี = ทั้งปี)
         _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
         _ensure_column(c, "leads", "call_json", "TEXT")                # บทโทรปิดดีล: เบอร์ที่หาได้ + ผลโทรแต่ละครั้ง
         _ensure_column(c, "brands", "case_study_ok", "INTEGER DEFAULT 0")   # อนุญาตให้ใช้ชื่อแบรนด์ในเคสศึกษาของเจอ.AI
@@ -1355,12 +1357,13 @@ QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name"
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,
-              setup: bool, setup_price: int, first_total: int, valid_until: str, created_by: str = "ceo", notes: str = "") -> int:
+              setup: bool, setup_price: int, first_total: int, valid_until: str, created_by: str = "ceo", notes: str = "",
+              cycle: str = "month", period_total: int | None = None) -> int:
     with get_conn() as c:
         cur = c.execute(q("INSERT INTO quotes(created_at,lead_id,number,token,package,price,discount_pct,net,setup,setup_price,"
-                          "first_total,valid_until,status,created_by,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?) RETURNING id"),
+                          "first_total,valid_until,status,created_by,notes,cycle,period_total) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?) RETURNING id"),
                         (now(), lead_id, number, token, package, price, discount_pct, net, 1 if setup else 0, setup_price,
-                         first_total, valid_until, created_by, notes or None))
+                         first_total, valid_until, created_by, notes or None, cycle, period_total if period_total is not None else net))
         return cur.fetchone()["id"]
 
 

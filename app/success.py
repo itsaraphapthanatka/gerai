@@ -4,6 +4,7 @@
   วันที่ 3  เช็กติดตั้ง: ตัวเชื่อม /geo · llms.txt · sitemap หรือ WordPress — ยังไม่ติดตั้ง → อีเมลขั้นตอน + เตือนเจ้าของ
   วันที่ 7  งานชิ้นแรก: มีคอนเทนต์ไหม — ไม่มี → สั่ง Autopilot อีกรอบ + เตือนเจ้าของ · มีร่างรอตรวจ → อีเมลชวนตรวจ
   ทุกเดือน วันที่ 25 (5 วันก่อนรอบบิล) รายงานผลจริง: สุขภาพเว็บ คอนเทนต์ที่ทำ การมองเห็นใน AI
+  รายปี: รายงานทุกเดือนเหมือนกัน + แจ้งต่ออายุล่วงหน้า 30 วันก่อนครบปี (ยกเลิกการต่ออายุได้ก่อนวันตัดบัตร) และเตือนเจ้าของ
 สัญญาณเสี่ยงหลุด (เตือนเจ้าของทาง LINE ครั้งเดียวต่อเรื่อง): ยังไม่ติดตั้งเมื่อครบ 7 วัน · ไม่มีคอนเทนต์เมื่อครบ 10 วัน · กลับเป็นแผนฟรี
 ทุกจุดสัมผัสบันทึกในไทม์ไลน์ลูกค้า (lead_events cs_*) · ข้อความเป็นแม่แบบที่เขียนจากข้อมูลจริง ไม่ใช้โมเดลแต่ง"""
 from __future__ import annotations
@@ -16,7 +17,9 @@ from . import db, mailer, office
 
 BASE_URL = "https://geo.appreview.cloud"
 STEP_TH = {"cs_kickoff": "เริ่มงาน: แผน 30 วัน + ชุดติดตั้ง", "cs_installed": "ติดตั้งตัวเชื่อมแล้ว", "cs_install_reminder": "เตือนติดตั้ง",
-           "cs_first_content": "งานชิ้นแรก", "cs_review_nudge": "ชวนตรวจร่างคอนเทนต์", "cs_report": "รายงานก่อนรอบบิล", "cs_risk": "เสี่ยงหลุด"}
+           "cs_first_content": "งานชิ้นแรก", "cs_review_nudge": "ชวนตรวจร่างคอนเทนต์", "cs_report": "รายงานก่อนรอบบิล", "cs_risk": "เสี่ยงหลุด",
+           "cs_renewal": "แจ้งต่ออายุรายปี"}
+RENEWAL_NOTICE_DAYS = 30
 HOOKS = {"autopilot": None, "health": None}        # เทสต์ฉีดของปลอม
 RUN_INLINE = False
 
@@ -157,12 +160,33 @@ def report_message(c: dict, month: int) -> tuple[str, str, str, str]:
         except Exception:
             pass
     link = f"{base}/brands/{b['id']}/report"
-    subject = f"รายงานเดือนที่ {month} ของ {c['lead']['domain']} — ก่อนรอบบิลถัดไป"
+    yearly = _yearly(c)
+    subject = f"รายงานเดือนที่ {month} ของ {c['lead']['domain']}" + ("" if yearly else " — ก่อนรอบบิลถัดไป")
     text = (f"สวัสดีครับ\n\nสรุปสิ่งที่เกิดขึ้นกับ {c['lead']['domain']} ในเดือนที่ {month}\n\n" + "\n".join(f"• {x}" for x in lines)
             + f"\n\nรายงานเต็มพร้อม PDF: {link}\nอยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ\n\nทีมดูแลลูกค้า เจอ.AI")
     html = (f"<p>สรุปสิ่งที่เกิดขึ้นกับ <b>{_html.escape(c['lead']['domain'])}</b> ในเดือนที่ {month}</p><ul>" + "".join(f"<li>{_html.escape(x)}</li>" for x in lines)
             + f"</ul><p><a href='{link}'>รายงานเต็มพร้อม PDF</a> · อยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ</p>")
     return subject, html, text, f"/brands/{b['id']}/report"
+
+
+def _yearly(c: dict) -> bool:
+    from . import quotes as Q
+    return Q.cycle_of(c["quote"]) == "year"
+
+
+def renewal_message(c: dict, year: int, renew_on: dt.date) -> tuple[str, str, str, str]:
+    """แจ้งต่ออายุรายปีล่วงหน้า — บอกยอด วันตัด และวิธียกเลิกให้ชัด (ไม่ให้ลูกค้าโดนตัดเงินแบบไม่รู้ตัว)"""
+    from . import quotes as Q
+    q, dom, base = c["quote"], c["lead"]["domain"], _base()
+    amt = Q.period_total(q)
+    when = renew_on.strftime("%d/%m/") + str(renew_on.year + 543)
+    subject = f"แจ้งล่วงหน้า: บริการรายปีของ {dom} จะต่ออายุวันที่ {when}"
+    text = (f"สวัสดีครับ\n\nบริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะครบกำหนดและต่ออายุอัตโนมัติวันที่ {when} "
+            f"ยอด {amt:,} บาทต่อปี\n\nถ้าต้องการต่อ ไม่ต้องทำอะไร · ถ้าไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ "
+            f"และคุณยังใช้บริการได้จนครบปีปัจจุบัน\n\nสรุปผลทั้งปี: {base}/brands/{c['brand']['id']}/report\n\nทีมดูแลลูกค้า เจอ.AI")
+    html = (f"<p>บริการเจอ.AI รายปีของ <b>{_html.escape(dom)}</b> (ปีที่ {year}) จะต่ออายุอัตโนมัติวันที่ <b>{when}</b> ยอด <b>{amt:,} บาทต่อปี</b></p>"
+            "<p>ต้องการต่อ ไม่ต้องทำอะไร · ไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน</p>")
+    return subject, html, text, f"/brands/{c['brand']['id']}/report"
 
 
 # ---------- งานเบื้องหลัง ----------
@@ -272,6 +296,18 @@ def step(c: dict, now: dt.datetime) -> list[str]:
         s, h, t, l = report_message(c, month)
         _record(c, "cs_report", f"เดือน {month} · {_send(c, s, h, t, l)}")
         out.append(f"report:{month}")
+    if _yearly(c) and c["paid_at"]:
+        year = days // 365 + 1
+        renew_on = (c["paid_at"] + dt.timedelta(days=365 * year)).date()
+        if (renew_on - now.date()).days <= RENEWAL_NOTICE_DAYS and not any(n.startswith(f"ปี {year}") for n in done.get("cs_renewal", [])):
+            s, h, t, l = renewal_message(c, year, renew_on)
+            _record(c, "cs_renewal", f"ปี {year} · ต่ออายุ {renew_on} · {_send(c, s, h, t, l)}")
+            try:
+                from . import pipeline
+                pipeline.alert_admins(f"📅 {c['lead']['domain']} รายปีจะต่ออายุ {renew_on} — ส่งอีเมลแจ้งลูกค้าแล้ว ควรโทรคุยผลทั้งปีก่อนวันตัด")
+            except Exception:
+                pass
+            out.append(f"renewal:{year}")
     return out
 
 
