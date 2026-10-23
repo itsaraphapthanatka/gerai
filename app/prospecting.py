@@ -223,9 +223,9 @@ def find_contact(site_url: str, fetch=None, search=None) -> dict:
 
 # ---------- รอบหาลูกค้า ----------
 @office.track("prospecting", "หาลูกค้าใหม่ตามกลุ่มเป้าหมาย")
-def run(limit: int | None = None, search=None, contact=None) -> dict:
+def run(limit: int | None = None, search=None, contact=None, queries: list[str] | None = None, force: bool = False) -> dict:
     """ค้น → กรอง → เพิ่ม lead → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก · สรุปรอบเก็บใน settings (prospect_last) ให้สรุปเช้าอ่าน"""
-    if not enabled():
+    if not enabled() and not force:                       # force = เจ้าของสั่งเอง (ผ่าน CEO) แม้ปิดรอบอัตโนมัติไว้
         res = {"skipped": "ปิดอยู่ (เปิดได้ที่ตั้งค่า → หาลูกค้าอัตโนมัติ)", "at": db.now()}
         db.set_setting("prospect_last", json.dumps(res, ensure_ascii=False))
         return res
@@ -233,7 +233,7 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
     contact = contact or find_contact
     limit = max(1, min(DAILY_MAX, limit or daily_limit()))
     seen = {leads.domain_of(b["domain"]) for b in db.list_all_brands()} | {l["domain"] for l in db.list_leads(None, 100000)}
-    queries = next_queries()
+    queries = queries or next_queries()
     cands = []
     for q in queries:
         try:

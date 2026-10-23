@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}สั่งงาน CEO — เจอ.AI{% endblock %}
+{% block content %}
+<h1>สั่งงาน CEO</h1>
+<p class="muted">พิมพ์ภาษาคนได้เลย CEO จะเลือกงานจากรายการที่ทำได้แล้วลงมือจริง งานที่ติดต่อลูกค้า มีค่าใช้จ่าย หรือเรื่องราคา จะถามยืนยันก่อนทุกครั้ง
+{% if line_owner %}· สั่งทาง LINE ได้ด้วย พิมพ์ในแชต LINE OA จากบัญชีที่ผูกเป็นเจ้าของ{% else %}· ผูก LINE เจ้าของที่หน้าตั้งค่า แล้วสั่งทาง LINE ได้ด้วย{% endif %}</p>
+<div class="card" style="max-height:62vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+  {% for m in log %}
+  <div style="align-self:{{ 'flex-end' if m.role == 'owner' else 'flex-start' }};max-width:82%;background:{{ 'var(--purple)' if m.role == 'owner' else 'var(--canvas)' }};color:{{ '#fff' if m.role == 'owner' else 'var(--ink)' }};border-radius:14px;padding:9px 13px;font-size:14px;white-space:pre-wrap;line-height:1.55">{{ m.text }}<div style="font-size:10.5px;opacity:.65;margin-top:3px">{{ 'คุณ' if m.role == 'owner' else 'CEO' }} · {{ m.at[5:16].replace('T',' ') }}</div></div>
+  {% else %}
+  <p class="muted" style="margin:0">ยังไม่มีบทสนทนา ลองพิมพ์ "สรุปวันนี้" หรือ "วันนี้ควรโทรใคร"</p>
+  {% endfor %}
+  <span id="end"></span>
+</div>
+<form method="post" action="/admin/ceo" class="card" style="display:flex;gap:8px;align-items:center">
+  <input type="text" name="text" autofocus autocomplete="off" maxlength="500" placeholder="{{ 'มีงานรอยืนยัน — พิมพ์ ยืนยัน หรือ ยกเลิก' if pending else 'เช่น หาคลินิกทันตกรรม เชียงใหม่ 5 ราย · ส่งใบเสนอราคา example.co.th ลด 5%' }}" style="flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--border);font-family:inherit;font-size:15px">
+  <button class="btn" type="submit">ส่ง</button>
+</form>
+<div class="card"><h2 style="margin-top:0;font-size:14px">สั่งได้</h2>
+  <div class="muted" style="font-size:12.5px;line-height:1.8">{% for k, v in actions.items() %}{{ v[0] }}{{ ' (ถามยืนยัน)' if v[2] }}{{ ' · ' if not loop.last }}{% endfor %}</div></div>
+<script>document.getElementById('end').scrollIntoView();</script>
+{% endblock %}

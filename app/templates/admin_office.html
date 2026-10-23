@@ -66,6 +66,22 @@ body.tv.idle #stage canvas{cursor:none}
 .cf{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;pointer-events:none;z-index:4;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.9}}
 @media (prefers-reduced-motion:reduce){.cf{display:none}}
+/* แชตสั่งงาน CEO */
+#chat{position:absolute;left:12px;bottom:12px;width:340px;max-width:calc(100% - 24px);z-index:6;display:flex;flex-direction:column;
+  background:color-mix(in srgb,var(--surface) 94%,transparent);border:1px solid var(--rule);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);overflow:hidden}
+#chat .hd{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13.5px;font-weight:600;cursor:pointer;border-bottom:1px solid var(--rule)}
+#chat .hd i{width:9px;height:9px;border-radius:50%;background:#d97706;display:inline-block}
+#chat .hd span{margin-left:auto;font-weight:400;color:var(--ink-3);font-size:12px}
+#chat .msgs{max-height:240px;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+#chat .m{max-width:86%;padding:6px 10px;border-radius:12px;font-size:12.8px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+#chat .m.o{align-self:flex-end;background:var(--accent);color:#fff}
+#chat .m.c{align-self:flex-start;background:var(--paper);color:var(--ink)}
+#chat form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+#chat input{flex:1;min-width:0;font:inherit;font-size:13.5px;padding:8px 10px;border-radius:9px;border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+#chat button{font:inherit;font-size:13px;border:0;border-radius:9px;padding:8px 12px;background:var(--accent);color:#fff;cursor:pointer}
+#chat.min .msgs,#chat.min form{display:none}
+body.tv #chat{display:none}
+@media (max-width:600px){#chat{width:calc(100% - 24px)}#chat .msgs{max-height:160px}}
 {% endraw %}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -79,7 +95,10 @@ body.tv.idle #stage canvas{cursor:none}
 <div id="stage"><div id="ticker" aria-live="polite"></div><div id="msg">กำลังจัดออฟฟิศ…</div>
   <div id="tvbar"><b>ออฟฟิศเจอ.AI</b><span class="clk" id="tvclock"></span><span class="tvp" id="tvpres"></span></div>
   <div id="cele" role="status" aria-live="polite"><b id="celeT"></b><span id="celeS"></span></div>
-  <button id="tvexit">ออกจากโหมดทีวี (Esc)</button></div>
+  <button id="tvexit">ออกจากโหมดทีวี (Esc)</button>
+  <div id="chat"><div class="hd" id="chathd"><i></i>สั่งงาน CEO<span id="chatst">พิมพ์ภาษาคนได้เลย</span></div>
+    <div class="msgs" id="chatmsgs"></div>
+    <form id="chatform"><input id="chatin" autocomplete="off" maxlength="500" placeholder="เช่น สรุปวันนี้ · วันนี้ควรโทรใคร"><button type="submit">ส่ง</button></form></div></div>
 <div id="bar" aria-label="ทีม"></div>
 <footer>ตัวละครขยับตามงานจริง (ข้อมูลสดทุก 5 วินาที): หาลูกค้า → ลูกค้าเป้าหมายเดินเข้าล็อบบี้ · เอเจนต์ถือกระดาษไปเสนอที่โต๊ะเจ้าของ (กองในถาด = เรื่องที่รออนุมัติ) · ทำเองในกรอบ = เดินไปส่งที่ตู้ส่งข้อความทัก / ป้าย LINE·Facebook · ส่งใบเสนอราคา = CFO เดินไปยื่นให้ลูกค้าที่นั่งรอ · ตอบกลับ/ยืนยัน = ลูกค้าขยับขั้น · รับเงิน = CFO ไปเคาน์เตอร์ แล้วลูกค้าเดินเข้าห้องลูกค้า 🎉 ทีมไปรับกาแฟ ☕ · จอในล็อบบี้ = ขั้นดีลวันนี้ · ทีวีห้องลูกค้า = ด่านของเฟส · 📺 โหมดทีวี (หรือลิงก์ ?tv=1) = เต็มจอ กล้องเดินเอง</footer>
 <script>{% raw %}
@@ -526,6 +545,21 @@ function frame(){ const t=clock.getElapsedTime(), dt=Math.min(0.05,t-last); last
   renderer.render(scene,cam); requestAnimationFrame(frame); }
 function resize(){ sizeCam(); placeCam(); }
 new ResizeObserver(resize).observe(stage);
+
+/* ---------- แชตสั่งงาน CEO: ใช้ /admin/ceo/send.json ตัวเดียวกับหน้าแชตและ LINE · CEO ในฉากขึ้นฟองคำตอบ ---------- */
+const chatEl=document.getElementById('chat'), chatMsgs=document.getElementById('chatmsgs'), chatIn=document.getElementById('chatin'), chatSt=document.getElementById('chatst');
+try{ if(localStorage.getItem('office_chat_min')==='1') chatEl.classList.add('min'); }catch(e){}
+document.getElementById('chathd').onclick=()=>{ chatEl.classList.toggle('min'); try{ localStorage.setItem('office_chat_min',chatEl.classList.contains('min')?'1':'0'); }catch(e){} };
+function renderChat(log,pending){ chatMsgs.textContent=''; (log||[]).slice(-12).forEach(m=>{ const d=document.createElement('div'); d.className='m '+(m.role==='owner'?'o':'c'); d.textContent=m.text; chatMsgs.appendChild(d); });
+  chatMsgs.scrollTop=chatMsgs.scrollHeight; chatIn.placeholder=pending?'มีงานรอยืนยัน — พิมพ์ ยืนยัน หรือ ยกเลิก':'เช่น สรุปวันนี้ · วันนี้ควรโทรใคร'; }
+fetch('/admin/ceo/log.json',{cache:'no-store'}).then(r=>r.json()).then(d=>renderChat(d.log,d.pending)).catch(()=>{});
+document.getElementById('chatform').addEventListener('submit',async e=>{ e.preventDefault(); const text=chatIn.value.trim(); if(!text) return; chatIn.value='';
+  const mine=document.createElement('div'); mine.className='m o'; mine.textContent=text; chatMsgs.appendChild(mine); chatMsgs.scrollTop=chatMsgs.scrollHeight;
+  chatSt.textContent='CEO กำลังทำ…'; const A=actors.ceo; if(A){ setBubble(A,'รับคำสั่ง: '+shortLabel(text,28)); bounce(A,1.5); tourFollow(A,6); }
+  try{ const r=await fetch('/admin/ceo/send.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(r.status===401){ location.href='/login'; return; } const d=await r.json(); renderChat(d.log,d.pending); chatSt.textContent='พิมพ์ภาษาคนได้เลย';
+    if(A){ setBubble(A,shortLabel((d.reply||'').split('\n')[0],40)); float(A,d.pending?'❓ รอยืนยัน':'✓','#d97706'); setTimeout(()=>{ if(!A.busyCount) setBubble(A,''); },8000); }
+  }catch(err){ chatSt.textContent='ส่งไม่สำเร็จ ลองใหม่'; } });
 
 /* ---------- live state (state.json every 5 s): first load shows the state, later loads replay only what is new ---------- */
 const seen=new Set(); let first=true, fails=0, lastState=null;

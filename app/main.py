@@ -3558,3 +3558,46 @@ def admin_settings_sms_test(request: Request, phone: str = Form("")):
         return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True) | {"sms_test": "✓ " + msg})
     except Exception as e:
         return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request) | {"sms_test": f"✗ {e}"})
+
+
+# ---------- สั่งงาน CEO (หน้าแชต · ทาง LINE ของเจ้าของใช้ ceo_chat เดียวกัน) ----------
+@app.get("/admin/ceo")
+def admin_ceo(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import ceo_chat, line_oa
+    return templates.TemplateResponse(request, "admin_ceo.html", {"log": ceo_chat.log()[-40:], "pending": ceo_chat._pending(),
+                                                                  "line_owner": bool(line_oa.owner_id()), "actions": ceo_chat.ACTIONS})
+
+
+@app.post("/admin/ceo")
+def admin_ceo_send(request: Request, text: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import ceo_chat
+    ceo_chat.handle(text[:500], request.session.get("email") or "owner")
+    return _redirect("/admin/ceo#end")
+
+
+@app.post("/admin/ceo/send.json")
+async def admin_ceo_send_json(request: Request):
+    """ช่องแชตในออฟฟิศ 3D — ส่งคำสั่งแล้วได้คำตอบกลับทันที (ไม่ reload หน้า)"""
+    if not _is_admin(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from . import ceo_chat
+    import asyncio
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    text = str(body.get("text") or "")[:500]
+    reply = await asyncio.to_thread(ceo_chat.handle, text, request.session.get("email") or "owner") if text.strip() else ""
+    return JSONResponse({"reply": reply, "pending": bool(ceo_chat._pending()), "log": ceo_chat.log()[-20:]}, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/admin/ceo/log.json")
+def admin_ceo_log_json(request: Request):
+    if not _is_admin(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from . import ceo_chat
+    return JSONResponse({"log": ceo_chat.log()[-20:], "pending": bool(ceo_chat._pending())}, headers={"Cache-Control": "no-store"})

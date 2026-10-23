@@ -434,6 +434,8 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
         line_oa.set_owner(user_id)
         line_oa.reply(reply_token, ["ผูกบัญชีเจ้าของแล้ว ✓ จากนี้สรุปเช้า lead ใหม่ และข้อเสนอที่รออนุมัติจะส่งมาที่นี่"])
         return "owner_linked"
+    if user_id and user_id == line_oa.owner_id():          # เจ้าของพิมพ์ = สั่งงาน CEO
+        return owner_command(user_id, t, reply_token)
     url = leads.first_url(t)
     if url:
         return line_site_request(user_id, url, reply_token)
@@ -447,6 +449,37 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
         return "replied"
     line_oa.reply(reply_token, [f"พิมพ์ที่อยู่เว็บของคุณมาได้เลย (เช่น example.co.th) {line_oa.bot_name()} จะตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI ให้ฟรี ใช้เวลาราวครึ่งนาที"])
     return "help"
+
+
+OWNER_REPLY_WAIT = 8          # วินาที — งานเสร็จทันใช้ reply (ฟรี) ไม่ทันส่ง "กำลังทำ" แล้ว push ผลตามไป
+
+
+def owner_command(user_id: str, text: str, reply_token: str | None = None) -> str:
+    from . import ceo_chat
+    import threading as _th
+    box, done = {}, _th.Event()
+
+    def work():
+        try:
+            box["r"] = ceo_chat.handle(text, "owner (LINE)")
+        except Exception as e:
+            box["r"] = f"CEO ทำไม่สำเร็จ: {type(e).__name__}"
+        done.set()
+        if box.get("late"):
+            line_oa.push(user_id, [box["r"][:4900]])
+    if RUN_INLINE:
+        work()
+    else:
+        _th.Thread(target=work, daemon=False).start()
+        done.wait(OWNER_REPLY_WAIT)
+    if done.is_set():
+        line_oa.reply(reply_token, [box["r"][:4900]])
+    else:
+        box["late"] = True
+        line_oa.reply(reply_token, ["รับคำสั่งแล้ว กำลังทำ… เสร็จแล้วจะส่งผลตามมา"])
+        if done.is_set() and not box.get("pushed"):        # เสร็จพอดีระหว่างตอบ
+            line_oa.push(user_id, [box["r"][:4900]])
+    return "owner_command"
 
 
 def line_site_request(user_id: str, url: str, reply_token: str | None = None) -> str:
