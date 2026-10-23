@@ -1,6 +1,7 @@
 """M4 smoke test — SoV impact page (/brands/{id}/impact)"""
 import os, re, json, bcrypt
 os.environ["LITELLM_BASE_URL"] = ""
+os.environ.setdefault("GEO_DEEP_AUDIT", "0")   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
 import tempfile
 if not os.getenv("DATABASE_URL"):  # DB สดทุกครั้ง — ไม่ปนกับ geo_platform.db ของโปรเจกต์ที่มีบัญชีค้างจากรอบก่อน
     os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke-"), "smoke.db")

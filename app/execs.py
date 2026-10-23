@@ -7,6 +7,7 @@ import json
 import re
 
 from . import leads as L
+from . import office
 
 MANDATE_DEFAULT = {
     "max_discount_pct": 10,
@@ -306,6 +307,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
     return "\n".join(lines)
 
 
+@office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
     from . import db, mailer, line_oa, prospecting, pipeline, marketing

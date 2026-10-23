@@ -12,6 +12,7 @@ import threading
 import bcrypt
 
 from . import db, execs, leads, line_oa, mailer, quotes as Q, site_health
+from . import office
 
 RUN_INLINE = False          # True = งานเบื้องหลัง (ตรวจเว็บจาก LINE) รันในเธรดเดียว — ใช้ตอนทดสอบ
 
@@ -80,6 +81,7 @@ def _cancel_pending(lead_id: int, kinds: set, why: str) -> None:
 
 
 # ---------- ตรวจเว็บ ----------
+@office.track("cto", lambda lead_id, site, ip="": f"ตรวจเว็บ {leads.domain_of(site)}")
 def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
     """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
     report = site_health.run_checks(site)
@@ -125,6 +127,7 @@ def run_pending_auto(kind: str | None = None) -> int:
     return n
 
 
+@office.track("ceo", lambda lead: f"คัดและร่างข้อความทัก {lead['domain']}")
 def ceo_propose(lead) -> int | None:
     """CEO คัด + ร่างข้อความทัก · CFO ตรวจราคากับกรอบ → แถวใน decisions (รอคน หรือทำเองถ้าเรื่องนั้นเป็น auto)"""
     if lead["status"] in leads.NO_CONTACT:
@@ -215,6 +218,11 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
     _cancel_pending(lead["id"], {"outreach", "lead_review"}, "ลูกค้าตอบกลับมาเองแล้ว ไม่ต้องทัก")
     alert_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}" + (f": {message.strip()[:80]}" if message.strip() else ""),
                  f"/admin/leads/{lead['id']}", "lead", subject=f"💬 {lead['domain']} ตอบกลับ — CEO กำลังเสนอใบเสนอราคา")
+    try:
+        from . import deep_audit
+        deep_audit.start(lead["id"], ai=True)          # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ)
+    except Exception:
+        pass
     if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
         return None
     lead = db.get_lead(lead["id"])
@@ -333,6 +341,7 @@ def provision_customer(q) -> dict:
     return {"tenant_id": tid, "brand_id": bid, "email": email, "temp_password": temp_pw, "created": created, "brand_new": not existing}
 
 
+@office.track("cfo", lambda q, who="admin": f"ยืนยันยอด {q['number']} และเปิดบัญชี")
 def confirm_payment(q, who: str = "admin") -> str:
     """เจ้าของ/CFO ยืนยันยอดเข้า → เปิดบัญชีและแบรนด์ → ลูกค้าเป้าหมายปิดดีล → อีเมลต้อนรับ"""
     if q["status"] == "paid":

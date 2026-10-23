@@ -28,6 +28,7 @@ except Exception:
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 from app import db, geo_worker
+from app import office
 
 
 def _due(last_run_at, days: int) -> bool:
@@ -47,6 +48,14 @@ def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
     return list(brands)  # --all / ดีฟอลต์
 
 
+def _cto_label(targets, rank=False, health=False, uptime=False, ai=False, gsc=False, speed=False, aiserp=False):
+    what = ("เช็กอันดับ Google" if rank else "ตรวจสุขภาพเว็บลูกค้า" if health else "เช็กว่าเว็บลูกค้ายังเปิดอยู่" if uptime else
+            "ถาม AI ว่าเอ่ยถึงแบรนด์ลูกค้าไหม" if ai else "ซิงค์ Search Console" if gsc else "สแกนความเร็วเว็บลูกค้า" if speed else
+            "เช็ก Google AI Overview" if aiserp else "วัดการมองเห็นใน AI")
+    return f"{what} ({len(targets)} แบรนด์)"
+
+
+@office.track("cto", _cto_label)
 def run_targets(targets, rank=False, health=False, uptime=False, ai=False, gsc=False, speed=False, aiserp=False):
     out = []
     for b in targets:

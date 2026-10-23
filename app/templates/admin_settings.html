@@ -179,7 +179,7 @@
     <label style="margin-top:12px">Channel secret {% if line.secret_set %}<span class="pill ok" style="font-size:9px">ตั้งแล้ว</span>{% endif %}</label>
     <input type="password" name="secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if line.secret_set else 'วางจาก Basic settings → Channel secret' }}" autocomplete="off">
     <label style="margin-top:12px">ชื่อที่บอทใช้แนะนำตัวในแชท</label>
-    <input type="text" name="bot_name" value="{{ line.bot_name }}" placeholder="ตามชื่อ OA เช่น Hop (ว่าง = เจอ.AI)" maxlength="60">
+    <input type="text" name="bot_name" value="{{ line.bot_name }}" placeholder="ตามชื่อ OA (ว่าง = เจอ.AI)" maxlength="60">
     <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
   </form>
   <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">

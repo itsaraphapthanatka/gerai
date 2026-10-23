@@ -51,6 +51,21 @@
     {% if not summary %}<div class="muted" style="font-size:13px;margin-top:6px">ผ่านทุกข้อที่ตรวจ</div>{% endif %}
     {% else %}<p class="muted" style="font-size:13px">ยังไม่ตรวจ</p>{% endif %}
     <form method="post" action="/admin/leads/{{ lead['id'] }}/audit" style="margin-top:10px"><button class="btn ghost sm" type="submit">{{ 'ตรวจใหม่' if sc else 'ตรวจเว็บ' }} (ราวครึ่งนาที)</button></form>
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;font-size:13px">
+      <b>รายงานเต็ม</b>
+      {% if deep_progress.tier1 == 'running' %}<div class="muted">กำลังไต่เว็บและเช็กอันดับ…</div>
+      {% elif deep.get('state') == 'done' %}<div class="muted">ไต่ {{ deep.crawl.n }} หน้า · health {{ deep.health.score }}/100 · Error {{ deep.health.errors }} · ติดหน้าแรก {{ deep.ranking.page1 }}/{{ deep.ranking.n }} คำ · {{ (deep.at or '')[:16].replace('T',' ') }}</div>
+      {% elif deep.get('state') == 'error' %}<div class="muted">ล้ม: {{ deep.error }}</div>
+      {% else %}<div class="muted">ยังไม่มี</div>{% endif %}
+      {% if deep_progress.ai == 'running' %}<div class="muted">กำลังถาม AI 20 คำถาม…</div>
+      {% elif deep_ai.get('state') == 'done' %}<div class="muted">AI ({{ deep_ai.engine }}): เอ่ยถึง {{ deep_ai.mentioned }}/{{ deep_ai.asked }} · อ้างอิง {{ deep_ai.cited }} · ${{ deep_ai.cost_usd }}</div>
+      {% elif deep_ai.get('state') in ('queued', 'error') %}<div class="muted">AI: {{ deep_ai.reason or deep_ai.error }}</div>{% endif %}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <form method="post" action="/admin/leads/{{ lead['id'] }}/deep"><button class="btn ghost sm" type="submit" {% if not lead['audit_json'] %}disabled{% endif %}>ไต่เว็บใหม่</button></form>
+        <form method="post" action="/admin/leads/{{ lead['id'] }}/deep"><input type="hidden" name="ai" value="1"><button class="btn ghost sm" type="submit" {% if not lead['audit_json'] %}disabled{% endif %}>ถาม AI 20 คำถาม (≈฿40)</button></form>
+      </div>
+      <div class="muted" style="font-size:11.5px;margin-top:4px">วัด AI อัตโนมัติวันนี้ {{ ai_today }}/{{ ai_daily }} ราย (เมื่อลูกค้าทิ้งช่องทางติดต่อหรือขอใบเสนอราคา) · ปุ่มนี้ไม่นับเพดาน</div>
+    </div>
   </div>
 
   <div class="card">

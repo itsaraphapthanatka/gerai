@@ -40,7 +40,7 @@ def save_config(token: str, secret: str) -> None:
 
 
 def bot_name() -> str:
-    """ชื่อที่บอทใช้แนะนำตัวในแชต — ตั้งตามชื่อ OA ที่ผูก (เช่น "Hop") · ว่าง = เจอ.AI"""
+    """ชื่อที่บอทใช้แนะนำตัวในแชต — ตั้งตามชื่อ OA ที่ผูก (ปัจจุบัน "LINE OA เจอ.AI") · ว่าง = เจอ.AI"""
     return (db.get_setting("line_bot_name") or "").strip() or "เจอ.AI"
 
 

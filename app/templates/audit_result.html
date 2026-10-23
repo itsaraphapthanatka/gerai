@@ -4,30 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>ผลตรวจ {{ lead['domain'] }} · เจอ.AI</title>
+<title>รายงาน AI SEO {{ lead['domain'] }} · เจอ.AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/favicon-32.png">
-<style>
-  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
+<style>{% raw %}
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--accent:#7132f5;--accent-t:rgba(113,50,245,.08);
+    --good:#1c7a44;--good-t:#e8f7ee;--mid:#b7791f;--mid-t:#fdf3e1;--bad:#c0392b;--bad-t:#fdeaea;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
-  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:24px}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 16px 64px}
+  .brand{font-weight:700;font-size:15px;color:var(--slate);margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .brand a{color:inherit;text-decoration:none}
+  .live{font-size:11px;font-weight:700;color:var(--good);background:var(--good-t);border-radius:999px;padding:2px 8px;letter-spacing:.4px}
   h1{font-size:clamp(24px,4.5vw,34px);line-height:1.2;letter-spacing:-.4px;margin-bottom:6px}
-  .sub{color:var(--slate);margin-bottom:22px}
-  .stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:26px}
-  .stat{background:var(--surface);border-radius:14px;padding:14px 18px;min-width:140px}
-  .stat b{display:block;font-size:26px;letter-spacing:-.5px}
-  .stat span{color:var(--slate);font-size:13px}
-  .bad b{color:#c0392b}.good b{color:#1c7a44}
-  h2{font-size:18px;margin:26px 0 10px}
+  .sub{color:var(--slate);margin-bottom:20px;font-size:14.5px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .kpi{background:var(--surface);border-radius:14px;padding:14px 16px}
+  .kpi b{display:block;font-size:30px;letter-spacing:-.6px;line-height:1.15}
+  .kpi b small{font-size:15px;color:var(--stone);font-weight:500}
+  .kpi span{color:var(--slate);font-size:13px;display:block}
+  .kpi.bad b{color:var(--bad)}.kpi.good b{color:var(--good)}.kpi.mid b{color:var(--mid)}
+  .note{background:var(--accent-t);color:#3b2a7a;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+  .note.run::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #7132f5;border-right-color:transparent;margin-right:8px;vertical-align:-1px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h2{font-size:18px;margin:24px 0 10px}
+  h3{font-size:15px;margin:18px 0 8px}
+  .card{border:1px solid var(--hairline);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .hl{display:grid;gap:6px;font-size:14.5px}.hl b{font-weight:600}
   .item{border:1px solid var(--hairline);border-radius:14px;padding:14px 16px;margin-bottom:10px}
   .item .lb{font-weight:600}
   .item .why{color:var(--slate);font-size:14.5px;margin-top:3px}
   .item .dt{color:var(--stone);font-size:12.5px;margin-top:6px}
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--hairline);margin:26px 0 14px;overflow-x:auto}
+  .tabs button{font:inherit;font-size:15px;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;color:var(--stone);cursor:pointer;white-space:nowrap}
+  .tabs button.on{color:var(--primary);border-bottom-color:var(--accent)}
+  .pane{display:none}.pane.on{display:block}
+  .tw{overflow-x:auto;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--hairline);vertical-align:top}
+  th{background:var(--surface);font-weight:600;color:var(--slate);font-size:12.5px;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pos{display:inline-block;min-width:38px;text-align:center;border-radius:8px;padding:2px 8px;font-weight:700;font-size:13px}
+  .p1{background:#d6f5e3;color:var(--good)}.p2{background:#e6f4ea;color:#2f7d4f}.p3{background:var(--mid-t);color:var(--mid)}.p4{background:var(--bad-t);color:var(--bad)}
+  .me{background:#ede5ff;font-weight:700;color:var(--accent)}.cp{background:#fff3e0;font-weight:600}
+  .sev{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600}
+  .sev.Error{background:var(--bad-t);color:var(--bad)}.sev.Warning{background:var(--mid-t);color:var(--mid)}.sev.Notice{background:var(--surface);color:var(--slate)}
+  .grp{font-size:11.5px;color:var(--stone);white-space:nowrap}
+  .urls{font-size:12px;color:var(--slate);overflow-wrap:anywhere;margin-top:3px}
+  table.fix{table-layout:fixed;min-width:640px}table.fix td{overflow-wrap:anywhere}
+  table.fix col.c1{width:40px}table.fix col.c3{width:46%}table.fix col.c4{width:92px}
+  .fine{color:var(--stone);font-size:12.5px;margin:4px 0 14px}
+  .big{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
+  .big .score{font-size:56px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+  .big .score small{font-size:20px;color:var(--stone)}
+  .big .s{font-size:13px;color:var(--slate)}.big .s b{display:block;font-size:22px;color:var(--primary)}
+  .tick{font-weight:700}.tick.c{color:var(--good)}.tick.n{color:var(--accent)}.tick.x{color:#c8c8cc}
   .cta{background:var(--primary);color:#fff;border-radius:18px;padding:24px;margin-top:30px}
   .cta h2{margin-top:0;color:#fff}
   .cta p{color:#d6d6dc;font-size:14.5px;margin-bottom:14px}
@@ -35,39 +69,120 @@
   .cta input[type=text],.cta input[type=email]{font:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid #333;background:#141414;color:#fff}
   .cta label.consent{grid-column:1/-1;font-size:13px;color:#d6d6dc;display:flex;gap:8px;align-items:flex-start}
   .cta button{grid-column:1/-1;font:inherit;font-weight:600;font-size:16px;padding:13px 22px;border-radius:9999px;border:0;background:#fff;color:#0a0a0a;cursor:pointer}
-  .ok{background:#e8f7ee;color:#1c7a44;padding:12px 16px;border-radius:12px;margin-top:26px}
-  .err{background:#fdeaea;color:#c0392b;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:14px;grid-column:1/-1}
+  .ok{background:var(--good-t);color:var(--good);padding:12px 16px;border-radius:12px;margin-top:26px}
+  .err{background:var(--bad-t);color:var(--bad);padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:14px;grid-column:1/-1}
   .hp{position:absolute;left:-9999px;opacity:0}
   .foot{color:var(--stone);font-size:12.5px;margin-top:28px}
   .foot a{color:inherit}
-  @media (max-width:560px){.cta form{grid-template-columns:1fr}}
-</style>
+  @media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}.cta form{grid-template-columns:1fr}.big .score{font-size:44px}}
+{% endraw %}</style>
 </head>
 <body>
+{% set rk = deep.ranking if deep else None %}
+{% set hlth = deep.health if deep else None %}
+{% set comps = (rk.competitors|map(attribute='domain')|list)[:3] if rk else [] %}
+{% macro posclass(p) %}{% if not p %}p4{% elif p <= 5 %}p1{% elif p <= 10 %}p2{% elif p <= 20 %}p3{% else %}p4{% endif %}{% endmacro %}
+{% macro path(u) %}{{ ('/' ~ (u.split('/', 3)[3] if u.count('/') >= 3 else '')) if u else '' }}{% endmacro %}
 <div class="wrap">
-  <div class="brand"><a href="/">เจอ.AI</a> · <a href="/audit">ตรวจเว็บฟรี</a></div>
-  <h1>ผลตรวจ {{ lead['domain'] }}</h1>
-  <p class="sub">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }} · ดึงหน้าสาธารณะของเว็บจริงมาตรวจ {{ score.n_checked }} ข้อ</p>
+  <div class="brand"><a href="/">เจอ.AI</a> · <a href="/audit">ตรวจเว็บฟรี</a> <span class="live">LIVE</span></div>
+  <h1>ผลตรวจ {{ lead['domain'] }} <span style="font-size:.55em;color:var(--stone);font-weight:600">รายงาน AI SEO</span></h1>
+  <p class="sub">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }}{% if deep %} · ไต่เว็บ {{ deep.crawl.n }} หน้า · อันดับ Google ประเทศไทย{% endif %}{% if ai %} · ถาม {{ 'ChatGPT' if ai.engine == 'chatgpt' else ai.engine }} {{ ai.asked }} คำถาม{% endif %}</p>
 
-  <div class="stats">
-    <div class="stat good"><b>{{ score.n_ok }}</b><span>ข้อที่ผ่าน</span></div>
-    <div class="stat {{ 'bad' if score.n_fail else 'good' }}"><b>{{ score.n_fail }}</b><span>ข้อที่ต้องแก้</span></div>
-    <div class="stat"><b>{{ score.level }}</b><span>โอกาสที่การแก้จะเห็นผล</span></div>
+  <div class="kpis">
+    {% if rk and rk.get('ok', rk.n) %}<div class="kpi {{ 'good' if rk.page1 else 'bad' }}"><b>{{ rk.page1 }}<small>/{{ rk.n }}</small></b><span>keyword ติดหน้าแรก Google</span></div>
+    {% else %}<div class="kpi"><b>…</b><span>keyword ติดหน้าแรก Google</span></div>{% endif %}
+    {% if ai %}<div class="kpi {{ 'good' if ai.mentioned else 'bad' }}"><b>{{ ai.mentioned }}<small>/{{ ai.asked }}</small></b><span>คำถามที่ AI เอ่ยถึงคุณ{% if ai.comp_mentions %} · คู่แข่งสูงสุด {{ ai.comp_mentions.values()|max }}{% endif %}</span></div>
+    {% else %}<div class="kpi"><b>{{ '…' if progress.ai == 'running' else '—' }}</b><span>คำถามที่ AI เอ่ยถึงคุณ {{ '(กำลังวัด)' if progress.ai == 'running' else '(วัดเมื่อขอแผน)' }}</span></div>{% endif %}
+    {% if hlth %}<div class="kpi {{ 'good' if hlth.score >= benchmark else ('mid' if hlth.score >= 60 else 'bad') }}"><b>{{ hlth.score }}<small>/100</small></b><span>Site health (Benchmark {{ benchmark }})</span></div>
+    {% else %}<div class="kpi {{ 'bad' if score.n_fail else 'good' }}"><b>{{ score.n_ok }}<small>/{{ score.n_checked }}</small></b><span>ข้อที่ผ่าน (หน้าแรก)</span></div>{% endif %}
+    {% set n_urgent = (deep.issues|selectattr('severity','equalto','Error')|list|length if deep else 0) %}
+    <div class="kpi {{ 'bad' if (n_urgent or score.n_fail) else 'good' }}"><b>{{ n_urgent if deep else score.n_fail }}</b><span>ปัญหาที่ควรแก้ด่วน</span></div>
   </div>
+
+  {% if progress.tier1 == 'running' %}<div class="note run" id="prog">กำลังไต่เว็บทั้งเว็บและเช็กอันดับ Google (ราว 2 นาที) — หน้านี้จะอัปเดตเอง</div>
+  {% elif progress.ai == 'running' %}<div class="note run" id="prog">กำลังถาม ChatGPT 20 คำถามที่ลูกค้าของคุณถาม (ราว 3 นาที) — หน้านี้จะอัปเดตเอง</div>{% endif %}
+
+  {% if highlights %}
+  <div class="card"><h3 style="margin-top:0">สรุปสำคัญ</h3><div class="hl">{% for h in highlights %}<div><b>{{ h.k }}:</b> {{ h.v }}</div>{% endfor %}</div></div>
+  {% endif %}
 
   {% if summary %}
-  <h2>ข้อที่ขวางมากที่สุด</h2>
+  <h2>ข้อที่ขวาง Google และ AI มากที่สุด</h2>
   {% for s in summary %}
-  <div class="item">
-    <div class="lb">{{ s.label }}</div>
-    <div class="why">{{ s.why }}</div>
-    {% if s.detail %}<div class="dt">{{ s.detail[:160] }}</div>{% endif %}
-  </div>
+  <div class="item"><div class="lb">{{ s.label }}</div><div class="why">{{ s.why }}</div>{% if s.detail %}<div class="dt">{{ s.detail[:160] }}</div>{% endif %}</div>
   {% endfor %}
   {% else %}
-  <h2>เว็บผ่านทุกข้อที่ตรวจ</h2>
+  <h2>หน้าแรกผ่านทุกข้อที่ตรวจ</h2>
   <p class="sub">ขั้นต่อไปคือทำให้ AI "เอ่ยถึง" เมื่อลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้าและมีหน้าให้ AI อ่าน</p>
   {% endif %}
+
+  <div class="tabs" role="tablist"><button data-t="ranking" role="tab">Ranking</button><button data-t="ai" role="tab">AI Visibility</button><button data-t="audit" role="tab">Site Audit</button></div>
+
+  <section class="pane" id="p-ranking">
+    {% if rk and rk.rows %}
+    <h3>อันดับ Google ของ keyword ที่ลูกค้าใช้หา</h3>
+    <div class="tw"><table>
+      <tr><th>Keyword</th><th>อันดับ</th><th>หน้าที่ติดอันดับ</th></tr>
+      {% for r in rk.rows %}<tr><td>{{ r.keyword }}</td><td>{% if r.error %}<span class="muted">ค้นไม่สำเร็จ</span>{% else %}<span class="pos {{ posclass(r.position) }}">{{ r.position if r.position else 'ไม่ติด ' ~ (r.depth or rk.depth) }}</span>{% endif %}</td><td class="urls">{{ r.url|urlpath(50) if r.url else '—' }}</td></tr>{% endfor %}
+    </table></div>
+    <p class="fine">ติดหน้าแรก {{ rk.page1 }} จาก {{ rk.n }} คำ · สี: 1–5 · 6–10 · 11–20 · ไม่ติด {{ rk.rows|map(attribute='depth')|select|min if rk.rows|map(attribute='depth')|select|list else rk.depth }} อันดับแรก · วัด ณ วันที่ตรวจครั้งเดียว ไม่ใช่ค่าเฉลี่ย · คำค้นเลือกจากสินค้า/บริการที่เว็บคุณเขียนไว้</p>
+    <h3>ใครติด Top 10 ในแต่ละ keyword</h3>
+    <div class="tw"><table>
+      <tr><th>#</th>{% for r in rk.rows %}<th>{{ r.keyword }}</th>{% endfor %}</tr>
+      {% for i in range(10) %}<tr><td class="num">{{ i + 1 }}</td>{% for r in rk.rows %}{% set d = r.top[i] if r.top|length > i else '' %}<td class="{{ 'me' if d and (d == lead['domain'] or d.endswith('.' ~ lead['domain'])) else ('cp' if d in comps else '') }}">{{ d }}</td>{% endfor %}</tr>{% endfor %}
+    </table></div>
+    <p class="fine">{% if rk.competitors %}คู่แข่งหลักบน Google: {% for c in rk.competitors[:3] %}<b>{{ c.domain }}</b> ({{ c.hits }} คำ){{ ' · ' if not loop.last }}{% endfor %} — ไม่นับแพลตฟอร์มอย่าง YouTube, Facebook, Wikipedia เพราะไม่ใช่คู่แข่งทางธุรกิจ{% else %}ไม่มีเว็บธุรกิจที่ติดเกิน 1 คำ{% endif %}{% if rk.page1 == 0 %} · แบรนด์คุณยังไม่ติด Top 10 ในคำไหนเลย{% endif %}</p>
+    {% elif progress.tier1 == 'running' %}<p class="sub">กำลังเช็กอันดับ…</p>
+    {% else %}<p class="sub">ยังไม่มีข้อมูลอันดับ</p>{% endif %}
+  </section>
+
+  <section class="pane" id="p-ai">
+    {% if ai %}
+    <h3>20 คำถามที่ลูกค้าถาม AI — ใครถูกเอ่ยถึง</h3>
+    <div class="tw"><table>
+      <tr><th>#</th><th>คำถาม</th><th>คุณ</th>{% for c in ai.competitors %}<th>{{ c }}</th>{% endfor %}</tr>
+      {% for r in ai.rows %}<tr><td class="num">{{ loop.index }}</td><td>{{ r.prompt }}</td>
+        {% if r.error %}<td colspan="{{ 1 + ai.competitors|length }}" class="muted">ถามไม่สำเร็จ</td>
+        {% else %}<td>{% if r.cited %}<span class="tick c">อ้างอิง ✓</span>{% elif r.named %}<span class="tick n">เอ่ยชื่อ</span>{% else %}<span class="tick x">–</span>{% endif %}</td>
+        {% for c in ai.competitors %}{% set v = r.competitors.get(c) %}<td>{% if v == 'cited' %}<span class="tick c">อ้างอิง</span>{% elif v == 'named' %}<span class="tick n">เอ่ยชื่อ</span>{% else %}<span class="tick x">–</span>{% endif %}</td>{% endfor %}{% endif %}</tr>{% endfor %}
+    </table></div>
+    <p class="fine">แบรนด์คุณถูกเอ่ยถึง {{ ai.mentioned }} จาก {{ ai.asked }} คำถาม · เว็บคุณถูกอ้างอิงเป็นแหล่งข้อมูล {{ ai.cited }} ครั้ง · ถาม {{ 'ChatGPT' if ai.engine == 'chatgpt' else ai.engine }} พร้อมค้นเว็บ วันที่ {{ (ai.at or '')[:10] }} · คู่แข่งคือ 3 เว็บธุรกิจที่ติด Top 10 บน Google มากที่สุด</p>
+    {% if ai.top_sources %}<h3>AI อ้างอิงเว็บของใครบ่อยที่สุด</h3>
+    <div class="tw"><table><tr><th>เว็บที่ถูกอ้างอิง</th><th>จำนวนคำถาม</th></tr>{% for s in ai.top_sources %}<tr><td class="{{ 'me' if s.domain == lead['domain'] else ('cp' if s.domain in ai.competitors else '') }}">{{ s.domain }}</td><td class="num">{{ s.n }}</td></tr>{% endfor %}</table></div>
+    <p class="fine">หน้าที่ AI อ้างอิงคือช่องทางที่ลูกค้าเห็นแบรนด์จาก AI — เว็บที่ถูกอ้างบ่อยมักมีบทความที่ตอบคำถามตรง ๆ</p>{% endif %}
+    <h3>URL ของคุณที่ AI อ้างอิง</h3>
+    {% if ai.our_urls %}<div class="tw"><table>{% for u in ai.our_urls %}<tr><td class="urls">{{ u.url }}</td><td class="num">{{ u.n }}</td></tr>{% endfor %}</table></div>{% else %}<p class="sub">ยังไม่มี — AI ยังไม่หยิบหน้าไหนของเว็บคุณไปตอบ</p>{% endif %}
+    {% if ai.comp_urls %}<h3>URL ของคู่แข่งที่ AI อ้างอิง</h3>
+    <div class="tw"><table>{% for c, us in ai.comp_urls.items() %}{% for u in us %}<tr><td class="grp">{{ c }}</td><td class="urls">{{ u.url }}</td><td class="num">{{ u.n }}</td></tr>{% endfor %}{% endfor %}</table></div>{% endif %}
+    {% elif progress.ai == 'running' %}
+    <p class="sub">กำลังถาม ChatGPT 20 คำถามที่ลูกค้าของคุณถามจริง (ราว 3 นาที)…</p>
+    {% elif ai_state.get('state') == 'queued' %}
+    <p class="sub">วันนี้คิวผลวัด AI เต็มแล้ว ทีมเจอ.AI จะวัดให้และส่งผลภายใน 1 วันทำการ</p>
+    {% else %}
+    <h3>AI พูดถึงใครเมื่อลูกค้าถามเรื่องธุรกิจคุณ</h3>
+    <p class="sub">เราจะถาม ChatGPT จริง 20 คำถามที่ลูกค้าของคุณพิมพ์ เช่น "{{ (deep.keywords[0] if deep and deep.keywords else 'บริการแบบคุณ') }} ที่ไหนดี" แล้วดูว่า AI เอ่ยชื่อคุณหรือคู่แข่ง และอ้างอิงเว็บใคร — {{ 'กรอกช่องทางติดต่อด้านล่าง ระบบจะวัดให้ทันที' if not sent else 'กดขอใบเสนอราคาด้านล่าง ระบบจะวัดให้ทันที' }}</p>
+    {% endif %}
+  </section>
+
+  <section class="pane" id="p-audit">
+    {% if deep %}
+    <div class="big"><div class="score">{{ hlth.score }}<small>/100</small></div>
+      <div class="s"><b>{{ hlth.errors }}</b>Errors</div><div class="s"><b>{{ hlth.warnings }}</b>Warnings</div><div class="s"><b>{{ hlth.urls }}</b>URL ที่ไต่</div></div>
+    <p class="fine">{{ 'สูงกว่า' if hlth.score >= benchmark else 'ต่ำกว่า' }} Benchmark {{ benchmark }}/100 · คะแนน = สัดส่วน URL ที่ไม่มี Error (Warning หักได้ไม่เกิน 10) · Error คือสิ่งที่ Google และ AI เจอแล้วอาจข้ามหน้านั้นไป{% if deep.crawl.truncated %} · ไต่ครบเพดาน {{ deep.crawl.n }} หน้า เว็บยังมีหน้ามากกว่านี้{% endif %}{% if deep.crawl.blocked %} · ข้าม {{ deep.crawl.blocked }} หน้าที่ robots.txt ห้าม{% endif %}</p>
+    {% if deep.issues %}
+    <h3>ปัญหาที่พบบ่อย</h3>
+    <div class="tw"><table><tr><th>ปัญหา</th><th>พบ</th><th>ระดับ</th></tr>
+      {% for i in deep.issues %}<tr><td>{{ i.label }}</td><td class="num">{{ i.count }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td></tr>{% endfor %}</table></div>
+    <h3>ปัญหาและวิธีแก้ เรียงตามความสำคัญ</h3>
+    <div class="tw"><table class="fix"><colgroup><col class="c1"><col><col class="c3"><col class="c4"></colgroup><tr><th>#</th><th>ปัญหา · URL</th><th>วิธีแก้</th><th>ระดับ</th></tr>
+      {% for i in deep.issues %}<tr><td class="num">{{ loop.index }}</td><td><div class="grp">{{ i.group }}</div>{{ i.label }}<div class="urls">{% for u in i.urls[:3] %}{{ u|urlpath(56) }}{{ ' · ' if not loop.last }}{% endfor %}{% if i.count > 3 %} · และอีก {{ i.count - 3 }}{% endif %}</div></td><td>{{ i.fix }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td></tr>{% endfor %}</table></div>
+    <p class="fine">เริ่มจากกลุ่ม Crawl & Index ก่อน — ถ้า Google เก็บหน้าไม่ได้ งานอื่นไม่มีผล · ลำดับ: Crawl & Index → On-page core → Content → Schema & links → Media & speed</p>
+    {% else %}<p class="sub">ไม่พบปัญหาในหน้าที่ไต่</p>{% endif %}
+    {% elif progress.tier1 == 'running' %}<p class="sub">กำลังไต่เว็บ…</p>
+    {% else %}<p class="sub">ยังไม่มีผลไต่เว็บทั้งเว็บ</p>{% endif %}
+    <h3>ตรวจหน้าแรก {{ score.n_checked }} ข้อ (สิ่งที่บอท AI เห็น)</h3>
+    <div class="tw"><table><tr><th>ข้อ</th><th>ผล</th></tr>{% for c in report.checks %}{% if c.key not in ('freshness','wp') %}<tr><td>{{ c.label }}{% if c.detail and c.status != 'ok' %}<div class="urls">{{ c.detail[:140] }}</div>{% endif %}</td><td><span class="sev {{ 'Error' if c.status == 'fail' else ('Warning' if c.status == 'warn' else 'Notice') }}">{{ 'ผ่าน' if c.status == 'ok' else ('ต้องแก้' if c.status == 'fail' else 'ควรดู') }}</span></td></tr>{% endif %}{% endfor %}</table></div>
+  </section>
 
   <h2>สิ่งที่เจอ.AI ทำให้</h2>
   <div class="item"><div class="lb">แก้สิ่งที่ขวางบอท</div><div class="why">ติดตั้งหน้า /geo, llms.txt และ sitemap สำหรับ AI บนโดเมนของคุณ แก้ robots, canonical และ index ให้ Google อ่านได้</div></div>
@@ -94,9 +209,9 @@
     </div>
     {% endif %}
   {% else %}
-  <div class="cta">
-    <h2>ให้ทีมเจอ.AI ส่งแผนแก้ให้ฟรี</h2>
-    <p>บอกช่องทางติดต่อ เราจะส่งลำดับการแก้และราคาให้ ไม่มีการโทรกวน ไม่ส่งซ้ำถ้าไม่ตอบ</p>
+  <div class="cta" id="plan">
+    <h2>ให้ทีมเจอ.AI ส่งแผนแก้ + ผลวัด AI 20 คำถามให้ฟรี</h2>
+    <p>บอกช่องทางติดต่อ ระบบจะถาม ChatGPT 20 คำถามที่ลูกค้าของคุณถามจริงและเพิ่มผลไว้ในหน้านี้ แล้วเราส่งลำดับการแก้และราคาให้ ไม่มีการโทรกวน ไม่ส่งซ้ำถ้าไม่ตอบ</p>
     <form method="post" action="/audit/{{ lead['token'] }}/contact">
       {% if error %}<div class="err">{{ error }}</div>{% endif %}
       <input type="text" name="name" placeholder="ชื่อ (ไม่บังคับ)" maxlength="120">
@@ -109,7 +224,23 @@
   </div>
   {% endif %}
 
-  <p class="foot">ผลนี้เป็นภาพ ณ เวลาตรวจ รันใหม่ได้ที่ <a href="/audit">ตรวจเว็บฟรี</a> · เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน</p>
+  <p class="foot">ข้อมูล ณ วันที่ตรวจ ใช้ประกอบการตัดสินใจ ไม่ใช่การรับประกันอันดับหรือผลลัพธ์ · ตรวจใหม่ได้ที่ <a href="/audit">ตรวจเว็บฟรี</a> · รายงานโดยเจอ.AI</p>
 </div>
+<script>
+(function(){
+  var K=['ranking','ai','audit'], tabs=document.querySelectorAll('.tabs button');
+  function show(t){ if(K.indexOf(t)<0) t='{{ "ranking" if deep else "audit" }}';
+    tabs.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-t')===t); });
+    K.forEach(function(k){ document.getElementById('p-'+k).classList.toggle('on', k===t); }); }
+  tabs.forEach(function(b){ b.addEventListener('click', function(){ var t=b.getAttribute('data-t'); history.replaceState(null,'','#'+t); show(t); }); });
+  show(location.hash.slice(1));
+  var start={t:'{{ progress.tier1 }}', a:'{{ progress.ai }}'};
+  if(start.t==='running'||start.a==='running'){
+    var poll=function(){ fetch('/audit/{{ lead["token"] }}/progress',{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+      if(p.tier1!==start.t||p.ai!==start.a){ location.reload(); } else { setTimeout(poll,5000); } }).catch(function(){ setTimeout(poll,10000); }); };
+    setTimeout(poll,5000);
+  }
+})();
+</script>
 </body>
 </html>

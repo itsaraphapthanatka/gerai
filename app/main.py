@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -53,6 +53,7 @@ async def _no_cache_html(request: Request, call_next):
 
 # Jinja2 globals ของ base.html — ลงทะเบียนตอน import ไม่ใช่ตอน startup: เป็น lambda ที่ค่อยอ่าน DB ตอน render
 # จึงไม่ต้องรอ startup และ TestClient(app) ที่ไม่ได้เข้า lifespan (สเมอก์เทสต์ทุกตัว) render หน้าได้เหมือน production
+templates.env.filters["urlpath"] = lambda u, n=60: deep_audit._path(u, n)   # รายงานเต็ม: path อ่านง่าย ไม่ล้นตาราง
 templates.env.globals["sidebar_brands"] = lambda req: (
     db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []   # sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
 )
@@ -417,13 +418,17 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
         token = _run_lead_audit(lid, site, ip)
     except Exception:
         return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url, "src": src})
+    deep_audit.start(lid)                                 # รายงานเต็มชั้น 1 ทำต่อเบื้องหลัง หน้าผลจะอัปเดตเอง
     return _redirect(f"/audit/{token}")
 
 
 def _audit_result_ctx(lead, sent=False, error="", replied=False):
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
+    t1, t2 = deep_audit.tier1(lead), deep_audit.tier2(lead)
     return {"lead": lead, "report": report, "score": leads.score_audit(report), "summary": leads.public_summary(report),
-            "sent": sent or bool(lead["consent"]), "error": error, "replied": replied}
+            "sent": sent or bool(lead["consent"]), "error": error, "replied": replied,
+            "deep": t1 if t1.get("state") == "done" else None, "ai": t2 if t2.get("state") == "done" else None, "ai_state": t2,
+            "progress": deep_audit.progress(lead), "highlights": deep_audit.highlights(t1, t2), "benchmark": deep_audit.BENCHMARK}
 
 
 @app.get("/audit/{token}")
@@ -433,7 +438,18 @@ def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, 
         return _redirect("/audit")
     if via == "mail":
         pipeline.mark_opened(lead)
+    if lead["audit_json"] and deep_audit.progress(lead)["tier1"] in ("none", "error"):
+        deep_audit.start(lead["id"])                      # ลีดเก่า/หาเอง: เปิดหน้าครั้งแรกค่อยทำรายงานเต็ม
+        lead = db.get_lead(lead["id"])
     return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)))
+
+
+@app.get("/audit/{token}/progress")
+def audit_progress(token: str):
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return JSONResponse(deep_audit.progress(lead), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/audit/{token}/contact")
@@ -456,6 +472,7 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
         _ceo_propose(db.get_lead(lead["id"]))
     except Exception:
         pass   # ข้อเสนอสร้างทีหลังได้จากหน้าแอดมิน ไม่ให้ลูกค้าเห็น error
+    deep_audit.start(lead["id"], ai=True)                 # ทิ้งช่องทางติดต่อ = สนใจจริง → วัด AI 20 คำถาม (ชั้น 2)
     return _redirect(f"/audit/{token}?sent=1")
 
 
@@ -807,7 +824,9 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             if pl.get("body"):
                 last_draft = {"subject": pl.get("subject", ""), "body": pl["body"], "when": d["created_at"]}
                 break
-    return {"lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
+    return {"deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
+            "ai_today": deep_audit.ai_today(), "ai_daily": deep_audit.ai_daily(),
+            "lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
             "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL, "last_draft": last_draft,
             "channel": pipeline.send_channel(lead),
             "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
@@ -2253,6 +2272,7 @@ def _autopilot_notify(brand, log) -> bool:
     return True
 
 
+@office.track("delivery", lambda brand_id: f"รอบ Autopilot แบรนด์ #{brand_id}")
 def run_autopilot(brand_id: int) -> dict:
     """รอบ Autopilot ของแบรนด์ — ต่อสายทุกขั้นเข้ากับฟังก์ชันจริง แล้วเก็บ log"""
     brand = dict(db.get_brand(brand_id))
@@ -3420,3 +3440,36 @@ def admin_contact_handled(request: Request, cid: int):
         return _redirect("/login")
     db.set_contact_status(cid, "handled")
     return _redirect("/admin/contacts")
+
+
+# ---------- ออฟฟิศเอเจนต์: ภาพ 3D ของทีมที่ขยับตามงานจริง (เจ้าของดู หรือเปิดค้างบนทีวีด้วย ?tv=1) ----------
+@app.get("/admin/office")
+def admin_office(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_office.html", {"actors": office.ACTORS})
+
+
+@app.get("/admin/office/state.json")
+def admin_office_state(request: Request):
+    if not _is_admin(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return JSONResponse(office.state(), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/admin/leads/{lead_id}/deep")
+def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
+    """แอดมินสั่งรายงานเต็ม: ชั้น 1 ใหม่ หรือวัด AI 20 คำถาม (ไม่นับเพดานต่อวัน เพราะคนตัดสินใจเอง)"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return _redirect("/admin/leads")
+    if ai:
+        st = deep_audit.start(lead_id, ai=True, force_ai=True)
+        note = "เริ่มถาม AI 20 คำถามแล้ว (ราว 3 นาที ≈ ฿40)" if st == "started" else "กำลังทำอยู่แล้ว"
+    else:
+        db.update_lead(lead_id, deep_json=None)
+        st = deep_audit.start(lead_id)
+        note = "เริ่มไต่เว็บใหม่แล้ว (ราว 2 นาที)" if st == "started" else "กำลังทำอยู่แล้ว"
+    return _redirect(f"/admin/leads/{lead_id}?notice={note}")

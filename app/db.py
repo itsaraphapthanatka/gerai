@@ -383,6 +383,8 @@ def init_db() -> None:
             _ensure_column(c, "quotes", col, "TEXT")  # Stripe: session/ลูกค้า/การสมัคร และช่องทางที่จ่าย
         _ensure_column(c, "tenants", "stripe_customer_id", "TEXT")    # ลูกค้าเปิด Customer Portal ของ Stripe จากในแอป
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
+        _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
+        _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         _ensure_column(c, "brands", "case_study_ok", "INTEGER DEFAULT 0")   # อนุญาตให้ใช้ชื่อแบรนด์ในเคสศึกษาของเจอ.AI
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
         _ensure_column(c, "brands", "aiserp_auto", "INTEGER DEFAULT 0")          # เช็ค Google AI Overview/Mode อัตโนมัติรายสัปดาห์ (กินโควตา SerpApi — เลือกเป็นรายแบรนด์)
@@ -1171,7 +1173,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",

@@ -12,6 +12,7 @@ import re
 import httpx
 
 from . import db, execs, geo_content, line_oa, wp_client
+from . import office
 
 CHANNELS = {"line": "LINE OA", "facebook": "Facebook Page"}
 POST_KINDS = {"article": "บทความใหม่", "audit_cta": "ชวนตรวจเว็บฟรี", "case_study": "เคสศึกษา"}
@@ -505,6 +506,7 @@ def attribution(days: int = 7) -> dict:
     return db.count_audits_by_src(since)
 
 
+@office.track("cmo", "รอบการตลาด: เผยแพร่ · เสนอโพสต์ · เคสศึกษา")
 def run(now: datetime.datetime | None = None, llm=None) -> dict:
     """รอบรายวันของ CMO: เผยแพร่ร่างที่ผ่าน QA → เสนอโพสต์ → เคสศึกษา (เดือนละครั้ง) → สรุปไว้ให้สรุปเช้า"""
     if not enabled():

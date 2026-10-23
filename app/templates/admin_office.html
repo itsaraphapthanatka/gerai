@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ออฟฟิศเจอ.AI · เอเจนต์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon-32.png">
+<style>{% raw %}
+:root{--paper:#f7f7fb;--surface:#fff;--ink:#101114;--ink-2:#45515e;--ink-3:#8e8e93;--rule:#dedee5;--accent:#7132f5;
+  --pill:#22304f;--work:#f59e0b;--done:#22c55e;--zero:#a3abb0;--scene:#ebe7dd;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141a1c;--surface:#1b2326;--ink:#e6ebe9;--ink-2:#aab6b8;--ink-3:#7d8b8e;
+  --rule:#2e393c;--accent:#a98bff;--pill:#2c3b5f;--scene:#1d2427;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#141a1c;--surface:#1b2326;--ink:#e6ebe9;--ink-2:#aab6b8;--ink-3:#7d8b8e;--rule:#2e393c;--accent:#a98bff;
+  --pill:#2c3b5f;--scene:#1d2427;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans Thai","Noto Sans Thai",Tahoma,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:10px 16px;border-bottom:1px solid var(--rule);background:var(--surface)}
+header h1{font-size:18px;margin:0}
+header h1 b{color:var(--accent)}
+header .meta{font-size:13px;color:var(--ink-3)}
+header .legend{display:flex;gap:12px;font-size:13px;color:var(--ink-2);flex-wrap:wrap}
+header .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+header .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+header button,header a.btn{font:inherit;font-size:14px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer;text-decoration:none}
+#stage{position:relative;flex:1;min-height:0;background:var(--scene);touch-action:none}
+#stage canvas{display:block;width:100%;height:100%;cursor:grab}
+#stage canvas:active{cursor:grabbing}
+#ticker{position:absolute;top:10px;right:10px;max-width:300px;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+#ticker div{background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--rule);border-radius:9px;padding:4px 9px;font-size:12.5px;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.06);animation:tin .4s ease}
+#ticker time{color:var(--ink-3);margin-right:6px;font-variant-numeric:tabular-nums}
+@keyframes tin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (max-width:600px){#ticker{max-width:210px;font-size:11.5px}#ticker div:nth-child(n+3){display:none}}
+#msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-2);font-size:15px;pointer-events:none}
+#bar{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:var(--surface);border-top:1px solid var(--rule);-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.pc{flex:0 0 auto;min-width:168px;max-width:230px;border:1px solid var(--rule);border-radius:10px;padding:7px 10px 8px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:inherit;border-top:4px solid var(--c)}
+.pc.sel{outline:2px solid var(--accent);outline-offset:1px}
+.pc b{display:block;font-size:14px}
+.pc small{display:block;font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .st{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .st i{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pc .row{display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.pc .row b{display:inline;font-size:11.5px;color:var(--ink-2)}
+footer{font-size:11.5px;color:var(--ink-3);padding:4px 16px 8px;background:var(--surface)}
+@media (max-width:600px){header .legend{display:none}.pc{min-width:150px}}
+/* โหมดทีวี: เต็มจอ ไม่มีขอบ กล้องเดินเอง */
+body.tv header,body.tv #bar,body.tv footer{display:none!important}
+#tvbar{position:absolute;left:14px;top:12px;display:none;flex-direction:column;gap:2px;pointer-events:none;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--rule);border-radius:12px;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+#tvbar b{font-size:24px}#tvbar .clk{font-size:20px;font-variant-numeric:tabular-nums;color:var(--ink-2)}#tvbar .tvp{font-size:14px;color:var(--ink-2)}
+body.tv #tvbar{display:flex}
+body.tv #ticker{max-width:420px;top:14px;right:14px}body.tv #ticker div{font-size:16px;padding:6px 12px}
+#tvexit{position:absolute;right:14px;bottom:14px;display:none;font:inherit;font-size:14px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer;opacity:0;transition:opacity .3s}
+body.tv #tvexit{display:block}body.tv.wake #tvexit{opacity:1}
+body.tv.idle #stage canvas{cursor:none}
+/* ปิดดีล */
+#cele{position:absolute;left:50%;top:18%;transform:translateX(-50%);display:none;z-index:5;pointer-events:none;text-align:center;
+  background:linear-gradient(135deg,#ffd54a,#f2a516);color:#3a2600;border-radius:18px;padding:14px 26px;box-shadow:0 8px 28px rgba(0,0,0,.22);animation:pop .5s ease}
+#cele b{display:block;font-size:clamp(20px,3.4vw,40px)}#cele span{display:block;font-size:clamp(14px,1.8vw,22px);margin-top:4px}
+#cele.on{display:block}
+@keyframes pop{from{transform:translate(-50%,-14px) scale(.85);opacity:0}to{transform:translateX(-50%);opacity:1}}
+.cf{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;pointer-events:none;z-index:4;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.9}}
+@media (prefers-reduced-motion:reduce){.cf{display:none}}
+{% endraw %}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>ออฟฟิศ<b>เจอ.AI</b></h1>
+  <span class="meta" id="meta">กำลังโหลด…</span>
+  <div class="legend">จุด:<span><i style="background:var(--work)"></i>กำลังทำงาน</span><span><i style="background:var(--done)"></i>เพิ่งเสร็จ</span><span><i style="background:var(--zero)"></i>ว่าง</span></div>
+  <div class="tools"><a class="btn" href="/admin/decisions">การตัดสินใจ</a><a class="btn" href="/admin">← แอดมิน</a><button id="zin" aria-label="ซูมเข้า">＋</button><button id="zout" aria-label="ซูมออก">－</button><button id="home">มุมเริ่มต้น</button><button id="tvbtn" title="เต็มจอ กล้องเดินเอง สำหรับเปิดค้างบนทีวี">📺 โหมดทีวี</button></div>
+</header>
+<div id="stage"><div id="ticker" aria-live="polite"></div><div id="msg">กำลังจัดออฟฟิศ…</div>
+  <div id="tvbar"><b>ออฟฟิศเจอ.AI</b><span class="clk" id="tvclock"></span><span class="tvp" id="tvpres"></span></div>
+  <div id="cele" role="status" aria-live="polite"><b id="celeT"></b><span id="celeS"></span></div>
+  <button id="tvexit">ออกจากโหมดทีวี (Esc)</button></div>
+<div id="bar" aria-label="ทีม"></div>
+<footer>ตัวละครขยับตามงานจริง (ข้อมูลสดทุก 5 วินาที): หาลูกค้า → ลูกค้าเป้าหมายเดินเข้าล็อบบี้ · เอเจนต์ถือกระดาษไปเสนอที่โต๊ะเจ้าของ (กองในถาด = เรื่องที่รออนุมัติ) · ทำเองในกรอบ = เดินไปส่งที่ตู้ส่งข้อความทัก / ป้าย LINE·Facebook · ส่งใบเสนอราคา = CFO เดินไปยื่นให้ลูกค้าที่นั่งรอ · ตอบกลับ/ยืนยัน = ลูกค้าขยับขั้น · รับเงิน = CFO ไปเคาน์เตอร์ แล้วลูกค้าเดินเข้าห้องลูกค้า 🎉 ทีมไปรับกาแฟ ☕ · จอในล็อบบี้ = ขั้นดีลวันนี้ · ทีวีห้องลูกค้า = ด่านของเฟส · 📺 โหมดทีวี (หรือลิงก์ ?tv=1) = เต็มจอ กล้องเดินเอง</footer>
+<script>{% raw %}
+(function(){
+'use strict';
+const STATE_URL='/admin/office/state.json';
+const root=document.documentElement;
+const stage=document.getElementById('stage'), msg=document.getElementById('msg'), bar=document.getElementById('bar'), ticker=document.getElementById('ticker'), meta=document.getElementById('meta');
+const cssVar=k=>getComputedStyle(root).getPropertyValue(k).trim();
+let TZ='+07:00';
+const parseTs=s=>{ if(!s) return NaN; s=String(s); return Date.parse(s.length>19&&/[+Zz-]/.test(s.slice(19))?s:s.slice(0,19)+TZ); };
+const hhmm=s=>{ const t=parseTs(s); return isNaN(t)?'—':new Date(t).toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}); };
+const shortLabel=(t,n=42)=>{ t=String(t||'').trim(); return t.length>n?t.slice(0,n-1)+'…':t; };
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const hash=s=>{ let h=0; for(const ch of String(s)) h=(h*31+ch.codePointAt(0))>>>0; return h; };
+
+/* ---------- renderer / scene ---------- */
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+stage.appendChild(renderer.domElement);
+const canvas=renderer.domElement;
+const scene=new THREE.Scene();
+function applyBg(){ scene.background=new THREE.Color(cssVar('--scene')||'#ebe7dd'); }
+applyBg(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyBg);
+scene.add(new THREE.HemisphereLight(0xffffff,0x9aa4ad,0.95));
+const sun=new THREE.DirectionalLight(0xfff3df,0.9); sun.position.set(18,34,22); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-40,right:40,top:36,bottom:-36,near:1,far:120});
+scene.add(sun);
+
+/* ---------- isometric camera: drag = pan, wheel/pinch/buttons = zoom ---------- */
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,0.1,400);
+const DIR=new THREE.Vector3(1,1.05,1).normalize();
+const target=new THREE.Vector3(0,0,0);
+const HOME={x:-2,z:-1,zoom:1.0};
+function homeView(){ const portrait=stage.clientWidth/Math.max(1,stage.clientHeight)<0.8; return portrait?{x:-8,z:4,zoom:2.2}:HOME; }
+let zoom=1;
+function sizeCam(){ const w=stage.clientWidth,h=stage.clientHeight; if(!w||!h) return;
+  renderer.setSize(w,h,false);
+  const half=Math.max(31/(w/h),21);
+  cam.left=-half*w/h; cam.right=half*w/h; cam.top=half; cam.bottom=-half; cam.zoom=zoom; cam.updateProjectionMatrix(); }
+let camYaw=0; const camDir=new THREE.Vector3(), UP=new THREE.Vector3(0,1,0);
+function placeCam(){ camDir.copy(DIR).applyAxisAngle(UP,camYaw); cam.position.copy(target).addScaledVector(camDir,120); cam.lookAt(target); }
+function setZoom(z){ zoom=Math.max(0.7,Math.min(4,z)); cam.zoom=zoom; cam.updateProjectionMatrix(); }
+const right=new THREE.Vector3(), fwd=new THREE.Vector3();
+function panBy(dx,dy){ const w=stage.clientWidth; const unitsPerPx=(cam.right-cam.left)/zoom/w;
+  right.set(1,0,-1).normalize(); fwd.set(-1,0,-1).normalize();
+  target.addScaledVector(right,-dx*unitsPerPx).addScaledVector(fwd,dy*unitsPerPx*1.4);
+  target.x=Math.max(-30,Math.min(30,target.x)); target.z=Math.max(-22,Math.min(22,target.z)); placeCam(); }
+const pointers=new Map(); let pinch0=0, zoom0=1, moved=0;
+canvas.addEventListener('pointerdown',e=>{ tourPause(); canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId,{x:e.clientX,y:e.clientY}); moved=0;
+  if(pointers.size===2){ const [a,b]=[...pointers.values()]; pinch0=Math.hypot(a.x-b.x,a.y-b.y); zoom0=zoom; } });
+canvas.addEventListener('pointermove',e=>{ const p=pointers.get(e.pointerId); if(!p) return;
+  if(pointers.size===2){ p.x=e.clientX; p.y=e.clientY; const [a,b]=[...pointers.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); if(pinch0) setZoom(zoom0*d/pinch0); return; }
+  const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY; moved+=Math.abs(dx)+Math.abs(dy); panBy(dx,dy); });
+const endP=e=>{ const wasClick=pointers.size===1&&moved<6; pointers.delete(e.pointerId); if(pointers.size<2) pinch0=0; if(wasClick&&e.type==='pointerup') pick(e); };
+canvas.addEventListener('pointerup',endP); canvas.addEventListener('pointercancel',endP);
+canvas.addEventListener('wheel',e=>{ tourPause(); e.preventDefault(); setZoom(zoom*(e.deltaY<0?1.12:1/1.12)); },{passive:false});
+document.getElementById('zin').onclick=()=>setZoom(zoom*1.25);
+document.getElementById('zout').onclick=()=>setZoom(zoom/1.25);
+document.getElementById('home').onclick=()=>{ const h=homeView(); target.set(h.x,0,h.z); setZoom(h.zoom); placeCam(); select(null); };
+
+/* ---------- materials & helpers ---------- */
+const lin=c=>new THREE.Color(c).convertSRGBToLinear();
+const M=(c,r=0.85)=>new THREE.MeshStandardMaterial({color:lin(c),roughness:r});
+const mat={wall:M(0xf3efe6,0.9),wallCap:M(0x9a8f7f,0.8),wallTop:M(0xcfc6b5),carpet:M(0xd9d3c3,1),wood:M(0xc08a55,0.6),woodDark:M(0x7a5131,0.6),grey:M(0xc9ced2,1),
+  tile:M(0xe6e2d8,0.95),lounge:M(0xdcc09a,1),desk:M(0xf4efe6,0.6),deskTop:M(0xd9c9ad,0.55),chair:M(0x2f3640,0.7),metal:new THREE.MeshStandardMaterial({color:lin(0x8d949c),roughness:0.4,metalness:0.4}),
+  screenOff:M(0x262c33,0.35),red:M(0xd5463b,0.7),leaf:M(0x4f9a4e,0.9),pot:M(0xf2f2ee,0.8),skin:M(0xf0c9a2,0.8),pants:M(0x2f3a4a,0.9),tv:M(0x1f2a3a,0.4),paper:M(0xffffff,1),
+  glass:new THREE.MeshStandardMaterial({color:lin(0xbfe3ff),transparent:true,opacity:0.55,roughness:0.1}),
+  work:new THREE.MeshStandardMaterial({color:lin(0xfcd34d),emissive:lin(0xf59e0b),emissiveIntensity:0.9,roughness:0.3}),
+  done:new THREE.MeshStandardMaterial({color:lin(0x86efac),emissive:lin(0x22c55e),emissiveIntensity:0.9,roughness:0.3}),
+  flash:new THREE.MeshStandardMaterial({color:lin(0xf9a8d4),emissive:lin(0xc0265c),emissiveIntensity:0.9,roughness:0.3}),
+  faceOff:M(0x1f2a2e,0.4),shell:M(0xe4ebe8,0.5)};
+function box(w,h,d,m,x,y,z,parent=scene){ const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m); o.position.set(x,y,z); o.castShadow=true; o.receiveShadow=true; parent.add(o); return o; }
+function cyl(rt,rb,h,m,x,y,z,parent=scene,seg=12){ const o=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),m); o.position.set(x,y,z); o.castShadow=true; parent.add(o); return o; }
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function label(text,{bg='#22304f',color='#fff',size=34,dot=null,scale=0.0165,weight=600}={}){
+  const c=document.createElement('canvas'),ctx=c.getContext('2d'); const font=`${weight} ${size}px "IBM Plex Sans Thai","Noto Sans Thai",sans-serif`;
+  ctx.font=font; const pad=size*0.55, dotW=dot?size*0.7:0, w=Math.ceil(ctx.measureText(text).width+pad*2+dotW), h=Math.ceil(size*1.55);
+  c.width=w; c.height=h; ctx.font=font;
+  if(bg){ ctx.fillStyle=bg; roundRect(ctx,1,1,w-2,h-2,h/2-1); ctx.fill(); }
+  if(dot){ ctx.fillStyle=dot; ctx.beginPath(); ctx.arc(pad+size*0.22,h/2,size*0.2,0,Math.PI*2); ctx.fill(); }
+  ctx.fillStyle=color; ctx.textBaseline='middle'; ctx.fillText(text,pad+dotW,h/2+1);
+  const tex=new THREE.CanvasTexture(c); tex.encoding=THREE.sRGBEncoding; tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false})); sp.renderOrder=5;
+  sp.scale.set(w*scale,h*scale,1); return sp; }
+function killSprite(sp){ if(!sp) return; scene.remove(sp); sp.material.map.dispose(); sp.material.dispose(); }
+function sign(text,x,y,z){ const s=label(text,{bg:'rgba(255,255,255,0.95)',color:'#4a585c',size:28,weight:600,scale:0.024}); s.position.set(x,y,z); s.renderOrder=4; scene.add(s); return s; }
+function flabel(text,x,z,opts){ const s=label(text,opts); s.position.set(x,0.25,z); s.renderOrder=3; scene.add(s); return s; }
+function plant(x,z,s=1){ const g=new THREE.Group(); cyl(0.32*s,0.26*s,0.5*s,mat.pot,0,0.25*s,0,g);
+  for(let i=0;i<5;i++){ const l=new THREE.Mesh(new THREE.IcosahedronGeometry(0.34*s,0),mat.leaf); l.position.set(Math.cos(i*1.3)*0.2*s,(0.75+i*0.13)*s,Math.sin(i*1.3)*0.2*s); l.castShadow=true; g.add(l); }
+  g.position.set(x,0,z); scene.add(g); }
+function screenTex(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return {c,t}; }
+function signBoard(w,h,text,sub){ const c=document.createElement('canvas'); c.width=1024; c.height=Math.round(1024*h/w); const x=c.getContext('2d');
+  x.fillStyle='#1f1b3a'; roundRect(x,0,0,c.width,c.height,c.height*0.18); x.fill();
+  x.strokeStyle='#a98bff'; x.lineWidth=c.height*0.05; roundRect(x,c.height*0.08,c.height*0.08,c.width-c.height*0.16,c.height-c.height*0.16,c.height*0.12); x.stroke();
+  x.textAlign='center'; x.textBaseline='middle'; x.fillStyle='#ffffff';
+  x.font=`700 ${Math.round(c.height*(sub?0.42:0.5))}px "IBM Plex Sans Thai",sans-serif`; x.fillText(text,c.width/2,c.height*(sub?0.42:0.53));
+  if(sub){ x.fillStyle='#a98bff'; x.font=`600 ${Math.round(c.height*0.17)}px "IBM Plex Sans Thai",sans-serif`; x.fillText(sub,c.width/2,c.height*0.76); }
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; t.anisotropy=4;
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true})); }
+
+/* ---------- floor plan (x −26…26, z −18…18; tall walls at x=−26 and z=−18) ----------
+   office (carpet) x −26…10 z −18…2 · owner's room (wood) x 10…26 z −18…−7 · customers' lounge x 10…26 z −7…6
+   pantry x 10…26 z 6…18 · lobby (tile) x −26…10 z 2…18 with the entrance at x −24…−20 on the front */
+const H=2.4;
+box(53,0.3,37,mat.wallTop,0,-0.16,0);
+const floorMat=(m,x0,x1,z0,z1,y=0.005)=>{ const o=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,z1-z0),m); o.rotation.x=-Math.PI/2; o.position.set((x0+x1)/2,y,(z0+z1)/2); o.receiveShadow=true; scene.add(o); return o; };
+floorMat(mat.carpet,-26,10,-18,2); floorMat(mat.wood,10,26,-18,-7); floorMat(mat.lounge,10,26,-7,6); floorMat(mat.tile,10,26,6,18); floorMat(mat.tile,-26,10,2,18);
+function wallX(z,x0,x1,h=H,t=0.24){ box(x1-x0,h,t,mat.wall,(x0+x1)/2,h/2,z); box(x1-x0,0.06,t+0.02,mat.wallCap,(x0+x1)/2,h+0.03,z); }
+function wallZ(x,z0,z1,h=H,t=0.24){ box(t,h,z1-z0,mat.wall,x,h/2,(z0+z1)/2); box(t+0.02,0.06,z1-z0,mat.wallCap,x,h+0.03,(z0+z1)/2); }
+wallX(-18,-26,26,2.8); wallZ(-26,-18,18,2.8);                               // back walls (tall)
+wallX(18,-26,-24,0.45); wallX(18,-20,26,0.45); wallZ(26,-18,18,0.45);       // front curbs (cut-away) — entrance at x −24…−20
+wallZ(10,-18,-11); wallZ(10,-8,-7);                                         // office | owner's room (door z −11…−8)
+wallX(-7,10,12.5); wallX(-7,15,26);                                         // owner's room | lounge (door x 12.5…15)
+wallX(2,-26,-10); wallX(2,-7,3.5); wallX(2,6.5,10);                          // office | lobby (doors x −10…−7 and 3.5…6.5)
+wallZ(10,2,8.5); wallZ(10,11.5,18);                                          // lobby | pantry (door z 8.5…11.5)
+wallX(6,10,16); wallX(6,19,26);                                              // lounge | pantry (door x 16…19)
+sign('ห้องเจ้าของ',22,0.3,-9.2); sign('ห้องลูกค้า',21.5,0.3,4.6); sign('มุมกาแฟ',20,0.3,8.6); sign('ล็อบบี้',-23,0.3,10.5);
+// big sign on the back wall
+(function(){ const top=signBoard(13,2.8,'เจอ.AI OFFICE','บริษัทเอเจนต์ AI · ขาย · ส่งมอบ · ดูแล'); top.position.set(-8,4.35,-17.85); scene.add(top);
+  box(13.2,0.14,0.28,mat.wallCap,-8,2.9,-17.9); [-13,-3].forEach(x=>box(0.14,0.75,0.14,mat.metal,x,3.2,-17.9)); })();
+[[-25,-17],[9,-17],[-25,1],[11,-17],[25,-8],[-25,17],[-9,3],[9,3],[11,7],[25,7],[-7,17],[25,17],[12,-6]].forEach(([x,z])=>plant(x,z));
+
+/* ---------- desks: 3 zone rows × 2 desks, an aisle at x −8.5 to the lobby door; the owner's desk in the room ---------- */
+const AISLE_X=-8.5, DESK_X=[-21,-15];
+const ROWS={sales:{th:'โซนขาย',cz:-14,tint:0xfbe9cc},money:{th:'โซนการเงิน · ระบบ',cz:-9,tint:0xd9f2e6},growth:{th:'โซนการตลาด · ส่งมอบ',cz:-4,tint:0xf9dbe6}};
+const SEATS={prospecting:{row:'sales',col:0},ceo:{row:'sales',col:1},cfo:{row:'money',col:0},cto:{row:'money',col:1},cmo:{row:'growth',col:0},delivery:{row:'growth',col:1}};
+for(const k in ROWS){ const r=ROWS[k]; floorMat(M(r.tint,1),-24.5,-10.5,r.cz-1.6,r.cz+2.3,0.012); flabel(r.th,-24.6,r.cz+2.7,{bg:'rgba(255,255,255,0.92)',color:'#22304f',size:22,weight:700,scale:0.017}); }
+function deskUnit(x,z,face,parent=scene){ // face=+1: the person is at z+1, looking toward −z
+  const g=new THREE.Group(); g.position.set(x,0,z); if(face<0) g.rotation.y=Math.PI; parent.add(g);
+  box(1.75,0.08,1.05,mat.deskTop,0,0.76,0,g); [[-0.8,-0.45],[0.8,-0.45],[-0.8,0.45],[0.8,0.45]].forEach(([a,b])=>box(0.06,0.72,0.06,mat.metal,a,0.36,b,g));
+  box(0.9,0.55,0.05,mat.chair,0,1.12,-0.32,g); const scr=box(0.82,0.47,0.02,mat.screenOff,0,1.12,-0.29,g); box(0.08,0.3,0.08,mat.metal,0,0.92,-0.36,g);
+  box(0.55,0.03,0.2,mat.chair,0,0.81,0.08,g);
+  box(0.6,0.08,0.6,mat.chair,0,0.46,0.95,g); box(0.6,0.6,0.08,mat.chair,0,0.8,1.26,g); cyl(0.04,0.04,0.42,mat.metal,0,0.21,0.95,g,6);
+  return {g,scr};
+}
+// owner's room: big desk, in-tray (proposals pile up here), shelf, rug
+const OWNER={seat:{x:18.5,z:-14.8},yaw:0,front:{x:17,z:-11.4}};
+box(3.6,0.12,1.6,mat.woodDark,18.5,0.8,-13.5); box(0.15,0.8,1.5,mat.woodDark,16.9,0.4,-13.5); box(0.15,0.8,1.5,mat.woodDark,20.1,0.4,-13.5);
+box(4,2.2,0.6,mat.woodDark,18.5,1.1,-17.5); box(2.6,0.04,1.6,M(0xc9b089),18.5,0.03,-10.6);
+box(0.6,0.08,0.6,mat.chair,18.5,0.46,-14.8); box(0.6,0.7,0.08,mat.chair,18.5,0.85,-15.15);
+box(0.95,0.05,0.7,mat.metal,17.2,0.9,-13.3); const trayGroup=new THREE.Group(); trayGroup.position.set(17.2,0.93,-13.3); scene.add(trayGroup);
+let trayN=-1; function setTray(n){ n=Math.max(0,Math.min(8,n|0)); if(n===trayN) return; trayN=n; while(trayGroup.children.length) trayGroup.remove(trayGroup.children[0]);
+  for(let i=0;i<n;i++){ const p=box(0.7,0.025,0.5,mat.paper,(i%2?0.03:-0.03),0.02+i*0.03,0,trayGroup); p.rotation.y=(i%3-1)*0.08; } }
+flabel('ถาดเรื่องรออนุมัติ',17.2,-12.2,{bg:'rgba(255,255,255,0.92)',color:'#1f2a44',size:20,weight:600,scale:0.015});
+// stations on the back wall: outbox (outreach goes out here) · payment counter · LINE/Facebook board
+const STATIONS={outbox:{x:-3,stand:{x:-3,z:-15.2},th:'ตู้ส่งข้อความทัก'},pay:{x:2,stand:{x:2,z:-15.2},th:'รับชำระ Stripe · PromptPay'},post:{x:7,stand:{x:7,z:-15.2},th:'ป้าย LINE · Facebook'}};
+cyl(0.06,0.06,1.1,mat.metal,-3,0.55,-16.9,scene,6); box(0.9,0.7,0.6,mat.red,-3,1.4,-16.9); box(0.6,0.05,0.1,mat.chair,-3,1.5,-16.55);
+box(2.6,1,0.9,mat.desk,2,0.5,-16.9); box(2.8,0.08,1.1,mat.deskTop,2,1.02,-16.9); box(0.4,0.3,0.3,mat.chair,2.7,1.2,-16.8); box(0.3,0.12,0.02,mat.done,2.7,1.26,-16.63);
+const postScreen=box(2.2,1.3,0.1,mat.tv,7,1.9,-16.95); const postGlow=box(2.0,1.1,0.02,mat.screenOff,7,1.9,-16.88); cyl(0.07,0.07,1.2,mat.metal,7,0.6,-16.95,scene,8);
+for(const k in STATIONS){ const s=STATIONS[k]; flabel(s.th,s.x,-14.1,{bg:'rgba(255,255,255,0.92)',color:'#22304f',size:20,weight:600,scale:0.015}); }
+let flashUntil=0; function flashPostBoard(){ postGlow.material=mat.flash; flashUntil=performance.now()+2500; }
+// lobby: reception (the LINE OA bot), waiting chairs by deal stage, the deal board on the office wall
+box(4,1,1,mat.desk,-20,0.5,5.5); box(4.2,0.08,1.2,mat.deskTop,-20,1.02,5.5);
+(function(){ const d=signBoard(3.2,0.8,'เจอ.AI'); d.position.set(-20,0.55,6.02); scene.add(d); })();
+const STAGES=['new','contacted','replied','quoted'], STAGE_X={new:-13,contacted:-8.5,replied:-4,quoted:0.5}, SEAT_Z=[7.6,9.5,11.4,13.3,15.2];
+const STAGE_TH={new:'ใหม่',contacted:'ทักแล้ว',replied:'ตอบกลับ',quoted:'เสนอราคาแล้ว',won:'ลูกค้า'};
+const STAGE_HEX={new:0x8e8e93,contacted:0x3c8dbc,replied:0xd97706,quoted:0x7c3aed,won:0x1c7a44};
+const LOUNGE_SEATS=[{x:15,z:-4.6,yaw:0},{x:17,z:-4.6,yaw:0},{x:19,z:-4.6,yaw:0},{x:23.3,z:-2,yaw:-Math.PI/2},{x:23.3,z:0,yaw:-Math.PI/2},{x:23.3,z:2,yaw:-Math.PI/2}];
+const ENTRY={x:-22,z:17}, CORR_Z=16.6;
+STAGES.forEach(s=>SEAT_Z.forEach(z=>{ box(0.6,0.08,0.6,mat.chair,STAGE_X[s],0.46,z); box(0.6,0.6,0.08,mat.chair,STAGE_X[s],0.8,z-0.31); cyl(0.04,0.04,0.42,mat.metal,STAGE_X[s],0.21,z,scene,6); }));
+const stageLabels={}; function setStageLabel(s,text){ const key=s; if(stageLabels[key]&&stageLabels[key].text===text) return; if(stageLabels[key]) killSprite(stageLabels[key].sp);
+  const sp=flabel(text,s==='won'?20:STAGE_X[s],s==='won'?-2.4:6.3,{bg:'rgba(255,255,255,0.94)',color:'#'+STAGE_HEX[s].toString(16).padStart(6,'0'),size:22,weight:700,scale:0.016}); stageLabels[key]={sp,text}; }
+STAGES.concat('won').forEach(s=>setStageLabel(s,STAGE_TH[s]));
+const board=screenTex(1024,420);
+(function(){ const g=new THREE.Group(); box(5.6,2.4,0.08,mat.tv,0,0,0,g); const sc=new THREE.Mesh(new THREE.PlaneGeometry(5.3,2.15),new THREE.MeshBasicMaterial({map:board.t})); sc.position.z=0.05; g.add(sc); g.position.set(-2,1.95,2.17); scene.add(g); })();
+function drawBoard(b){ const c=board.c.getContext('2d'); c.fillStyle='#1f1b3a'; c.fillRect(0,0,1024,420);
+  c.fillStyle='#cdbfff'; c.font='600 34px "IBM Plex Sans Thai",sans-serif'; c.textAlign='left'; c.fillText('ขั้นดีล · ลูกค้าเป้าหมาย',36,58);
+  c.textAlign='right'; c.fillStyle='#ffd54a'; c.font='700 34px "IBM Plex Sans Thai",sans-serif'; c.fillText(`ปิดดีลวันนี้ ${b.won_today}`+(b.paid_today_thb?` · ฿${b.paid_today_thb.toLocaleString('th-TH')}`:''),988,58);
+  const cols=[['ใหม่',b.funnel.new||0],['ทักแล้ว',b.funnel.contacted||0],['ตอบกลับ',b.funnel.replied||0],['เสนอราคา',b.funnel.quoted||0],['ปิดดีล',b.funnel.won||0]];
+  cols.forEach(([t,n],i)=>{ const x=100+i*205; c.textAlign='center'; c.fillStyle='#ffffff'; c.font='700 96px "IBM Plex Sans Thai",sans-serif'; c.fillText(String(n),x,215); c.fillStyle='#cdbfff'; c.font='500 30px "IBM Plex Sans Thai",sans-serif'; c.fillText(t,x,268); if(i<4){ c.fillStyle='#6b5fb3'; c.font='400 60px sans-serif'; c.fillText('›',x+103,210); } });
+  c.textAlign='left'; c.fillStyle='#e9e4ff'; c.font='500 28px "IBM Plex Sans Thai",sans-serif';
+  c.fillText(`วันนี้: หาลูกค้า ${b.prospects_today} · ตรวจเว็บ ${b.audits_today} · ทัก ${b.outreach_today} · โพสต์ ${b.posts_today}`,36,345);
+  c.fillText(`ทัก→ตอบ ${b.reply_rate==null?'—':b.reply_rate+'%'} · ตอบ→จ่าย ${b.close_rate==null?'—':b.close_rate+'%'} · รออนุมัติ ${b.pending}`,36,392);
+  board.t.needsUpdate=true; }
+// customers' lounge: sofas, table, the KPI TV on the wall
+box(6.5,0.5,1.2,mat.red,17,0.25,-5.3); box(6.5,0.6,0.35,mat.red,17,0.65,-5.75); box(1.2,0.5,6,mat.red,24.2,0.25,0); box(0.35,0.6,6,mat.red,24.7,0.65,0);
+box(2.2,0.4,1.2,mat.woodDark,18.5,0.2,-1); floorMat(M(0xd9c4a3,1),13,23,-4,4,0.015);
+const kpi=screenTex(1024,440);
+(function(){ const g=new THREE.Group(); box(4.6,2.1,0.08,mat.tv,0,0,0,g); const sc=new THREE.Mesh(new THREE.PlaneGeometry(4.3,1.85),new THREE.MeshBasicMaterial({map:kpi.t})); sc.position.z=0.05; g.add(sc); g.position.set(16,1.9,-6.84); scene.add(g); })();
+function drawKpi(k,mode,paused){ const c=kpi.c.getContext('2d'); c.fillStyle='#10233a'; c.fillRect(0,0,1024,440);
+  c.textAlign='left'; c.fillStyle='#9fd3ff'; c.font='600 32px "IBM Plex Sans Thai",sans-serif'; c.fillText(`ด่านเฟส ${k.phase} · ผ่าน ${k.n_pass}/${k.n_rows}`,34,54);
+  c.textAlign='right'; c.fillStyle=paused?'#ff8a80':'#ffd54a'; c.font='600 28px "IBM Plex Sans Thai",sans-serif'; c.fillText(paused?'หยุดฉุกเฉิน':mode,990,54);
+  c.font='500 29px "IBM Plex Sans Thai",sans-serif';
+  (k.rows||[]).slice(0,6).forEach((r,i)=>{ const y=110+i*56; c.textAlign='left'; c.fillStyle='#e6f0ff'; c.fillText(shortLabel(r.label,30),34,y);
+    c.textAlign='right'; c.fillStyle=r.ok?'#7ee2a8':'#ffb4a8'; c.fillText(`${r.value==null?'—':r.value} / ${r.target==null?'—':r.target}  ${r.ok?'✓':'✗'}`,990,y); });
+  kpi.t.needsUpdate=true; }
+// pantry: counter, coffee machine, stools, water cooler
+box(10,1,1,mat.desk,17,0.5,16.6); box(10.2,0.08,1.2,mat.deskTop,17,1.02,16.6);
+box(0.6,0.7,0.5,mat.chair,21,1.4,16.6); box(0.3,0.15,0.3,mat.red,21,1.75,16.4);
+[13,15,17,19].forEach(x=>{ cyl(0.28,0.28,0.08,M(0x3aa3a0),x,0.8,14.3); cyl(0.04,0.04,0.8,mat.metal,x,0.4,14.3,scene,6); });
+cyl(0.3,0.3,1.2,mat.pot,24.5,0.6,16.2); cyl(0.26,0.26,0.6,mat.glass,24.5,1.5,16.2);
+const PANTRY_STAND={x:17,z:15.2};
+
+/* ---------- people & bots ---------- */
+const HAIR=[0x2a2420,0x4a3326,0x14110f,0x6b4a2b,0x3a2f2a];
+function personMesh(color,seed){
+  const g=new THREE.Group(); const shirt=M(color,0.8), hairM=M(HAIR[seed%HAIR.length],0.9);
+  const upper=new THREE.Group(); g.add(upper);
+  box(0.62,0.62,0.38,shirt,0,1.02,0,upper);
+  const head=box(0.46,0.46,0.44,mat.skin,0,1.58,0.02,upper);
+  box(0.5,0.16,0.48,hairM,0,1.84,0,upper); box(0.5,0.3,0.1,hairM,0,1.68,-0.22,upper);
+  const armL=new THREE.Group(), armR=new THREE.Group(); armL.position.set(-0.4,1.26,0); armR.position.set(0.4,1.26,0);
+  box(0.16,0.55,0.16,shirt,0,-0.25,0,armL); box(0.16,0.55,0.16,shirt,0,-0.25,0,armR); upper.add(armL,armR);
+  const legL=new THREE.Group(), legR=new THREE.Group(); legL.position.set(-0.14,0.72,0); legR.position.set(0.14,0.72,0);
+  box(0.22,0.72,0.22,mat.pants,0,-0.36,0,legL); box(0.22,0.72,0.22,mat.pants,0,-0.36,0,legR); g.add(legL,legR);
+  const paper=box(0.34,0.03,0.44,mat.paper,0,1.0,0.44,upper); paper.visible=false;
+  const cup=cyl(0.09,0.07,0.18,M(0xffffff,0.6),0.32,0.98,0.34,upper,10); cup.visible=false;
+  g.userData={upper,armL,armR,legL,legR,head,paper,cup,shirt}; return g;
+}
+function botMesh(hex){ const g=new THREE.Group(), body=M(hex,0.6);
+  box(0.6,0.6,0.4,body,0,0.85,0,g); const head=box(0.52,0.44,0.46,mat.shell,0,1.4,0,g);
+  const face=box(0.4,0.26,0.03,mat.faceOff,0,1.4,0.24,g); cyl(0.03,0.03,0.25,mat.metal,0,1.74,0,g,6);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,6),mat.faceOff); tip.position.y=1.9; tip.castShadow=true; g.add(tip);
+  const armL=new THREE.Group(), armR=new THREE.Group(); armL.position.set(-0.4,1.1,0); armR.position.set(0.4,1.1,0);
+  box(0.14,0.5,0.14,body,0,-0.22,0,armL); box(0.14,0.5,0.14,body,0,-0.22,0,armR); g.add(armL,armR);
+  const legL=new THREE.Group(), legR=new THREE.Group(); legL.position.set(-0.14,0.55,0); legR.position.set(0.14,0.55,0);
+  box(0.2,0.5,0.2,mat.pants,0,-0.25,0,legL); box(0.2,0.5,0.2,mat.pants,0,-0.25,0,legR); g.add(legL,legR);
+  const paper=box(0.34,0.03,0.44,mat.paper,0,0.95,0.42,g); paper.visible=false;
+  const cup=cyl(0.09,0.07,0.18,M(0xffffff,0.6),0.3,0.9,0.3,g,10); cup.visible=false;
+  g.userData={face,tip,armL,armR,legL,legR,head,paper,cup}; return g; }
+function sitPose(a){ const u=a.mesh.userData; u.upper.position.y=-0.17; u.legL.position.y=u.legR.position.y=0.55;
+  u.legL.rotation.x=u.legR.rotation.x=-Math.PI/2; a.mesh.position.set(a.seat.x,0,a.seat.z); a.mesh.rotation.y=a.seatYaw; a.sitting=true; }
+function standPose(a){ const u=a.mesh.userData; u.upper.position.y=0; u.legL.position.y=u.legR.position.y=0.72; u.legL.rotation.x=u.legR.rotation.x=0; a.sitting=false; }
+const V=(x,z)=>new THREE.Vector3(x,0,z);
+const pickables=[];
+function hitBox(mesh,data){ const hit=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.2,1.2),new THREE.MeshBasicMaterial({visible:false})); hit.position.set(0,1.1,0); hit.userData=data; mesh.add(hit); pickables.push(hit); }
+
+/* ---------- the team ---------- */
+const ACTOR_ORDER=['owner','ceo','prospecting','cfo','cto','cmo','delivery','hop'];
+const DOT={idle:null,working:'#f59e0b',done:'#22c55e'};
+const actors={}; let built=false;
+function setPill(a){ const text=a.id==='owner'?(a.pending?`${a.name} · รอ ${a.pending} เรื่อง`:a.name):a.name; const key=text+'|'+a.status; if(a.pillKey===key) return; a.pillKey=key;
+  killSprite(a.pill); a.pill=label(text,{bg:'#'+a.hex,color:'#fff',size:24,weight:600,scale:0.014,dot:DOT[a.status]}); a.pill.position.set(a.mesh.position.x,2.35,a.mesh.position.z); scene.add(a.pill); }
+function setBubble(a,text){ text=String(text||'').trim(); if(a.bubbleText===text) return; a.bubbleText=text; killSprite(a.bubble); a.bubble=null;
+  if(!text) return; a.bubble=label(text,{bg:'rgba(255,255,255,0.96)',color:'#1b2528',size:24,weight:500,scale:0.013}); a.bubble.position.set(a.mesh.position.x,2.9,a.mesh.position.z); scene.add(a.bubble); }
+function setStatus(a,st){ if(a.status===st){ setPill(a); return; } a.status=st; const u=a.mesh.userData;
+  if(a.bot){ const m=st==='working'?mat.work:st==='done'?mat.done:mat.faceOff; u.face.material=m; u.tip.material=m; if(st!=='working'&&!a.walk){ u.armL.rotation.x=u.armR.rotation.x=-0.6; } }
+  if(a.scr) a.scr.material=st==='working'?mat.work:st==='done'?mat.done:mat.screenOff;
+  setPill(a); }
+function mkActor(def,x,z,yaw,scr){ const bot=!def.human; const m=bot?botMesh(parseInt(def.hex,16)):personMesh(parseInt(def.hex,16),3); m.position.set(x,0,z); m.rotation.y=yaw; scene.add(m);
+  const a=actors[def.id]={id:def.id,name:def.name,role:def.role,hex:def.hex,bot,mesh:m,seat:V(x,z),seatYaw:yaw,scr,status:null,busy:Promise.resolve(),busyCount:0,walk:null,phase:(hash(def.id)%100)/7,pill:null,bubble:null,bubbleText:'',bounceUntil:0,rec:{},pending:0};
+  if(bot){ m.userData.armL.rotation.x=m.userData.armR.rotation.x=-0.6; } else { sitPose(a); }
+  hitBox(m,{actor:def.id}); setStatus(a,'idle'); return a; }
+function buildActors(list){ const byId={}; list.forEach(d=>byId[d.id]=d);
+  for(const id in SEATS){ const s=SEATS[id], r=ROWS[s.row], x=DESK_X[s.col]; const {scr}=deskUnit(x,r.cz,1); mkActor(byId[id]||{id,name:id,role:'',hex:'5f6b73'},x,r.cz+1.1,Math.PI,scr); }
+  mkActor(byId.owner||{id:'owner',name:'เจ้าของ',role:'',hex:'1f2a44',human:true},OWNER.seat.x,OWNER.seat.z,OWNER.yaw,null);
+  const hop=byId.hop||{id:'hop',name:'LINE OA เจอ.AI',role:'',hex:'0891b2'}; mkActor(hop,-20,4.3,0,null);
+  flabel('ต้อนรับ · '+hop.name,-20,7.4,{bg:'rgba(255,255,255,0.92)',color:'#0891b2',size:20,weight:700,scale:0.015});
+  built=true; }
+function applyActorRec(a,rec,b){ if(!a||!rec) return; a.rec=rec; a.pending=b?b.pending:0; if(a.busyCount){ setPill(a); return; }
+  const last=parseTs(rec.last); const st=rec.status==='working'?'working':(!isNaN(last)&&Date.now()-last<20000?'done':'idle');
+  setStatus(a,st); setBubble(a,st==='working'?(shortLabel(rec.label)||'กำลังทำงาน'):st==='done'?'เสร็จ ✓ '+shortLabel(rec.label,30):''); }
+function applyActors(list,b){ list.forEach(rec=>applyActorRec(actors[rec.id],rec,b)); }
+
+/* ---------- walking: one queue per character, ≤ 6 on the move at once ---------- */
+function walk(a,pts,yaw=null){ return new Promise(res=>{ if(a.sitting) standPose(a); a.walk={pts,i:0,res,yaw}; }); }
+let moving=0; const waitQ=[];
+function acquire(){ if(moving<6){ moving++; return Promise.resolve(); } return new Promise(r=>waitQ.push(r)); }
+function release(){ const n=waitQ.shift(); if(n) n(); else moving--; }
+function enqueue(a,fn){ a.busyCount++; a.busy=a.busy.then(async()=>{ await acquire(); try{ await fn(); } finally{ release(); } }).catch(()=>{}).then(()=>{ a.busyCount--; if(!a.busyCount&&lastState&&actors[a.id]) applyActorRec(a,lastState.actors.find(x=>x.id===a.id),lastState.board); }); }
+function deskExit(a){ const s=SEATS[a.id]; if(!s) return null; const band=ROWS[s.row].cz+2.7; return [V(a.seat.x,band),V(AISLE_X,band)]; }
+function routeTo(a,dest,extra){ const out=deskExit(a); if(!out) return null;
+  if(dest==='owner') return {pts:[...out,V(AISLE_X,-8.2),V(13,-8.2),V(OWNER.front.x,OWNER.front.z)],yaw:Math.PI};
+  if(STATIONS[dest]){ const st=STATIONS[dest].stand; return {pts:[...out,V(AISLE_X,-15.2),V(st.x,st.z)],yaw:Math.PI}; }
+  if(dest==='pantry') return {pts:[...out,V(AISLE_X,4.5),V(8,4.5),V(8,10),V(12,10),V(PANTRY_STAND.x,PANTRY_STAND.z)],yaw:0};
+  if(dest==='visitor'&&extra&&extra.seat){ const p=extra.seat; if(p.z<6) return null; return {pts:[...out,V(AISLE_X,4.5),V(p.x+1.1,4.5),V(p.x+1.1,p.z-0.2)],yaw:-Math.PI/2}; }
+  return null; }
+async function trip(a,r,atDest){ await walk(a,r.pts,r.yaw); await sleep(450); try{ if(atDest) await atDest(); }catch(e){} await sleep(300);
+  const back=r.pts.slice(0,-1).reverse(); back.push(V(a.seat.x,a.seat.z)); await walk(a,back,a.seatYaw); }
+function carryTo(a,dest,atDest,extra){ if(!a||!SEATS[a.id]) return; enqueue(a,async()=>{ const r=routeTo(a,dest,extra); if(!r) return; a.mesh.userData.paper.visible=true; tourFollow(a,8);
+  await trip(a,r,async()=>{ a.mesh.userData.paper.visible=false; if(atDest) await atDest(); }); a.mesh.userData.paper.visible=false; }); }
+function coffee(a){ if(!a||!SEATS[a.id]) return; enqueue(a,async()=>{ const r=routeTo(a,'pantry'); if(!r) return;
+  await trip(a,r,async()=>{ await sleep(600); a.mesh.userData.cup.visible=true; float(a,'☕','#7a5131'); }); setTimeout(()=>{ a.mesh.userData.cup.visible=false; },90000); }); }
+
+/* floating marks (+1, ✓, ☕) */
+const floats=[]; const clock=new THREE.Clock();
+function float(a,text,color){ if(!a||!a.mesh.visible) return; const sp=label(text,{bg:null,color,size:40,weight:700,scale:0.02}); const p=a.mesh.position;
+  sp.position.set(p.x,2.9,p.z); scene.add(sp); floats.push({sp,t0:clock.getElapsedTime(),y0:2.9}); }
+function bounce(a,sec=1.4){ if(a) a.bounceUntil=clock.getElapsedTime()+sec; }
+function stamp(text,color){ const o=actors.owner; if(!o) return; bounce(o,1.2); float(o,text,color); }
+
+/* ---------- visitors: leads in the pipeline sit in the lobby by stage; paying customers sit in the lounge ---------- */
+const visitors={}; const seatsUsed={new:Array(5).fill(null),contacted:Array(5).fill(null),replied:Array(5).fill(null),quoted:Array(5).fill(null),won:Array(6).fill(null)};
+const stageOf=st=>st==='won'?'won':(STAGES.includes(st)?st:null);
+const seatFor=st=>seatsUsed[st].indexOf(null);
+const seatPos=(st,i)=>st==='won'?LOUNGE_SEATS[i]:{x:STAGE_X[st],z:SEAT_Z[i],yaw:0};
+function recolor(v,st){ v.mesh.userData.shirt.color.copy(lin(STAGE_HEX[st]||0x8e8e93)); v.stageHex=STAGE_HEX[st]||0x8e8e93; setVisitorPill(v); }
+function setVisitorPill(v){ const key=v.lead.domain+'|'+v.stageHex; if(v.pillKey===key) return; v.pillKey=key; killSprite(v.pill);
+  v.pill=label(v.lead.domain,{bg:'rgba(255,255,255,0.94)',color:'#1b2528',size:22,weight:600,scale:0.012,dot:'#'+(v.stageHex||0x8e8e93).toString(16).padStart(6,'0')}); scene.add(v.pill); }
+function mkVisitor(lead){ const seed=hash(lead.domain); const m=personMesh(STAGE_HEX[stageOf(lead.status)]||0x8e8e93,seed); m.visible=false; scene.add(m);
+  const v=visitors[lead.id]={lead,mesh:m,pill:null,pillKey:'',stage:null,seatIdx:-1,seat:null,seatYaw:0,walk:null,busy:Promise.resolve(),busyCount:0,sitting:false,phase:(seed%100)/16,bounceUntil:0,stageHex:0};
+  hitBox(m,{visitor:lead.id}); recolor(v,stageOf(lead.status)); return v; }
+function releaseSeat(v){ if(v.stage&&v.seatIdx>=0&&seatsUsed[v.stage][v.seatIdx]===v.lead.id) seatsUsed[v.stage][v.seatIdx]=null; v.seatIdx=-1; }
+function takeSeat(v,st,i){ releaseSeat(v); v.stage=st; v.seatIdx=i; seatsUsed[st][i]=v.lead.id; const p=seatPos(st,i); v.seat=V(p.x,p.z); v.seatYaw=p.yaw; return p; }
+function seatVisitor(v,st,i){ takeSeat(v,st,i); recolor(v,st); sitPose(v); v.mesh.visible=true; }
+function hideVisitor(v,st){ releaseSeat(v); v.stage=st; v.seat=null; v.mesh.visible=false; }
+function venqueue(v,fn){ v.busyCount++; v.busy=v.busy.then(fn).catch(()=>{}).then(()=>{ v.busyCount--; }); }
+function enterVisitor(v,st,i){ const p=takeSeat(v,st,i); recolor(v,st); venqueue(v,async()=>{ v.mesh.visible=true; standPose(v); v.mesh.position.set(ENTRY.x,0,ENTRY.z+1.2); tourFollow(v,7);
+  await walk(v,[V(ENTRY.x,CORR_Z),V(p.x,CORR_Z),V(p.x,p.z)],p.yaw); sitPose(v); float(v,'สวัสดี','#2b6cb0'); }); }
+function moveVisitor(v,st,i){ const start=v.seat?v.seat.clone():V(ENTRY.x,CORR_Z); const wasLounge=start.z<6; const p=takeSeat(v,st,i);
+  venqueue(v,async()=>{ recolor(v,st); tourFollow(v,st==='won'?12:7);
+    const pts=wasLounge?[V(17.5,4),V(17.5,10),V(8,10),V(8,CORR_Z),V(p.x,CORR_Z),V(p.x,p.z)]
+      :st==='won'?[V(start.x,CORR_Z),V(8,CORR_Z),V(8,10),V(17.5,10),V(17.5,4),V(p.x,p.z)]:[V(start.x,CORR_Z),V(p.x,CORR_Z),V(p.x,p.z)];
+    await walk(v,pts,p.yaw); sitPose(v); if(st==='won') float(v,'ลูกค้าใหม่ 🎉','#d18a00'); }); }
+function leaveVisitor(v,st,remove){ const start=v.seat?v.seat.clone():V(ENTRY.x,CORR_Z); releaseSeat(v); v.stage=st; v.seat=null;
+  venqueue(v,async()=>{ float(v,'ออกไป','#6f7c82'); const pts=start.z<6?[V(17.5,4),V(17.5,10),V(8,10),V(8,CORR_Z),V(ENTRY.x,CORR_Z),V(ENTRY.x,ENTRY.z+1.6)]:[V(start.x,CORR_Z),V(ENTRY.x,CORR_Z),V(ENTRY.x,ENTRY.z+1.6)];
+    await walk(v,pts); v.mesh.visible=false; if(remove){ scene.remove(v.mesh); killSprite(v.pill); delete visitors[v.lead.id]; } }); }
+function applyVisitors(list,first){ const present=new Set();
+  list.forEach(l=>{ present.add(l.id); const st=stageOf(l.status); if(!st) return; let v=visitors[l.id];
+    if(!v){ v=mkVisitor(l); const i=seatFor(st); if(i<0){ v.stage=st; return; } if(first||st==='won') seatVisitor(v,st,i); else enterVisitor(v,st,i); return; }
+    v.lead=l; if(v.stage===st||v.busyCount) return;
+    const i=seatFor(st); if(i>=0){ if(v.mesh.visible&&!first) moveVisitor(v,st,i); else seatVisitor(v,st,i); } else { if(v.mesh.visible&&!first) leaveVisitor(v,st,false); else hideVisitor(v,st); } });
+  Object.values(visitors).forEach(v=>{ if(present.has(v.lead.id)||v.busyCount) return; if(v.mesh.visible&&!first) leaveVisitor(v,null,true); else { hideVisitor(v,null); scene.remove(v.mesh); killSprite(v.pill); delete visitors[v.lead.id]; } });
+  STAGES.concat('won').forEach(st=>{ Object.values(visitors).filter(v=>v.stage===st&&v.seatIdx<0&&!v.busyCount).forEach(v=>{ const i=seatFor(st); if(i>=0) seatVisitor(v,st,i); }); });
+  const n={}; list.forEach(l=>{ const st=stageOf(l.status); if(st) n[st]=(n[st]||0)+1; });
+  STAGES.concat('won').forEach(st=>setStageLabel(st,`${STAGE_TH[st]} · ${n[st]||0}`)); }
+
+/* ---------- events → animation ---------- */
+const NOTABLE=new Set(['found','audit','propose','approve','reject','auto','outreach','opened','replied','quote','viewed','accepted','claimed','paid','provisioned','won','lost','unsub','line','post','digest']);
+function pushTicker(e){ const d=document.createElement('div'); const tm=document.createElement('time'); tm.textContent=hhmm(e.at); d.append(tm,document.createTextNode(e.text||'')); ticker.prepend(d); while(ticker.children.length>5) ticker.lastChild.remove(); }
+function deliver(A,kind,lead){ if(!A) return; const v=lead&&visitors[lead.id];
+  if(kind==='outreach') carryTo(A,'outbox',()=>float(A,'📨 ส่งแล้ว','#3c8dbc'));
+  else if(kind==='quote'){ if(v&&v.seat&&v.seat.z>6&&v.mesh.visible) carryTo(A,'visitor',()=>{ float(v,'📄 ใบเสนอราคา','#7c3aed'); bounce(v); },v); else carryTo(A,'outbox',()=>float(A,'📄 ส่งใบเสนอราคา','#7c3aed')); }
+  else if(kind==='payment') carryTo(A,'pay',()=>float(A,'฿ ยืนยันยอด','#1c7a44'));
+  else if(kind==='post') carryTo(A,'post',()=>{ flashPostBoard(); float(A,'โพสต์ ✓','#c0265c'); });
+  else float(A,'คัดแล้ว ✓','#8e8e93'); }
+function handle(e){ const A=actors[e.actor]; const v=e.lead&&visitors[e.lead.id]; if(NOTABLE.has(e.type)) pushTicker(e);
+  switch(e.type){
+    case 'found': float(A,'+1 ลีด','#2f9e5b'); tourFollow(A,6); break;
+    case 'contact': float(A,'✉ พบอีเมล','#2b6cb0'); break;
+    case 'nocontact': float(A,'ไม่พบอีเมล','#8e8e93'); break;
+    case 'audit': float(A,'ตรวจ ✓','#2f9e5b'); break;
+    case 'propose': carryTo(A,'owner',()=>{ setTray(trayN+1); bounce(actors.owner,1); }); break;
+    case 'approve': stamp('อนุมัติ ✓','#2f9e5b'); setTray(trayN-1); deliver(actors[e.to],e.kind,e.lead); break;
+    case 'reject': stamp('ไม่อนุมัติ','#d5463b'); setTray(trayN-1); break;
+    case 'auto': deliver(A,e.kind,e.lead); break;
+    case 'outreach': if(e.actor==='owner') stamp('ส่งข้อความทักเอง','#2b6cb0'); if(v) float(v,'📨 ทักแล้ว','#3c8dbc'); break;
+    case 'opened': if(v) float(v,'👀 เปิดอ่าน','#2b6cb0'); break;
+    case 'replied': if(v){ float(v,'ตอบกลับ!','#d97706'); bounce(v,3); tourFollow(v,6); } break;
+    case 'quote': if(e.actor==='owner') stamp('ส่งใบเสนอราคาเอง','#7c3aed'); if(v) float(v,'📄 ได้รับใบเสนอราคา','#7c3aed'); break;
+    case 'viewed': if(v) float(v,'ดูใบเสนอราคา','#7c3aed'); break;
+    case 'accepted': if(v){ float(v,'ยืนยันรับข้อเสนอ ✓','#2f9e5b'); bounce(v,3); tourFollow(v,6); } break;
+    case 'claimed': if(v) float(v,'แจ้งโอนแล้ว','#d97706'); break;
+    case 'paid': if(A&&A.id!=='owner') carryTo(A,'pay',()=>float(A,'฿ รับเงิน','#1c7a44')); else stamp('ยืนยันยอด ✓','#1c7a44'); break;
+    case 'provisioned': if(A&&A.id!=='owner') float(A,'เปิดบัญชี ✓','#2563eb'); else stamp('เปิดบัญชี ✓','#2563eb'); break;
+    case 'won': celebrate(e.lead?e.lead.domain:''); setTimeout(()=>{ coffee(actors.ceo); coffee(actors.cfo); },2500); break;
+    case 'line': bounce(actors.hop,2); float(actors.hop,'💬 LINE','#06c755'); tourFollow(actors.hop,5); break;
+    case 'post': flashPostBoard(); if(A&&!A.busyCount) float(A,e.channel==='facebook'?'Facebook ✓':'LINE ✓','#c0265c'); break;
+    case 'digest': carryTo(A,'owner',()=>{ float(actors.owner,'📋 สรุปเช้า','#1f2a44'); bounce(actors.owner,1); }); break;
+  } }
+
+/* ---------- bottom bar + selection ---------- */
+let selected=null;
+function nextText(n){ if(!n||!n.at) return ''; const t=parseTs(n.at); if(isNaN(t)) return ''; const d=new Date(t); const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'}), day=d.toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'});
+  const tm=d.toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}); return day===today?tm:(d.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short'})+' '+tm); }
+function renderBar(d){ bar.textContent=''; const byId={}; d.actors.forEach(a=>byId[a.id]=a);
+  ACTOR_ORDER.forEach(id=>{ const a=byId[id]; if(!a) return; const A=actors[id]; const st=A?A.status:'idle';
+    const c=document.createElement('button'); c.className='pc'+(selected===id?' sel':''); c.style.setProperty('--c','#'+a.hex);
+    const b=document.createElement('b'); b.textContent=a.name; const sm=document.createElement('small'); sm.textContent=a.role;
+    const s=document.createElement('div'); s.className='st'; const i=document.createElement('i'); i.style.background=DOT[st]||'var(--zero)';
+    const stText=id==='owner'?(d.board.pending?`รออนุมัติ ${d.board.pending} เรื่อง`:'ไม่มีเรื่องค้าง'):id==='hop'?'ยืนต้อนรับที่ล็อบบี้':(st==='working'?'กำลังทำ: '+shortLabel(a.label,34):st==='done'?'เพิ่งเสร็จ: '+shortLabel(a.label,30):(a.label?'ล่าสุด: '+shortLabel(a.label,30):'ว่าง'));
+    s.append(i,document.createTextNode(stText));
+    const r=document.createElement('div'); r.className='row'; const r1=document.createElement('span'); const r2=document.createElement('span');
+    if(id==='owner'){ r1.innerHTML='<b></b>'; r1.querySelector('b').textContent=`ปิดดีลวันนี้ ${d.board.won_today}`; r2.textContent=`ตรงกัน ${(d.board.kpi.rows.find(x=>x.key==='agreement')||{}).value??'—'}%`; }
+    else if(id==='hop'){ r1.textContent='LINE OA'; r2.textContent=a.next?'':''; }
+    else { r1.innerHTML='วันนี้ <b></b> รอบ'; r1.querySelector('b').textContent=String(a.runs_today||0); r2.textContent=a.next?'รอบถัดไป '+nextText(a.next):''; r2.title=a.next?a.next.label:''; }
+    r.append(r1,r2); c.append(b,sm,s,r); c.onclick=()=>select(id,true); bar.appendChild(c); }); }
+function select(id,focus){ selected=id; [...bar.children].forEach((c,i)=>c.classList.toggle('sel',ACTOR_ORDER[i]===id));
+  const A=id&&actors[id]; if(A&&focus){ const s=A.seat; target.set(s.x,0,s.z); placeCam(); if(zoom<1.9) setZoom(1.9); tourPause(); } }
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function pick(e){ const r=canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,cam); const hit=ray.intersectObjects(pickables,false)[0]; if(!hit){ select(null); return; }
+  const u=hit.object.userData; if(u.actor) select(u.actor,false); else if(u.visitor&&visitors[u.visitor]){ select(null); const v=visitors[u.visitor]; bounce(v,1.5); float(v,`${v.lead.domain} · ${STAGE_TH[v.stage]||''}`,'#1b2528'); } }
+
+/* ---------- celebration: a deal closed while the page is open ---------- */
+const celeEl=document.getElementById('cele'), celeT=document.getElementById('celeT'), celeS=document.getElementById('celeS');
+const celeQ=[]; let celeBusy=false;
+function celebrate(domain){ celeQ.push(domain); if(!celeBusy) nextCele(); }
+function nextCele(){ const d=celeQ.shift(); if(d===undefined){ celeBusy=false; return; } celeBusy=true;
+  celeT.textContent=`🎉 ปิดดีล ${d||''}!`; celeS.textContent='ลูกค้าใหม่ของเจอ.AI · ทีมไปรับกาแฟ ☕';
+  celeEl.classList.remove('on'); void celeEl.offsetWidth; celeEl.classList.add('on'); confetti(90);
+  ['ceo','cfo','cto','cmo','prospecting','delivery'].forEach((id,i)=>{ const a=actors[id]; if(a){ a.bounceUntil=clock.getElapsedTime()+5; setTimeout(()=>float(a,'🎉','#d18a00'),i*250); } });
+  setTimeout(()=>{ celeEl.classList.remove('on'); setTimeout(nextCele,600); },10000); }
+function confetti(n){ const cols=['#f2b705','#e0663d','#2f9e5b','#3c8dbc','#d94f86','#7c5cc4'];
+  for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='cf'; d.style.left=(Math.random()*100)+'%'; d.style.background=cols[i%cols.length];
+    d.style.animationDuration=(2.6+Math.random()*2.4)+'s'; d.style.animationDelay=(Math.random()*1.2)+'s'; stage.appendChild(d); setTimeout(()=>d.remove(),6500); } }
+
+/* ---------- TV mode: ?tv=1 or the 📺 button — full screen, a slow tour that follows whoever is doing something ---------- */
+let tvOn=false, tourOn=false, tourPausedUntil=0, follow=null, stopIdx=0, stopAt=0, wakeLock=null;
+const tvClock=document.getElementById('tvclock'), tvPres=document.getElementById('tvpres');
+const TOUR=[{x:-2,z:-1,zoom:1.0},{x:18,z:-12,zoom:2.0},{x:-17,z:-9,zoom:1.8},{x:2,z:-14,zoom:2.0},{x:-6,z:10,zoom:1.8},{x:18,z:-1,zoom:2.0},{x:17,z:13,zoom:2.0},{x:-2,z:-1,zoom:1.0}];
+function tourPause(){ if(tourOn){ tourPausedUntil=performance.now()+30000; follow=null; } }
+function tourFollow(a,sec){ if(a&&tourOn&&performance.now()>=tourPausedUntil) follow={a,until:performance.now()+sec*1000}; }
+function tourStep(t,dt){ if(!tourOn||performance.now()<tourPausedUntil) return; let goal;
+  if(follow&&performance.now()<follow.until&&follow.a.mesh.visible){ const p=follow.a.mesh.position; goal={x:p.x,z:p.z,zoom:2.4}; }
+  else { follow=null; if(performance.now()>stopAt){ stopIdx=(stopIdx+1)%TOUR.length; stopAt=performance.now()+(stopIdx===0?14000:9000); } goal=TOUR[stopIdx]; }
+  const k=1-Math.exp(-dt*0.9); target.x+=(goal.x-target.x)*k; target.z+=(goal.z-target.z)*k; setZoom(zoom+(goal.zoom-zoom)*k); camYaw=0.32*Math.sin(t/22); placeCam(); }
+function tvTick(){ const n=new Date(); tvClock.textContent=n.toLocaleString('th-TH',{timeZone:'Asia/Bangkok',weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})+' น.';
+  const b=lastState&&lastState.board; tvPres.textContent=b?`หาลูกค้า ${b.prospects_today} · ตรวจเว็บ ${b.audits_today} · ทัก ${b.outreach_today} · ปิดดีลวันนี้ ${b.won_today} · รออนุมัติ ${b.pending}`:''; }
+let tvTimer=null, idleTimer=null;
+async function setTV(on,fromClick){ tvOn=on; tourOn=on; document.body.classList.toggle('tv',on); follow=null; tourPausedUntil=0;
+  if(on){ tvTick(); tvTimer=setInterval(tvTick,15000); stopAt=0;
+    if(fromClick&&document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+    try{ wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+    if(!location.search.includes('tv=1')) history.replaceState(null,'',location.pathname+'?tv=1');
+  } else { clearInterval(tvTimer); camYaw=0; placeCam(); if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; history.replaceState(null,'',location.pathname); }
+  resize(); }
+document.getElementById('tvbtn').onclick=()=>setTV(true,true);
+document.getElementById('tvexit').onclick=()=>setTV(false);
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&tvOn) setTV(false); });
+addEventListener('pointermove',()=>{ if(!tvOn) return; document.body.classList.add('wake'); document.body.classList.remove('idle');
+  clearTimeout(idleTimer); idleTimer=setTimeout(()=>{ document.body.classList.remove('wake'); document.body.classList.add('idle'); },3000); });
+document.addEventListener('visibilitychange',async()=>{ if(tvOn&&document.visibilityState==='visible'){ try{ wakeLock=await navigator.wakeLock.request('screen'); }catch(e){} } });
+
+/* ---------- loop ---------- */
+let last=0;
+function stepWalk(a,t,dt,speed){ const m=a.mesh, u=m.userData, w=a.walk, p=w.pts[w.i], dx=p.x-m.position.x, dz=p.z-m.position.z, d=Math.hypot(dx,dz), sp=speed*dt;
+  if(d<=sp){ m.position.x=p.x; m.position.z=p.z; w.i++; if(w.i>=w.pts.length){ a.walk=null; if(w.yaw!=null) m.rotation.y=w.yaw; u.legL.rotation.x=u.legR.rotation.x=0; u.armL.rotation.x=u.armR.rotation.x=u.paper.visible?-1.2:(a.bot?-0.6:0); w.res(); return; } }
+  else { m.position.x+=dx/d*sp; m.position.z+=dz/d*sp; m.rotation.y=Math.atan2(dx,dz); }
+  const s=Math.sin(t*10+a.phase); u.legL.rotation.x=s*0.55; u.legR.rotation.x=-s*0.55; if(u.paper.visible){ u.armL.rotation.x=u.armR.rotation.x=-1.2; } else { u.armL.rotation.x=-s*0.45; u.armR.rotation.x=s*0.45; } }
+function frame(){ const t=clock.getElapsedTime(), dt=Math.min(0.05,t-last); last=t;
+  for(const id in actors){ const a=actors[id], m=a.mesh, u=m.userData;
+    if(a.walk) stepWalk(a,t,dt,3.6);
+    else if(a.bot){ if(a.status==='working'){ const s=Math.sin(t*9+a.phase*7); u.armL.rotation.x=-1.05+s*0.14; u.armR.rotation.x=-1.05-s*0.14; u.head.rotation.y=0.12*Math.sin(t*1.6+a.phase); } else { u.head.rotation.y=0.2*Math.sin(t*0.5+a.phase); } }
+    else if(a.sitting){ if(a.pending>0){ const s=Math.sin(t*9+a.phase*7); u.armL.rotation.x=-1.05+s*0.12; u.armR.rotation.x=-1.05-s*0.12; u.head.rotation.x=0.05*Math.sin(t*2+a.phase); } else { u.armL.rotation.x=u.armR.rotation.x=-0.6; u.head.rotation.y=0.25*Math.sin(t*0.5+a.phase*3); } }
+    const sel=selected===id, bounce=t<a.bounceUntil;
+    m.position.y=(a.status==='done'&&!a.walk)?0.08+0.08*Math.abs(Math.sin(t*8)):(sel||bounce)?0.12+0.1*Math.abs(Math.sin(t*(bounce?9:4))):0;
+    if(a.pill) a.pill.position.set(m.position.x,2.35+(sel?0.2:0)+(a.sitting?0:0.1),m.position.z); if(a.bubble) a.bubble.position.set(m.position.x,2.9+(sel?0.2:0),m.position.z); }
+  for(const id in visitors){ const v=visitors[id], m=v.mesh, u=m.userData; if(!m.visible){ if(v.pill) v.pill.visible=false; continue; }
+    if(v.walk) stepWalk(v,t,dt,3.2);
+    else if(v.sitting){ u.armL.rotation.x=u.armR.rotation.x=-0.6; u.head.rotation.y=0.25*Math.sin(t*0.5+v.phase*3); }
+    const b=t<v.bounceUntil; m.position.y=b?0.12+0.1*Math.abs(Math.sin(t*9)):0;
+    if(v.pill){ v.pill.visible=true; v.pill.position.set(m.position.x,2.25+(v.sitting?0:0.17),m.position.z); } }
+  if(flashUntil&&performance.now()>flashUntil){ flashUntil=0; postGlow.material=mat.screenOff; }
+  tourStep(t,dt);
+  for(let i=floats.length-1;i>=0;i--){ const f=floats[i], k=(t-f.t0)/1.8; if(k>=1){ killSprite(f.sp); floats.splice(i,1); continue; } f.sp.position.y=f.y0+k*1.1; f.sp.material.opacity=k<0.7?1:1-(k-0.7)/0.3; }
+  renderer.render(scene,cam); requestAnimationFrame(frame); }
+function resize(){ sizeCam(); placeCam(); }
+new ResizeObserver(resize).observe(stage);
+
+/* ---------- live state (state.json every 5 s): first load shows the state, later loads replay only what is new ---------- */
+const seen=new Set(); let first=true, fails=0, lastState=null;
+function apply(d){ TZ=d.tz||TZ; lastState=d; if(!built) buildActors(d.actors);
+  applyActors(d.actors,d.board); applyVisitors(d.visitors,first); drawBoard(d.board); drawKpi(d.board.kpi,d.mode,d.paused); setTray(d.board.pending);
+  const fresh=(d.events||[]).filter(e=>!seen.has(e.id)); fresh.forEach(e=>seen.add(e.id));
+  if(first){ (d.events||[]).filter(e=>NOTABLE.has(e.type)).slice(-5).forEach(pushTicker); } else { fresh.forEach((e,i)=>setTimeout(()=>handle(e),i*900)); }
+  meta.textContent=`ข้อมูล ณ ${hhmm(d.updated)} น. · ${d.paused?'หยุดฉุกเฉิน':d.mode} · ลูกค้าเป้าหมายในสาย ${d.visitors.length}`;
+  renderBar(d); msg.hidden=true; first=false; if(tvOn) tvTick(); }
+async function poll(){ let delay=5000;
+  try{ const r=await fetch(STATE_URL+'?t='+Date.now(),{cache:'no-store'}); if(r.status===401){ location.href='/login'; return; } if(!r.ok) throw new Error(r.status);
+    const d=await r.json(); fails=0; apply(d); }
+  catch(e){ fails++; if(fails>=3){ meta.textContent='ขาดการเชื่อมต่อ — กำลังลองใหม่'; delay=30000; } if(first&&fails>=3){ msg.textContent='โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง'; } }
+  setTimeout(poll,delay); }
+
+(async()=>{ try{ await document.fonts.load('600 32px "IBM Plex Sans Thai"'); await document.fonts.load('700 26px "IBM Plex Sans Thai"'); }catch(e){}
+  resize(); { const h=homeView(); target.set(h.x,0,h.z); setZoom(h.zoom); } placeCam(); requestAnimationFrame(frame);
+  if(/[?&]tv=1/.test(location.search)){ setTV(true,false); setTimeout(()=>location.reload(),6*3600*1000); }
+  poll();
+  window.__office={actors,visitors,handle,carryTo,coffee,celebrate,setTV,apply,goto:(x,z,zm)=>{ target.set(x,0,z); setZoom(zm); placeCam(); }};
+})();
+})();
+{% endraw %}</script>
+</body>
+</html>

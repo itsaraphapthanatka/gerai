@@ -10,6 +10,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from . import db, geo_worker, leads, pipeline
+from . import office
 
 DEFAULT_SEGMENTS = [
     "อสังหาริมทรัพย์เชิงพาณิชย์ ให้เช่าสำนักงาน โกดัง",
@@ -221,6 +222,7 @@ def find_contact(site_url: str, fetch=None, search=None) -> dict:
 
 
 # ---------- รอบหาลูกค้า ----------
+@office.track("prospecting", "หาลูกค้าใหม่ตามกลุ่มเป้าหมาย")
 def run(limit: int | None = None, search=None, contact=None) -> dict:
     """ค้น → กรอง → เพิ่ม lead → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก · สรุปรอบเก็บใน settings (prospect_last) ให้สรุปเช้าอ่าน"""
     if not enabled():
@@ -259,6 +261,11 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
         out["leads"].append(dom)
         try:
             pipeline.run_lead_audit(lid, site)
+            try:
+                from . import deep_audit
+                deep_audit.start(lid)                  # รายงานเต็มชั้น 1 (ไต่เว็บ + อันดับ) พร้อมก่อนเขาเปิดลิงก์ในอีเมล
+            except Exception:
+                pass
             out["audited"] += 1
         except Exception as e:
             pipeline.record(lid, "note", f"ตรวจเว็บไม่สำเร็จ: {type(e).__name__}", "prospecting")

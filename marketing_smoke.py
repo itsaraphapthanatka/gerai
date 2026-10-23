@@ -4,6 +4,7 @@ import os, tempfile, json, re
 if not os.getenv("DATABASE_URL"):
     os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke5-"), "smoke.db")
 os.environ["LITELLM_BASE_URL"] = ""
+os.environ.setdefault("GEO_DEEP_AUDIT", "0")   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
 import bcrypt
 from fastapi.testclient import TestClient
 import app.db as db, app.marketing as MK, app.execs as X, app.pipeline as P, app.line_oa as LO, app.site_health as sh, app.ai_client as ai, app.mailer as mailer

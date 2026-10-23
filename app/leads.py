@@ -17,7 +17,8 @@ EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข�
                "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",
                "provisioned": "เปิดบัญชีและแบรนด์", "won": "ปิดดีล", "lost": "ปิดเป็นไม่สนใจ", "unsubscribed": "ขอไม่รับการติดต่อ",
                "note": "บันทึก", "status": "เปลี่ยนสถานะ", "line": "ข้อความ LINE", "prospect": "พบจากการค้นหา",
-               "contact_found": "พบช่องทางติดต่อบนเว็บ", "no_contact": "ไม่พบอีเมลบนเว็บ"}
+               "contact_found": "พบช่องทางติดต่อบนเว็บ", "no_contact": "ไม่พบอีเมลบนเว็บ",
+               "deep_audit": "รายงานเต็ม: ไต่เว็บ + อันดับ Google", "ai_check": "รายงานเต็ม: 20 คำถาม AI"}
 LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ
