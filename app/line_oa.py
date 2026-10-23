@@ -117,6 +117,11 @@ def push(user_id: str, texts: list[str]) -> bool:
     return _post("/message/push", {"to": user_id, "messages": _messages(texts)})
 
 
+def broadcast_messages(messages: list[dict]) -> bool:
+    """ส่งข้อความหลายแบบ (รูป + ข้อความ) ถึงผู้ติดตามทุกคน"""
+    return _post("/message/broadcast", {"messages": messages[:5]})
+
+
 def broadcast(texts: list[str]) -> bool:
     """ส่งถึงผู้ติดตาม OA ทุกคน (นับโควตาต่อผู้รับ — แผนฟรี 200 ข้อความ/เดือน)"""
     return _post("/message/broadcast", {"messages": _messages(texts)})

@@ -109,14 +109,102 @@ def send(to: str, subject: str, html: str, text: str = "", attachments=()) -> No
         server.send_message(msg)
 
 
-def wrap_html(title: str, body_html: str, footer: str = "") -> str:
-    """กรอบอีเมลเรียบ ๆ แบบ inline style — client อีเมลไม่โหลด CSS ภายนอก"""
-    return f"""<!doctype html><html lang="th"><body style="margin:0;background:#f4f4f8;font-family:'Sarabun','Segoe UI',Tahoma,sans-serif;color:#1c1c2b">
-<div style="max-width:640px;margin:0 auto;padding:24px 16px">
-  <div style="font-weight:700;color:#7132f5;font-size:18px;margin-bottom:10px">เจอ.AI <span style="color:#6b6b7b;font-weight:400;font-size:12px">GEO Platform</span></div>
-  <div style="background:#fff;border:1px solid #e6e6ee;border-radius:12px;padding:20px 22px;font-size:15px;line-height:1.65">
-    <h1 style="font-size:20px;margin:0 0 12px">{title}</h1>
-    {body_html}
-  </div>
-  <div style="color:#8a8a99;font-size:12px;margin-top:12px;line-height:1.6">{footer}</div>
-</div></body></html>"""
+# ---------- หน้าตาอีเมล (แบบเดียวกับอีเมลแจ้งเตือนของผู้ให้บริการใหญ่: แบนเนอร์ · หัวเรื่องกลาง · ปุ่มหลัก · ท้ายจดหมายบริษัท) ----------
+import html as _h
+import os as _os
+import re as _re
+
+BANNER_PATH = "/static/email/header.png"
+_CTA_RULES = [("/q/", "ดูใบเสนอราคาและยืนยัน"), ("/audit/", "ดูผลตรวจเว็บของคุณ"), ("/login", "เข้าสู่ระบบ"),
+              ("/assets", "เปิดชุดติดตั้ง"), ("/content", "ตรวจคอนเทนต์"), ("/report", "ดูรายงาน"), ("/brands/", "เปิดแบรนด์ของคุณ"),
+              ("/admin/", "เปิดในระบบ")]
+_UNSUB = _re.compile(r"(?:<br>\s*)*—\s*เจอ\.AI \(ข้อความนี้ส่งจากระบบอัตโนมัติ\).*?(https?://\S+?/u/[\w\-]+).*?เราจะไม่ติดต่ออีก", _re.S)
+
+
+def _base_url() -> str:
+    return (_os.getenv("PUBLIC_BASE_URL") or _os.getenv("GEO_BASE_URL") or "https://geo.appreview.cloud").rstrip("/")
+
+
+def _company() -> dict:
+    from . import db
+    g = lambda k: (db.get_setting(k) or "").strip()
+    return {"name": g("company_name") or "เจอ.AI", "address": g("company_address"), "tax_id": g("company_tax_id"),
+            "phone": g("company_phone"), "email": g("company_email")}
+
+
+def _short(url: str, n: int = 46) -> str:
+    t = _re.sub(r"^https?://", "", url)
+    return t if len(t) <= n else t[:n - 1] + "…"
+
+
+def _linkify(body_html: str) -> str:
+    """URL ดิบในเนื้อหา → ลิงก์สั้นอ่านง่าย (ลิงก์ที่เป็น <a> อยู่แล้วไม่แตะ)"""
+    def rep(m):
+        u = m.group(0).rstrip(".,)")
+        tail = m.group(0)[len(u):]
+        return f"<a href='{u}' style='color:#5b2bd9;text-decoration:underline'>{_h.escape(_short(u))}</a>{tail}"
+    parts = _re.split(r"(<a\b[^>]*>.*?</a>)", body_html, flags=_re.S | _re.I)
+    return "".join(p if p.lower().startswith("<a") else _re.sub(r"https?://[^\s<>'\"]+", rep, p) for p in parts)
+
+
+def _boxes(body_html: str) -> str:
+    """รายการ "• ..." ตั้งแต่ 2 บรรทัดติดกัน → กล่องสรุปสีอ่อน อ่านง่ายกว่าบรรทัดเปล่า (เช่น รายละเอียดใบเสนอราคา)"""
+    def rep(m):
+        items = [x.strip() for x in _re.split(r"<br>\s*", m.group(0)) if x.strip()]
+        rows = "".join(f"<div style='padding:3px 0'><span style='color:#7132f5;font-weight:700'>•</span> {x.lstrip('•').strip()}</div>" for x in items)
+        return f"<div style='background:#f6f3ff;border:1px solid #e4dcff;border-radius:10px;padding:12px 16px;margin:8px 0 10px'>{rows}</div>"
+    return _re.sub(r"(?:•[^<]*(?:<a\b[^>]*>.*?</a>[^<]*)*(?:<br>\s*)?){2,}", rep, body_html)
+
+
+def auto_cta(body_html: str):
+    """ปุ่มหลักจากลิงก์แรกที่สำคัญในเนื้อหา (ใบเสนอราคา/ผลตรวจ/เข้าสู่ระบบ ...) — ไม่ใช้ลิงก์ไม่รับ"""
+    for u in _re.findall(r"https?://[^\s<>'\"]+", body_html or ""):
+        u = u.rstrip(".,)")
+        if "/u/" in u:
+            continue
+        for key, label in _CTA_RULES:
+            if key in u:
+                return label, u
+    return None
+
+
+def button(label: str, url: str) -> str:
+    """ปุ่มแบบตาราง (bulletproof) — Outlook/Gmail แสดงเหมือนกัน"""
+    return (f"<table role='presentation' cellspacing='0' cellpadding='0' border='0' align='center' style='margin:26px auto 6px'><tr>"
+            f"<td bgcolor='#7132f5' style='border-radius:10px'><a href='{url}' style='display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;"
+            f"color:#ffffff;text-decoration:none;border-radius:10px;font-family:Sarabun,Tahoma,sans-serif'>{_h.escape(label)}</a></td></tr></table>")
+
+
+def wrap_html(title: str, body_html: str, footer: str = "", cta=None, preheader: str = "") -> str:
+    """กรอบอีเมลของเจอ.AI — แบนเนอร์แบรนด์ · หัวเรื่องกลาง · เนื้อหา · ปุ่มหลัก (เดาจากลิงก์ถ้าไม่ระบุ · cta=False = ไม่ใส่)
+    · ท้ายจดหมาย "ขอบคุณที่ใช้บริการ" + ข้อมูลบริษัท · ลิงก์ไม่รับย้ายไปท้ายสุดตัวเล็ก · inline style ทั้งหมด (client อีเมลไม่โหลด CSS ภายนอก)"""
+    base, co = _base_url(), _company()
+    unsub = ""
+    m = _UNSUB.search(body_html or "")
+    if m:
+        unsub = m.group(1)
+        body_html = (body_html[:m.start()] + body_html[m.end():]).rstrip()
+        body_html = _re.sub(r"(<br>\s*)+(</p>)?\s*$", r"\2", body_html)
+    if cta is None:
+        cta = auto_cta(body_html)
+    body = _boxes(_linkify(body_html))
+    btn = button(*cta) if cta else ""
+    info = " · ".join(x for x in [co["address"], ("โทร " + co["phone"]) if co["phone"] else "", co["email"]] if x)
+    tax = f"<br>เลขประจำตัวผู้เสียภาษี {_h.escape(co['tax_id'])}" if co["tax_id"] else ""
+    pre = f"<div style='display:none;max-height:0;overflow:hidden;opacity:0'>{_h.escape(preheader)}</div>" if preheader else ""
+    unsub_html = (f"<br>ไม่ต้องการรับอีเมลจากเรา <a href='{unsub}' style='color:#8a8a99'>กดที่นี่</a> เราจะไม่ติดต่ออีก") if unsub else ""
+    return f"""<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{_h.escape(title)}</title></head>
+<body style="margin:0;padding:0;background:#f3f1fb;font-family:Sarabun,'Segoe UI',Tahoma,sans-serif;color:#1c1c2b">{pre}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f1fb"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden">
+  <tr><td bgcolor="#2a1670" style="background:#2a1670"><a href="{base}" style="text-decoration:none"><img src="{base}{BANNER_PATH}" width="600" alt="เจอ.AI — ให้ลูกค้าหาคุณเจอใน Google และ AI"
+      style="display:block;width:100%;max-width:600px;height:auto;border:0;color:#ffffff;font-size:22px;font-weight:700;line-height:60px;text-align:center"></a></td></tr>
+  <tr><td style="padding:34px 40px 8px;text-align:center"><h1 style="margin:0;font-size:23px;line-height:1.4;color:#1c1c2b;font-weight:700">{title}</h1></td></tr>
+  <tr><td style="padding:18px 40px 6px;font-size:16px;line-height:1.75;color:#2d2d3d">{body}{btn}</td></tr>
+  <tr><td style="padding:22px 40px 30px;text-align:right;font-size:15px;line-height:1.6;color:#2d2d3d"><b>ขอบคุณที่ใช้บริการ</b><br>จาก ทีมงาน เจอ.AI</td></tr>
+  <tr><td bgcolor="#efeaff" style="background:#efeaff;padding:22px 30px;text-align:center;font-size:13px;line-height:1.7;color:#4b4b63">
+      <div style="font-size:16px;font-weight:700;color:#4a23b8">{_h.escape(co['name'])}</div>{_h.escape(info)}{tax}
+      <div style="margin-top:8px"><a href="{base}" style="color:#5b2bd9;text-decoration:none;font-weight:600">geo.appreview.cloud</a></div></td></tr>
+</table>
+<div style="max-width:600px;color:#8a8a99;font-size:12px;line-height:1.6;padding:14px 10px;text-align:center">{footer}{unsub_html}</div>
+</td></tr></table></body></html>"""

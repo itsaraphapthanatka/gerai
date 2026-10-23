@@ -15,7 +15,8 @@ from . import db, execs, geo_content, line_oa, wp_client
 from . import office
 
 CHANNELS = {"line": "LINE OA", "facebook": "Facebook Page"}
-POST_KINDS = {"article": "บทความใหม่", "audit_cta": "ชวนตรวจเว็บฟรี", "case_study": "เคสศึกษา"}
+POST_KINDS = {"article": "บทความใหม่", "audit_cta": "ชวนตรวจเว็บฟรี", "case_study": "เคสศึกษา",
+              "insight": "สถิติจากการตรวจจริง", "ai_test": "ลองถาม AI จริง", "tip": "เคล็ดลับเช็กเอง"}
 WEEKLY_DEFAULT = 3
 GRAPH = "https://graph.facebook.com/v21.0"
 SRC = {"line": "line", "facebook": "fb"}
@@ -124,6 +125,25 @@ def fb_longlive(token: str, page_id: str = "") -> tuple[str, str]:
     return long_tok, "แลกเป็น token อายุยาวแล้ว"
 
 
+def fb_accounts(token: str) -> list[dict]:
+    """เพจที่ user token นี้ดูแล (พร้อม page token ของแต่ละเพจ) · token ของเพจเองจะได้ [] """
+    try:
+        r = httpx.get(f"{GRAPH}/me/accounts", params={"fields": "id,name,access_token,tasks", "access_token": token}, timeout=20)
+        return ((r.json() or {}).get("data") or []) if r.status_code < 400 else []
+    except Exception:
+        return []
+
+
+def fb_pick_page(token: str, want_id: str = "") -> tuple[dict | None, list[dict]]:
+    """ได้ user token มา → เลือกเพจ: ตรง Page ID ที่ต้องการ > มีเพจเดียว > ชื่อเพจมี "เจอ" · คืน (เพจที่เลือก, เพจทั้งหมด)"""
+    pages = fb_accounts(token)
+    if not pages:
+        return None, []
+    pick = (next((p for p in pages if p.get("id") == want_id), None) or (pages[0] if len(pages) == 1 else None)
+            or next((p for p in pages if "เจอ" in (p.get("name") or "")), None))
+    return pick, pages
+
+
 def save_config(on: bool, weekly_n: str, line: bool, fb_page_id: str, fb_token: str, fb_app_id: str = "", fb_app_secret: str = "") -> str:
     """บันทึก · token ใหม่ → แปลงเป็นถาวร (ถ้ามี App ID/secret) → ถาม Graph ว่าเป็นเพจไหนแล้วใช้ Page ID จริง → เช็กสิทธิ์/วันหมดอายุ"""
     db.set_setting("cmo_enabled", "1" if on else "0")
@@ -160,6 +180,17 @@ def save_config(on: bool, weekly_n: str, line: bool, fb_page_id: str, fb_token: 
     if not ident:
         db.set_setting("fb_token_valid", "0")
         return "บันทึกแล้ว แต่โทเค็นในระบบใช้ไม่ได้ (Graph ไม่รู้จัก) — วางโทเค็นใหม่" + (" · " + " · ".join(notes) if notes else "")
+    pick, pages = fb_pick_page(token, (fb_page_id.strip() or db.get_setting("fb_page_want") or "").strip())
+    if pages:                                    # วาง user token (ของบัญชีส่วนตัว) มา — โพสต์ด้วยตัวนี้ไม่ได้ ต้องใช้ token ของเพจ
+        if not pick or not pick.get("access_token"):
+            db.set_setting("fb_token_valid", "0")
+            return ("บันทึกแล้ว แต่โทเค็นนี้เป็นของบัญชีส่วนตัว ดูแล " + str(len(pages)) + " เพจ: "
+                    + ", ".join(f"{p.get('name')} (ID {p.get('id')})" for p in pages) + " — กรอก Page ID ของเพจที่จะโพสต์แล้วบันทึกอีกครั้ง")
+        token = pick["access_token"]
+        db.set_setting("fb_page_token", wp_client.encrypt(token))
+        ident = {"id": pick["id"], "name": pick.get("name") or ""}
+        notes.append(f"โทเค็นที่วางเป็นของบัญชีส่วนตัว — เลือกเพจ {ident['name']} และใช้ token ของเพจแทนให้แล้ว")
+    db.set_setting("fb_page_want", ident["id"])
     db.set_setting("fb_token_valid", "1")
     db.set_setting("fb_page_id", ident["id"])
     db.set_setting("fb_page_name", ident["name"])
@@ -360,8 +391,10 @@ def case_study_text(brand, m: dict, named: bool, llm=None) -> dict:
     """เคสศึกษาสั้น ๆ จากตัวเลขจริงเท่านั้น (ห้ามแต่งตัวเลข ห้ามการันตี) · ไม่ได้รับอนุญาตใช้ชื่อ → เรียกตามประเภทธุรกิจ"""
     who = brand["name"] if named else (f"ธุรกิจ{m['market']}" if m.get("market") else "ลูกค้ารายหนึ่ง")
     facts = [f"ลูกค้า: {who}", f"ใช้บริการมา {m['days']} วัน", f"เผยแพร่คอนเทนต์ตอบคำถามลูกค้าแล้ว {m['published']} ชิ้น"]
-    if m.get("sov_first") is not None and m.get("sov_last") is not None:
-        facts.append(f"การมองเห็นในคำตอบ AI จาก {m['sov_first']} เป็น {m['sov_last']}")
+    sf, sl = m.get("sov_first"), m.get("sov_last")
+    if sf is not None and sl is not None and sl > sf:                 # บอกเฉพาะเมื่อดีขึ้นจริง และเป็นเปอร์เซ็นต์ที่คนอ่านรู้เรื่อง
+        pct = lambda v: f"{v * 100:.0f}%" if v <= 1 else f"{v:.0f}"
+        facts.append(f"การมองเห็นในคำตอบ AI จาก {pct(sf)} เป็น {pct(sl)}")
     if m.get("health_ok") is not None:
         facts.append(f"สุขภาพเว็บผ่าน {m['health_ok']} ข้อ ตก {m['health_fail']} ข้อ")
     fallback = {"title": f"เคสจริง: {who} กับการทำให้ AI รู้จักธุรกิจ",
@@ -388,8 +421,10 @@ def case_study_text(brand, m: dict, named: bool, llm=None) -> dict:
 def publish_post(post) -> str:
     """ส่งโพสต์จริงตามช่องทาง · คืนข้อความผล (บันทึกสถานะที่แถว posts ด้วย)"""
     try:
+        image = post["image"] if "image" in post.keys() else None
         if post["channel"] == "line":
-            ok = line_oa.broadcast([post["text"]])
+            ok = (line_oa.broadcast_messages([{"type": "image", "originalContentUrl": image, "previewImageUrl": image}, {"type": "text", "text": post["text"][:5000]}])
+                  if image else line_oa.broadcast([post["text"]]))
             if not ok:
                 raise RuntimeError("LINE broadcast ไม่สำเร็จ (โควตาหมดหรือ token ผิด)")
             ext = "line-broadcast"
@@ -397,7 +432,7 @@ def publish_post(post) -> str:
             cfg = fb_config()
             if not cfg:
                 raise RuntimeError("ยังไม่ตั้ง Facebook Page")
-            ext = fb_post(cfg, post["text"], post["link"])
+            ext = fb_photo(cfg, post["text"], image) if image else fb_post(cfg, post["text"], post["link"])
         else:
             raise RuntimeError("ไม่รู้จักช่องทาง")
     except Exception as e:
@@ -416,6 +451,15 @@ def fb_post(cfg: dict, message: str, link: str | None) -> str:
     if r.status_code >= 400 or "id" not in body:
         raise RuntimeError((body.get("error") or {}).get("message") or f"Facebook HTTP {r.status_code}")
     return body["id"]
+
+
+def fb_photo(cfg: dict, message: str, image_url: str) -> str:
+    """โพสต์รูป + ข้อความ (ลิงก์ในข้อความกดได้) — คนหยุดดูรูปมากกว่าการ์ดลิงก์เปล่า"""
+    r = httpx.post(f"{GRAPH}/{cfg['page_id']}/photos", data={"url": image_url, "message": message, "access_token": cfg["token"]}, timeout=40)
+    body = r.json() if r.content else {}
+    if r.status_code >= 400 or not (body.get("post_id") or body.get("id")):
+        raise RuntimeError((body.get("error") or {}).get("message") or f"Facebook HTTP {r.status_code}")
+    return body.get("post_id") or body["id"]
 
 
 def fb_test_post() -> str:
@@ -438,6 +482,8 @@ def fb_test_post() -> str:
 def _propose(channel: str, kind: str, c: dict) -> int:
     from . import pipeline
     pid = db.add_post(channel, kind, c.get("content_id"), c["title"], c["text"], c.get("link"))
+    if c.get("image"):
+        db.update_post(pid, image=c["image"])
     title = f"โพสต์ {POST_KINDS[kind]} ทาง {CHANNELS[channel]}: {c['title'][:60]}"
     did = db.add_decision("cmo", "post", title, c["text"], {"post_id": pid, "channel": channel, "kind": kind, "content_id": c.get("content_id")})
     db.update_post(pid, decision_id=did)
@@ -456,19 +502,35 @@ def propose_posts(now: datetime.datetime | None = None) -> dict:
     articles = [i for i in (db.list_content(b["id"]) if b else []) if i["status"] == "published"]
     done = db.posted_keys()
     out = {"proposed": 0, "by_channel": {}}
+    from . import post_studio as PS
+    iso = now.isocalendar()
+    week_key = iso[0] * 100 + iso[1]
     for ch in channels():
         budget = weekly() - db.count_posts_since(ch, wk)
         n = 0
-        for it in articles:
+        cta = audit_link(SRC.get(ch, ch))
+        tip_idx = sum(1 for k in done if k[0] == ch and k[1] == "tip")
+        plan = [("insight", None)]
+        if not db.count_posts_since(ch, (now - datetime.timedelta(days=14)).isoformat(timespec="seconds"), kind="ai_test"):
+            plan.append(("ai_test", None))
+        plan += [("tip", None)] + [("article", it) for it in articles if (ch, "article", it["id"]) not in done][:2]
+        for kind, it in plan:
             if budget <= 0:
                 break
-            if (ch, "article", it["id"]) in done:
+            if kind == "insight" and (ch, "insight", week_key) in done:
                 continue
-            _propose(ch, "article", write_post(ch, "article", it, llm=_LLM))
+            if db.count_posts_since(ch, wk, kind=kind) and kind in ("insight", "tip"):
+                continue
+            c = PS.make(kind, ch, cta, _base(), idx=tip_idx, llm=_LLM, article=it)
+            if not c:
+                continue
+            if kind == "insight":
+                c["content_id"] = week_key
+            if (ch, kind, c.get("content_id")) in done:
+                continue
+            _propose(ch, kind, c)
+            done.add((ch, kind, c.get("content_id")))
             budget -= 1
-            n += 1
-        if budget > 0 and not db.count_posts_since(ch, wk, kind="audit_cta"):
-            _propose(ch, "audit_cta", compose(ch, "audit_cta"))
             n += 1
         out["by_channel"][ch] = n
         out["proposed"] += n
@@ -485,7 +547,7 @@ def propose_case_studies(now: datetime.datetime | None = None, llm=None) -> int:
         if sb and b["id"] == sb["id"]:
             continue
         m = metrics_for(b)
-        if m["days"] >= 28 and m["published"] > 0:
+        if m["days"] >= 28 and m["published"] >= 3:
             cands.append((b, m))
     if not cands:
         return 0

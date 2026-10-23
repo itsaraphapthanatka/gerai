@@ -281,6 +281,25 @@ def run(limit: int | None = None, search=None, contact=None) -> dict:
                             + (f" · {c['line']}" if c.get("line") else ""), "prospecting")
         else:
             pipeline.record(lid, "no_contact", "ไม่พบอีเมลธุรกิจบนเว็บ — เพิ่มช่องทางเองที่หน้าลูกค้า แล้วกดให้ CEO เสนอ", "prospecting")
+        mob = ""
+        if not c.get("email"):                           # ไม่มีอีเมล → หามือถือบนเว็บไว้ส่ง SMS (และใช้ในบทโทร)
+            try:
+                from . import closer, sms
+                ph = closer.find_phone(db.get_lead(lid))
+                if ph:
+                    d = closer._data(db.get_lead(lid)); d["phone"] = ph; d["phone_at"] = db.now(); closer._save(lid, d)
+                    mob = sms.mobile(ph)
+                    pipeline.record(lid, "contact_found", f"เบอร์ {closer.fmt_phone(ph)}" + (" (มือถือ ส่ง SMS ได้)" if mob else " (เบอร์บ้าน ใช้โทร)"), "prospecting")
+            except Exception:
+                pass
+        if not c.get("email") and mob:
+            try:
+                from . import sms
+                if sms.available() and pipeline.ceo_propose(db.get_lead(lid)):
+                    out["proposed"] += 1
+                    out["with_sms"] = out.get("with_sms", 0) + 1
+            except Exception:
+                out["errors"] += 1
         if c.get("email"):
             out["with_email"] += 1
             try:

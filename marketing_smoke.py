@@ -53,8 +53,11 @@ print("compose: บทความ+ลิงก์ติดรหัสช่อ
 # ---- เสนอโพสต์ (LINE พร้อม, Facebook ยังไม่มี) → รอคน · โควตา · ไม่ซ้ำ ----
 LO.save_config("tok", "sec")
 assert MK.channels() == ["line"]
+import app.post_studio as PS
+PS.RENDER = lambda h: (_ for _ in ()).throw(RuntimeError("no render"))          # การ์ดรูปทดสอบแยกใน post_smoke
+MK._LLM = lambda m: json.dumps({"hook": "ลองเช็กเว็บของคุณดูสักนิด", "bullets": ["ข้อแรกที่ควรดู", "ข้อสองที่มักพลาด", "ข้อสามที่แก้ง่าย"], "question": "เว็บคุณเป็นแบบไหน", "hashtags": ["#SEO", "#AI"]})
 res = MK.run(llm=lambda m: "{}")
-assert res["proposed"] == 3 and res["by_channel"] == {"line": 3}, res                                   # 2 บทความ + ชวนตรวจ 1
+assert res["proposed"] == 3 and res["by_channel"] == {"line": 3}, res                                   # 2 บทความ + เคล็ดลับ 1 (ยังไม่มีสถิติพอทำ insight)
 pend = [d for d in db.list_decisions("proposed") if d["kind"] == "post"]; assert len(pend) == 3 and all(d["agent"] == "cmo" for d in pend)
 assert MK.run(llm=lambda m: "{}")["proposed"] == 0                                                       # รอบถัดไป: ครบโควตา 3/สัปดาห์ และไม่ซ้ำ
 r = a.get("/admin/decisions"); assert "โพสต์การตลาด" in r.text and "CMO" in r.text
@@ -83,6 +86,20 @@ MK.fb_identity = lambda token: {"id": "1234567890", "name": "เพจทดส�
 r = a.post("/admin/marketing/settings", data={"enabled": "1", "weekly": "5", "line": "1", "fb_page_id": "", "fb_token": "EAAshort", "fb_app_id": "9999", "fb_app_secret": "appsecret"})
 assert "แปลงเป็น token ถาวรของเพจ เพจทดสอบ" in r.text and "ไม่หมดอายุ" in r.text and MK.fb_config()["token"] == "EAApagetoken" and "ขาดสิทธิ์" not in r.text, r.text[-400:]
 r = a.get("/admin/marketing"); assert "ไม่หมดอายุ" in r.text and "pages_manage_posts" in r.text
+# วาง user token ของบัญชีส่วนตัว (แลกอายุยาวไม่ได้) → ต้องเลือกเพจและใช้ page token ไม่ใช่ตั้ง Page ID เป็นโปรไฟล์คน
+_saved = (MK.fb_longlive, MK.fb_identity, MK.fb_accounts)
+MK.fb_longlive = lambda tok, pid="": (tok, "แลก token อายุยาวไม่สำเร็จ — ใช้ตามที่วาง")
+MK.fb_identity = lambda token: {"id": "555", "name": "คนดูแลเพจ", "link": ""} if token == "EAAuser" else ({"id": "1234567890", "name": "เพจทดสอบ", "link": ""} if token == "EAApage2" else None)
+MK.fb_accounts = lambda token: [{"id": "1234567890", "name": "เพจทดสอบ", "access_token": "EAApage2"}, {"id": "777", "name": "อีกเพจ", "access_token": "EAAx"}] if token == "EAAuser" else []
+r = a.post("/admin/marketing/settings", data={"enabled": "1", "weekly": "5", "line": "1", "fb_page_id": "", "fb_token": "EAAuser"})
+assert db.get_setting("fb_page_id") == "1234567890" and MK.fb_config()["token"] == "EAApage2" and "บัญชีส่วนตัว" in r.text, r.text[-300:]
+db.set_setting("fb_page_want", "")
+r = a.post("/admin/marketing/settings", data={"enabled": "1", "weekly": "5", "line": "1", "fb_page_id": "", "fb_token": "EAAuser"})
+assert "กรอก Page ID" in r.text and db.get_setting("fb_page_id") != "555"                                     # หลายเพจ ไม่รู้จะเลือกอันไหน → ถาม
+r = a.post("/admin/marketing/settings", data={"enabled": "1", "weekly": "5", "line": "1", "fb_page_id": "1234567890", "fb_token": "EAAuser"})
+assert MK.fb_config()["token"] == "EAApage2" and db.get_setting("fb_page_id") == "1234567890"
+MK.fb_longlive, MK.fb_identity, MK.fb_accounts = _saved
+db.set_setting("fb_page_token", MK.wp_client.encrypt("EAApagetoken"))
 # วางโทเค็นที่คัดลอกมาไม่ครบ → ไม่ทับของเดิม
 r = a.post("/admin/marketing/settings", data={"enabled": "1", "weekly": "5", "line": "1", "fb_page_id": "", "fb_token": "EAAbroken"})
 assert "คงโทเค็นเดิมไว้" in r.text and MK.fb_config()["token"] == "EAApagetoken"
@@ -125,7 +142,8 @@ tid2 = db.create_tenant("cust@shop.co.th", bcrypt.hashpw(b"x", bcrypt.gensalt())
 b2 = db.create_brand(tid2, "ร้านบี", "https://shopb.co.th", "เสื้อผ้า")
 with db.get_conn() as cx:
     cx.execute(db.q("UPDATE brands SET created_at=? WHERE id=?"), ("2026-01-01T00:00:00", b2)); cx.commit()
-cid = db.create_content_item(b2, None, "th", "บทความลูกค้า", "t", "d", good_body, faq, "test"); db.mark_content_published(cid, None, "x")
+for _i in range(3):                                                                                        # เคสศึกษาต้องมีงานเผยแพร่ ≥ 3 ชิ้น
+    cid = db.create_content_item(b2, None, "th", f"บทความลูกค้า {_i}", "t", "d", good_body, faq, "test"); db.mark_content_published(cid, None, "x")
 n = MK.propose_case_studies(llm=lambda m: json.dumps({"title": "เคสจริง: ธุรกิจเสื้อผ้า", "body": "เผยแพร่ 1 ชิ้นใน 29x วัน ไม่มีการันตี ตัวเลขจากระบบวัดจริง"}))
 assert n == 2 and MK.propose_case_studies(llm=lambda m: "{}") == 0                                        # เดือนละครั้งต่อช่องทาง
 posts_cs = [p for p in db.list_posts(50) if p["kind"] == "case_study"]; assert len(posts_cs) == 2 and "ร้านบี" not in posts_cs[0]["text"]

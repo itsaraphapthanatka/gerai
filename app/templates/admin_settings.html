@@ -167,6 +167,24 @@
     SerpApi: สมัครที่ <code>serpapi.com</code> → Your Account → API Key · แผนฟรี 100 search/เดือน (พอทดลอง 1 แบรนด์ 6 คำถาม × 2 แบบ ≈ 12/รอบ) · บันทึกแล้วไปที่แบรนด์ → "Google AI Overview / AI Mode" → เช็คแบรนด์เดียวก่อน
   </div>
 </div>
+<div class="card" style="margin-bottom:14px">
+  <h2 style="margin-top:0;font-size:16px">SMS (ThaiBulkSMS)</h2>
+  <p class="muted" style="font-size:12.5px;margin-top:0">ช่องทางสุดท้ายถึงลีดที่มีแต่เบอร์มือถือ (ไม่มีอีเมล/LINE) · ส่งเฉพาะ 08:00–20:00 นอกเวลาค้างไว้ส่งรอบถัดไป · ทุกข้อความมีลิงก์ไม่รับ · สมัครและสร้าง API key ที่ thaibulksms.com → Developer (ชื่อผู้ส่งต้องลงทะเบียนในบัญชีก่อน)</p>
+  {% if sms_test %}<div class="ok-banner" style="margin-bottom:10px;{{ '' if sms_test.startswith('✓') else 'background:var(--danger-subtle);color:var(--danger-text)' }}">{{ sms_test }}</div>{% endif %}
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">สถานะ: {{ 'ตั้งค่าแล้ว ' ~ sms.key_preview if sms.ready else 'ยังไม่ได้ตั้งค่า' }}{% if sms_balance %} · {{ sms_balance }}{% endif %} · วันนี้ส่งแล้ว {{ sms.today }}/{{ sms.daily }}</div>
+  <form method="post" action="/admin/settings/sms">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="on" value="1" {% if sms.on %}checked{% endif %}> เปิดใช้ SMS เป็นช่องทางทักลีด (คนที่ให้เบอร์ไว้เองผ่านหน้าตรวจฟรี/LINE)</label>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:6px"><input type="checkbox" name="prospects" value="1" {% if sms.prospects %}checked{% endif %}> ส่งถึงลีดที่ระบบหาเองด้วย (เบอร์มือถือจากเว็บของเขา) <span class="muted" style="font-size:12px">— SMS โฆษณาถึงเบอร์ที่ไม่ได้ให้ความยินยอมเสี่ยงผิดประกาศ กสทช. และ PDPA เปิดเมื่อคุณยอมรับความเสี่ยงนี้แล้ว</span></label>
+    <label style="margin-top:10px">API Key</label><input type="password" name="api_key" autocomplete="off" placeholder="{{ 'เว้นว่าง = คงค่าเดิม' if sms.ready else '' }}">
+    <label style="margin-top:10px">API Secret</label><input type="password" name="api_secret" autocomplete="off" placeholder="{{ 'เว้นว่าง = คงค่าเดิม' if sms.ready else '' }}">
+    <label style="margin-top:10px">ชื่อผู้ส่ง (ภาษาอังกฤษ ไม่เกิน 11 ตัว ต้องลงทะเบียนแล้ว)</label><input type="text" name="sender" value="{{ sms.sender }}" maxlength="11">
+    <label style="margin-top:10px">เพดานต่อวัน</label><input type="number" name="daily" min="0" max="500" value="{{ sms.daily }}" style="max-width:120px">
+    <div style="margin-top:14px"><button type="submit">บันทึก</button></div>
+  </form>
+  {% if sms.ready %}<form method="post" action="/admin/settings/sms/test" style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input type="text" name="phone" placeholder="เบอร์มือถือของคุณ" style="max-width:200px"><button type="submit" class="btn ghost sm">ทดสอบส่ง</button></form>{% endif %}
+</div>
+
 <div class="card">
   <h2>LINE Official Account — ลูกค้าทักมาตรวจเว็บเอง · แจ้งเตือนเจ้าของ <span class="pill {{ 'ok' if line.ready else '' }}" style="font-size:10px">{{ line.status }}</span></h2>
   <p class="muted" style="margin:0 0 12px">
@@ -253,6 +271,10 @@
     <input type="text" name="address" value="{{ company.address }}" placeholder="ที่อยู่สำหรับออกเอกสาร">
     <label style="margin-top:12px">เลขประจำตัวผู้เสียภาษี</label>
     <input type="text" name="tax_id" value="{{ company.tax_id }}" placeholder="13 หลัก (ไม่บังคับ)">
+    <label style="margin-top:12px">เบอร์โทร (แสดงท้ายอีเมลถึงลูกค้า)</label>
+    <input type="text" name="phone" value="{{ company.phone }}" placeholder="เช่น 02-123-4567">
+    <label style="margin-top:12px">อีเมลติดต่อ (แสดงท้ายอีเมลถึงลูกค้า)</label>
+    <input type="text" name="email" value="{{ company.email }}" placeholder="เช่น hello@appreview.cloud">
     <label style="margin-top:12px">ผู้ลงนามฝั่งผู้ให้บริการ</label>
     <input type="text" name="signer" value="{{ company.signer }}" placeholder="ชื่อ-ตำแหน่ง">
     <label style="margin-top:12px;display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="contract_reviewed" value="1" {% if company.contract_reviewed %}checked{% endif %}> ทนาย/ที่ปรึกษากฎหมายตรวจสัญญามาตรฐานแล้ว (เอาป้าย "ร่าง" ออก)</label>

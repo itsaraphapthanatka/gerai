@@ -153,6 +153,10 @@ def send_channel(lead) -> str:
         return f"อีเมล {lead['email']}"
     if lead["line_user_id"]:
         return "LINE (แชตที่ลูกค้าทักมา)"
+    from . import sms
+    m = sms.lead_mobile(lead)
+    if m and sms.available():
+        return f"SMS {m[:3]}-{m[3:6]}-{m[6:]}"
     return ""
 
 
@@ -163,6 +167,15 @@ def _send_text(lead, subject: str, body: str) -> str:
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
     if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
         return "ส่งทาง LINE แล้ว"
+    from . import sms
+    m = sms.lead_mobile(lead)
+    if m and sms.available():
+        try:
+            return sms.send(m, sms.compact(subject, body, unsubscribe_url(lead)))   # QuietHours โยนต่อ → ข้อเสนอค้างไว้ส่งรอบถัดไป
+        except sms.QuietHours:
+            raise
+        except RuntimeError:
+            return ""
     return ""
 
 

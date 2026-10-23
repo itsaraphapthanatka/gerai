@@ -385,6 +385,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
         _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
+        _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
         _ensure_column(c, "leads", "call_json", "TEXT")                # บทโทรปิดดีล: เบอร์ที่หาได้ + ผลโทรแต่ละครั้ง
         _ensure_column(c, "brands", "case_study_ok", "INTEGER DEFAULT 0")   # อนุญาตให้ใช้ชื่อแบรนด์ในเคสศึกษาของเจอ.AI
         _ensure_column(c, "brands", "autopilot_content", "INTEGER DEFAULT 1")    # เขียนคอนเทนต์กี่ชิ้นต่อรอบ (0 = วัดอย่างเดียว)
@@ -1426,7 +1427,7 @@ def set_brand_case_study(brand_id: int, ok: bool) -> None:
 
 
 # ---- โพสต์การตลาด (CMO) ----
-POST_FIELDS = {"status", "decision_id", "published_at", "external_id", "result", "text", "title", "link"}
+POST_FIELDS = {"status", "decision_id", "published_at", "external_id", "result", "text", "title", "link", "image"}
 
 
 def add_post(channel: str, kind: str, content_id, title: str, text: str, link: str | None, status: str = "proposed") -> int:

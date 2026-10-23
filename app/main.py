@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -602,6 +602,8 @@ def admin_decision_approve(request: Request, did: int):
     try:
         result = _execute_decision(d, who)
         db.set_decision(did, "executed", who, result)
+    except sms.QuietHours:
+        return _redirect("/admin/decisions?notice=ตอนนี้นอกเวลาส่ง SMS (08:00–20:00) — ข้อเสนอยังค้างอยู่ กดอนุมัติอีกครั้งหลัง 08:00 (ถ้าเรื่องนี้ตัดสินเอง ระบบส่งให้รอบ 08:00)")
     except Exception as e:
         db.set_decision(did, "approved", who, f"อนุมัติแล้วแต่ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
         result = f"ทำไม่สำเร็จ: {type(e).__name__}"
@@ -631,6 +633,7 @@ def admin_digest_run(request: Request):
 def _company() -> dict:
     return {"name": db.get_setting("company_name") or "", "address": db.get_setting("company_address") or "",
             "tax_id": db.get_setting("company_tax_id") or "", "signer": db.get_setting("company_signer") or "",
+            "phone": db.get_setting("company_phone") or "", "email": db.get_setting("company_email") or "",
             "contract_reviewed": db.get_setting("contract_reviewed") == "1"}
 
 
@@ -3014,6 +3017,7 @@ def _settings_ctx(request: Request, saved=False, error=None):
     from . import followup as _fu
     return {
         "followup_on": _fu.enabled(),
+        "sms": sms.public_config(), "sms_balance": sms.balance() if sms.config() else "",
         "cs_on": (db.get_setting("cs_on") or "1") == "1",
         "ppid": ppid, "ppname": ppname,
         "qr": promptpay.qr_data_uri(ppid, 100) if ppid else None,
@@ -3329,13 +3333,15 @@ def admin_settings_stripe_webhook(request: Request):
 
 @app.post("/admin/settings/company")
 def admin_settings_company(request: Request, name: str = Form(""), address: str = Form(""), tax_id: str = Form(""),
-                           signer: str = Form(""), contract_reviewed: str = Form("")):
+                           signer: str = Form(""), contract_reviewed: str = Form(""), phone: str = Form(""), email: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
     db.set_setting("company_name", name.strip()[:160])
     db.set_setting("company_address", address.strip()[:300])
     db.set_setting("company_tax_id", tax_id.strip()[:20])
     db.set_setting("company_signer", signer.strip()[:160])
+    db.set_setting("company_phone", phone.strip()[:40])                 # ท้ายอีเมลถึงลูกค้า
+    db.set_setting("company_email", email.strip()[:120])
     db.set_setting("contract_reviewed", "1" if contract_reviewed else "0")
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
@@ -3531,3 +3537,24 @@ def admin_call_log(request: Request, lead_id: int, outcome: str = Form(""), note
     except ValueError as e:
         note_ = str(e)
     return _redirect(f"/admin/calls?notice={lead['domain']}: {note_}")
+
+
+# ---------- SMS (ThaiBulkSMS): ช่องทางสุดท้ายถึงลีดที่มีแต่เบอร์มือถือ ----------
+@app.post("/admin/settings/sms")
+def admin_settings_sms(request: Request, api_key: str = Form(""), api_secret: str = Form(""), sender: str = Form(""), daily: str = Form("30"), on: str = Form(""),
+                       prospects: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    sms.save_config(api_key, api_secret, sender, daily, bool(on), bool(prospects))
+    return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
+
+
+@app.post("/admin/settings/sms/test")
+def admin_settings_sms_test(request: Request, phone: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    try:
+        msg = sms.send(phone, "เจอ.AI: ทดสอบส่ง SMS จากระบบ — ถ้าได้รับข้อความนี้ แปลว่าตั้งค่าถูกต้องแล้ว")
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True) | {"sms_test": "✓ " + msg})
+    except Exception as e:
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request) | {"sms_test": f"✗ {e}"})
