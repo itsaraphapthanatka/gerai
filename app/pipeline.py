@@ -196,6 +196,8 @@ def execute_decision(d, who: str) -> str:
             record(lead["id"], "note", "ส่งข้อความทักไม่สำเร็จ (ช่องทางไม่ตอบ) — ลองใหม่ได้จากหน้าลูกค้า", who)
             return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ สถานะยังเป็นเดิม"
         db.update_lead(lead["id"], status="contacted", last_contacted_at=db.now())
+        if pl.get("exp") and pl.get("arm") and sent.startswith("ส่งอีเมล"):
+            db.update_lead(lead["id"], exp_arm=f"{pl['exp']}:{pl['arm']}")          # นับเข้าการทดลองข้อความเฉพาะที่ส่งอีเมลจริง
         record(lead["id"], "contacted", sent, who)
         return sent
     if d["kind"] == "lead_review" and lead and pl.get("action") == "decline":

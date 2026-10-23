@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}การส่งอีเมล — เจอ.AI{% endblock %}
+{% block content %}
+{% set inp = "padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px" %}
+<h1>การส่งอีเมล</h1>
+<p class="muted">ให้อีเมลทักเข้ากล่องหลักจริง และหาข้อความที่ได้คนตอบมากที่สุด · ตรวจโดเมนผู้ส่ง{% if domain %} ({{ domain }}){% endif %} ทุกวัน 07:45 · ทดสอบกล่องจริงทุกวันจันทร์ · หยุดส่งเองเมื่อเด้ง &gt; {{ limits.bounce }}% ร้องเรียน &gt; {{ limits.complaint }}% หรือขอไม่รับ &gt; {{ limits.unsub }}%</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="ok-banner" style="background:var(--danger-subtle);color:var(--danger-text)">{{ error }}</div>{% endif %}
+{% if hold %}<div class="ok-banner" style="background:var(--danger-subtle);color:var(--danger-text)">⛔ หยุดส่งข้อความทัก/ติดตามผลอัตโนมัติอยู่: {{ hold }} — ข้อเสนอจะรอคุณอนุมัติ
+  <form method="post" action="/admin/deliverability/release" style="display:inline;margin-left:8px" onsubmit="return confirm('แก้สาเหตุแล้วใช่ไหม? ปลดแล้วระบบกลับไปส่งตามโหมดเดิม')"><button class="btn sm" type="submit">ปลดการหยุด</button></form></div>{% endif %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+  <form method="post" action="/admin/deliverability/run"><button class="btn sm" type="submit">ตรวจทั้งหมดตอนนี้</button></form>
+  <form method="post" action="/admin/deliverability/test"><button class="btn ghost sm" type="submit" {% if not seeds %}disabled title="เพิ่มกล่องทดสอบก่อน"{% endif %}>ส่งอีเมลทดสอบกล่อง</button></form>
+  <form method="post" action="/admin/deliverability/check"><button class="btn ghost sm" type="submit">ตรวจผลทดสอบ</button></form>
+  {% if last.at %}<span class="muted" style="font-size:12.5px;align-self:center">รอบล่าสุด {{ last.at[5:16].replace('T',' ') }}</span>{% endif %}
+</div>
+
+<h2>สัญญาณ {{ m.days }} วัน</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+  {% for lb, v, warn in [('ส่งอีเมลทัก/ติดตาม', m.sends, False), ('เด้ง', m.bounce_pct ~ '%', m.bounce_pct > limits.bounce), ('ร้องเรียนสแปม', m.complaint_pct ~ '%', m.complaint_pct > limits.complaint), ('ขอไม่รับ', m.unsub_pct ~ '%', m.unsub_pct > limits.unsub), ('เปิดรายงาน', m.open_pct ~ '%', False), ('ตอบกลับ', m.reply_pct ~ '%', False)] %}
+  <div class="card"><div class="muted" style="font-size:12px">{{ lb }}</div><div style="font-size:22px;font-weight:700;{% if warn %}color:#b42318{% endif %}">{{ v }}</div></div>
+  {% endfor %}
+</div>
+<p class="muted" style="font-size:12.5px">ส่งถึงปลายทาง (จาก Resend) {{ m.delivered }} ฉบับ · สุขภาพ: <b>{{ 'ดี' if healthy else 'ยังไม่ผ่าน' }}</b> ({{ healthy_why }}) · หาลูกค้าตอนนี้ {{ daily }} ราย/วัน (เพดาน {{ daily_max }})
+  <form method="post" action="/admin/deliverability/ramp" style="display:inline"><input type="hidden" name="on" value="{{ '' if ramp_on else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">{{ 'ปิดการเพิ่มจำนวนทักอัตโนมัติ' if ramp_on else 'เปิดการเพิ่มจำนวนทักอัตโนมัติ' }}</button></form></p>
+
+<h2>โดเมนผู้ส่ง</h2>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if dns['items'] %}<table><tbody>{% for i in dns['items'] %}
+    <tr><td style="white-space:nowrap"><span class="pill {{ 'ok' if i.status == 'ok' else ('no' if i.status == 'fail' else '') }}">{{ {'ok':'ผ่าน','fail':'ไม่ผ่าน','warn':'ควรดู'}.get(i.status) }}</span></td><td><b>{{ i.label }}</b></td><td class="muted" style="font-size:12.5px;word-break:break-all">{{ i.detail }}</td></tr>
+  {% endfor %}</tbody></table>
+  <div class="muted" style="font-size:12px;padding:8px 12px">ตรวจเมื่อ {{ (dns.at or '')[5:16].replace('T',' ') }}</div>
+  {% else %}<div class="muted" style="padding:16px">ยังไม่ได้ตรวจ — กด "ตรวจทั้งหมดตอนนี้"</div>{% endif %}
+</div>
+
+<h2>ทดสอบกล่องจริง</h2>
+<div class="card">
+  <p class="muted" style="font-size:13px;margin-top:0">ระบบส่งอีเมลหน้าตาเหมือนอีเมลทักล่าสุดไปกล่องของคุณเอง แล้วเข้าไปอ่าน (อ่านอย่างเดียว) ว่าอยู่กล่องหลัก แท็บโปรโมชัน หรือสแปม · Gmail ใช้ <b>รหัสผ่านแอป</b> (บัญชี Google → ความปลอดภัย → การยืนยันแบบ 2 ขั้นตอน → รหัสผ่านของแอป) ไม่ใช่รหัสผ่านปกติ · กรอกในฟอร์มนี้เท่านั้น อย่าส่งในแชต</p>
+  {% if seeds %}<table style="font-size:13px"><tbody>{% for s in seeds %}<tr><td><b>{{ s.label }}</b></td><td>{{ s.user }}</td><td class="muted">{{ s.host }}</td>
+    <td><form method="post" action="/admin/deliverability/seed_remove"><input type="hidden" name="sid" value="{{ s.id }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">ลบ</button></form></td></tr>{% endfor %}</tbody></table>{% endif %}
+  <form method="post" action="/admin/deliverability/seed" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:10px">
+    <input type="text" name="label" placeholder="ชื่อ เช่น Gmail ส่วนตัว" maxlength="40" style="{{ inp }}">
+    <input type="text" name="host" value="imap.gmail.com" placeholder="IMAP host" style="{{ inp }}">
+    <input type="email" name="user" placeholder="อีเมลกล่องทดสอบ" style="{{ inp }}">
+    <input type="password" name="password" placeholder="รหัสผ่านแอป" autocomplete="new-password" style="{{ inp }}">
+    <div><button class="btn ghost sm" type="submit">เพิ่มกล่องทดสอบ</button></div>
+  </form>
+  {% if tests %}<table style="font-size:13px;margin-top:12px"><thead><tr><th>ส่งเมื่อ</th><th>หัวข้อ</th><th>ผล</th></tr></thead><tbody>{% for t in tests %}
+    <tr><td class="muted" style="white-space:nowrap">{{ t.sent_at[5:16].replace('T',' ') }}</td><td style="font-size:12.5px">{{ t.subject[:60] }}</td>
+      <td>{% for r in t.results %}<span class="pill {{ 'ok' if r.place == 'inbox' else ('no' if r.place in ('spam','missing','error') else '') }}" title="{{ r.detail or '' }}">{{ r.label }}: {{ place_th.get(r.place, r.place) }}</span> {% endfor %}</td></tr>
+  {% endfor %}</tbody></table>{% endif %}
+</div>
+
+<h2>เด้งและร้องเรียนจาก Resend</h2>
+<div class="card">
+  <p class="muted" style="font-size:13px;margin-top:0">อีเมลเด้งและการกด "เป็นสแปม" ไม่ได้ตอบกลับมาที่กล่องของเรา Resend แจ้งผ่าน webhook · ตั้งที่ Resend → Webhooks → Add Endpoint ใส่ URL นี้ เลือก event <code>email.bounced</code> <code>email.complained</code> <code>email.delivered</code> แล้วคัดลอก Signing Secret มาวางด้านล่าง</p>
+  <input type="text" readonly value="{{ webhook_url }}" style="{{ inp }};width:100%" onclick="this.select()">
+  <form method="post" action="/admin/deliverability/webhook" style="display:flex;gap:8px;margin-top:8px">
+    <input type="password" name="secret" placeholder="{{ 'ตั้งแล้ว — วางใหม่เพื่อเปลี่ยน' if webhook_set else 'whsec_...' }}" autocomplete="new-password" style="{{ inp }};flex:1">
+    <button class="btn ghost sm" type="submit">บันทึก</button>
+  </form>
+  <div class="muted" style="font-size:12px;margin-top:6px">สถานะ: {{ 'ตั้งแล้ว' if webhook_set else 'ยังไม่ได้ตั้ง — ตอนนี้นับเด้งได้เฉพาะที่ตีกลับเข้ากล่อง report@' }}</div>
+</div>
+
+<h2>ทดลองข้อความทัก</h2>
+<div class="card">
+  <p class="muted" style="font-size:13px;margin-top:0">แบ่งลีดใหม่ครึ่งต่อครึ่ง ครึ่งหนึ่งได้แบบเดิม (A) อีกครึ่งได้แบบใหม่ (B) วัดจาก "เปิดรายงานหรือตอบกลับ" · ตัดสินเมื่อครบ {{ min_arm }} รายต่อแบบและต่างอย่างมีนัย หรือครบ {{ max_arm }} รายแล้วยังไม่ต่าง (คงแบบเดิม) · แบบที่ชนะใช้กับทุกอีเมลต่อจากนั้น</p>
+  <form method="post" action="/admin/deliverability/exp" style="margin-bottom:10px"><input type="hidden" name="on" value="{{ '' if exp_on else '1' }}"><button class="btn {{ 'ghost ' if exp_on }}sm" type="submit">{{ 'ปิดการทดลอง' if exp_on else 'เปิดการทดลองข้อความ' }}</button></form>
+  {% if exp and exp_stats %}
+  <div><b>กำลังทดลอง: {{ exp.title }}</b> <span class="muted">({{ exp.what }})</span></div>
+  <div class="muted" style="font-size:12.5px;margin:2px 0 8px">แบบ B: {{ exp.prompt }}</div>
+  <table style="font-size:13px"><thead><tr><th>แบบ</th><th>ส่ง</th><th>เปิดรายงาน/ตอบ</th><th>ตอบกลับ</th><th>ขอไม่รับ</th></tr></thead><tbody>
+    {% for k in ['A','B'] %}{% set a = exp_stats[k] %}<tr><td><b>{{ k }}</b>{{ ' (เดิม)' if k == 'A' else ' (ใหม่)' }}</td><td>{{ a.n }}</td><td>{{ a.engaged }} ({{ a.engaged_pct }}%)</td><td>{{ a.replied }} ({{ a.replied_pct }}%)</td><td>{{ a.unsub }} ({{ a.unsub_pct }}%)</td></tr>{% endfor %}
+  </tbody></table>
+  <div class="muted" style="font-size:12px;margin-top:4px">p = {{ exp_stats.p }} (ต่ำกว่า 0.05 = ต่างจริง)</div>
+  {% elif exp_on %}<div class="muted">ทดลองครบทุกเรื่องที่ตั้งไว้แล้ว</div>{% endif %}
+  {% if adopted %}<div style="margin-top:12px"><b>แนวที่ชนะและใช้อยู่</b>{% for a in adopted %}
+    <div style="font-size:13px;margin-top:4px">• {{ a.title }} <form method="post" action="/admin/deliverability/unadopt" style="display:inline"><input type="hidden" name="key" value="{{ a.key }}"><button class="btn ghost sm" type="submit" style="padding:1px 8px">เลิกใช้</button></form></div>{% endfor %}</div>{% endif %}
+  {% if results %}<div style="margin-top:12px"><b>ผลที่ผ่านมา</b>{% for r in results %}<div class="muted" style="font-size:12.5px;margin-top:3px">{{ r.at[:10] }} · {{ r.title }}: {{ r.verdict }} (A {{ r.stats.A.engaged_pct }}% ของ {{ r.stats.A.n }} · B {{ r.stats.B.engaged_pct }}% ของ {{ r.stats.B.n }})</div>{% endfor %}</div>{% endif %}
+  <div class="muted" style="font-size:12px;margin-top:10px">ลำดับการทดลอง: {% for e in experiments %}{{ loop.index }}. {{ e.title }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+</div>
+{% endblock %}

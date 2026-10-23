@@ -3522,6 +3522,89 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
 
 
+# ---------- ฝ่ายส่งอีเมล: โดเมนผู้ส่ง · ทดสอบกล่อง · กันสแปม · ทดลองข้อความ ----------
+@app.post("/resend/webhook")
+async def resend_webhook(request: Request):
+    """Resend ยิง event (เด้ง · ร้องเรียนสแปม · ส่งถึง) — ตรวจลายเซ็น Svix ก่อนเสมอ"""
+    from . import deliverability
+    body = await request.body()
+    if not deliverability.verify_svix(body, {k.lower(): v for k, v in request.headers.items()}):
+        return Response("bad signature", status_code=400)
+    try:
+        res = deliverability.handle_resend(json.loads(body or b"{}"))
+    except Exception as e:
+        res = f"error:{type(e).__name__}"
+    return JSONResponse({"ok": True, "result": res})
+
+
+def _deliv_ctx(notice: str = "", error: str = "") -> dict:
+    from . import deliverability as D, prospecting
+    e = D.active_experiment()
+    try:
+        last = json.loads(db.get_setting("deliv_last") or "{}")
+    except Exception:
+        last = {}
+    m = D.metrics()
+    ok, why = D.healthy(m)
+    return {"notice": notice, "error": error, "dns": D._json("deliv_dns", {}), "m": m, "healthy": ok, "healthy_why": why,
+            "hold": D.hold_reason(), "seeds": D.public_seeds(), "tests": list(reversed(D._json("deliv_tests", [])))[:6], "place_th": D.PLACE_TH,
+            "exp_on": D.exp_on(), "exp": e, "exp_stats": D.exp_stats(e["key"]) if e else None, "experiments": D.EXPERIMENTS,
+            "adopted": [D.EXP[k] for k in D.adopted() if k in D.EXP], "results": list(reversed(D._json("deliv_exp_results", []))),
+            "min_arm": D.MIN_ARM, "max_arm": D.MAX_ARM, "limits": D.LIMITS, "ramp_on": (db.get_setting("deliv_ramp") or "1") == "1",
+            "daily": prospecting.daily_limit(), "daily_max": prospecting.DAILY_MAX, "webhook_set": bool(D.webhook_secret()),
+            "webhook_url": f"{_public_base()}/resend/webhook", "last": last, "domain": D.sender_domain()}
+
+
+@app.get("/admin/deliverability")
+def admin_deliverability(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_deliverability.html", _deliv_ctx(notice))
+
+
+@app.post("/admin/deliverability/{action}")
+def admin_deliverability_action(request: Request, action: str, label: str = Form(""), host: str = Form(""), user: str = Form(""),
+                                password: str = Form(""), sid: str = Form(""), secret: str = Form(""), on: str = Form(""), key: str = Form("")):
+    from . import deliverability as D
+    if not _is_admin(request):
+        return _redirect("/login")
+    note, err = "", ""
+    if action == "run":
+        r = D.run()
+        note = "ตรวจแล้ว" + (f" · หยุดส่ง: {r['hold']}" if r.get("hold") else "") + (f" · เพิ่มหาลูกค้า {r['ramp']}" if r.get("ramp") else "")
+    elif action == "test":
+        t = D.send_placement_test()
+        note = t.get("error") or f"ส่งอีเมลทดสอบ {len(t['results'])} กล่องแล้ว — ระบบตรวจผลเองภายใน 10 นาที หรือกด \"ตรวจผลทดสอบ\""
+    elif action == "check":
+        note = f"ตรวจผลทดสอบแล้ว ({D.check_placement()} รายการเปลี่ยน)"
+    elif action == "seed":
+        err = D.save_seed(label, host, user, password)
+        note = "" if err else f"บันทึกกล่องทดสอบ {user} แล้ว (รหัสผ่านเข้ารหัสเก็บ ไม่แสดงอีก)"
+    elif action == "seed_remove":
+        D.remove_seed(sid)
+        note = "ลบกล่องทดสอบแล้ว"
+    elif action == "webhook":
+        err = D.save_webhook_secret(secret)
+        note = "" if err else "บันทึกรหัสลับ webhook ของ Resend แล้ว"
+    elif action == "release":
+        D.release_hold()
+        note = "ปลดการหยุดส่งแล้ว — ข้อความทัก/ติดตามผลกลับไปทำตามโหมดเดิม"
+    elif action == "exp":
+        db.set_setting("deliv_exp_on", "1" if on else "0")
+        note = "เปิดการทดลองข้อความแล้ว" if on else "ปิดการทดลองข้อความแล้ว — ทุกอีเมลใช้แนวที่ชนะแล้ว"
+    elif action == "ramp":
+        db.set_setting("deliv_ramp", "1" if on else "0")
+        note = "เปิดการเพิ่มจำนวนทักอัตโนมัติแล้ว" if on else "ปิดการเพิ่มจำนวนทักอัตโนมัติแล้ว"
+    elif action == "unadopt":
+        D.reset_adopted(key)
+        note = "เลิกใช้แนวนี้แล้ว"
+    else:
+        err = "ไม่รู้จักคำสั่ง"
+    if err:
+        return templates.TemplateResponse(request, "admin_deliverability.html", _deliv_ctx(error=err))
+    return _redirect(f"/admin/deliverability?notice={note}")
+
+
 # ---------- ฝ่ายบัญชี: ใบเสร็จ/ใบกำกับภาษี · ใบแจ้งหนี้รอบถัดไป · ทวงชำระ ----------
 def _acct_page(request: Request, doc, error: str = ""):
     from . import accounting

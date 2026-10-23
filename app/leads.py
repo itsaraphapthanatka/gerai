@@ -22,7 +22,7 @@ EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข�
                "cs_kickoff": "ดูแลลูกค้า: เริ่มงาน", "cs_installed": "ดูแลลูกค้า: ติดตั้งแล้ว", "cs_install_reminder": "ดูแลลูกค้า: เตือนติดตั้ง",
                "cs_first_content": "ดูแลลูกค้า: งานชิ้นแรก", "cs_review_nudge": "ดูแลลูกค้า: ชวนตรวจร่าง", "cs_report": "ดูแลลูกค้า: รายงานเดือน", "cs_risk": "ดูแลลูกค้า: เสี่ยงหลุด", "call": "โทรหาลูกค้า",
                "acct_receipt": "บัญชี: ออกใบเสร็จ", "acct_invoice": "บัญชี: ออกใบแจ้งหนี้", "acct_reminder": "บัญชี: เตือนชำระ",
-               "acct_overdue": "บัญชี: ค้างชำระ"}
+               "acct_overdue": "บัญชี: ค้างชำระ", "bounced": "อีเมลเด้ง", "complained": "ร้องเรียนว่าเป็นสแปม"}
 LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ

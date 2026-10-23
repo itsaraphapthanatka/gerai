@@ -14,6 +14,7 @@
   python run_monitors.py --email            # ส่งอีเมลแคมเปญที่ถึงกำหนด (cron รายวัน — ไม่ขึ้นกับแบรนด์)
   python run_monitors.py --autopilot        # รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (cron รายสัปดาห์) · --brand N รันแบรนด์เดียว
 """
+import json
 import os
 import sys
 import argparse
@@ -164,6 +165,7 @@ def main():
     ap.add_argument("--inbox", action="store_true", help="อ่านอีเมลที่ลีดตอบกลับ (IMAP) → ตอบกลับ/ไม่สนใจ/ขอไม่รับ/ร่างคำตอบ")
     ap.add_argument("--plan", action="store_true", help="CEO วางแผนวันนี้จากด่านที่ยังขาด แล้วแจกงานให้เอเจนต์ (หาลูกค้า · หาช่องทางซ้ำ · วัด AI · การตลาด · ติดตามผล · ฝากเจ้าของโทร)")
     ap.add_argument("--success", action="store_true", help="ดูแลลูกค้าที่จ่ายแล้ว: เริ่มงาน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานก่อนรอบบิล · เตือนเสี่ยงหลุด")
+    ap.add_argument("--deliv", action="store_true", help="ฝ่ายส่งอีเมล: ตรวจ SPF/DKIM/DMARC/บัญชีดำ · ทดสอบกล่องจริง · กันเด้ง/ร้องเรียน · เพิ่มปริมาณทีละขั้น · ตัดสินการทดลองข้อความ")
     ap.add_argument("--acct", action="store_true", help="ฝ่ายบัญชี: ออกใบแจ้งหนี้รอบถัดไปให้ลูกค้า PromptPay · ทวงวันครบกำหนด +3 +7 · แจ้งเจ้าของเมื่อค้าง")
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
     ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
@@ -173,6 +175,11 @@ def main():
     if args.inbox:
         from app import inbox
         res = inbox.poll()
+        try:
+            from app import deliverability
+            deliverability.check_placement()             # ผลทดสอบกล่องที่ส่งไปเมื่อกี้ (เช็กทุก 10 นาทีพร้อม Inbox)
+        except Exception:
+            pass
         print("inbox · " + (res.get("skipped") or f"ตรวจ {res['checked']} ฉบับ ใหม่ {res['processed']} {res['by']}"))
         return
     if args.plan:
@@ -180,6 +187,12 @@ def main():
         orchestrator.RUN_INLINE = True                     # cron: ทำให้เสร็จในโปรเซสนี้
         res = orchestrator.plan_and_run()
         print(orchestrator.summary(res["tasks"]))
+        return
+    if args.deliv:
+        from app import deliverability
+        res = deliverability.run()
+        print("deliv · " + json.dumps(res, ensure_ascii=False))
+        print(deliverability.status_text() or "deliv · ยังไม่มีการส่ง/กล่องทดสอบ")
         return
     if args.acct:
         from app import accounting

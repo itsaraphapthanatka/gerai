@@ -448,6 +448,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
+        _ensure_column(c, "leads", "exp_arm", "TEXT")                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
         _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
         _ensure_column(c, "quotes", "period_total", "INTEGER")           # ยอดต่อรอบบิล (รายปี = ทั้งปี)
         _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
@@ -1240,7 +1241,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1678,3 +1679,20 @@ def last_acct_number(kind: str, prefix: str):
     with get_conn() as c:
         r = c.execute(q("SELECT number FROM acct_docs WHERE kind=? AND number LIKE ? ORDER BY number DESC LIMIT 1"), (kind, prefix + "%")).fetchone()
         return r["number"] if r else None
+
+
+def events_since(kinds, since_ts: str):
+    kinds = list(kinds)
+    with get_conn() as c:
+        return c.execute(q(f"SELECT lead_id, kind, note, created_at FROM lead_events WHERE kind IN ({','.join('?' * len(kinds))}) AND created_at >= ? ORDER BY id"),
+                         tuple(kinds) + (since_ts,)).fetchall()
+
+
+def get_lead_by_email(email: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE LOWER(email)=? ORDER BY id DESC LIMIT 1"), ((email or "").strip().lower(),)).fetchone()
+
+
+def leads_with_arm(prefix: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE exp_arm LIKE ? ORDER BY id"), (prefix + "%",)).fetchall()

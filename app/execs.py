@@ -90,18 +90,28 @@ def _plan(name: str) -> dict:
     return billing.PLANS[name]
 
 
-def outreach_template(lead, summary: list[dict], result_url: str) -> dict:
-    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — ตรงไปตรงมา อ้างเฉพาะข้อที่ตรวจเจอจริง"""
+def outreach_template(lead, summary: list[dict], result_url: str, style: dict | None = None) -> dict:
+    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — ตรงไปตรงมา อ้างเฉพาะข้อที่ตรวจเจอจริง · style = แนวที่ฝ่ายส่งอีเมลทดลอง/ใช้อยู่"""
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
-    bullets = "\n".join(f"• {s['label']} — {s['why']}" for s in summary[:3]) or \
+    tpl = (style or {}).get("tpl") or {}
+    items = summary[:1] if tpl.get("short") else summary[:3]
+    bullets = "\n".join(f"• {s['label']} — {s['why']}" for s in items) or \
         "• พื้นฐานผ่านทุกข้อแล้ว ขั้นต่อไปคือทำให้ ChatGPT, Gemini และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้า"
-    body = (f"สวัสดีครับ ทีม {dom}\n\nผมตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (ตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
-            f"พบข้อที่ควรแก้ก่อนดังนี้\n{bullets}\n\nดูผลเต็มได้ที่ {result_url}\n\n"
-            "ถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
-    return {"subject": f"ผลตรวจเว็บ {dom}: {len(summary)} ข้อที่ขวางไม่ให้ลูกค้าหาเจอ", "body": body, "source": "template"}
+    if tpl.get("short"):
+        body = (f"สวัสดีครับ ทีม {dom}\n\nเว็บ {dom} มีข้อหนึ่งที่ทำให้ลูกค้าหาไม่เจอ\n{bullets}\n\nผลตรวจเต็ม: {result_url}\n\n"
+                "อยากให้ผมอธิบายวิธีแก้ 15 นาทีไหมครับ\n\nเจอ.AI")
+    elif tpl.get("opener"):
+        body = (f"สวัสดีครับ ทีม {dom}\n\n{bullets}\n\nนี่คือผลจากการตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
+                f"ดูผลเต็มได้ที่ {result_url}\n\nถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
+    else:
+        body = (f"สวัสดีครับ ทีม {dom}\n\nผมตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (ตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
+                f"พบข้อที่ควรแก้ก่อนดังนี้\n{bullets}\n\nดูผลเต็มได้ที่ {result_url}\n\n"
+                "ถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
+    subject = tpl["subject"].format(dom=dom) if tpl.get("subject") else f"ผลตรวจเว็บ {dom}: {len(summary)} ข้อที่ขวางไม่ให้ลูกค้าหาเจอ"
+    return {"subject": subject, "body": body, "source": "template"}
 
 
-def draft_outreach(lead, summary: list[dict], result_url: str, llm=None) -> dict:
+def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: dict | None = None) -> dict:
     """ให้โมเดลร่างอีเมลทักครั้งแรกจากผลตรวจจริง — คืน {subject, body, source} · ผิดกติกา/ล้ม → แม่แบบ"""
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
     if llm is None:
@@ -116,7 +126,7 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None) -> dict
 ลิงก์ผลตรวจเต็ม: {result_url}
 
 กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน · ปิดท้ายด้วยข้อเสนอคุยฟรี 15 นาที
-ตอบเป็น JSON เท่านั้น: {{"subject": "หัวข้ออีเมลสั้น ๆ", "body": "เนื้ออีเมล ขึ้นบรรทัดใหม่ด้วย \\n"}}"""
+{("แนวเขียนเพิ่ม (ทำตามทุกข้อ):" + chr(10) + style["prompt"] + chr(10)) if style and style.get("prompt") else ""}ตอบเป็น JSON เท่านั้น: {{"subject": "หัวข้ออีเมลสั้น ๆ", "body": "เนื้ออีเมล ขึ้นบรรทัดใหม่ด้วย \\n"}}"""
     try:
         raw = llm([{"role": "user", "content": prompt}])
         m = re.search(r"\{[\s\S]*\}", raw or "")
@@ -127,11 +137,14 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None) -> dict
             raise ValueError("คำตอบสั้นเกิน")
         if FORBIDDEN.search(subject + " " + body):
             raise ValueError("มีคำโฆษณาต้องห้าม")
+        from . import deliverability
+        if deliverability.spam_flags(subject, body):
+            raise ValueError("เนื้อหาเสี่ยงตกสแปม")
         if result_url not in body:
             body += f"\n\nดูผลตรวจเต็ม: {result_url}"
         return {"subject": subject[:120], "body": body[:2000], "source": "llm"}
     except Exception as e:
-        out = outreach_template(lead, summary, result_url)
+        out = outreach_template(lead, summary, result_url, style)
         out["source"] = f"template ({type(e).__name__})"
         return out
 
@@ -146,7 +159,14 @@ def ceo_review_lead(lead, report: dict, result_url: str, llm=None) -> dict:
         return {"action": "decline", "score": sc["score"], "reason": f"{why} โอกาสขายต่ำ ไม่ควรเสียเวลาทัก (คะแนนโอกาส {sc['score']}/100 ต่ำกว่าเกณฑ์ {MIN_SCORE_TO_PURSUE})"}
     pkg = suggest_package(sc["score"])
     summary = L.public_summary(report)
-    draft = draft_outreach(lead, summary, result_url, llm)
+    try:
+        from . import deliverability
+        style = deliverability.style_for(lead)
+    except Exception:
+        style = {"exp": None, "arm": None}
+    draft = draft_outreach(lead, summary, result_url, llm, style)
+    if style.get("exp"):
+        draft = {**draft, "exp": style["exp"], "arm": style["arm"]}
     return {"action": "accept", "score": sc["score"], "level": sc["level"], "n_fail": sc["n_fail"], "reasons": sc["reasons"],
             "package": pkg, "price": _plan(pkg)["price"], "discount_pct": 0, **draft}
 
@@ -228,6 +248,13 @@ def auto_gate(kind: str) -> dict:
 
 
 def auto_enabled(kind: str) -> bool:
+    if kind in ("outreach", "followup"):
+        try:
+            from . import deliverability
+            if deliverability.on_hold():
+                return False                       # ฝ่ายส่งอีเมลสั่งหยุดชั่วคราว (เด้ง/ร้องเรียน/ตกสแปมสูง) → รอคน
+        except Exception:
+            pass
     return not paused() and auto_gate(kind)["on"]
 
 
@@ -321,7 +348,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting, deliverability
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -329,7 +356,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), deliverability.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

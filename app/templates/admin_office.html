@@ -225,9 +225,9 @@ sign('ห้องเจ้าของ',22,0.3,-9.2); sign('ห้องลู�
 [[-25,-17],[9,-17],[-25,1],[11,-17],[25,-8],[-25,17],[-9,3],[9,3],[11,7],[25,7],[-7,17],[25,17],[12,-6]].forEach(([x,z])=>plant(x,z));
 
 /* ---------- desks: 3 zone rows × 2 desks, an aisle at x −8.5 to the lobby door; the owner's desk in the room ---------- */
-const AISLE_X=-8.5, DESK_X=[-22,-17,-12];
+const AISLE_X=-8.5, DESK_X=[-22,-17,-12,-3];
 const ROWS={sales:{th:'โซนขาย',cz:-14,tint:0xfbe9cc},money:{th:'โซนการเงิน · ระบบ',cz:-9,tint:0xd9f2e6},growth:{th:'โซนการตลาด · ส่งมอบ',cz:-4,tint:0xf9dbe6}};
-const SEATS={prospecting:{row:'sales',col:0},ceo:{row:'sales',col:1},sdr:{row:'sales',col:2},cfo:{row:'money',col:0},cto:{row:'money',col:1},acct:{row:'money',col:2},cmo:{row:'growth',col:0},delivery:{row:'growth',col:1},cs:{row:'growth',col:2}};
+const SEATS={prospecting:{row:'sales',col:0},ceo:{row:'sales',col:1},sdr:{row:'sales',col:2},cfo:{row:'money',col:0},cto:{row:'money',col:1},acct:{row:'money',col:2},deliv:{row:'money',col:3},cmo:{row:'growth',col:0},delivery:{row:'growth',col:1},cs:{row:'growth',col:2}};
 for(const k in ROWS){ const r=ROWS[k]; floorMat(M(r.tint,1),-24.5,-10.5,r.cz-1.6,r.cz+2.3,0.012); flabel(r.th,-24.6,r.cz+2.7,{bg:'rgba(255,255,255,0.92)',color:'#22304f',size:22,weight:700,scale:0.017}); }
 function deskUnit(x,z,face,parent=scene){ // face=+1: the person is at z+1, looking toward −z
   const g=new THREE.Group(); g.position.set(x,0,z); if(face<0) g.rotation.y=Math.PI; parent.add(g);
@@ -330,7 +330,7 @@ const pickables=[];
 function hitBox(mesh,data){ const hit=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.2,1.2),new THREE.MeshBasicMaterial({visible:false})); hit.position.set(0,1.1,0); hit.userData=data; mesh.add(hit); pickables.push(hit); }
 
 /* ---------- the team ---------- */
-const ACTOR_ORDER=['owner','ceo','prospecting','sdr','cfo','acct','cto','cmo','delivery','cs','hop'];
+const ACTOR_ORDER=['owner','ceo','prospecting','sdr','deliv','cfo','acct','cto','cmo','delivery','cs','hop'];
 const DOT={idle:null,working:'#f59e0b',done:'#22c55e'};
 const actors={}; let built=false;
 function setPill(a){ const text=a.id==='owner'?(a.pending?`${a.name} · รอ ${a.pending} เรื่อง`:a.name):a.name; const key=text+'|'+a.status; if(a.pillKey===key) return; a.pillKey=key;
@@ -489,7 +489,7 @@ function celebrate(domain){ celeQ.push(domain); if(!celeBusy) nextCele(); }
 function nextCele(){ const d=celeQ.shift(); if(d===undefined){ celeBusy=false; return; } celeBusy=true;
   celeT.textContent=`🎉 ปิดดีล ${d||''}!`; celeS.textContent='ลูกค้าใหม่ของเจอ.AI · ทีมไปรับกาแฟ ☕';
   celeEl.classList.remove('on'); void celeEl.offsetWidth; celeEl.classList.add('on'); confetti(90);
-  ['ceo','cfo','acct','cto','cmo','prospecting','sdr','delivery','cs'].forEach((id,i)=>{ const a=actors[id]; if(a){ a.bounceUntil=clock.getElapsedTime()+5; setTimeout(()=>float(a,'🎉','#d18a00'),i*250); } });
+  ['ceo','cfo','acct','deliv','cto','cmo','prospecting','sdr','delivery','cs'].forEach((id,i)=>{ const a=actors[id]; if(a){ a.bounceUntil=clock.getElapsedTime()+5; setTimeout(()=>float(a,'🎉','#d18a00'),i*250); } });
   setTimeout(()=>{ celeEl.classList.remove('on'); setTimeout(nextCele,600); },10000); }
 function confetti(n){ const cols=['#f2b705','#e0663d','#2f9e5b','#3c8dbc','#d94f86','#7c5cc4'];
   for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='cf'; d.style.left=(Math.random()*100)+'%'; d.style.background=cols[i%cols.length];

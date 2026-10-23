@@ -171,7 +171,7 @@ def process(m: dict, llm=None) -> dict:
     elif cat == "bounce":
         tl = lead or next((l for l in db.list_leads(None, 5000) if l["email"] and l["email"] in (m.get("full") or "").lower()), None)
         if tl:
-            pipeline.record(tl["id"], "note", f"อีเมล {tl['email']} เด้งกลับ — ใช้ส่งไม่ได้ เติมช่องทางอื่นที่หน้าลีด", "inbox")
+            pipeline.record(tl["id"], "bounced", f"อีเมล {tl['email']} เด้งกลับ — ใช้ส่งไม่ได้ เติมช่องทางอื่นที่หน้าลีด", "inbox")
             db.update_lead(tl["id"], email=None)
             lead, action = tl, "จดว่าอีเมลเด้ง · ล้างอีเมลออกไม่ให้ส่งซ้ำ"
         else:
