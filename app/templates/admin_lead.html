@@ -46,6 +46,19 @@
     {% endif %}
   </div>
 
+  {% if cs %}
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ดูแลหลังการขาย · วันที่ {{ cs.days }} <a class="link" href="/brands/{{ cs.brand['id'] }}" style="font-size:12px;font-weight:400">เปิดแบรนด์ ↗</a></h2>
+    <div style="font-size:13px;line-height:1.8">
+      ติดตั้งตัวเชื่อม: {{ '✓ ' ~ cs.install_detail if cs.installed else '✗ ' ~ cs.install_detail }}<br>
+      คอนเทนต์: เผยแพร่ {{ cs.content.published }} · ร่าง {{ cs.content.draft }}<br>
+      แผน: {{ cs.plan }}<br>
+      ทำแล้ว: {{ cs.done.values()|join(' · ') or 'ยังไม่เริ่ม (รอบ 10:30)' }}
+      {% if cs.risks %}<div style="color:var(--danger-text)">⚠️ {{ cs.risks|join(' · ') }}</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card">
     <h2 style="margin-top:0;font-size:15px">ผลตรวจเว็บ {% if lead['token'] and lead['audit_json'] %}<a class="link" href="/audit/{{ lead['token'] }}" target="_blank" style="font-size:12px;font-weight:400">เปิดหน้าผล ↗</a>{% endif %}</h2>
     {% if sc %}

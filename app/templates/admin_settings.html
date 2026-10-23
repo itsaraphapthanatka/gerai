@@ -200,6 +200,7 @@
   <form method="post" action="/admin/settings/prospect">
     <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="enabled" value="1" {% if prospect.enabled %}checked{% endif %}> เปิดให้หาลูกค้าเองทุกเช้า</label>
     <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:6px"><input type="checkbox" name="followup_on" value="1" {% if followup_on %}checked{% endif %}> SDR ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14 · 10:00 ทุกวัน · หยุดเมื่อตอบ/ขอไม่รับ)</label>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:6px"><input type="checkbox" name="cs_on" value="1" {% if cs_on %}checked{% endif %}> ดูแลลูกค้าหลังการขาย (แผน 30 วัน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานวันที่ 25 · 10:30 ทุกวัน)</label>
     <label style="margin-top:12px">จำนวนเว็บใหม่ต่อวัน (1–30)</label>
     <input type="number" name="daily" min="1" max="30" value="{{ prospect.daily }}" style="max-width:120px">
     <label style="margin-top:12px">กลุ่มเป้าหมาย (บรรทัดละกลุ่ม — ระบบเติมชื่อจังหวัดให้เอง)</label>

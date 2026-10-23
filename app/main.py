@@ -826,7 +826,9 @@ def _lead_ctx(lead, notice: str = "") -> dict:
                 break
     from . import followup as _fu
     _h = _fu.history(lead["id"])
-    return {"fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},
+    from . import success as _cs
+    return {"cs": _cs.status(lead) if lead["status"] == "won" else None,
+            "fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},
             "deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
             "ai_today": deep_audit.ai_today(), "ai_daily": deep_audit.ai_daily(),
             "lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
@@ -946,6 +948,10 @@ def admin_quote_confirm(request: Request, qid: int):
     if not q:
         return _redirect("/admin/leads")
     who = request.session.get("email") or "admin"
+    if q["status"] != "paid" and not q["slip_path"] and stripe_pay.session_paid(q) is False:
+        # ลูกค้าเปิดหน้าจ่าย Stripe แล้วแต่ยังไม่จ่าย — ห้ามยืนยันด้วยมือ (เคยเกิด: กดยืนยันแล้วระบบเปิดบัญชี + ส่งแผน 30 วันให้คนที่ยังไม่จ่าย)
+        note = "ยืนยันไม่ได้ — Stripe ยังไม่ได้รับเงินใบนี้ (ลูกค้าเปิดหน้าจ่ายแต่ยังไม่จ่าย) ถ้าลูกค้าโอนทางอื่น ให้แนบสลิปก่อนแล้วค่อยยืนยัน"
+        return _redirect(f"/admin/leads/{q['lead_id']}?notice={note}")
     try:
         note = pipeline.confirm_payment(q, who)
     except Exception as e:
@@ -3008,6 +3014,7 @@ def _settings_ctx(request: Request, saved=False, error=None):
     from . import followup as _fu
     return {
         "followup_on": _fu.enabled(),
+        "cs_on": (db.get_setting("cs_on") or "1") == "1",
         "ppid": ppid, "ppname": ppname,
         "qr": promptpay.qr_data_uri(ppid, 100) if ppid else None,
         "from_env": bool(not db.get_setting("promptpay_id") and os.getenv("PROMPTPAY_ID", "").strip()),
@@ -3141,12 +3148,14 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
 
 
 @app.post("/admin/settings/prospect")
-def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form(""), followup_on: str = Form("")):
+def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form(""), followup_on: str = Form(""), cs_on: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
     prospecting.save_config(segments, daily, bool(enabled))
     from . import followup as _fu
     _fu.set_enabled(bool(followup_on))
+    from . import success as _cs
+    _cs.set_enabled(bool(cs_on))
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

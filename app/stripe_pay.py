@@ -366,6 +366,17 @@ def handle_event(evt: dict) -> str:
     return "ignored"
 
 
+def session_paid(q) -> bool | None:
+    """ใบนี้มี Stripe Checkout: True = Stripe รับเงินแล้ว · False = ยังไม่จ่าย · None = ไม่มี session/ถาม Stripe ไม่ได้"""
+    if not available() or not q["stripe_session_id"]:
+        return None
+    try:
+        obj = _get_json(f"/checkout/sessions/{q['stripe_session_id']}")
+    except Exception:
+        return None
+    return obj.get("payment_status") in ("paid", "no_payment_required")
+
+
 def sync_session(q) -> str:
     """ลูกค้ากลับมาหน้าใบเสนอราคาหลังจ่าย (?paid=1) แต่ webhook ยังไม่มา/ยังไม่ตั้ง → ถาม Stripe ตรง ๆ แล้วยืนยันให้เลย"""
     if not available() or not q["stripe_session_id"] or q["status"] == "paid":

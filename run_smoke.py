@@ -1,7 +1,8 @@
 """ทดสอบ batch job: select_targets (due/all/brand) + run_targets เรียก run_for_brand (mock)."""
 import os
 os.environ["LITELLM_BASE_URL"] = ""
-os.environ.setdefault("GEO_DEEP_AUDIT", "0")   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
+os.environ.setdefault("GEO_DEEP_AUDIT", "0")
+os.environ.setdefault("GEO_CS", "0")   # ไม่สั่ง Autopilot จริงตอนยืนยันยอดในเทสต์นี้   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
 import datetime
 import run_monitors as rm
 import app.geo_worker as gw

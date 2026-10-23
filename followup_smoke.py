@@ -6,6 +6,7 @@ if not os.getenv("DATABASE_URL"):
     os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke9-"), "smoke.db")
 os.environ["LITELLM_BASE_URL"] = ""
 os.environ["GEO_DEEP_AUDIT"] = "0"
+os.environ["GEO_CS"] = "0"
 import bcrypt
 from fastapi.testclient import TestClient
 import app.db as db, app.followup as F, app.pipeline as P, app.execs as X, app.mailer as mailer, app.ai_client as ai, app.skills as SK

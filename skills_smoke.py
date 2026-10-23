@@ -4,7 +4,8 @@ import os, tempfile, json
 if not os.getenv("DATABASE_URL"):
     os.environ["GEO_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="geo-smoke6-"), "smoke.db")
 os.environ["LITELLM_BASE_URL"] = ""
-os.environ.setdefault("GEO_DEEP_AUDIT", "0")   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
+os.environ.setdefault("GEO_DEEP_AUDIT", "0")
+os.environ.setdefault("GEO_CS", "0")   # ไม่สั่ง Autopilot จริงตอนยืนยันยอดในเทสต์นี้   # ไม่ไต่เว็บจริงเบื้องหลังในเทสต์นี้
 import bcrypt
 from fastapi.testclient import TestClient
 import app.db as db, app.skills as SK, app.ai_client as ai, app.execs as X, app.marketing as MK
@@ -12,7 +13,7 @@ from app.main import app
 db.init_db()
 
 # ---- โหลด / แก้ทับ / คืนค่า ----
-assert set(SK.AGENTS) == {"ceo", "cfo", "cto", "cmo", "prospecting", "delivery", "sdr"}
+assert set(SK.AGENTS) == {"ceo", "cfo", "cto", "cmo", "prospecting", "delivery", "sdr", "cs"}
 for n in SK.AGENTS:
     t = SK.load(n); assert len(t) > 800 and t.startswith("# ทักษะ"), n
 assert "การันตี" in SK.load("ceo") and "answer-first" in SK.load("delivery").lower() or "TL;DR" in SK.load("delivery")

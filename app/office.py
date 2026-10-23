@@ -25,6 +25,7 @@ ACTORS = [
     {"id": "cto", "name": "CTO", "role": "ตรวจเว็บ · เปิดบัญชี · เฝ้าระบบ", "hex": "2563eb", "skill": "cto"},
     {"id": "cmo", "name": "CMO", "role": "โพสต์ LINE/Facebook · เคสศึกษา", "hex": "c0265c", "skill": "cmo"},
     {"id": "delivery", "name": "ส่งมอบ", "role": "คอนเทนต์ลูกค้า · Autopilot · QA", "hex": "7c3aed", "skill": "delivery"},
+    {"id": "cs", "name": "ดูแลลูกค้า", "role": "เริ่มงาน · ติดตั้ง · งานชิ้นแรก · รายงานก่อนรอบบิล", "hex": "16a34a", "skill": "cs"},
     {"id": "hop", "name": "LINE OA เจอ.AI", "role": "ต้อนรับ · ตรวจเว็บในแชต · แจ้งเตือนเจ้าของ", "hex": "0891b2"},   # ชื่อตามชื่อ OA ที่ตั้งไว้ (ดู state)
 ]
 IDS = {a["id"] for a in ACTORS}
@@ -38,6 +39,7 @@ SCHEDULE = [
     ("cto", None, "08:00", "เช็กว่าเว็บลูกค้ายังเปิดอยู่"),
     ("cmo", None, "09:00", "รอบการตลาด: เผยแพร่ · โพสต์ · เคสศึกษา"),
     ("sdr", None, "10:00", "ติดตามผลลีดที่ทักแล้วเงียบ"),
+    ("cs", None, "10:30", "ดูแลลูกค้าที่จ่ายแล้ว"),
     ("cto", 0, "09:00", "เช็กอันดับ Google"),
     ("cto", 0, "09:15", "ซิงค์ Search Console"),
     ("cto", 0, "09:30", "ตรวจสุขภาพเว็บลูกค้า"),
@@ -68,6 +70,13 @@ LEAD_EVENTS = {
     "line": ("hop", "line", "{dom} ทักมาทาง LINE"),
     "deep_audit": ("cto", "audit", "รายงานเต็ม {dom}: ไต่เว็บ + อันดับ Google"),
     "followup": ("sdr", "outreach", "ติดตามผล {dom}"),
+    "cs_kickoff": ("cs", "cs", "เริ่มงานกับ {dom}: แผน 30 วัน"),
+    "cs_installed": ("cs", "cs", "{dom} ติดตั้งตัวเชื่อมแล้ว"),
+    "cs_install_reminder": ("cs", "cs", "เตือน {dom} ติดตั้งตัวเชื่อม"),
+    "cs_first_content": ("cs", "cs", "{dom} ได้งานชิ้นแรกแล้ว"),
+    "cs_review_nudge": ("cs", "cs", "ชวน {dom} ตรวจร่างคอนเทนต์"),
+    "cs_report": ("cs", "cs", "ส่งรายงานเดือนให้ {dom}"),
+    "cs_risk": ("cs", "risk", "{dom} เสี่ยงหลุด"),
     "ai_check": ("cto", "audit", "ถาม AI 20 คำถามเรื่อง {dom}"),
 }
 VISITOR_STATUSES = ("new", "contacted", "replied", "quoted", "won")

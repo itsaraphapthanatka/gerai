@@ -345,6 +345,10 @@ def provision_customer(q) -> dict:
     existing = [b for b in db.list_all_brands() if leads.domain_of(b["domain"]) == lead["domain"]]
     if existing:
         bid = existing[0]["id"]
+        b = db.get_brand(bid)
+        if not b["autopilot"]:                       # แบรนด์เดิมที่ถูกพักไว้ (เช่น เคยย้อนสถานะเพราะยังไม่จ่าย) → จ่ายจริงแล้วเปิดงานกลับ
+            db.set_auto_content(bid, 3)
+            db.set_autopilot(bid, True, "draft", 1)
     else:
         bid = db.create_brand(tid, lead["name"] or lead["domain"], lead["site_url"], "")
         db.set_auto_content(bid, 3)
@@ -382,6 +386,11 @@ def confirm_payment(q, who: str = "admin") -> str:
             note = f" · ส่งอีเมลต้อนรับไม่สำเร็จ ({type(e).__name__})"
     else:
         note = " · ไม่มีอีเมลจริงของลูกค้า — แจ้งรหัสเข้าใช้เอง (แก้อีเมลบัญชีที่หน้าผู้ดูแล)"
+    try:
+        from . import success
+        success.kickoff_quote(q)                       # ดูแลหลังการขายเริ่มทันที: แผน 30 วัน + Autopilot รอบแรก
+    except Exception:
+        pass
     return (f"ยืนยันยอด {q['first_total']:,} บาทแล้ว · เปิดบัญชี{'ใหม่' if prov['created'] else 'เดิม'} + แบรนด์{'ใหม่' if prov['brand_new'] else 'เดิม'} "
             f"แพ็กเกจ {q['package']} · ลูกค้า {lead['domain']} ปิดดีล" + note)
 
