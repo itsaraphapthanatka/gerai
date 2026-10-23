@@ -16,6 +16,25 @@
   {% if last.at %}<span class="muted" style="font-size:12.5px;align-self:center">รอบล่าสุด {{ last.at[5:16].replace('T',' ') }}</span>{% endif %}
 </div>
 
+<h2>ที่อยู่ส่งอีเมลทัก</h2>
+<div class="card">
+  <p class="muted" style="font-size:13px;margin-top:0">แยกอีเมลทัก/ติดตามผล/ตอบลูกค้า ออกจากที่อยู่ระบบ ({{ system_from or '-' }}) ที่ส่งสรุปเช้าและแจ้งเตือน — Gmail เรียนรู้ผู้ส่งแต่ละที่อยู่แยกกัน อีเมลทักจะไม่ติดประวัติของอีเมลแจ้งเตือน · ระบบเริ่มใช้เมื่อตรวจแล้วว่าอีเมลที่ลีดตอบกลับมาถึงระบบจริง</p>
+  <div style="margin-bottom:8px">สถานะ: {% if not sender.addr %}<span class="pill">ยังไม่ได้ตั้ง — ใช้ {{ system_from }}</span>{% elif sender.ok %}<span class="pill ok">ใช้งานอยู่: {{ sender.name ~ ' ' if sender.name }}&lt;{{ sender.addr }}&gt;</span> <span class="muted" style="font-size:12px">ตรวจเส้นทางผ่านเมื่อ {{ sender.checked_at[5:16].replace('T',' ') }}</span>{% else %}<span class="pill" style="background:#fff4e5;color:#9a5b00">รอตรวจเส้นทางตอบกลับ — ยังส่งจาก {{ system_from }}</span>{% if sender.sent_check %} <span class="muted" style="font-size:12px">ส่งอีเมลตรวจล่าสุด {{ sender.sent_check[5:16].replace('T',' ') }} ยังไม่ถึงระบบ</span>{% endif %}{% endif %}</div>
+  <form method="post" action="/admin/deliverability/sender" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+    <input type="email" name="addr" value="{{ sender.addr }}" placeholder="เช่น hello@{{ domain or 'appreview.cloud' }}" style="{{ inp }}">
+    <input type="text" name="name" value="{{ sender.name }}" maxlength="60" placeholder="ชื่อผู้ส่งที่ลีดเห็น เช่น ชื่อคุณ · เจอ.AI" style="{{ inp }}">
+    <div><button class="btn ghost sm" type="submit">บันทึก</button></div>
+  </form>
+  {% if sender.addr and not sender.ok %}
+  <ol style="font-size:13px;margin:12px 0 8px;padding-left:20px">
+    <li>Cloudflare → โดเมน {{ domain }} → Email → Email Routing → Routing rules → <b>Create address</b></li>
+    <li>Custom address: <code>{{ sender.addr.split('@')[0] }}</code> · Action: <b>Send to a Worker</b> · Destination: <code>jerai-inbox</code> (Worker ตัวเดียวกับ report@) → Save</li>
+    <li>กลับมากดปุ่มด้านล่าง ระบบจะส่งอีเมลตรวจไปที่ {{ sender.addr }} ถ้าเข้าระบบได้จะเริ่มใช้ที่อยู่นี้ทันที</li>
+  </ol>
+  <form method="post" action="/admin/deliverability/route"><button class="btn sm" type="submit">ตรวจเส้นทางตอบกลับ</button></form>
+  {% endif %}
+</div>
+
 <h2>สัญญาณ {{ m.days }} วัน</h2>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
   {% for lb, v, warn in [('ส่งอีเมลทัก/ติดตาม', m.sends, False), ('เด้ง', m.bounce_pct ~ '%', m.bounce_pct > limits.bounce), ('ร้องเรียนสแปม', m.complaint_pct ~ '%', m.complaint_pct > limits.complaint), ('ขอไม่รับ', m.unsub_pct ~ '%', m.unsub_pct > limits.unsub), ('เปิดรายงาน', m.open_pct ~ '%', False), ('ตอบกลับ', m.reply_pct ~ '%', False)] %}

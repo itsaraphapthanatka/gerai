@@ -154,6 +154,9 @@ def _seen(mid: str) -> bool:
 def process(m: dict, llm=None) -> dict:
     """อีเมลหนึ่งฉบับ → จับคู่ลีด → ประเภท → ทำต่อ · คืน {category, action, lead_id}"""
     from . import pipeline
+    from . import deliverability
+    if deliverability.route_check(m):                     # อีเมลตรวจเส้นทางของที่อยู่ส่งอีเมลทัก — ไม่ใช่ลีด
+        return {"category": "route_ok", "action": "ยืนยันว่าอีเมลถึงที่อยู่ส่งอีเมลทักเข้าระบบได้", "lead_id": None}
     mid = m.get("message_id") or hashlib.sha1((m["from"] + m.get("subject", "") + (m.get("body") or "")[:200]).encode()).hexdigest()
     if _seen(mid):
         return {"skip": "seen"}
@@ -264,6 +267,15 @@ def our_address() -> str:
     return (db.get_setting("smtp_from") or "report@appreview.cloud").lower()
 
 
+def our_addresses() -> list[str]:
+    """ที่อยู่ของเราที่ลีดตอบกลับมาได้: ที่อยู่ระบบ + ที่อยู่ส่งอีเมลทักที่แยกไว้"""
+    out = [our_address()]
+    alt = (db.get_setting("outreach_from") or "").lower().strip()
+    if alt and alt not in out:
+        out.append(alt)
+    return out
+
+
 IMAP = None   # เทสต์ฉีด factory(host) → client
 
 
@@ -277,17 +289,19 @@ def poll(llm=None) -> dict:
     try:
         cli.login(cfg["user"], cfg["pass"])
         cli.select(cfg["folder"], readonly=True)
-        addr = our_address()
-        typ, data = cli.search(None, f'(TO "{addr}" SINCE {_since()})')
-        ids = (data[0].split() if data and data[0] else [])[-FETCH_LIMIT:]
-        for i in ids:
+        addrs = our_addresses()
+        ids = []
+        for addr in addrs:
+            typ, data = cli.search(None, f'(TO "{addr}" SINCE {_since()})')
+            ids += [i for i in (data[0].split() if data and data[0] else []) if i not in ids]
+        for i in sorted(ids, key=int)[-FETCH_LIMIT:]:
             typ, parts = cli.fetch(i, "(BODY.PEEK[])")
             raw = next((p[1] for p in parts if isinstance(p, tuple)), b"")
             if not raw:
                 continue
             m = parse_raw(raw)
             res["checked"] += 1
-            if addr not in m["to"] or m["from"] == addr:
+            if not any(a in m["to"] for a in addrs) or m["from"] in addrs:
                 continue
             r = process(m, llm)
             if r.get("skip"):

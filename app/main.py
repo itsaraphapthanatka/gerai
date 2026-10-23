@@ -3552,7 +3552,8 @@ def _deliv_ctx(notice: str = "", error: str = "") -> dict:
             "adopted": [D.EXP[k] for k in D.adopted() if k in D.EXP], "results": list(reversed(D._json("deliv_exp_results", []))),
             "min_arm": D.MIN_ARM, "max_arm": D.MAX_ARM, "limits": D.LIMITS, "ramp_on": (db.get_setting("deliv_ramp") or "1") == "1",
             "daily": prospecting.daily_limit(), "daily_max": prospecting.DAILY_MAX, "webhook_set": bool(D.webhook_secret()),
-            "webhook_url": f"{_public_base()}/resend/webhook", "last": last, "domain": D.sender_domain()}
+            "webhook_url": f"{_public_base()}/resend/webhook", "last": last, "domain": D.sender_domain(),
+            "sender": D.outreach_sender(), "system_from": (mailer.config() or {}).get("smtp_from", "")}
 
 
 @app.get("/admin/deliverability")
@@ -3564,7 +3565,8 @@ def admin_deliverability(request: Request, notice: str = ""):
 
 @app.post("/admin/deliverability/{action}")
 def admin_deliverability_action(request: Request, action: str, label: str = Form(""), host: str = Form(""), user: str = Form(""),
-                                password: str = Form(""), sid: str = Form(""), secret: str = Form(""), on: str = Form(""), key: str = Form("")):
+                                password: str = Form(""), sid: str = Form(""), secret: str = Form(""), on: str = Form(""), key: str = Form(""),
+                                addr: str = Form(""), name: str = Form("")):
     from . import deliverability as D
     if not _is_admin(request):
         return _redirect("/login")
@@ -3586,6 +3588,14 @@ def admin_deliverability_action(request: Request, action: str, label: str = Form
     elif action == "webhook":
         err = D.save_webhook_secret(secret)
         note = "" if err else "บันทึกรหัสลับ webhook ของ Resend แล้ว"
+    elif action == "sender":
+        err = D.save_outreach_sender(addr, name)
+        if not err:
+            s = D.outreach_sender()
+            note = ("เลิกใช้ที่อยู่แยก — อีเมลทักกลับไปส่งจากที่อยู่ระบบ" if not s["addr"] else
+                    f"บันทึก {s['addr']} แล้ว" + ("" if s["ok"] else " — ตั้ง Cloudflare ตามขั้นตอนแล้วกด \"ตรวจเส้นทางตอบกลับ\" ระบบจะเริ่มใช้เมื่อตรวจผ่าน"))
+    elif action == "route":
+        note = D.send_route_check()
     elif action == "release":
         D.release_hold()
         note = "ปลดการหยุดส่งแล้ว — ข้อความทัก/ติดตามผลกลับไปทำตามโหมดเดิม"

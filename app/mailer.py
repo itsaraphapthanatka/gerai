@@ -74,12 +74,13 @@ def build_message(cfg: dict, to: str, subject: str, html: str, text: str = "", a
     import re
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = formataddr((cfg.get("smtp_from_name") or "เจอ.AI", cfg["smtp_from"]))
+    sender = getattr(_UNSUB_CTX, "from_addr", "") or cfg["smtp_from"]                  # อีเมลทักใช้ที่อยู่แยก (ถ้าตั้งและตรวจเส้นทางตอบกลับแล้ว)
+    msg["From"] = formataddr((getattr(_UNSUB_CTX, "from_name", "") or cfg.get("smtp_from_name") or "เจอ.AI", sender))
     msg["To"] = to
     msg["Message-ID"] = make_msgid(domain=cfg["smtp_from"].split("@")[-1] or "geo.appreview.cloud")
     # ข้อเดียวที่ mail-tester ติ (10/10 ที่เหลือผ่านหมด) — Gmail/Yahoo ใช้ header นี้แยก "จดหมายที่สมัครไว้" ออกจากสแปม
     # ใช้ mailto ไปที่ผู้ส่ง (report@ รับเมลได้แล้วผ่าน Cloudflare Email Routing) คนกดเลิกรับจะมาถึงผู้ดูแลเป็นอีเมลธรรมดา
-    msg["List-Unsubscribe"] = (f"<{unsub_url}>, " if unsub_url else "") + f"<mailto:{cfg['smtp_from']}?subject=unsubscribe>"
+    msg["List-Unsubscribe"] = (f"<{unsub_url}>, " if unsub_url else "") + f"<mailto:{sender}?subject=unsubscribe>"
     if unsub_url:                                          # RFC 8058: กดเลิกรับในกล่องจดหมายได้ทันที (POST /u/<token> ยกเลิกเลย)
         msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     plain = text or re.sub(r"\s+\n", "\n", re.sub(r"<[^>]+>", "", html.replace("</p>", "\n").replace("<br>", "\n"))).strip()
@@ -116,13 +117,13 @@ import threading as _th
 _UNSUB_CTX = _th.local()
 
 
-def send_plain(to: str, subject: str, text: str, unsub_url: str = "") -> None:
-    """อีเมลทัก/ติดตามผล: ข้อความแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียวไปที่ลิงก์ของลีด"""
-    _UNSUB_CTX.url = unsub_url
+def send_plain(to: str, subject: str, text: str, unsub_url: str = "", from_addr: str = "", from_name: str = "") -> None:
+    """อีเมลทัก/ติดตามผล: ข้อความแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียวไปที่ลิงก์ของลีด · from_addr = ที่อยู่ส่งอีเมลทักที่แยกไว้"""
+    _UNSUB_CTX.url, _UNSUB_CTX.from_addr, _UNSUB_CTX.from_name = unsub_url, from_addr, from_name
     try:
         send(to, subject, plain_html(text), text=text)
     finally:
-        _UNSUB_CTX.url = ""
+        _UNSUB_CTX.url = _UNSUB_CTX.from_addr = _UNSUB_CTX.from_name = ""
 
 
 def plain_html(text: str) -> str:

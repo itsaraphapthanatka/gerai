@@ -166,7 +166,9 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
     plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)"""
     if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
         if plain:
-            mailer.send_plain(lead["email"], subject, body, unsubscribe_url(lead))
+            from . import deliverability
+            fa, fn = deliverability.active_from()
+            mailer.send_plain(lead["email"], subject, body, unsubscribe_url(lead), fa, fn)
         else:
             mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
@@ -226,7 +228,9 @@ def execute_decision(d, who: str) -> str:
             return "ส่งไม่ได้ — ไม่มีอีเมลที่ส่งได้"
         body = pl.get("body", "") + outreach_footer(lead)
         subj = pl.get("subject") or f"เรื่องเว็บ {lead['domain']}"
-        mailer.send(to, subj, mailer.wrap_html(subj, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+        from . import deliverability
+        fa, fn = deliverability.active_from()
+        mailer.send_plain(to, subj, body, unsubscribe_url(lead), fa, fn)        # ตอบในรูปแบบและจากที่อยู่เดียวกับอีเมลทัก
         record(lead["id"], "note", f"ตอบอีเมลลูกค้าแล้ว: {pl.get('body', '')[:200]}", who)
         return f"ตอบอีเมลถึง {to} แล้ว"
     if d["kind"] == "followup" and lead:

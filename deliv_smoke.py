@@ -195,4 +195,38 @@ to, h, unsub = cap[-1]
 assert to == "info@plain.co.th" and "header.png" not in h and "<table" not in h and unsub.endswith(f"/u/{db.get_lead(lp['id'])['token']}") and getattr(mailer._UNSUB_CTX, "url", "") == ""
 q = P.create_quote(db.get_lead(lp["id"]), "pro"); P.send_quote(q, "admin"); assert "<table" in cap[-1][1] or "header" in cap[-1][1]   # ใบเสนอราคายังใช้แบบมีดีไซน์
 print("plain: อีเมลทักไม่มีแบนเนอร์/ปุ่ม/ตาราง · ลิงก์คลิกได้ · หัวเลิกรับคลิกเดียว · ใบเสนอราคายังใช้แบบเดิม OK")
+
+# ---- ที่อยู่ส่งอีเมลทักแยก ----
+import app.inbox as IB
+assert D.save_outreach_sender("bad", "x") == "ที่อยู่อีเมลไม่ถูกต้อง"
+assert "โดเมน sender.test" in D.save_outreach_sender("hello@other.test", "x")
+assert "คนละที่อยู่" in D.save_outreach_sender("report@sender.test", "x")
+assert D.save_outreach_sender("Hello@sender.test", "คุณเอ · เจอ.AI") == "" and D.outreach_sender()["addr"] == "hello@sender.test"
+assert D.active_from() == ("", "") and "hello@sender.test" in IB.our_addresses() and len(IB.our_addresses()) == 2
+cap.clear(); mailer.send = lambda to, subj, html, text="", attachments=(): cap.append((to, subj, getattr(mailer._UNSUB_CTX, "from_addr", "")))
+lq = mk("route.co.th"); P.ceo_propose(lq)
+dq = [x for x in db.list_decisions(None, 20) if x["lead_id"] == lq["id"] and x["kind"] == "outreach"][0]
+if dq["status"] == "proposed": P.execute_decision(dq, "owner")
+assert cap[-1][0] == "info@route.co.th" and cap[-1][2] == ""                                      # ยังไม่ผ่านตรวจเส้นทาง = ส่งจากที่อยู่ระบบ
+assert "ส่งอีเมลตรวจไปที่ hello@sender.test" in D.send_route_check(); tok = db.get_setting("outreach_route_token")
+assert cap[-1][0] == "hello@sender.test" and tok in cap[-1][1]
+r = IB.process({"from": "report@sender.test", "to": "hello@sender.test", "subject": f"ตรวจเส้นทางอีเมลตอบกลับ {tok}", "body": "x", "message_id": "<r1@x>"})
+assert r["category"] == "route_ok" and D.outreach_sender()["ok"] and D.active_from() == ("hello@sender.test", "คุณเอ · เจอ.AI")
+assert IB.process({"from": "x@y.test", "to": "hello@sender.test", "subject": f"ตรวจเส้นทางอีเมลตอบกลับ {tok}", "body": "x", "message_id": "<r2@x>"}).get("category") != "route_ok"   # ใช้ได้ครั้งเดียว
+lr = mk("route2.co.th"); P.ceo_propose(lr)
+dr = [x for x in db.list_decisions(None, 20) if x["lead_id"] == lr["id"] and x["kind"] == "outreach"][0]
+if dr["status"] == "proposed": P.execute_decision(dr, "owner")
+assert cap[-1][0] == "info@route2.co.th" and cap[-1][2] == "hello@sender.test"
+mailer._UNSUB_CTX.from_addr, mailer._UNSUB_CTX.from_name = "hello@sender.test", "คุณเอ · เจอ.AI"
+mm = mailer.build_message({"smtp_from": "report@sender.test", "smtp_from_name": "เจอ.AI"}, "a@b.co.th", "s", "<p>x</p>", "x", (), "https://g/u/t")
+mailer._UNSUB_CTX.from_addr = mailer._UNSUB_CTX.from_name = ""
+assert "hello@sender.test" in mm["From"] and "mailto:hello@sender.test" in mm["List-Unsubscribe"]
+assert "report@sender.test" in mailer.build_message({"smtp_from": "report@sender.test"}, "a@b.co.th", "s", "<p>x</p>")["From"]     # อีเมลระบบยังเป็นที่อยู่เดิม
+rd = db.add_decision("ceo", "reply", "ตอบ", "x", {"subject": "Re: x", "body": "ตอบคำถามครับ", "to": "info@route2.co.th"}, lead_id=lr["id"])
+P.execute_decision(db.get_decision(rd), "owner"); assert cap[-1][2] == "hello@sender.test"         # คำตอบลูกค้าก็ส่งจากที่อยู่เดียวกัน
+pg = a.get("/admin/deliverability").text; assert "ใช้งานอยู่" in pg and "hello@sender.test" in pg
+a.post("/admin/deliverability/sender", data={"addr": "sales@sender.test", "name": ""}); assert not D.outreach_sender()["ok"] and D.active_from() == ("", "")   # เปลี่ยนที่อยู่ = ตรวจใหม่
+assert "Send to a Worker" in a.get("/admin/deliverability").text
+a.post("/admin/deliverability/sender", data={"addr": "", "name": ""}); assert D.outreach_sender()["addr"] == ""
+print("sender: ตรวจรูปแบบ/โดเมน/ไม่ซ้ำที่อยู่ระบบ · ใช้เมื่อตรวจเส้นทางผ่านเท่านั้น · อีเมลทัก+ตอบลูกค้าส่งจากที่อยู่แยก · อีเมลระบบคงเดิม · Inbox อ่านทั้งสองที่อยู่ · เปลี่ยนที่อยู่ต้องตรวจใหม่ OK")
 print("\ndeliv_smoke: ผ่านทั้งหมด")

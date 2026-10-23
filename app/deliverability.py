@@ -436,7 +436,8 @@ def send_placement_test() -> dict:
         token = "JT" + secrets.token_hex(3).upper()
         r = {"seed": s["id"], "label": s["label"], "token": token, "place": "pending", "checked_at": None}
         try:
-            mailer.send(s["user"], f"{subj} [{token}]", mailer.plain_html(body), text=body)      # หน้าตาเดียวกับอีเมลทักจริง
+            fa, fn = active_from()
+            mailer.send_plain(s["user"], f"{subj} [{token}]", body, "", fa, fn)        # หน้าตาและผู้ส่งเดียวกับอีเมลทักจริง
         except Exception as e:
             r.update(place="error", detail=f"ส่งไม่ได้ ({type(e).__name__})")
         test["results"].append(r)
@@ -519,6 +520,75 @@ def check_placement(now: dt.datetime | None = None) -> int:
 def last_placement() -> dict | None:
     done = [t for t in _json("deliv_tests", []) if t["results"] and all(r["place"] != "pending" for r in t["results"])]
     return done[-1] if done else None
+
+
+# ---------- ที่อยู่ส่งอีเมลทักแยกจากอีเมลระบบ ----------
+EMAIL_ADDR = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
+
+def outreach_sender() -> dict:
+    addr = (_get("outreach_from", "") or "").lower()
+    return {"addr": addr, "name": _get("outreach_from_name", ""), "ok": bool(addr) and _get("outreach_from_ok", "0") == "1",
+            "checked_at": _get("outreach_from_checked", ""), "sent_check": _get("outreach_route_sent", "")}
+
+
+def active_from() -> tuple[str, str]:
+    """ที่อยู่/ชื่อผู้ส่งของอีเมลทัก — ใช้เฉพาะเมื่อตรวจแล้วว่าอีเมลตอบกลับถึงระบบ ไม่งั้นใช้ที่อยู่ระบบเดิม ('', '')"""
+    s = outreach_sender()
+    return (s["addr"], s["name"]) if s["ok"] else ("", "")
+
+
+def save_outreach_sender(addr: str, name: str) -> str:
+    addr, name = (addr or "").strip().lower(), (name or "").strip()[:60]
+    if not addr:
+        for k in ("outreach_from", "outreach_from_name", "outreach_from_ok", "outreach_route_token"):
+            db.set_setting(k, "")
+        return ""
+    if not EMAIL_ADDR.match(addr):
+        return "ที่อยู่อีเมลไม่ถูกต้อง"
+    dom = sender_domain()
+    if dom and addr.split("@")[1] != dom:
+        return f"ต้องเป็นที่อยู่บนโดเมน {dom} (โดเมนที่ยืนยันกับ Resend แล้ว) ไม่งั้นอีเมลจะไม่ผ่าน SPF/DKIM"
+    from . import mailer
+    if addr == ((mailer.config() or {}).get("smtp_from") or "").lower():
+        return "ต้องเป็นคนละที่อยู่กับที่อยู่ระบบ (อีเมลแจ้งเตือน/สรุปเช้า)"
+    changed = addr != (_get("outreach_from", "") or "").lower()
+    db.set_setting("outreach_from", addr)
+    db.set_setting("outreach_from_name", name)
+    if changed:
+        db.set_setting("outreach_from_ok", "0")
+        db.set_setting("outreach_route_token", "")
+    return ""
+
+
+def send_route_check() -> str:
+    """ส่งอีเมลจากที่อยู่ระบบไปหาที่อยู่ส่งอีเมลทัก — ถ้า Cloudflare ส่งต่อเข้าระบบได้ ถือว่าลีดตอบกลับมาแล้วไม่หาย"""
+    from . import mailer
+    s = outreach_sender()
+    if not s["addr"]:
+        return "ยังไม่ได้ตั้งที่อยู่ส่งอีเมลทัก"
+    if not mailer.config():
+        return "ยังไม่ได้ตั้งค่า SMTP"
+    tok = "JR" + secrets.token_hex(4).upper()
+    db.set_setting("outreach_route_token", tok)
+    db.set_setting("outreach_route_sent", db.now())
+    try:
+        mailer.send(s["addr"], f"ตรวจเส้นทางอีเมลตอบกลับ {tok}", f"<p>อีเมลนี้ระบบส่งเพื่อตรวจว่าอีเมลถึง {s['addr']} เข้าระบบเจอ.AI ได้ ไม่ต้องตอบ</p>",
+                    text=f"อีเมลนี้ระบบส่งเพื่อตรวจว่าอีเมลถึง {s['addr']} เข้าระบบเจอ.AI ได้ ไม่ต้องตอบ ({tok})")
+    except Exception as e:
+        return f"ส่งอีเมลตรวจไม่ได้ ({type(e).__name__})"
+    return f"ส่งอีเมลตรวจไปที่ {s['addr']} แล้ว — ถ้าตั้ง Cloudflare ถูก ระบบจะยืนยันเองภายในไม่กี่วินาที กดรีเฟรชหน้านี้"
+
+
+def route_check(m: dict) -> bool:
+    """เรียกจาก inbox.process: อีเมลตรวจเส้นทางมาถึง → เปิดใช้ที่อยู่ส่งอีเมลทัก"""
+    tok = _get("outreach_route_token", "")
+    if not tok or tok not in (m.get("subject") or ""):
+        return False
+    db.set_setting("outreach_from_ok", "1")
+    db.set_setting("outreach_from_checked", db.now())
+    db.set_setting("outreach_route_token", "")
+    return True
 
 
 # ---------- Resend webhook (เด้ง · ร้องเรียน · ส่งถึง) ----------
