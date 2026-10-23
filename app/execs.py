@@ -59,6 +59,8 @@ def set_mandate(key: str, value) -> None:
     v = int(float(value))
     if v < 0:
         raise ValueError("ค่าต้องไม่ติดลบ")
+    if key.endswith("_pct") and v > 100:
+        raise ValueError("เปอร์เซ็นต์ต้องไม่เกิน 100")
     db.set_setting(f"mandate_{key}", str(v))
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR"}
 KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า"}

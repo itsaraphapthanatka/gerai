@@ -337,15 +337,42 @@ def change_cycle(q, cycle: str, who: str = "customer") -> str:
     return ""
 
 
-def send_quote(q, who: str = "admin") -> str:
+REVISABLE = ("draft", "sent", "viewed", "accepted")
+
+
+def revise_quote(q, package: str | None = None, discount_pct: float | None = None, setup: bool | None = None,
+                 cycle: str | None = None, who: str = "owner") -> str:
+    """ปรับใบเสนอราคาเดิม (ลิงก์เดิม เลขเดิม) — ใช้เมื่อเจ้าของสั่งเปลี่ยนเงื่อนไขของใบที่ยังไม่ได้จ่าย
+    ใบที่ลูกค้ายืนยันแล้วต้องยืนยันใหม่ (เงื่อนไขเปลี่ยน) · ใบที่แจ้งชำระ/จ่ายแล้วแก้ไม่ได้ · คืนข้อความผิดพลาด ('' = สำเร็จ)"""
+    if q["status"] not in REVISABLE:
+        return {"claimed": "ลูกค้าแจ้งชำระใบนี้แล้ว — ตรวจยอดก่อน ไม่ควรเปลี่ยนเงื่อนไข", "paid": "ใบนี้ชำระแล้ว"}.get(q["status"], f"ใบนี้อยู่ในสถานะ {q['status']} แก้ไม่ได้")
+    package = package if package in Q.PACKAGES else q["package"]
+    disc = float(q["discount_pct"] if discount_pct is None else discount_pct)
+    setup = bool(q["setup"]) if setup is None else bool(setup)
+    cycle = cycle if cycle in Q.CYCLES else Q.cycle_of(q)
+    pr = Q.price_for(package, disc, setup, cycle)
+    was = f"{q['package']} {Q.CYCLES[Q.cycle_of(q)]} {q['first_total']:,}"
+    db.update_quote(q["id"], package=package, price=pr["price"], discount_pct=pr["discount_pct"], setup=1 if setup else 0, cycle=cycle,
+                    period_total=pr["period_total"], net=pr["net"], setup_price=pr["setup_price"], first_total=pr["first_total"],
+                    status="sent" if q["status"] in ("accepted", "viewed") else q["status"], accepted_at=None, accepted_name=None,
+                    stripe_session_id=None, valid_until=Q.valid_until())
+    db.update_lead(q["lead_id"], package=package, monthly_thb=pr["net"])
+    record(q["lead_id"], "note", f"ปรับ {q['number']}: {was} → {package} {Q.CYCLES[cycle]} {pr['first_total']:,} บาท"
+           + (" (ลูกค้าต้องยืนยันใหม่)" if q["status"] == "accepted" else ""), who)
+    return ""
+
+
+def send_quote(q, who: str = "admin", revised: bool = False) -> str:
     lead = db.get_lead(q["lead_id"])
     if lead["status"] == "unsubscribed":
         return "ไม่ส่ง — ลูกค้าขอไม่รับการติดต่อ"
     url = quote_url(q)
     greet = lead["name"] or f"ทีม {lead['domain']}"
-    body = (f"สวัสดีครับ คุณ{greet}\n\nตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {lead['domain']} มาให้ครับ\n\n{Q.summary_text(q, lead['domain'])}\n\n"
+    intro = (f"ผมปรับใบเสนอราคา {q['number']} สำหรับเว็บ {lead['domain']} ให้ใหม่ครับ (ลิงก์เดิม) ช่วยเปิดดูและยืนยันอีกครั้ง" if revised
+             else f"ตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {lead['domain']} มาให้ครับ")
+    body = (f"สวัสดีครับ คุณ{greet}\n\n{intro}\n\n{Q.summary_text(q, lead['domain'])}\n\n"
             f"เปิดดูรายละเอียด เงื่อนไข และยืนยันรับข้อเสนอได้ที่ {url}\nมีคำถามตอบอีเมลนี้ได้เลยครับ" + outreach_footer(lead))
-    sent = _send_text(lead, f"ใบเสนอราคา {q['number']} สำหรับ {lead['domain']}", body)
+    sent = _send_text(lead, f"{'ปรับ' if revised else ''}ใบเสนอราคา {q['number']} สำหรับ {lead['domain']}", body)
     db.update_quote(q["id"], status="sent", sent_at=db.now())
     db.update_lead(lead["id"], status="quoted", last_contacted_at=db.now())
     _cancel_pending(lead["id"], {"outreach", "lead_review"}, f"ส่งใบเสนอราคา {q['number']} แล้ว")

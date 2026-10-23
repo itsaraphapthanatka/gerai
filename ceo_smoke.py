@@ -94,3 +94,22 @@ assert a.get("/admin/ceo/log.json").json()["log"] and TestClient(app).post("/adm
 r = a.get("/admin/office"); assert "สั่งงาน CEO" in r.text and "/admin/ceo/send.json" in r.text
 print("admin: หน้าแชต · JSON ในออฟฟิศ (แอดมินเท่านั้น) OK")
 print("ALL OK")
+
+# ---- ใบเดิมเปิดอยู่: เจ้าของสั่งรายปี → ยืนยันบอกก่อนว่าจะปรับใบเดิม → ปรับลิงก์เดิม ลูกค้ายืนยันใหม่ · ส่งซ้ำไม่ทำซ้ำ · "แก้ไขใหม่" ทำต่อคำสั่งเดิม ----
+import app.quotes as Q
+ld = db.add_lead("https://dt.co.th", "dt.co.th", source="prospect", email="buyer@dt.co.th"); db.update_lead(ld, audit_json=json.dumps(REPORT), score=60)
+q0 = P.create_quote(db.get_lead(ld), "pro", 0, True, cycle="month"); P.send_quote(q0, "admin"); P.accept_quote(db.get_quote(q0["id"]), "คุณดี", "1.1.1.1")
+assert db.get_quote(q0["id"])["status"] == "accepted" and db.get_quote(q0["id"])["first_total"] == 19800
+pick.clear(); pick.update(action="quote", args={"domain": "dt.co.th"})
+r = C.handle("dt.co.th เสนอรายปีเลย"); assert f"มีใบ {q0['number']} อยู่แล้ว" in r and "ปรับใบเดิม" in r and "98,604" in r and "ยืนยันใหม่" in r, r
+assert C.handle("dt.co.th เสนอรายปีเลย") == r and len([e for e in C.log() if e["text"] == "dt.co.th เสนอรายปีเลย"]) == 1          # ส่งซ้ำภายใน 90 วิ ไม่ทำซ้ำ
+sent.clear(); r = C.handle("ยืนยัน"); qn = db.get_quote(q0["id"])
+assert "ปรับ" in r and qn["cycle"] == "year" and qn["first_total"] == 98604 and qn["status"] == "sent" and qn["accepted_at"] is None and qn["token"] == q0["token"], (r, dict(qn))
+assert len(db.list_quotes(ld)) == 1 and sent and "ปรับใบเสนอราคา" in sent[-1][1]
+assert any("ปรับ" in e["note"] and "ยืนยันใหม่" in e["note"] for e in db.list_lead_events(ld))
+db.update_quote(q0["id"], status="claimed")
+pick.update(action="quote", args={"domain": "dt.co.th", "cycle": "month"}); r = C.handle("dt.co.th ทำรายเดือน"); assert "ตรวจยอดก่อน" in r and not C._pending()
+db.update_quote(q0["id"], status="sent")
+pick.update(action="help", args={}); r = C.handle("แก้ไขใหม่สิ"); assert "ปรับใบเดิม" in r and C._pending(), r        # ทำต่อคำสั่งล่าสุด (รายเดือน)
+assert C.handle("ยกเลิก") == "ยกเลิกแล้ว"
+print("revise: ใบเปิดอยู่ → บอกก่อนยืนยัน · ปรับใบเดิมลิงก์เดิม ลูกค้ายืนยันใหม่ · แจ้งชำระแล้วห้ามแก้ · ส่งซ้ำไม่ทำซ้ำ · 'แก้ไขใหม่' ทำต่อ OK")

@@ -1394,7 +1394,8 @@ QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name"
                 "paid_at", "tenant_id", "brand_id", "decision_id", "notes", "valid_until",
                 "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via",
                 "buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address",
-                "cycle", "period_total", "net", "setup_price", "first_total"}       # เปลี่ยนรอบบิลก่อนยืนยัน
+                "cycle", "period_total", "net", "setup_price", "first_total",        # เปลี่ยนรอบบิลก่อนยืนยัน
+                "package", "price", "discount_pct", "setup"}                          # เจ้าของสั่งปรับใบเดิม
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,

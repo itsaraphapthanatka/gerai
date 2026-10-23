@@ -101,9 +101,15 @@ sess = [d for p_, d in calls if p_ == "/checkout/sessions"][0]
 assert "line_items[1][price]" not in sess and "discounts[0][coupon]" not in sess and sess["mode"] == "subscription"   # Setup ฟรี · ไม่มีคูปอง
 lid3 = db.add_lead("https://y3.co.th", "y3.co.th", source="prospect", email="a@y3.co.th"); db.update_lead(lid3, audit_json=json.dumps(REPORT))
 q3 = P.create_quote(db.get_lead(lid3), "pro", 5, False, cycle="year"); SP.create_checkout(q3, db.get_lead(lid3), "https://geo.example")
-cp = [d for p_, d in calls if p_ == "/coupons"][-1]; assert cp["id"] == "geo-disc-5-pro_year" and "รายปี" in cp["name"]
-assert [d for p_, d in calls if p_ == "/checkout/sessions"][-1]["discounts[0][coupon]"] == "geo-disc-5-pro_year"
-print("stripe: ราคารายปี interval=year 98,604 · ไม่มี Setup · คูปองพิเศษเฉพาะราคารายปี OK")
+s3 = [d for p_, d in calls if p_ == "/checkout/sessions"][-1]; pr3 = [d for p_, d in calls if p_ == "/prices"][-1]
+assert "discounts[0][coupon]" not in s3 and pr3["lookup_key"] == f"geo_pro_year_{q3['period_total']}" and pr3["unit_amount"] == str(q3["period_total"] * 100)   # ส่วนลดพิเศษรวมในราคาตามใบ
+X.set_mandate("yearly_discount_pct", 10)                                                          # เปลี่ยนส่วนลดรายปีทีหลัง
+n0 = len(calls); SP.create_checkout(db.get_quote(q["id"]), db.get_lead(lid), "https://geo.example")
+assert not [d for p_, d in calls[n0:] if p_ == "/prices"]                                        # ไม่สร้างราคาใหม่ให้ใบเดิม
+assert [d for p_, d in calls[n0:] if p_ == "/checkout/sessions"][-1]["line_items[0][price]"] == store["prices"]["geo_pro_year_98604"]["id"]
+assert Q.price_for("pro", 0, False, "year")["period_total"] == 106920                            # ใบใหม่ใช้ 10%
+X.set_mandate("yearly_discount_pct", 17)
+print("stripe: ราคารายปีตรงยอดในใบเสมอ (98,604 · ส่วนลดพิเศษรวมในราคา ไม่ใช้คูปอง) · เปลี่ยนส่วนลดรายปีทีหลัง ใบเดิมยังเก็บยอดเดิม · ไม่มี Setup OK")
 
 # ---- CEO ----
 lid4 = db.add_lead("https://ask.co.th", "ask.co.th", source="prospect", email="info@ask.co.th"); db.update_lead(lid4, audit_json=json.dumps(REPORT), score=60)

@@ -14,6 +14,8 @@ LOG_KEY, PENDING_KEY = "ceo_chat_log", "ceo_chat_pending"
 CONFIRM_WORDS = re.compile(r"^\s*(ยืนยัน|ใช่|ตกลง|โอเค|ok|okay|yes|y|จัดไป|เอา|ได้)\s*[.!✓]*\s*$", re.I)
 CANCEL_WORDS = re.compile(r"^\s*(ยกเลิก|ไม่|ไม่เอา|no|cancel|stop)\s*$", re.I)
 PENDING_MIN = 30
+DUP_SEC = 90
+REDO_WORDS = re.compile(r"^\s*(แก้|แก้ไข|แก้ใหม่|แก้ไขใหม่|ทำใหม่|ลองใหม่|ปรับ|ปรับใหม่|ปรับใบเดิม|ทำเลย|ทำต่อ|redo|retry)(สิ|ซิ|เลย|ให้หน่อย|ที|ครับ|ค่ะ|นะ|\s)*$", re.I)
 RUN_INLINE = False
 LLM = None                    # เทสต์ฉีด
 
@@ -24,7 +26,7 @@ ACTIONS = {
     "find_leads": ("หาลูกค้าใหม่ตามกลุ่มธุรกิจ/พื้นที่", {"segment": "กลุ่มธุรกิจ", "area": "จังหวัด (ไม่บังคับ)", "n": "จำนวน 1-15"}, True),
     "audit": ("ตรวจเว็บฟรีให้เว็บหนึ่ง (เพิ่มเป็นลีด)", {"url": "ที่อยู่เว็บ"}, False),
     "contact_lead": ("ให้ CEO ทักลีดรายนี้ (ร่าง+ส่งข้อความ)", {"domain": "โดเมน"}, True),
-    "quote": ("ทำและส่งใบเสนอราคา", {"domain": "โดเมน", "package": "pro|agency", "discount_pct": "ส่วนลดพิเศษ %", "cycle": "month|year (year = รายปี ลด 17% Setup ฟรี)"}, True),
+    "quote": ("ทำและส่งใบเสนอราคา", {"domain": "โดเมน", "package": "pro|agency", "discount_pct": "ส่วนลดพิเศษ %", "cycle": "month|year (year = รายปี มีส่วนลดตามกรอบอำนาจ Setup ฟรี)"}, True),
     "followup": ("ส่งข้อความติดตามผลครั้งถัดไปทันที", {"domain": "โดเมน"}, True),
     "ai_report": ("ถาม ChatGPT 20 คำถามให้ลีด (≈฿40)", {"domain": "โดเมน"}, True),
     "billing": ("สรุปบัญชี: รับเงินเดือนนี้ ค้างรับ เกินกำหนด", {}, False),
@@ -53,6 +55,27 @@ def _log(role: str, text: str) -> None:
     lg = log()[-59:]
     lg.append({"at": db.now(), "role": role, "text": text[:2000]})
     db.set_setting(LOG_KEY, json.dumps(lg, ensure_ascii=False))
+
+
+def _last_cmd():
+    try:
+        d = json.loads(db.get_setting("ceo_chat_last") or "null")
+    except Exception:
+        return None
+    if not d or d.get("action") in (None, "help", "chat", "status"):
+        return None
+    try:
+        if (dt.datetime.now() - dt.datetime.fromisoformat(d["at"][:19])).total_seconds() > PENDING_MIN * 60:
+            return None
+    except Exception:
+        return None
+    return d
+
+
+def _set_last_cmd(cmd: dict) -> None:
+    if cmd.get("action") in ("help", "chat"):
+        return
+    db.set_setting("ceo_chat_last", json.dumps({"action": cmd["action"], "args": {k: v for k, v in cmd["args"].items() if k != "revise"}, "at": db.now()}, ensure_ascii=False))
 
 
 def _pending():
@@ -200,16 +223,22 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
             return f"จะส่งข้อความติดตามผลครั้งถัดไปถึง {lead['domain']} ทาง {ch} ทันที (ไม่รอวันครบ)", "ok"
         if action == "ai_report":
             return f"จะถาม ChatGPT 20 คำถามเรื่อง {lead['domain']} (ค่าใช้จ่ายราว ฿40)", "ok"
-        pkg = (args.get("package") or "pro").lower()
+        raw_pkg, raw_disc = args.get("package"), args.get("discount_pct")
+        open_q = next((x for x in db.list_quotes(lead["id"]) if x["status"] in Q.OPEN), None)
+        pkg = (raw_pkg or (open_q["package"] if open_q else "pro")).lower()
         pkg = pkg if pkg in Q.PACKAGES else "pro"
         try:
-            disc = max(0.0, min(50.0, float(str(args.get("discount_pct") or 0).strip("% "))))
+            disc = max(0.0, min(50.0, float(str(raw_disc if raw_disc not in (None, "") else (open_q["discount_pct"] if open_q else 0)).strip("% "))))
         except ValueError:
             disc = 0.0
         c0 = str(args.get("cycle") or "").lower()
         cyc = "year" if c0 in ("year", "yearly", "annual", "รายปี") else ("month" if c0 in ("month", "monthly", "รายเดือน") else Q.default_cycle())
         args.update(package=pkg, discount_pct=disc, cycle=cyc)
-        pr = Q.price_for(pkg, disc, Q.needs_setup(json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}), cyc)
+        if open_q and open_q["status"] not in pipeline.REVISABLE:
+            return f"{lead['domain']} มีใบ {open_q['number']} ที่{Q.STATUS_LABEL.get(open_q['status'], open_q['status'])} — ตรวจยอดก่อน ไม่ควรเปลี่ยนเงื่อนไข", None
+        if open_q:
+            args["revise"] = open_q["id"]
+        pr = Q.price_for(pkg, disc, bool(open_q["setup"]) if open_q else Q.needs_setup(json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}), cyc)
         warn = execs.cfo_check({"price": pr["price"], "discount_pct": disc, "cycle": cyc})
         if cyc == "year":
             head = (f"จะส่งใบเสนอราคา {pkg.capitalize()} รายปี {pr['period_total']:,} บาท/ปี (เทียบ {pr['net']:,}/เดือน ลด {pr['yearly_discount']:.0f}%"
@@ -217,6 +246,10 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
         else:
             head = (f"จะส่งใบเสนอราคา {pkg.capitalize()} {pr['net']:,} บาท/เดือน" + (f" (ลด {disc:.0f}%)" if disc else "")
                     + (f" + GEO Setup {pr['setup_price']:,}" if pr["setup"] else ""))
+        if open_q:
+            head = (f"{lead['domain']} มีใบ {open_q['number']} อยู่แล้ว ({Q.STATUS_LABEL.get(open_q['status'], open_q['status'])} · "
+                    f"{Q.CYCLES[Q.cycle_of(open_q)]} งวดแรก {open_q['first_total']:,} บาท) — จะปรับใบเดิมเป็น: " + head.replace("จะส่งใบเสนอราคา ", "")
+                    + (" แล้วส่งให้ลูกค้ายืนยันใหม่ทางลิงก์เดิม" if open_q["status"] == "accepted" else " แล้วส่งให้ลูกค้าดูอีกครั้ง"))
         return (head + f" งวดแรก {pr['first_total']:,} บาท ถึง {lead['domain']} ทาง {ch}"
                 + ("" if warn["ok"] else f"\n⚠️ CFO: {warn['note']} — คุณเป็นบอร์ด สั่งได้ แต่เกินกรอบที่ตั้งไว้")), "ok"
     if action == "find_leads":
@@ -324,8 +357,15 @@ def execute(action: str, args: dict) -> str:
         if err:
             return err
         from . import quotes as Q
-        if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
-            return f"{lead['domain']} มีใบเสนอราคาที่ยังเปิดอยู่แล้ว — ดูที่ {pipeline.public_base()}/admin/leads/{lead['id']}"
+        open_q = next((x for x in db.list_quotes(lead["id"]) if x["status"] in Q.OPEN), None)
+        if open_q:                                     # คำสั่งเจ้าของ = ปรับใบเดิม (ลิงก์/เลขเดิม) แทนการสร้างใบซ้อน
+            err = pipeline.revise_quote(open_q, args.get("package"), args.get("discount_pct"), None,
+                                        args.get("cycle") if args.get("cycle") in ("year", "month") else None, "owner (สั่งผ่าน CEO)")
+            if err:
+                return f"ปรับ {open_q['number']} ไม่ได้ — {err}"
+            q = db.get_quote(open_q["id"])
+            res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)", revised=True)
+            return f"ปรับ {q['number']} เป็น {Q.CYCLES[Q.cycle_of(q)]} งวดแรก {q['first_total']:,} บาทแล้ว · {res}\n{pipeline.quote_url(q)}"
         q = pipeline.create_quote(lead, args.get("package") or "pro", float(args.get("discount_pct") or 0), created_by="owner",
                                   cycle=args.get("cycle") if args.get("cycle") in ("year", "month") else Q.default_cycle())
         res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)")
@@ -483,6 +523,13 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
     text = (text or "").strip()
     if not text:
         return ""
+    lg = log()
+    if len(lg) >= 2 and lg[-2]["role"] == "owner" and lg[-2]["text"] == text[:2000] and lg[-1]["role"] == "ceo":
+        try:
+            if (dt.datetime.now() - dt.datetime.fromisoformat(lg[-2]["at"][:19])).total_seconds() < DUP_SEC:
+                return lg[-1]["text"]                  # กดส่งซ้ำ/ส่งซ้ำจากหน้าเว็บที่ยังโหลด — ไม่ทำซ้ำ ไม่ตอบซ้ำ
+        except Exception:
+            pass
     _log("owner", text)
     with office.working("ceo", f"รับคำสั่งเจ้าของ: {text[:40]}"):
         p = _pending()
@@ -496,7 +543,9 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
             _set_pending(None)
             reply = "ยกเลิกแล้ว"
         else:
-            cmd = parse(text, llm)
+            last = _last_cmd()
+            cmd = {"action": last["action"], "args": dict(last["args"])} if (last and REDO_WORDS.match(text)) else parse(text, llm)
+            _set_last_cmd(cmd)
             msg, need = plan(cmd["action"], cmd["args"])
             needs_confirm = ACTIONS[cmd["action"]][2]
             if needs_confirm and need:

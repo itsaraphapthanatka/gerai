@@ -111,10 +111,11 @@ def _name(kind: str, company: str) -> str:
     return f"{company} แพ็กเกจ {billing.PLANS[kind]['label']} รายเดือน"
 
 
-def ensure_price(kind: str, company: str = "เจอ.AI") -> dict:
-    """คืน {price, product} ของรายการนี้ใน Stripe — หาด้วย lookup_key ก่อน ไม่มีค่อยสร้าง (ผลแคชใน settings)"""
+def ensure_price(kind: str, company: str = "เจอ.AI", amount: int | None = None) -> dict:
+    """คืน {price, product} ของรายการนี้ใน Stripe — หาด้วย lookup_key ก่อน ไม่มีค่อยสร้าง (ผลแคชใน settings)
+    amount = ยอดต่อรอบที่ตกลงในใบเสนอราคา (รายปี) — ราคาใน Stripe ต้องตรงกับใบเสมอ แม้ส่วนลดรายปีจะเปลี่ยนทีหลัง"""
     base_key, interval = CATALOG[kind]
-    amount = _amount(kind)
+    amount = int(amount) if amount else _amount(kind)
     key = f"{base_key}_{amount}"
     cached = db.get_setting(f"stripe_price_{key}")
     if cached and "|" in cached:
@@ -181,10 +182,12 @@ def create_checkout(q, lead, base: str, company: str = "เจอ.AI") -> str:
     """สร้าง Checkout Session → คืน URL ให้ลูกค้าไปจ่าย (เก็บ session id ไว้เช็กย้อนหลัง) · idempotent ต่อใบเสนอราคาเป็นช่วง 10 นาที"""
     if not available():
         raise RuntimeError("ยังไม่ได้ตั้งค่า Stripe")
-    kind = q["package"] + ("_year" if _cycle(q) == "year" else "")
-    plan = ensure_price(kind, company)
-    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] and _cycle(q) != "year" else None}
-    coupon = ensure_coupon(q["discount_pct"], plan["product"], kind) if q["discount_pct"] else None
+    from . import quotes as Q
+    yearly = _cycle(q) == "year"
+    kind = q["package"] + ("_year" if yearly else "")
+    plan = ensure_price(kind, company, Q.period_total(q) if yearly else None)        # รายปี: ยอดตามใบ (รวมส่วนลดพิเศษแล้ว) ไม่ใช้คูปอง
+    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] and not yearly else None}
+    coupon = ensure_coupon(q["discount_pct"], plan["product"], kind) if q["discount_pct"] and not yearly else None
     resp = _post("/checkout/sessions", checkout_params(q, lead, base, prices, coupon), idem=f"geo-checkout-{q['id']}-{int(time.time()) // 600}")
     db.update_quote(q["id"], stripe_session_id=resp.get("id"))
     return resp["url"]

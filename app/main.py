@@ -3292,14 +3292,14 @@ def admin_skills(request: Request, notice: str = "", edit: str = ""):
 
 
 @app.post("/admin/skills/mandate")
-def admin_skills_mandate(request: Request, max_discount_pct: str = Form(""), max_deal_thb: str = Form(""), refund_days: str = Form(""),
-                         ai_cost_cap_thb: str = Form(""), min_margin_pct: str = Form("")):
-    """แก้กรอบอำนาจ (ส่วนลด วงเงิน คืนเงิน เพดาน AI กำไรขั้นต่ำ) — มีผลทันทีกับ CFO · บันทึกเป็นการตัดสินใจของบอร์ด"""
+async def admin_skills_mandate(request: Request):
+    """แก้กรอบอำนาจทุกช่องที่มีในตาราง (ส่วนลด วงเงิน คืนเงิน เพดาน AI กำไรขั้นต่ำ ส่วนลดรายปี …) — มีผลทันที · บันทึกเป็นการตัดสินใจของบอร์ด"""
     if not _is_admin(request):
         return _redirect("/login")
+    form = await request.form()
     changed = []
-    for key, val in (("max_discount_pct", max_discount_pct), ("max_deal_thb", max_deal_thb), ("refund_days", refund_days),
-                     ("ai_cost_cap_thb", ai_cost_cap_thb), ("min_margin_pct", min_margin_pct)):
+    for key in execs.MANDATE_DEFAULT:                    # อ่านทุกช่องของกรอบอำนาจ — ช่องที่เพิ่มทีหลังไม่ตกหล่น
+        val = str(form.get(key) or "")
         if val.strip() == "":
             continue
         try:

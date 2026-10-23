@@ -71,6 +71,10 @@ r = a.post("/admin/skills/mandate", data={"max_discount_pct": "12", "max_deal_th
 assert "ส่วนลดสูงสุด (%): 10 → 12" in r.text and X.MANDATE["max_discount_pct"] == 12
 assert any(d["title"] == "บอร์ดแก้กรอบอำนาจ" for d in db.list_decisions(None, 5))
 r = a.post("/admin/skills/mandate", data={"max_discount_pct": "abc"}); assert "ค่าไม่ถูกต้อง" in r.text
+r = a.post("/admin/skills/mandate", data={"yearly_discount_pct": "10"}); assert "ส่วนลดเมื่อจ่ายรายปี (%): 17 → 10" in r.text and X.MANDATE["yearly_discount_pct"] == 10
+import app.quotes as Q; assert Q.price_for("pro", 0, False, "year")["period_total"] == 106920
+r = a.post("/admin/skills/mandate", data={"yearly_discount_pct": "150"}); assert "ไม่เกิน 100" in r.text and X.MANDATE["yearly_discount_pct"] == 10
+X.set_mandate("yearly_discount_pct", 17)
 r = a.get("/admin/decisions"); assert "ส่วนลด ≤ 12%" in r.text                                # หน้าอื่นเห็นค่าใหม่
 X.set_mandate("max_discount_pct", 10)
 print("admin: หน้าทักษะ · แก้/คืนค่า · กรอบอำนาจ → บันทึกเป็นการตัดสินใจของบอร์ด OK")
