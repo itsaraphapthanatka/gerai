@@ -40,6 +40,9 @@
     </details>
     {% if lead['status'] != 'unsubscribed' %}
     <form method="post" action="/admin/leads/{{ lead['id'] }}/unsubscribe" style="margin-top:10px" onsubmit="return confirm('บันทึกว่าลูกค้าขอไม่รับการติดต่อ? ข้อเสนอที่ค้างจะถูกยกเลิก')"><button class="btn ghost sm" type="submit">ลูกค้าขอไม่รับการติดต่อ</button></form>
+    <div class="muted" style="font-size:12.5px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><b style="color:var(--ink)">SDR ติดตามผล</b> ·
+      ส่งแล้ว {{ fu.n }}/{{ fu.steps }}
+      {% if fu.replied %} · หยุดแล้ว (ลูกค้าตอบ/ขอไม่รับ){% elif fu.why %} · ไม่ติดตาม: {{ fu.why }}{% elif fu.next %} · ครั้งที่ {{ fu.next.step }} ถึงกำหนด {{ fu.next.due_at[:16].replace('T',' ') }}{% elif fu.n >= fu.steps %} · ครบแล้ว{% endif %}</div>
     {% endif %}
   </div>
 
@@ -54,7 +57,7 @@
     <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;font-size:13px">
       <b>รายงานเต็ม</b>
       {% if deep_progress.tier1 == 'running' %}<div class="muted">กำลังไต่เว็บและเช็กอันดับ…</div>
-      {% elif deep.get('state') == 'done' %}<div class="muted">ไต่ {{ deep.crawl.n }} หน้า · health {{ deep.health.score }}/100 · Error {{ deep.health.errors }} · ติดหน้าแรก {{ deep.ranking.page1 }}/{{ deep.ranking.n }} คำ · {{ (deep.at or '')[:16].replace('T',' ') }}</div>
+      {% elif deep.get('state') == 'done' %}<div class="muted">ไต่ {{ deep.get('crawl', {}).get('n', '—') }} หน้า · health {{ deep.health.score }}/100 · Error {{ deep.health.errors }} · ติดหน้าแรก {{ deep.ranking.page1 }}/{{ deep.ranking.n }} คำ · {{ (deep.at or '')[:16].replace('T',' ') }}</div>
       {% elif deep.get('state') == 'error' %}<div class="muted">ล้ม: {{ deep.error }}</div>
       {% else %}<div class="muted">ยังไม่มี</div>{% endif %}
       {% if deep_progress.ai == 'running' %}<div class="muted">กำลังถาม AI 20 คำถาม…</div>

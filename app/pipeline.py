@@ -194,6 +194,17 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "payment" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return confirm_payment(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "followup" and lead:
+        from . import followup
+        why = followup.eligible(lead)
+        if why or followup.history(lead["id"])["replied"]:
+            return f"ไม่ส่ง — {why or 'ลูกค้าตอบกลับแล้ว'}"
+        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", pl.get("body", "") + outreach_footer(lead))
+        if not sent:
+            return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ"
+        db.update_lead(lead["id"], last_contacted_at=db.now())
+        record(lead["id"], "followup", f"ครั้งที่ {pl.get('step')}: {sent}", who)
+        return f"ติดตามครั้งที่ {pl.get('step')}/3 · {sent}"
     if d["kind"] == "post" and pl.get("post_id"):
         from . import marketing
         post = db.get_post(pl["post_id"])
@@ -215,7 +226,7 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
     if lead["status"] in ("new", "contacted", "lost"):
         db.update_lead(lead["id"], status="replied")
     record(lead["id"], "replied", (message or "").strip()[:500] or f"กดคุยต่อผ่าน{via}", actor)
-    _cancel_pending(lead["id"], {"outreach", "lead_review"}, "ลูกค้าตอบกลับมาเองแล้ว ไม่ต้องทัก")
+    _cancel_pending(lead["id"], {"outreach", "lead_review", "followup"}, "ลูกค้าตอบกลับมาเองแล้ว ไม่ต้องทัก")
     alert_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}" + (f": {message.strip()[:80]}" if message.strip() else ""),
                  f"/admin/leads/{lead['id']}", "lead", subject=f"💬 {lead['domain']} ตอบกลับ — CEO กำลังเสนอใบเสนอราคา")
     try:

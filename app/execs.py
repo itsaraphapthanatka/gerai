@@ -58,11 +58,11 @@ def set_mandate(key: str, value) -> None:
     if v < 0:
         raise ValueError("ค่าต้องไม่ติดลบ")
     db.set_setting(f"mandate_{key}", str(v))
-AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO"}
-KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "digest": "สรุปเช้า"}
+AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR"}
+KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "digest": "สรุปเช้า"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
 # ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
-AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post"}
+AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup"}
 AUTO_MIN_DECIDED = 20
 AUTO_MIN_AGREEMENT = 95
 PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
@@ -201,10 +201,14 @@ def auto_gate(kind: str) -> dict:
     from . import db
     st = db.decision_stats(kind)
     eligible = kind in AUTO_ELIGIBLE
-    override = db.get_setting(f"auto_override_{kind}") == "1"      # เจ้าของสั่งปลดล็อกเองโดยไม่รอด่าน (บันทึกไว้ชัด ๆ)
+    raw_override, raw_on = db.get_setting(f"auto_override_{kind}"), db.get_setting(f"auto_{kind}")
+    if kind == "followup" and raw_on is None:          # ติดตามผล = ข้อความทักชุดเดียวกัน → ยังไม่ตั้งแยก ใช้ตามเรื่อง "ข้อความทัก"
+        raw_override, raw_on = db.get_setting("auto_override_outreach"), db.get_setting("auto_outreach")
+        st = db.decision_stats("outreach")
+    override = raw_override == "1"                     # เจ้าของสั่งปลดล็อกเองโดยไม่รอด่าน (บันทึกไว้ชัด ๆ)
     passed = st["decided"] >= AUTO_MIN_DECIDED and (st["agreement_pct"] or 0) >= AUTO_MIN_AGREEMENT
     enough = passed or override
-    on = db.get_setting(f"auto_{kind}") == "1"
+    on = raw_on == "1"
     if not eligible:
         reason = "ต้องเป็นคนเสมอ — ระบบมองไม่เห็นบัญชีธนาคาร" if kind == "payment" else "เรื่องนี้ยังต้องเป็นคน"
     elif not enough:
@@ -310,7 +314,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -318,7 +322,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [prospecting.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [prospecting.status_text(), followup.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

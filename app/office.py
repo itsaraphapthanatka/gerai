@@ -20,6 +20,7 @@ ACTORS = [
     {"id": "owner", "name": "เจ้าของ", "role": "อนุมัติ · ปลดล็อก · ยืนยันยอดโอน", "hex": "1f2a44", "human": True},
     {"id": "ceo", "name": "CEO", "role": "คัดลูกค้า · ร่างข้อความทัก · สรุปเช้า", "hex": "d97706", "skill": "ceo"},
     {"id": "prospecting", "name": "หาลูกค้า", "role": "ค้นธุรกิจตามกลุ่มเป้าหมาย · หาอีเมล", "hex": "b45309", "skill": "prospecting"},
+    {"id": "sdr", "name": "SDR", "role": "ติดตามผลลีดที่เงียบ วันที่ 3 · 7 · 14", "hex": "ea580c", "skill": "sdr"},
     {"id": "cfo", "name": "CFO", "role": "ใบเสนอราคา · กรอบส่วนลด · รับเงิน", "hex": "059669", "skill": "cfo"},
     {"id": "cto", "name": "CTO", "role": "ตรวจเว็บ · เปิดบัญชี · เฝ้าระบบ", "hex": "2563eb", "skill": "cto"},
     {"id": "cmo", "name": "CMO", "role": "โพสต์ LINE/Facebook · เคสศึกษา", "hex": "c0265c", "skill": "cmo"},
@@ -36,6 +37,7 @@ SCHEDULE = [
     ("ceo", None, "08:00", "สรุปเช้าให้เจ้าของ"),
     ("cto", None, "08:00", "เช็กว่าเว็บลูกค้ายังเปิดอยู่"),
     ("cmo", None, "09:00", "รอบการตลาด: เผยแพร่ · โพสต์ · เคสศึกษา"),
+    ("sdr", None, "10:00", "ติดตามผลลีดที่ทักแล้วเงียบ"),
     ("cto", 0, "09:00", "เช็กอันดับ Google"),
     ("cto", 0, "09:15", "ซิงค์ Search Console"),
     ("cto", 0, "09:30", "ตรวจสุขภาพเว็บลูกค้า"),
@@ -65,10 +67,11 @@ LEAD_EVENTS = {
     "unsubscribed": ("lead", "unsub", "{dom} ขอไม่รับการติดต่อ"),
     "line": ("hop", "line", "{dom} ทักมาทาง LINE"),
     "deep_audit": ("cto", "audit", "รายงานเต็ม {dom}: ไต่เว็บ + อันดับ Google"),
+    "followup": ("sdr", "outreach", "ติดตามผล {dom}"),
     "ai_check": ("cto", "audit", "ถาม AI 20 คำถามเรื่อง {dom}"),
 }
 VISITOR_STATUSES = ("new", "contacted", "replied", "quoted", "won")
-KIND_TH = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด"}
+KIND_TH = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล"}
 CHANNEL_TH = {"line": "LINE OA", "facebook": "Facebook Page"}
 
 

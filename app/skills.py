@@ -15,9 +15,10 @@ AGENTS = {
     "cmo": "CMO — การตลาดและคอนเทนต์",
     "prospecting": "Prospecting — หาลูกค้าเป้าหมาย",
     "delivery": "Delivery/QA — ติดตั้ง GEO และคุณภาพคอนเทนต์",
+    "sdr": "SDR — ติดตามผลลีดที่เงียบ",
 }
 # งานของโมเดล → ทักษะที่แนบเป็น system prompt
-TASK_SKILL = {"sales": "ceo", "marketing": "cmo", "content": "delivery"}
+TASK_SKILL = {"sales": "ceo", "marketing": "cmo", "content": "delivery", "followup": "sdr"}
 
 
 def default(name: str) -> str:

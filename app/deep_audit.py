@@ -33,7 +33,12 @@ BENCHMARK = 70
 ENGINE_LABEL = {"chatgpt": "ChatGPT", "perplexity": "Perplexity", "gemini": "Gemini", "claude": "Claude"}
 PLATFORMS = {"youtube.com", "facebook.com", "instagram.com", "tiktok.com", "linkedin.com", "th.linkedin.com", "x.com", "twitter.com",
              "wikipedia.org", "th.wikipedia.org", "en.wikipedia.org", "pantip.com", "shopee.co.th", "lazada.co.th", "google.com",
-             "play.google.com", "apps.apple.com", "blockdit.com", "medium.com", "reddit.com", "wongnai.com", "line.me"}
+             "play.google.com", "apps.apple.com", "blockdit.com", "medium.com", "reddit.com", "wongnai.com", "line.me",
+             # ตลาดฟรีแลนซ์ / ไดเรกทอรี / หางาน — ขึ้นทุกคำค้นบริการ แต่ไม่ใช่คู่แข่งทางธุรกิจของลูกค้า
+             "fastwork.co", "fastwork.id", "upwork.com", "fiverr.com", "toptal.com", "clutch.co", "goodfirms.co", "rankfirms.com",
+             "jobbkk.com", "jobthai.com", "jobsdb.com", "th.jobsdb.com", "linkedin.com", "yellowpages.co.th", "thaifranchisecenter.com",
+             "kaidee.com", "dbd.go.th", "creden.co", "trustpilot.com", "tripadvisor.com", "agoda.com", "booking.com", "hellobacsi.com",
+             "pobpad.com", "sanook.com", "kapook.com", "thairath.co.th", "dailynews.co.th", "bangkokbiznews.com", "prachachat.net"}
 GROUPS = ["Crawl & Index", "On-page core", "Content", "Schema & links", "Media & speed"]
 SEV_ORDER = {"Error": 0, "Warning": 1, "Notice": 2}
 _SEM = threading.BoundedSemaphore(2)       # รายงานเต็มพร้อมกันได้ไม่เกิน 2 ราย (กันเครื่องเราหนัก)
@@ -253,7 +258,8 @@ def issues(cr: dict) -> list[dict]:
     if thin:
         add("short_title", "Content", "Notice", "Title สั้นเกินไป (ไม่ถึง 15 ตัวอักษร)", [p["url"] for p in thin], "เขียน Title ให้มีชื่อบริการและจุดขาย")
     home = _norm(cr["site"] + "/")
-    orphan = [p for p in ok if p["inbound"] == 0 and p["url"] != home]
+    # หน้ากำพร้านับได้เฉพาะเมื่อไต่ครบทั้งเว็บ — ไต่ไม่ครบแล้วนับ = ฟ้องผิด (ลิงก์อาจอยู่ในหน้าที่ยังไม่ได้ไต่)
+    orphan = [] if cr.get("truncated") else [p for p in ok if p["inbound"] == 0 and p["url"] != home]
     if orphan:
         add("orphan", "Schema & links", "Error", "หน้าที่ไม่มีลิงก์ภายในชี้เข้ามา (orphan)", [p["url"] for p in orphan],
             "ใส่ลิงก์จากเมนู/ส่วนท้าย/หน้าที่เกี่ยวข้อง หรือถ้าเป็นหน้าทิ้ง (เช่น /sample-page) ให้ลบหรือ noindex")

@@ -824,7 +824,10 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             if pl.get("body"):
                 last_draft = {"subject": pl.get("subject", ""), "body": pl["body"], "when": d["created_at"]}
                 break
-    return {"deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
+    from . import followup as _fu
+    _h = _fu.history(lead["id"])
+    return {"fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},
+            "deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
             "ai_today": deep_audit.ai_today(), "ai_daily": deep_audit.ai_daily(),
             "lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
             "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL, "last_draft": last_draft,
@@ -3002,7 +3005,9 @@ def admin_set_plan(request: Request, tid: int, plan: str = Form(...)):
 
 def _settings_ctx(request: Request, saved=False, error=None):
     ppid, ppname = _promptpay_config()
+    from . import followup as _fu
     return {
+        "followup_on": _fu.enabled(),
         "ppid": ppid, "ppname": ppname,
         "qr": promptpay.qr_data_uri(ppid, 100) if ppid else None,
         "from_env": bool(not db.get_setting("promptpay_id") and os.getenv("PROMPTPAY_ID", "").strip()),
@@ -3136,10 +3141,12 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
 
 
 @app.post("/admin/settings/prospect")
-def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form("")):
+def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form(""), followup_on: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
     prospecting.save_config(segments, daily, bool(enabled))
+    from . import followup as _fu
+    _fu.set_enabled(bool(followup_on))
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 
