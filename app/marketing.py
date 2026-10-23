@@ -125,6 +125,24 @@ def fb_longlive(token: str, page_id: str = "") -> tuple[str, str]:
     return long_tok, "แลกเป็น token อายุยาวแล้ว"
 
 
+def fb_fix_app_id(token: str) -> str:
+    """โทเค็นมาจากแอปอื่นที่ไม่ใช่ App ID ที่ตั้งไว้ (เคยเกิด: แลก token ถาวรไม่ได้ทั้งที่ secret ถูก) → ถ้า secret ใช้ได้กับแอปของโทเค็น แก้ App ID ให้"""
+    app = fb_app()
+    if not app:
+        return ""
+    try:
+        tok_app = (httpx.get(f"{GRAPH}/app", params={"access_token": token}, timeout=20).json() or {}).get("id")
+        if not tok_app or tok_app == app["id"]:
+            return ""
+        r = httpx.get(f"{GRAPH}/oauth/access_token", params={"client_id": tok_app, "client_secret": app["secret"], "grant_type": "client_credentials"}, timeout=20)
+        if r.status_code < 400:
+            db.set_setting("fb_app_id", tok_app)
+            return f"แก้ App ID เป็น {tok_app} ให้ตรงกับแอปที่ออกโทเค็น"
+        return f"โทเค็นมาจากแอป {tok_app} แต่ App ID ที่ตั้งไว้คือ {app['id']} — ใช้ App ID/secret ของแอปเดียวกับที่ออกโทเค็น"
+    except Exception:
+        return ""
+
+
 def fb_accounts(token: str) -> list[dict]:
     """เพจที่ user token นี้ดูแล (พร้อม page token ของแต่ละเพจ) · token ของเพจเองจะได้ [] """
     try:
@@ -164,6 +182,9 @@ def save_config(on: bool, weekly_n: str, line: bool, fb_page_id: str, fb_token: 
         if not fb_identity(cand):                                   # ตรวจก่อนเก็บ — โทเค็นที่คัดลอกมาไม่ครบจะได้ไม่ทับของเดิม
             notes.append("โทเค็นที่วางใช้ไม่ได้ (Graph ตอบว่าไม่รู้จัก/Bad signature) — คงโทเค็นเดิมไว้ ลองคัดลอกใหม่ด้วยปุ่มคัดลอกใน Graph API Explorer")
         else:
+            fix = fb_fix_app_id(cand)
+            if fix:
+                notes.append(fix)
             tok, note = fb_longlive(cand, (db.get_setting("fb_page_id") or "").strip())
             if not fb_identity(tok):
                 tok, note = cand, "แลกโทเค็นถาวรไม่สำเร็จ — ใช้โทเค็นตามที่วาง"
