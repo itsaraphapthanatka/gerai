@@ -23,7 +23,7 @@ C.LLM = lambda m: json.dumps(pick)
 
 assert "สถานะ" in C.handle("สรุปวันนี้") and "รออนุมัติ" in C.log()[-1]["text"]
 assert "สั่งได้เช่น" in C.handle("ช่วยหน่อย")
-pick.update(action="delete_everything", args={}); assert "สั่งได้เช่น" in C.handle("ลบทุกอย่าง")              # งานนอกรายการ → help
+pick.update(action="delete_everything", args={}); r = C.handle("ลบทุกอย่าง"); assert "ยังไม่แน่ใจ" in r and not C._pending()   # งานนอกรายการ → ไม่ทำ ถามกลับ
 assert C.handle("สถานะ shop.co.th เป็นไงบ้าง").startswith("shop.co.th ·")                                      # มีโดเมน = ดูลีดรายนั้น
 print("rules: สรุป · ช่วย · งานนอกรายการไม่ทำ · สถานะลีดรายตัว OK")
 
@@ -31,7 +31,9 @@ print("rules: สรุป · ช่วย · งานนอกรายกา�
 pick.clear(); pick.update(action="contact_lead", args={"domain": "shop.co.th"})
 r = C.handle("ทัก shop.co.th"); assert "ยืนยัน" in r and C._pending() and not sent
 assert C.handle("ยืนยัน") and sent and sent[-1][0] == "info@shop.co.th" and db.get_lead(lid)["status"] == "contacted" and not C._pending()
-pick.update(action="contact_lead", args={"domain": "nope.co.th"}); assert "ไม่เจอลีด" in C.handle("ทัก nope") and not C._pending()
+pick.update(action="contact_lead", args={"domain": "nope.co.th"}); assert "ยังไม่มีลีด nope.co.th" in C.handle("ทัก nope.co.th") and C._pending()
+assert C.handle("ยกเลิก") == "ยกเลิกแล้ว"
+pick.update(action="contact_lead", args={"domain": "zzz"}); assert "ไม่เจอลีด" in C.handle("ทัก zzz") and not C._pending()       # อ่านโดเมนไม่ออก
 print("contact: ถามยืนยัน → ส่งจริงแม้โหมดเสนอ · ไม่เจอลีดไม่ค้าง OK")
 
 # ใบเสนอราคาเกินกรอบ → CFO เตือน · ยกเลิกได้ · หมดเวลา
@@ -54,6 +56,28 @@ assert db.list_lead_events(lid)[0]["note"] == "ขอคุยสัปดาห
 assert "ยืนยัน" in C.handle("หยุด") and C.handle("ยืนยัน").startswith("หยุดฉุกเฉินแล้ว") and X.paused()
 assert C.handle("ทำงานต่อ").startswith("กลับมาทำงานแล้ว") and not X.paused()
 print("audit/note/pause: ตรวจเว็บ · จดไทม์ไลน์ · หยุดต้องยืนยัน · ทำงานต่อ OK")
+
+# เคสจริง 23 ต.ค.: ยังไม่มีลีด · เว็บผ่านทุกข้อ · สั่งทัก → ต้องทัก ไม่ใช่ปิด · ถามทำไม → อธิบาย · คำถามทั่วไป → ไม่โยนรายการคำสั่ง
+import app.prospecting as PR, app.closer as CL, app.leads as LL
+sh.run_checks = lambda site, **kw: {"checks": [{"key": "csr", "status": "ok", "label": "x"}], "ok": True, "n_fail": 0, "n_ok": 1}
+PR.find_contact = lambda site, **kw: {"email": "hello@goodsite.co.th", "line": "", "n": 1, "source": "เว็บ"}
+CL.FETCH = lambda u: ""
+pick.clear(); pick.update(action="contact_lead", args={"domain": "goodsite.co.th"})
+r = C.handle("ติดต่อ goodsite.co.th ดูหน่อย"); assert "ยังไม่มีลีด goodsite.co.th" in r and C._pending()
+sent.clear(); r = C.handle("ยืนยัน")
+gl = db.find_lead_by_domain("goodsite.co.th")
+assert gl["status"] == "contacted" and gl["email"] == "hello@goodsite.co.th" and sent and sent[-1][0] == "hello@goodsite.co.th", (gl["status"], r)
+assert "ผ่านทุกข้อ" in r and "เจออีเมล" in r
+db.update_lead(gl["id"], status="lost")
+pick.update(action="contact_lead", args={"domain": ""})                                                    # "ทักอีกที" ไม่ระบุโดเมน → ใช้รายล่าสุด
+r = C.handle("ทักอีกที"); assert "goodsite.co.th" in r and "เปิดใหม่" in r
+C.handle("ยกเลิก")
+r = C.handle("ปิดทำไม"); assert r.startswith("goodsite.co.th ตอนนี้: ไม่สนใจ") and "ทัก goodsite.co.th" in r
+pick.update(action="chat", args={"question": "x"})
+r = C.handle("เว็บนี้ดีอยู่แล้วจะขายอะไรเขา"); assert "สั่งได้เช่น" not in r
+import app.execs as XX
+assert XX.ceo_review_lead({"domain": "z.co.th"}, {"checks": [{"key": "csr", "status": "ok"}]}, "u")["reason"].startswith("เว็บผ่านทุกข้อที่ตรวจ")   # ไม่ใช่ "เข้าเว็บไม่ได้"
+print("owner-first: ไม่มีลีดก็ทักได้ · ผ่านทุกข้อไม่ปิดเมื่อเจ้าของสั่ง · หาอีเมลเอง · ใช้โดเมนล่าสุด · อธิบายเหตุผล · ตอบคำถาม OK")
 
 # LINE: เจ้าของ → CEO · คนอื่นยังเป็นบอทลูกค้า
 replies = []; LO.reply = lambda tok, texts: replies.append(texts) or True; LO.push = lambda uid, texts: replies.append(texts) or True

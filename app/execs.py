@@ -59,7 +59,7 @@ def set_mandate(key: str, value) -> None:
         raise ValueError("ค่าต้องไม่ติดลบ")
     db.set_setting(f"mandate_{key}", str(v))
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR"}
-KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "digest": "สรุปเช้า"}
+KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
 # ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
 AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup"}
@@ -91,7 +91,8 @@ def _plan(name: str) -> dict:
 def outreach_template(lead, summary: list[dict], result_url: str) -> dict:
     """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — ตรงไปตรงมา อ้างเฉพาะข้อที่ตรวจเจอจริง"""
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
-    bullets = "\n".join(f"• {s['label']} — {s['why']}" for s in summary[:3]) or "• ยังไม่พบข้อที่ตก"
+    bullets = "\n".join(f"• {s['label']} — {s['why']}" for s in summary[:3]) or \
+        "• พื้นฐานผ่านทุกข้อแล้ว ขั้นต่อไปคือทำให้ ChatGPT, Gemini และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้า"
     body = (f"สวัสดีครับ ทีม {dom}\n\nผมตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (ตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
             f"พบข้อที่ควรแก้ก่อนดังนี้\n{bullets}\n\nดูผลเต็มได้ที่ {result_url}\n\n"
             "ถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
@@ -136,10 +137,11 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None) -> dict
 def ceo_review_lead(lead, report: dict, result_url: str, llm=None) -> dict:
     """CEO คัดลูกค้าจากผลตรวจ: รับ (พร้อมแพ็กเกจ + ร่างข้อความทัก) หรือไม่รับ (พร้อมเหตุผล)"""
     sc = L.score_audit(report)
-    if sc["score"] == 0:
+    if sc["level"] == "เข้าเว็บไม่ได้":
         return {"action": "decline", "score": 0, "reason": "เข้าเว็บไม่ได้ — ตรวจใหม่เมื่อเว็บกลับมา ยังไม่ทัก"}
     if sc["score"] < MIN_SCORE_TO_PURSUE:
-        return {"action": "decline", "score": sc["score"], "reason": f"เว็บผ่านเกือบทุกข้อ (ตก {sc['n_fail']} ข้อเล็ก) โอกาสขายต่ำ ไม่ควรเสียเวลาทัก"}
+        why = "เว็บผ่านทุกข้อที่ตรวจ" if not sc["n_fail"] else f"เว็บผ่านเกือบทุกข้อ (ตก {sc['n_fail']} ข้อเล็ก)"
+        return {"action": "decline", "score": sc["score"], "reason": f"{why} โอกาสขายต่ำ ไม่ควรเสียเวลาทัก (คะแนนโอกาส {sc['score']}/100 ต่ำกว่าเกณฑ์ {MIN_SCORE_TO_PURSUE})"}
     pkg = suggest_package(sc["score"])
     summary = L.public_summary(report)
     draft = draft_outreach(lead, summary, result_url, llm)
@@ -314,7 +316,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -322,7 +324,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

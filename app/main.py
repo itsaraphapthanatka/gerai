@@ -3601,3 +3601,82 @@ def admin_ceo_log_json(request: Request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     from . import ceo_chat
     return JSONResponse({"log": ceo_chat.log()[-20:], "pending": bool(ceo_chat._pending())}, headers={"Cache-Control": "no-store"})
+
+
+# ---------- งานที่ CEO แจกให้เอเจนต์ ----------
+@app.get("/admin/tasks")
+def admin_tasks(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import orchestrator
+    return templates.TemplateResponse(request, "admin_tasks.html", {"tasks": db.list_tasks(None, None, 100), "names": orchestrator.NAME, "notice": notice,
+                                                                    "paused": execs.paused()})
+
+
+@app.post("/admin/tasks/plan")
+def admin_tasks_plan(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import orchestrator
+    res = orchestrator.plan_and_run()
+    note = f"CEO แจก {len(res['tasks'])} งาน" + (" (พักไว้ — หยุดฉุกเฉินอยู่)" if res["held"] else " กำลังทำ") if res["tasks"] else "วันนี้ไม่มีงานใหม่ที่ต้องแจก"
+    return _redirect(f"/admin/tasks?notice={note}")
+
+
+# ---------- Inbox: อีเมลที่ลีดตอบกลับ ----------
+def _inbox_ctx(notice: str = "") -> dict:
+    from . import inbox
+    with db.get_conn() as c:
+        rows = c.execute("SELECT * FROM inbox_messages ORDER BY id DESC LIMIT 100").fetchall()
+    cfg = inbox.config()
+    try:
+        last = json.loads(db.get_setting("inbox_last") or "null")
+    except Exception:
+        last = None
+    return {"rows": rows, "cats": inbox.CATS, "notice": notice, "imap": {"host": db.get_setting("imap_host") or "", "user": db.get_setting("imap_user") or "",
+            "folder": db.get_setting("imap_folder") or "INBOX", "ready": bool(cfg)}, "addr": inbox.our_address(), "last": last,
+            "hook_url": f"{_public_base()}/inbox/hook?secret={inbox.hook_secret()}",
+            "pending": [d for d in db.list_decisions("proposed", 200) if d["kind"] == "reply"]}
+
+
+@app.get("/admin/inbox")
+def admin_inbox(request: Request, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_inbox.html", _inbox_ctx(notice))
+
+
+@app.post("/admin/inbox/settings")
+def admin_inbox_settings(request: Request, host: str = Form(""), user: str = Form(""), password: str = Form(""), folder: str = Form("INBOX")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import inbox
+    inbox.save_config(host, user, password, folder)
+    return _redirect("/admin/inbox?notice=บันทึกแล้ว — กด \"อ่านตอนนี้\" เพื่อทดสอบ")
+
+
+@app.post("/admin/inbox/poll")
+def admin_inbox_poll(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import inbox
+    try:
+        r = inbox.poll()
+        note = r.get("skipped") or f"ตรวจ {r['checked']} ฉบับ · ใหม่ {r['processed']}"
+    except Exception as e:
+        note = f"อ่านกล่องอีเมลไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+    return _redirect(f"/admin/inbox?notice={note}")
+
+
+@app.post("/inbox/hook")
+async def inbox_hook(request: Request, secret: str = ""):
+    """Cloudflare Email Worker ส่งอีเมลดิบมา (message.raw) · ต้องมีรหัสลับ"""
+    from . import inbox
+    import hmac as _hm
+    if not secret or not _hm.compare_digest(secret, inbox.hook_secret()):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    raw = await request.body()
+    if not raw or len(raw) > 5_000_000:
+        return JSONResponse({"error": "empty or too large"}, status_code=400)
+    m = inbox.parse_raw(raw)
+    return JSONResponse(inbox.process(m))

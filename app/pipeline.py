@@ -207,6 +207,17 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "payment" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return confirm_payment(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "reply" and lead:
+        if lead["status"] == "unsubscribed":
+            return "ไม่ส่ง — ลูกค้าขอไม่รับการติดต่อ"
+        to = (pl.get("to") or lead["email"] or "").strip()
+        if not (to and mailer.is_deliverable(to) and mailer.config()):
+            return "ส่งไม่ได้ — ไม่มีอีเมลที่ส่งได้"
+        body = pl.get("body", "") + outreach_footer(lead)
+        subj = pl.get("subject") or f"เรื่องเว็บ {lead['domain']}"
+        mailer.send(to, subj, mailer.wrap_html(subj, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+        record(lead["id"], "note", f"ตอบอีเมลลูกค้าแล้ว: {pl.get('body', '')[:200]}", who)
+        return f"ตอบอีเมลถึง {to} แล้ว"
     if d["kind"] == "followup" and lead:
         from . import followup
         why = followup.eligible(lead)

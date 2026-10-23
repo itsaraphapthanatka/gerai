@@ -26,7 +26,7 @@ ACTORS = [
     {"id": "cmo", "name": "CMO", "role": "โพสต์ LINE/Facebook · เคสศึกษา", "hex": "c0265c", "skill": "cmo"},
     {"id": "delivery", "name": "ส่งมอบ", "role": "คอนเทนต์ลูกค้า · Autopilot · QA", "hex": "7c3aed", "skill": "delivery"},
     {"id": "cs", "name": "ดูแลลูกค้า", "role": "เริ่มงาน · ติดตั้ง · งานชิ้นแรก · รายงานก่อนรอบบิล", "hex": "16a34a", "skill": "cs"},
-    {"id": "hop", "name": "LINE OA เจอ.AI", "role": "ต้อนรับ · ตรวจเว็บในแชต · แจ้งเตือนเจ้าของ", "hex": "0891b2"},   # ชื่อตามชื่อ OA ที่ตั้งไว้ (ดู state)
+    {"id": "hop", "name": "LINE OA เจอ.AI", "role": "ต้อนรับ · ตรวจเว็บในแชต · อ่านอีเมลตอบกลับ", "hex": "0891b2"},   # ชื่อตามชื่อ OA ที่ตั้งไว้ (ดู state)
 ]
 IDS = {a["id"] for a in ACTORS}
 NAME = {a["id"]: a["name"] for a in ACTORS}
@@ -260,6 +260,15 @@ def events_today(start: str, dom: dict) -> list[dict]:
             out.append(_ev(f"dec:{d_['id']}:approve", when, "owner", "approve", f"เจ้าของอนุมัติ{kth}: {title}", kind=kind, lead=lead, to=agent))
         elif st == "rejected" and when >= start:
             out.append(_ev(f"dec:{d_['id']}:reject", when, "owner", "reject", f"เจ้าของไม่อนุมัติ{kth}: {title}", kind=kind, lead=lead, to=agent))
+    with db.get_conn() as c:
+        tasks = c.execute(db.q("SELECT * FROM agent_tasks WHERE created_at >= ? OR (finished_at IS NOT NULL AND finished_at >= ?) ORDER BY id DESC LIMIT 60"),
+                          (start, start)).fetchall()
+    for t in tasks:
+        to = t["agent"] if t["agent"] in IDS else "ceo"
+        if t["created_at"] >= start:
+            out.append(_ev(f"task:{t['id']}", t["created_at"], "ceo", "assign", f"CEO แจกงานให้ {NAME.get(to, to)}: {(t['title'] or '')[:60]}", to=to))
+        if t["finished_at"] and t["finished_at"] >= start and t["status"] in ("done", "failed"):
+            out.append(_ev(f"task:{t['id']}:done", t["finished_at"], to, "task_done", f"{NAME.get(to, to)} {'เสร็จ' if t['status'] == 'done' else 'ทำไม่สำเร็จ'}: {(t['title'] or '')[:50]}"))
     for p in posts:
         ch = CHANNEL_TH.get(p["channel"], p["channel"])
         out.append(_ev(f"post:{p['id']}", p["published_at"], "cmo", "post", f"CMO โพสต์ทาง {ch}: {(p['title'] or '')[:60]}", channel=p["channel"]))

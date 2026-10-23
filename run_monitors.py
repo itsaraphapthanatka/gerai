@@ -161,12 +161,25 @@ def main():
     ap.add_argument("--email", action="store_true", help="ส่งอีเมลแคมเปญที่ถึงกำหนด (ไม่ขึ้นกับแบรนด์)")
     ap.add_argument("--digest", action="store_true", help="สรุปเช้าของผู้บริหารเอเจนต์ (CEO/CFO/CTO) → หน้าการตัดสินใจ + อีเมลแอดมิน")
     ap.add_argument("--prospect", action="store_true", help="หาลูกค้าเอง: ค้นธุรกิจตามกลุ่มเป้าหมาย → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก")
+    ap.add_argument("--inbox", action="store_true", help="อ่านอีเมลที่ลีดตอบกลับ (IMAP) → ตอบกลับ/ไม่สนใจ/ขอไม่รับ/ร่างคำตอบ")
+    ap.add_argument("--plan", action="store_true", help="CEO วางแผนวันนี้จากด่านที่ยังขาด แล้วแจกงานให้เอเจนต์ (หาลูกค้า · หาช่องทางซ้ำ · วัด AI · การตลาด · ติดตามผล · ฝากเจ้าของโทร)")
     ap.add_argument("--success", action="store_true", help="ดูแลลูกค้าที่จ่ายแล้ว: เริ่มงาน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานก่อนรอบบิล · เตือนเสี่ยงหลุด")
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
     ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
     args = ap.parse_args()
     db.init_db()
+    if args.inbox:
+        from app import inbox
+        res = inbox.poll()
+        print("inbox · " + (res.get("skipped") or f"ตรวจ {res['checked']} ฉบับ ใหม่ {res['processed']} {res['by']}"))
+        return
+    if args.plan:
+        from app import orchestrator
+        orchestrator.RUN_INLINE = True                     # cron: ทำให้เสร็จในโปรเซสนี้
+        res = orchestrator.plan_and_run()
+        print(orchestrator.summary(res["tasks"]))
+        return
     if args.success:
         from app import success
         res = success.run()

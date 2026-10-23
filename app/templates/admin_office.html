@@ -366,6 +366,7 @@ function deskExit(a){ const s=SEATS[a.id]; if(!s) return null; const band=ROWS[s
 function routeTo(a,dest,extra){ const out=deskExit(a); if(!out) return null;
   if(dest==='owner') return {pts:[...out,V(AISLE_X,-8.2),V(13,-8.2),V(OWNER.front.x,OWNER.front.z)],yaw:Math.PI};
   if(STATIONS[dest]){ const st=STATIONS[dest].stand; return {pts:[...out,V(AISLE_X,-15.2),V(st.x,st.z)],yaw:Math.PI}; }
+  if(dest==='agentdesk'&&extra&&SEATS[extra]){ const s=SEATS[extra], x=DESK_X[s.col], band=ROWS[s.row].cz+2.7; return {pts:[...out,V(AISLE_X,band),V(x+0.9,band)],yaw:Math.PI}; }
   if(dest==='pantry') return {pts:[...out,V(AISLE_X,4.5),V(8,4.5),V(8,10),V(12,10),V(PANTRY_STAND.x,PANTRY_STAND.z)],yaw:0};
   if(dest==='visitor'&&extra&&extra.seat){ const p=extra.seat; if(p.z<6) return null; return {pts:[...out,V(AISLE_X,4.5),V(p.x+1.1,4.5),V(p.x+1.1,p.z-0.2)],yaw:-Math.PI/2}; }
   return null; }
@@ -420,7 +421,7 @@ function applyVisitors(list,first){ const present=new Set();
   STAGES.concat('won').forEach(st=>setStageLabel(st,`${STAGE_TH[st]} · ${n[st]||0}`)); }
 
 /* ---------- events → animation ---------- */
-const NOTABLE=new Set(['call','cs','risk','found','audit','propose','approve','reject','auto','outreach','opened','replied','quote','viewed','accepted','claimed','paid','provisioned','won','lost','unsub','line','post','digest']);
+const NOTABLE=new Set(['assign','task_done','call','cs','risk','found','audit','propose','approve','reject','auto','outreach','opened','replied','quote','viewed','accepted','claimed','paid','provisioned','won','lost','unsub','line','post','digest']);
 function pushTicker(e){ const d=document.createElement('div'); const tm=document.createElement('time'); tm.textContent=hhmm(e.at); d.append(tm,document.createTextNode(e.text||'')); ticker.prepend(d); while(ticker.children.length>5) ticker.lastChild.remove(); }
 function deliver(A,kind,lead){ if(!A) return; const v=lead&&visitors[lead.id];
   if(kind==='outreach'||kind==='followup') carryTo(A,'outbox',()=>float(A,kind==='followup'?'📨 ติดตามผล':'📨 ส่งแล้ว','#3c8dbc'));
@@ -453,6 +454,8 @@ function handle(e){ const A=actors[e.actor]; const v=e.lead&&visitors[e.lead.id]
     case 'cs': float(A,'🤝 '+shortLabel(e.text,26),'#16a34a'); if(v){ bounce(v,2); } tourFollow(A,5); break;
     case 'risk': float(A,'⚠️ เสี่ยงหลุด','#d5463b'); if(v){ float(v,'⚠️','#d5463b'); bounce(v,3); } stamp('⚠️','#d5463b'); break;
     case 'call': stamp('📞 โทรแล้ว','#2b6cb0'); if(v){ float(v,'📞','#2b6cb0'); bounce(v,2); } break;
+    case 'assign': if(e.to==='owner') carryTo(A,'owner',()=>{ float(actors.owner,'📞 งานโทร','#1f2a44'); bounce(actors.owner,1); }); else if(actors[e.to]&&e.to!=='ceo') carryTo(A,'agentdesk',()=>{ float(actors[e.to],'📋 งานใหม่','#d97706'); bounce(actors[e.to],1.2); },e.to); break;
+    case 'task_done': if(A) float(A,'✓ งานเสร็จ','#2f9e5b'); break;
     case 'digest': carryTo(A,'owner',()=>{ float(actors.owner,'📋 สรุปเช้า','#1f2a44'); bounce(actors.owner,1); }); break;
   } }
 

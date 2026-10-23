@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}อีเมลตอบกลับ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>อีเมลตอบกลับ</h1>
+<p class="muted">อีเมลที่ลีดตอบกลับมาที่ {{ addr }} ระบบอ่านแล้วทำต่อให้ · ธุรกิจใหม่ที่อีเมลมาเอง (โดเมนธุรกิจ ไม่ใช่ Gmail/Hotmail) → สร้างลีดใหม่ ตรวจเว็บ แล้วทำต่อแบบเดียวกัน · อีเมลอื่นที่ไม่ใช่ลีดไม่เก็บเนื้อหา: สนใจ → CEO ทำใบเสนอราคา · ถามคำถาม → CEO ร่างคำตอบให้คุณอนุมัติ · ไม่สนใจ → ปิดลีด · ขอไม่รับ → ไม่ติดต่ออีก · ตอบกลับอัตโนมัติ → ไม่นับ · อีเมลเด้ง → ล้างอีเมลนั้นออก ทุกกรณีหยุดข้อความติดตามผลทันที</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if pending %}<div class="card"><b>ร่างคำตอบรออนุมัติ {{ pending|length }} ฉบับ</b> — <a class="link" href="/admin/decisions">ไปที่หน้าการตัดสินใจ</a></div>{% endif %}
+<div class="card" style="padding:0;overflow:hidden">
+  {% if rows %}<div style="overflow-x:auto"><table>
+    <thead><tr><th>เมื่อ</th><th>จาก</th><th>ประเภท</th><th>ข้อความ</th><th>ระบบทำ</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td class="muted" style="white-space:nowrap;font-size:12px">{{ r['received_at'][5:16].replace('T',' ') }}</td>
+      <td style="font-size:12.5px">{% if r['lead_id'] %}<a class="link" href="/admin/leads/{{ r['lead_id'] }}">{{ r['from_addr'] }}</a>{% else %}<span class="muted">{{ r['from_addr'] or '—' }}</span>{% endif %}</td>
+      <td><span class="pill {{ 'ok' if r['category'] == 'interested' else ('no' if r['category'] in ('not_interested','unsubscribe','bounce') else '') }}" style="font-size:10.5px">{{ cats.get(r['category'], r['category'] == 'unmatched' and 'ไม่ใช่ลีด' or r['category']) }}</span></td>
+      <td style="font-size:12.5px;max-width:360px">{{ (r['body'] or '')[:220] }}</td>
+      <td class="muted" style="font-size:12px">{{ r['action'] }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div style="text-align:center;padding:30px"><p class="muted">ยังไม่มีอีเมลตอบกลับ{% if not imap.ready %} — ตั้งค่ากล่องอีเมลด้านล่างก่อน{% endif %}</p></div>{% endif %}
+</div>
+<div class="card">
+  <h2 style="margin-top:0;font-size:15px">ทางที่ 1: อ่านจากกล่องอีเมลที่รับต่อ (IMAP)</h2>
+  <p class="muted" style="font-size:12.5px">อีเมลถึง {{ addr }} ถูก Cloudflare ส่งต่อไปกล่องของคุณ ระบบจะเข้าไปอ่านทุก 10 นาที <b>เฉพาะฉบับที่ส่งถึง {{ addr }}</b> แบบอ่านอย่างเดียว ไม่เปลี่ยนสถานะอ่านแล้ว ไม่ลบอะไร · Gmail: เปิด IMAP ในการตั้งค่า แล้วใช้ <b>รหัสผ่านสำหรับแอป</b> (myaccount.google.com → ความปลอดภัย → รหัสผ่านสำหรับแอป) ไม่ใช่รหัสผ่านหลัก</p>
+  <form method="post" action="/admin/inbox/settings" style="display:grid;gap:8px;max-width:460px">
+    <label>IMAP server</label><input type="text" name="host" value="{{ imap.host }}" placeholder="imap.gmail.com">
+    <label>อีเมลที่ใช้เข้า</label><input type="text" name="user" value="{{ imap.user }}" placeholder="กล่องที่รับต่อจาก {{ addr }}">
+    <label>รหัสผ่านสำหรับแอป</label><input type="password" name="password" autocomplete="off" placeholder="{{ 'เว้นว่าง = คงค่าเดิม' if imap.ready else '' }}">
+    <label>โฟลเดอร์</label><input type="text" name="folder" value="{{ imap.folder }}">
+    <div><button class="btn sm" type="submit">บันทึก</button></div>
+  </form>
+  <form method="post" action="/admin/inbox/poll" style="margin-top:10px"><button class="btn ghost sm" type="submit" {% if not imap.ready %}disabled{% endif %}>อ่านตอนนี้</button>
+    {% if last %}<span class="muted" style="font-size:12px">รอบล่าสุด {{ last.at[:16].replace('T',' ') }} · ตรวจ {{ last.checked }} · ใหม่ {{ last.processed }}</span>{% endif %}</form>
+</div>
+<div class="card">
+  <h2 style="margin-top:0;font-size:15px">ทางที่ 2: Cloudflare Email Worker (ทันทีทุกฉบับ ไม่ต้องใช้รหัสผ่านอีเมล)</h2>
+  <p class="muted" style="font-size:12.5px">Cloudflare → appreview.cloud → Email → Email Routing → Email Workers → สร้าง Worker วางโค้ดนี้ แล้วตั้ง Routing rule ของ {{ addr }} ให้ส่งไปที่ Worker (Worker ส่งต่อเข้ากล่องเดิมให้ด้วย)</p>
+  <pre style="font-size:11.5px;background:var(--canvas);padding:10px;border-radius:8px;overflow-x:auto">export default {
+  async email(message, env, ctx) {
+    const raw = await new Response(message.raw).arrayBuffer();
+    ctx.waitUntil(fetch("{{ hook_url }}", { method: "POST", body: raw }));
+    await message.forward("กล่องอีเมลเดิมของคุณ@gmail.com");
+  }
+}</pre>
+  <p class="muted" style="font-size:11.5px">ลิงก์นี้มีรหัสลับ อย่าเผยแพร่</p>
+</div>
+{% endblock %}

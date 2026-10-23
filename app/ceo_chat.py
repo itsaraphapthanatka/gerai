@@ -31,6 +31,10 @@ ACTIONS = {
     "note": ("จดบันทึกในไทม์ไลน์ลีด", {"domain": "โดเมน", "text": "ข้อความ"}, False),
     "pause": ("หยุดฉุกเฉิน — ทุกเรื่องกลับมารอคน", {}, True),
     "resume": ("กลับมาทำงานตามโหมดเดิม", {}, False),
+    "plan": ("วางแผนวันนี้และแจกงานให้ทีม", {}, False),
+    "tasks": ("ดูงานที่ CEO แจกวันนี้", {}, False),
+    "explain": ("อธิบายว่าทำไมระบบทำแบบนั้นกับลีดรายหนึ่ง", {"domain": "โดเมน (ไม่บังคับ = รายล่าสุดที่คุยกัน)"}, False),
+    "chat": ("ตอบคำถามทั่วไปเรื่องงาน (ไม่ลงมือทำอะไร)", {"question": "คำถาม"}, False),
     "help": ("บอกว่าสั่งอะไรได้บ้าง", {}, False),
 }
 
@@ -69,6 +73,15 @@ def _set_pending(p) -> None:
 
 
 # ---------- เข้าใจคำสั่ง ----------
+def _last_domain() -> str:
+    """โดเมนล่าสุดที่พูดถึงในบทสนทนา — ใช้เมื่อเจ้าของพิมพ์สั้น ๆ เช่น "ทักเลย" "ปิดทำไม" """
+    for m in reversed(log()[-12:]):
+        u = L.first_url(m["text"])
+        if u and L.normalize_url(u):
+            return L.domain_of(L.normalize_url(u))
+    return ""
+
+
 def _find_lead(q: str):
     q = (q or "").strip().lower()
     q = L.domain_of(L.normalize_url(q)) if L.normalize_url(q) else q
@@ -96,6 +109,12 @@ def _rules(text: str) -> dict | None:
         return {"action": "pause", "args": {}}
     if re.search(r"^(ทำงานต่อ|เริ่มใหม่|resume|กลับมาทำงาน)", t, re.I):
         return {"action": "resume", "args": {}}
+    if re.search(r"(วางแผน|แจกงาน|สั่งทีม|มอบหมาย)", t):
+        return {"action": "plan", "args": {}}
+    if re.search(r"(งานวันนี้|ใครทำอะไร|ทีมทำอะไร|งานที่แจก)", t):
+        return {"action": "tasks", "args": {}}
+    if re.search(r"(ทำไม|เพราะอะไร|why|อธิบาย|เหตุผล)", t, re.I):
+        return {"action": "explain", "args": {"domain": url or ""}}
     if re.search(r"^(ช่วย|help|สั่งอะไรได้|ทำอะไรได้)", t, re.I):
         return {"action": "help", "args": {}}
     return None
@@ -121,9 +140,11 @@ def parse(text: str, llm=None) -> dict:
     except Exception:
         pass
     url = L.first_url(text)
+    if url and re.search(r"(ทัก|ติดต่อ|ส่งข้อความ|อีเมลหา|contact)", text):
+        return {"action": "contact_lead", "args": {"domain": url}}
     if url:
         return {"action": "audit", "args": {"url": url}}
-    return {"action": "help", "args": {}}
+    return {"action": "chat", "args": {"question": text}}
 
 
 # ---------- งานแต่ละอย่าง ----------
@@ -135,7 +156,9 @@ def _bg(fn) -> None:
 
 
 def _need_lead(args) -> tuple:
-    lead = _find_lead(args.get("domain") or args.get("url") or "")
+    q = args.get("domain") or args.get("url") or _last_domain()
+    args["domain"] = q
+    lead = _find_lead(q)
     if not lead:
         return None, f"ไม่เจอลีด \"{args.get('domain') or ''}\" — พิมพ์โดเมนให้ตรง เช่น example.co.th"
     return lead, ""
@@ -144,13 +167,23 @@ def _need_lead(args) -> tuple:
 def plan(action: str, args: dict) -> tuple[str, str | None]:
     """ข้อความยืนยันก่อนทำ (None = ทำได้เลย ไม่ต้องยืนยัน หรือทำไม่ได้)"""
     from . import pipeline, quotes as Q
-    if action in ("contact_lead", "quote", "followup", "ai_report"):
+    if action == "contact_lead":
+        lead, err = _need_lead(args)
+        if err:
+            site = L.normalize_url(args.get("domain") or "")
+            if not site:
+                return err, None
+            return f"ยังไม่มีลีด {L.domain_of(site)} — จะตรวจเว็บ หาอีเมล/เบอร์จากเว็บ แล้วร่างและส่งข้อความทักให้", "ok"
+        if lead["status"] == "unsubscribed":
+            return f"{lead['domain']} ขอไม่รับการติดต่อไว้แล้ว ทักไม่ได้", None
+        ch = pipeline.send_channel(lead)
+        reopen = " (ลีดนี้ถูกปิดไว้ จะเปิดใหม่ตามคำสั่งคุณ)" if lead["status"] == "lost" else ""
+        return (f"จะร่างและส่งข้อความทัก {lead['domain']} " + (f"ทาง {ch}" if ch else "— ยังไม่มีอีเมล/LINE จะลองหาจากเว็บก่อน ถ้าไม่เจอจะส่งร่างให้คุณคัดลอกไปส่งเอง") + reopen), "ok"
+    if action in ("quote", "followup", "ai_report"):
         lead, err = _need_lead(args)
         if err:
             return err, None
         ch = pipeline.send_channel(lead) or "ไม่มีช่องทางส่งอัตโนมัติ"
-        if action == "contact_lead":
-            return f"จะให้ CEO ร่างและส่งข้อความทัก {lead['domain']} ทาง {ch}", "ok"
         if action == "followup":
             return f"จะส่งข้อความติดตามผลครั้งถัดไปถึง {lead['domain']} ทาง {ch} ทันที (ไม่รอวันครบ)", "ok"
         if action == "ai_report":
@@ -203,8 +236,19 @@ def execute(action: str, args: dict) -> str:
             return "วันนี้ยังไม่มีลีดที่ควรโทร"
         return "ควรโทรวันนี้:\n" + "\n".join(f"{i + 1}. {x['lead']['domain']} — {x['trigger']['why']}" + (f" · {closer.fmt_phone(x['phone'])}" if x["phone"] else "")
                                                for i, x in enumerate(lst)) + f"\nบทโทร: {pipeline.public_base()}/admin/calls"
+    if action == "plan":
+        from . import orchestrator
+        res = orchestrator.plan_and_run()
+        return orchestrator.summary(res["tasks"]) + ("\n(พักไว้ เพราะหยุดฉุกเฉินอยู่)" if res["held"] else "\nกำลังทำ เสร็จแล้วแจ้งใน LINE")
+    if action == "tasks":
+        from . import orchestrator
+        return orchestrator.summary()
+    if action == "explain":
+        return explain(args)
+    if action == "chat":
+        return answer(args.get("question") or "")
     if action == "help":
-        return ("สั่งได้เช่น\n• สรุปวันนี้\n• วันนี้ควรโทรใคร\n• หาคลินิกทันตกรรม เชียงใหม่ 5 ราย\n• ตรวจเว็บ example.co.th\n• ทัก example.co.th\n"
+        return ("สั่งได้เช่น\n• สรุปวันนี้\n• วางแผนวันนี้ (CEO แจกงานให้ทีม)\n• งานวันนี้\n• วันนี้ควรโทรใคร\n• หาคลินิกทันตกรรม เชียงใหม่ 5 ราย\n• ตรวจเว็บ example.co.th\n• ทัก example.co.th\n"
                 "• ส่งใบเสนอราคา example.co.th ลด 5%\n• ติดตามผล example.co.th\n• ถาม AI ให้ example.co.th\n• โพสต์สถิติ / โพสต์เคล็ดลับ\n"
                 "• จดว่า example.co.th ขอคุยสัปดาห์หน้า\n• หยุด / ทำงานต่อ")
     if action == "resume":
@@ -242,18 +286,7 @@ def execute(action: str, args: dict) -> str:
                 + "\nล่าสุด: " + " · ".join(f"{e['created_at'][5:16].replace('T', ' ')} {L.EVENT_LABEL.get(e['kind'], e['kind'])}" for e in ev)
                 + f"\n{pipeline.public_base()}/admin/leads/{lead['id']}")
     if action == "contact_lead":
-        lead, err = _need_lead(args)
-        if err:
-            return err
-        did = pipeline.ceo_propose(lead)
-        if not did:
-            return f"ทัก {lead['domain']} ไม่ได้ — สถานะ {L.STATUS_LABEL.get(lead['status'], lead['status'])} หรือยังไม่ได้ตรวจเว็บ"
-        d = db.get_decision(did)
-        if d["status"] == "proposed":
-            result = pipeline.execute_decision(d, "owner")
-            db.set_decision(did, "executed", "owner (สั่งผ่าน CEO)", result)
-            return result
-        return d["result"] or "ทำแล้ว"
+        return owner_contact(args)
     if action == "quote":
         lead, err = _need_lead(args)
         if err:
@@ -319,6 +352,96 @@ def execute(action: str, args: dict) -> str:
                 out.append(f"{ch}: โพสต์ไม่สำเร็จ ({str(e)[:80]})")
         return "\n".join(out) or "ยังไม่มีช่องทางโพสต์"
     return "ยังทำงานนี้ไม่ได้"
+
+
+# ---------- งานที่ต้องคิดเพิ่ม ----------
+def owner_contact(args) -> str:
+    """เจ้าของสั่งทัก = ทักแม้ CEO จะคัดว่าโอกาสต่ำ (เจ้าของรู้บริบทมากกว่า) · ไม่มีลีด → ตรวจเว็บก่อน · ไม่มีช่องทาง → หาจากเว็บ ไม่เจอให้ร่างไปส่งเอง"""
+    from . import pipeline, prospecting, closer
+    lead = _find_lead(args.get("domain") or "")
+    if not lead:
+        site = L.normalize_url(args.get("domain") or "")
+        if not site:
+            return "อ่านโดเมนไม่ออก ลองพิมพ์แบบ example.co.th"
+        lid = db.add_lead(site, L.domain_of(site), source="manual")
+        lead = db.get_lead(lid)
+    if lead["status"] == "unsubscribed":
+        return f"{lead['domain']} ขอไม่รับการติดต่อไว้แล้ว ทักไม่ได้"
+    if lead["status"] == "lost":
+        db.update_lead(lead["id"], status="new")
+        pipeline.record(lead["id"], "note", "เจ้าของสั่งเปิดลีดใหม่และให้ทัก", "owner")
+    if not lead["audit_json"]:
+        pipeline.run_lead_audit(lead["id"], lead["site_url"])
+    lead = db.get_lead(lead["id"])
+    found = ""
+    if not pipeline.send_channel(lead):
+        try:
+            c = prospecting.find_contact(lead["site_url"])
+            if c.get("email"):
+                db.update_lead(lead["id"], email=c["email"])
+                found = f"เจออีเมล {c['email']} บนเว็บ · "
+            ph = closer.find_phone(db.get_lead(lead["id"]))
+            if ph:
+                d = closer._data(db.get_lead(lead["id"])); d["phone"] = ph; closer._save(lead["id"], d)
+                found += f"เบอร์ {closer.fmt_phone(ph)} · "
+        except Exception:
+            pass
+        lead = db.get_lead(lead["id"])
+    report = json.loads(lead["audit_json"] or "{}")
+    draft = execs.draft_outreach(lead, L.public_summary(report), pipeline.result_url(lead, "mail"))
+    ch = pipeline.send_channel(lead)
+    pl = {"subject": draft["subject"], "body": draft["body"], "channel": ch, "by_owner": True}
+    did = db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} (เจ้าของสั่ง)", f"หัวข้อ: {draft['subject']}\n\n{draft['body']}", pl, lead_id=lead["id"])
+    sc = L.score_audit(report)
+    note = f" · หมายเหตุ: เว็บนี้ผ่านทุกข้อที่ตรวจ ข้อความจึงเน้นเรื่องทำให้ AI เอ่ยถึง" if not sc["n_fail"] and sc["level"] != "เข้าเว็บไม่ได้" else ""
+    if ch:
+        result = pipeline.execute_decision(db.get_decision(did), "owner")
+        db.set_decision(did, "executed", "owner (สั่งผ่าน CEO)", result)
+        return found + result + note
+    db.set_decision(did, "executed", "owner (สั่งผ่าน CEO)", "ไม่มีช่องทางส่งอัตโนมัติ — ส่งร่างให้เจ้าของ")
+    phone = closer._data(lead).get("phone")
+    return (found + f"ยังไม่มีอีเมล/LINE ของ {lead['domain']} ที่ระบบส่งเองได้" + (f" · โทร {closer.fmt_phone(phone)}" if phone else "")
+            + f"\nร่างไว้ให้คัดลอกไปส่งเอง:\n\nหัวข้อ: {draft['subject']}\n{draft['body']}\n\nเติมอีเมลที่ {pipeline.public_base()}/admin/leads/{lead['id']} แล้วสั่ง \"ทัก {lead['domain']}\" อีกครั้งได้" + note)
+
+
+def explain(args) -> str:
+    """ทำไมระบบทำแบบนั้น: สถานะลีด + การตัดสินใจล่าสุดพร้อมเหตุผลจริง"""
+    lead, err = _need_lead(args)
+    if err:
+        return "อธิบายเรื่องไหนครับ — พิมพ์โดเมนด้วย เช่น \"ทำไมปิด example.co.th\""
+    out = [f"{lead['domain']} ตอนนี้: {L.STATUS_LABEL.get(lead['status'], lead['status'])} · คะแนนโอกาส {lead['score'] if lead['score'] is not None else '—'}/100"]
+    for d in [x for x in db.list_decisions(None, 300) if x["lead_id"] == lead["id"]][:3]:
+        try:
+            pl = json.loads(d["payload_json"] or "{}")
+        except Exception:
+            pl = {}
+        why = pl.get("reason") or (pl.get("cfo") or {}).get("note") or ""
+        out.append(f"• {d['created_at'][5:16].replace('T', ' ')} {d['title']} → {d['status']}" + (f" · เหตุผล: {why}" if why else "") + (f" · ผล: {d['result']}" if d["result"] else ""))
+    if lead["status"] == "lost":
+        out.append(f"ถ้าอยากให้ทักอยู่ดี พิมพ์ \"ทัก {lead['domain']}\" — คำสั่งคุณชนะการคัดอัตโนมัติ")
+    return "\n".join(out)
+
+
+def answer(question: str, llm=None) -> str:
+    """คำถามทั่วไป → ตอบจากข้อมูลจริงในระบบ ไม่ลงมือทำอะไร · โมเดลใช้ไม่ได้ → บอกตรง ๆ ว่าไม่เข้าใจ"""
+    llm = llm or LLM
+    k = execs.kpis()
+    f = L.funnel(db.list_leads(None, 5000))
+    ctx = (f"สายดีล: {json.dumps(f['n'], ensure_ascii=False)} · ด่าน: " + ", ".join(f"{r['label']} {r['value']}/{r['target']}" for r in k["rows"])
+           + "\nบทสนทนาล่าสุด:\n" + "\n".join(f"{m['role']}: {m['text'][:200]}" for m in log()[-8:]))
+    try:
+        if llm is None:
+            from . import ai_client
+            llm = lambda m: ai_client.chat_for("sales", m, max_tokens=1200, json_mode=True)
+        raw = llm([{"role": "user", "content": f"คุณคือ CEO เอเจนต์ของเจอ.AI คุยกับเจ้าของ ตอบสั้น ตรง ภาษาไทย ไม่เกิน 80 คำ ใช้เฉพาะข้อมูลนี้:\n{ctx}\n\nเจ้าของถาม: {question}\n"
+                    "ถ้าเป็นคำสั่งที่ต้องลงมือ ให้บอกว่าพิมพ์คำสั่งอะไร (เช่น \"ทัก example.co.th\") อย่าบอกว่าทำแล้ว ตอบ JSON {\"reply\": \"...\"}"}])
+        mm = re.search(r"\{[\s\S]*\}", raw or "")
+        r = str((json.loads(mm.group(0)) if mm else {}).get("reply") or "").strip()
+        if r:
+            return r
+    except Exception:
+        pass
+    return "ยังไม่แน่ใจว่าหมายถึงอะไรครับ ลองพิมพ์สั้น ๆ เช่น \"สรุปวันนี้\" \"ทัก example.co.th\" หรือ \"ช่วย\" เพื่อดูคำสั่งทั้งหมด"
 
 
 # ---------- ทางเข้า ----------

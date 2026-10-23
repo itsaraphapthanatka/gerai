@@ -11,7 +11,7 @@ STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("r
 STATUS_LABEL = dict(STATUSES)
 PIPELINE = ["new", "contacted", "replied", "quoted", "won"]      # ลำดับขั้นดีล (lost / unsubscribed อยู่นอกสาย)
 NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
-SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง"}
+SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง", "email": "อีเมลเข้ามาเอง"}
 EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
                "replied": "ตอบกลับ / ขอใบเสนอราคา", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
                "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",

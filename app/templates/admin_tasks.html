@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}งานที่ CEO แจก — เจอ.AI{% endblock %}
+{% block content %}
+<h1>งานที่ CEO แจก</h1>
+<p class="muted">ทุกเช้า 07:00 CEO ดูตัวเลขด่านที่ยังขาด แล้วแจกงานให้ทีมพร้อมเหตุผล ทุกงานทำผ่านระบบเดิม จึงอยู่ใต้เพดานและกรอบอำนาจเหมือนเดิม · สั่งเพิ่มได้ด้วยคำว่า "วางแผนวันนี้" ในแชต CEO</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if paused %}<div class="ok-banner" style="background:var(--danger-subtle);color:var(--danger-text)">หยุดฉุกเฉินอยู่ — งานที่แจกจะพักไว้จนกว่าจะสั่งทำงานต่อ</div>{% endif %}
+<form method="post" action="/admin/tasks/plan" style="margin-bottom:12px"><button class="btn sm" type="submit">ให้ CEO วางแผนและแจกงานตอนนี้</button></form>
+<div class="card" style="padding:0;overflow:hidden">
+  {% if tasks %}
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>เมื่อ</th><th>ให้</th><th>งาน</th><th>เหตุผล</th><th>ผล</th></tr></thead>
+    <tbody>{% for t in tasks %}
+      <tr><td class="muted" style="white-space:nowrap;font-size:12px">{{ t['created_at'][5:16].replace('T',' ') }}</td>
+        <td style="white-space:nowrap"><b>{{ names.get(t['agent'], t['agent']) }}</b></td>
+        <td style="font-size:13px">{{ t['title'] }}</td>
+        <td class="muted" style="font-size:12.5px">{{ t['reason'] or '' }}</td>
+        <td style="font-size:12.5px"><span class="pill {{ 'ok' if t['status'] == 'done' else ('no' if t['status'] == 'failed' else '') }}" style="font-size:10.5px">{{ {'queued':'รอทำ','running':'กำลังทำ','done':'เสร็จ','failed':'ล้ม','held':'พักไว้'}.get(t['status'], t['status']) }}</span>
+          {% if t['result'] %}<div class="muted" style="margin-top:3px">{{ t['result'][:160] }}</div>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีงาน — CEO จะเริ่มแจกงานรอบ 07:00 หรือกดปุ่มด้านบน</p></div>{% endif %}
+</div>
+{% endblock %}

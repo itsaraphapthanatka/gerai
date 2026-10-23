@@ -240,6 +240,31 @@ def _tables() -> list[str]:
             hosted_url TEXT,
             pdf_url TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS inbox_messages (
+            id {_PK},
+            received_at TEXT NOT NULL,
+            message_id TEXT UNIQUE,
+            from_addr TEXT,
+            subject TEXT,
+            body TEXT,
+            lead_id INTEGER,
+            category TEXT,
+            action TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS agent_tasks (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            agent TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            reason TEXT,
+            args_json TEXT,
+            status TEXT NOT NULL DEFAULT 'queued',
+            started_at TEXT,
+            finished_at TEXT,
+            result TEXT,
+            created_by TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS posts (
             id {_PK},
             created_at TEXT NOT NULL,
@@ -1507,3 +1532,42 @@ def delete_wp_connection(brand_id) -> None:
 if __name__ == "__main__":
     init_db()
     print(f"DB initialised ({'Postgres' if IS_PG else 'SQLite: ' + DB_PATH})")
+
+
+# ---- งานที่ CEO แจกให้เอเจนต์ (orchestrator) ----
+TASK_FIELDS = {"status", "started_at", "finished_at", "result"}
+
+
+def add_task(agent: str, kind: str, title: str, reason: str, args: dict, created_by: str = "ceo") -> int:
+    import json as _json
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO agent_tasks(created_at,agent,kind,title,reason,args_json,status,created_by) VALUES(?,?,?,?,?,?,?,?) RETURNING id"),
+                        (now(), agent, kind, title[:200], (reason or "")[:500], _json.dumps(args or {}, ensure_ascii=False), "queued", created_by))
+        return cur.fetchone()["id"]
+
+
+def update_task(tid: int, **fields) -> None:
+    cols = [k for k in fields if k in TASK_FIELDS]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE agent_tasks SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (tid,))
+
+
+def get_task(tid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM agent_tasks WHERE id=?"), (tid,)).fetchone()
+
+
+def list_tasks(since_ts: str = None, status: str = None, limit: int = 200):
+    sql, args = "SELECT * FROM agent_tasks WHERE 1=1", []
+    if since_ts:
+        sql += " AND created_at >= ?"
+        args.append(since_ts)
+    if status:
+        sql += " AND status=?"
+        args.append(status)
+    sql += " ORDER BY id DESC LIMIT ?"
+    args.append(limit)
+    with get_conn() as c:
+        return c.execute(q(sql), tuple(args)).fetchall()
