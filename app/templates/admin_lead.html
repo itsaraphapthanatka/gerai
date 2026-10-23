@@ -159,6 +159,30 @@
   {% else %}<div style="padding:18px" class="muted">ยังไม่มีใบเสนอราคา — เกิดเองเมื่อลูกค้ากด "ขอใบเสนอราคา" (CEO เสนอให้คุณอนุมัติ) หรือสร้างเองด้านบน</div>{% endif %}
 </div>
 
+{% if buyer_quote or acct_docs %}
+<h2>บัญชี — ข้อมูลออกเอกสารและใบเสร็จ</h2>
+<div class="card">
+  {% if buyer_quote %}
+  <form method="post" action="/admin/leads/{{ lead['id'] }}/buyer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;font-size:13px">
+    <input type="hidden" name="quote_id" value="{{ buyer_quote['id'] }}">
+    <input type="text" name="name" value="{{ buyer_quote['buyer_name'] or '' }}" placeholder="ชื่อบริษัท/ผู้ซื้อ" maxlength="200" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit">
+    <input type="text" name="tax_id" value="{{ buyer_quote['buyer_tax_id'] or '' }}" placeholder="เลขผู้เสียภาษี 13 หลัก" maxlength="20" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit">
+    <input type="text" name="branch" value="{{ buyer_quote['buyer_branch'] or '' }}" placeholder="สำนักงานใหญ่/สาขา" maxlength="60" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit">
+    <input type="text" name="address" value="{{ buyer_quote['buyer_address'] or '' }}" placeholder="ที่อยู่ออกเอกสาร" maxlength="400" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit">
+    <div><button class="btn ghost sm" type="submit">บันทึกข้อมูลผู้ซื้อ ({{ buyer_quote['number'] }})</button></div>
+  </form>
+  {% endif %}
+  {% if acct_docs %}
+  <table style="margin-top:10px;font-size:13px"><tbody>{% for d in acct_docs %}
+    <tr><td><b>{{ d['number'] }}</b> <span class="muted">{{ acct_title(d) }}</span></td><td>{{ "{:,.2f}".format(d['total']) }}</td>
+      <td><span class="pill {{ 'ok' if d['status'] in ('paid','issued') else ('no' if d['status'] == 'void' else '') }}">{{ acct_status.get(d['status'], d['status']) }}</span></td>
+      <td class="muted" style="font-size:12px">{{ d['created_at'][:10] }}</td>
+      <td><a class="link" href="/{{ 'bill' if d['kind'] == 'invoice' else 'doc' }}/{{ d['token'] }}" target="_blank">ดู</a> · <a class="link" href="/admin/accounting">จัดการ</a></td></tr>
+  {% endfor %}</tbody></table>
+  {% endif %}
+</div>
+{% endif %}
+
 <h2>ไทม์ไลน์</h2>
 <div class="card">
   <form method="post" action="/admin/leads/{{ lead['id'] }}/note" style="display:flex;gap:8px;margin-bottom:12px">

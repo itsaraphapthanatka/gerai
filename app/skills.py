@@ -17,6 +17,7 @@ AGENTS = {
     "delivery": "Delivery/QA — ติดตั้ง GEO และคุณภาพคอนเทนต์",
     "sdr": "SDR — ติดตามผลลีดที่เงียบ",
     "cs": "Customer Success — ดูแลลูกค้าหลังการขาย",
+    "acct": "บัญชี — เอกสารรับเงินและเก็บเงินรอบถัดไป",
 }
 # งานของโมเดล → ทักษะที่แนบเป็น system prompt
 TASK_SKILL = {"sales": "ceo", "marketing": "cmo", "content": "delivery", "followup": "sdr"}

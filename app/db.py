@@ -251,6 +251,42 @@ def _tables() -> list[str]:
             category TEXT,
             action TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS acct_docs (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            number TEXT NOT NULL,
+            token TEXT NOT NULL,
+            quote_id INTEGER,
+            lead_id INTEGER,
+            tenant_id INTEGER,
+            invoice_id INTEGER,
+            period_start TEXT,
+            period_end TEXT,
+            description TEXT,
+            items_json TEXT,
+            subtotal REAL NOT NULL DEFAULT 0,
+            vat REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            wht REAL NOT NULL DEFAULT 0,
+            vat_mode TEXT NOT NULL DEFAULT 'none',
+            buyer_name TEXT,
+            buyer_tax_id TEXT,
+            buyer_branch TEXT,
+            buyer_address TEXT,
+            buyer_email TEXT,
+            source TEXT,
+            stripe_ref TEXT,
+            status TEXT NOT NULL DEFAULT 'issued',
+            due_date TEXT,
+            paid_at TEXT,
+            slip_path TEXT,
+            sent_at TEXT,
+            reminders INTEGER NOT NULL DEFAULT 0,
+            void_reason TEXT,
+            decision_id INTEGER,
+            UNIQUE(kind, number)
+        )""",
         f"""CREATE TABLE IF NOT EXISTS agent_tasks (
             id {_PK},
             created_at TEXT NOT NULL,
@@ -410,6 +446,8 @@ def init_db() -> None:
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
         _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
+        for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
+            _ensure_column(c, "quotes", col, "TEXT")
         _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
         _ensure_column(c, "quotes", "period_total", "INTEGER")           # ยอดต่อรอบบิล (รายปี = ทั้งปี)
         _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
@@ -1353,7 +1391,8 @@ def count_line_audits_since(uid: str, since_ts: str) -> int:
 # ---- ใบเสนอราคา (เฟส 2) ----
 QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name", "accepted_ip", "claimed_at", "slip_path",
                 "paid_at", "tenant_id", "brand_id", "decision_id", "notes", "valid_until",
-                "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via"}
+                "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via",
+                "buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"}
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,
@@ -1574,3 +1613,68 @@ def list_tasks(since_ts: str = None, status: str = None, limit: int = 200):
     args.append(limit)
     with get_conn() as c:
         return c.execute(q(sql), tuple(args)).fetchall()
+
+
+# ---------- ฝ่ายบัญชี: ใบแจ้งหนี้ · ใบเสร็จรับเงิน/ใบกำกับภาษี ----------
+ACCT_FIELDS = {"status", "paid_at", "slip_path", "sent_at", "reminders", "void_reason", "decision_id", "wht", "invoice_id",
+               "buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address", "buyer_email"}
+
+
+def add_acct_doc(**f) -> int:
+    cols = ["created_at"] + [k for k in f]
+    vals = [now()] + [f[k] for k in f]
+    with get_conn() as c:
+        cur = c.execute(q(f"INSERT INTO acct_docs({','.join(cols)}) VALUES({','.join('?' * len(cols))}) RETURNING id"), tuple(vals))
+        return cur.fetchone()["id"]
+
+
+def update_acct_doc(did: int, **fields) -> None:
+    cols = [k for k in fields if k in ACCT_FIELDS]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE acct_docs SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (did,))
+
+
+def get_acct_doc(did: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM acct_docs WHERE id=?"), (did,)).fetchone()
+
+
+def get_acct_doc_by_token(token: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM acct_docs WHERE token=?"), (token,)).fetchone()
+
+
+def find_acct_doc(kind: str, **where):
+    sql, args = "SELECT * FROM acct_docs WHERE kind=?", [kind]
+    for k, v in where.items():
+        sql += f" AND {k}=?"
+        args.append(v)
+    with get_conn() as c:
+        return c.execute(q(sql + " ORDER BY id DESC LIMIT 1"), tuple(args)).fetchone()
+
+
+def list_acct_docs(kind: str = None, status: str = None, lead_id: int = None, tenant_id: int = None,
+                   since: str = None, until: str = None, limit: int = 500):
+    sql, args = "SELECT * FROM acct_docs WHERE 1=1", []
+    for col, v in (("kind", kind), ("status", status), ("lead_id", lead_id), ("tenant_id", tenant_id)):
+        if v is not None:
+            sql += f" AND {col}=?"
+            args.append(v)
+    if since:
+        sql += " AND created_at >= ?"
+        args.append(since)
+    if until:
+        sql += " AND created_at < ?"
+        args.append(until)
+    sql += " ORDER BY id DESC LIMIT ?"
+    args.append(limit)
+    with get_conn() as c:
+        return c.execute(q(sql), tuple(args)).fetchall()
+
+
+def last_acct_number(kind: str, prefix: str):
+    with get_conn() as c:
+        r = c.execute(q("SELECT number FROM acct_docs WHERE kind=? AND number LIKE ? ORDER BY number DESC LIMIT 1"), (kind, prefix + "%")).fetchone()
+        return r["number"] if r else None

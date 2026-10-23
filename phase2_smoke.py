@@ -80,8 +80,8 @@ q = db.get_quote(q["id"]); assert q["status"] == "paid" and q["tenant_id"] and q
 t = db.get_tenant(q["tenant_id"]); assert t["email"] == "owner@shop.co.th" and t["plan"] == "pro" and not t["is_admin"]
 b = db.get_brand(q["brand_id"]); assert b["tenant_id"] == t["id"] and b["auto_content_weekly"] == 3 and b["autopilot"] == 1 and b["domain"] == "https://shop.co.th"
 assert db.get_lead(lead["id"])["status"] == "won" and {"paid", "provisioned", "won"} <= set(kinds(lead["id"]))
-assert sent and sent[-1][0] == "owner@shop.co.th" and "พร้อมแล้ว" in sent[-1][1]
-temp_pw = re.search(r"<code>([^<]+)</code>", sent[-1][3]).group(1)
+welcome = [m for m in sent if "พร้อมแล้ว" in m[1]]; assert welcome and welcome[-1][0] == "owner@shop.co.th"   # ตามด้วยใบเสร็จจากฝ่ายบัญชี
+temp_pw = re.search(r"<code>([^<]+)</code>", welcome[-1][3]).group(1)
 cust = TestClient(app); r = cust.post("/login", data={"email": "owner@shop.co.th", "password": temp_pw}); assert r.status_code == 200 and "/login" not in str(r.url)
 assert "รหัสผ่านปัจจุบันไม่ถูกต้อง" in cust.post("/account/password", data={"current": "wrong", "new": "newpass123", "confirm": "newpass123"}).text
 assert "เปลี่ยนรหัสผ่านแล้ว" in cust.post("/account/password", data={"current": temp_pw, "new": "newpass123", "confirm": "newpass123"}).text

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}ฝ่ายบัญชี — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ฝ่ายบัญชี</h1>
+<p class="muted">ออกใบเสร็จทุกครั้งที่เงินเข้า ({{ 'ใบเสร็จรับเงิน/ใบกำกับภาษี เพราะเปิด VAT แล้ว' if seller.vat else 'ใบเสร็จรับเงิน — ยังไม่เปิด VAT ในตั้งค่าบริษัท' }}) · ลูกค้า PromptPay ได้ใบแจ้งหนี้ล่วงหน้า (รายเดือน {{ lead_days.month }} วัน · รายปี {{ lead_days.year }} วัน) และคำเตือนวันครบกำหนด +3 +7 วัน · เกิน 14 วันเสนอให้คุณพิจารณาระงับ ระบบไม่ระงับเอง · รอบอัตโนมัติ 08:15 ทุกวัน</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if not seller.tax_id or not seller.address %}<div class="ok-banner" style="background:var(--warning-subtle,#fff4e5);color:#9a5b00">ข้อมูลผู้ขายยังไม่ครบ ({% if not seller.tax_id %}เลขประจำตัวผู้เสียภาษี{% endif %}{% if not seller.tax_id and not seller.address %} · {% endif %}{% if not seller.address %}ที่อยู่{% endif %}) — ใส่ที่ <a class="link" href="/admin/settings#company">ตั้งค่า → ข้อมูลบริษัท</a> ก่อนออกเอกสารให้ลูกค้านิติบุคคล</div>{% endif %}
+
+<form method="get" style="display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap">
+  <label class="muted" style="font-size:13px">เดือน <input type="month" name="month" value="{{ month }}" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
+  <button class="btn ghost sm" type="submit">ดู</button>
+  <a class="btn ghost sm" href="/admin/accounting.csv?month={{ month }}">ส่งออก CSV ให้ผู้ทำบัญชี</a>
+</form>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+  <div class="card"><div class="muted" style="font-size:12px">รับเงินเดือนนี้</div><div style="font-size:22px;font-weight:700">{{ "{:,.0f}".format(s.total) }}</div><div class="muted" style="font-size:12px">{{ s.receipts }} ใบเสร็จ</div></div>
+  <div class="card"><div class="muted" style="font-size:12px">ภาษีขาย (VAT)</div><div style="font-size:22px;font-weight:700">{{ "{:,.2f}".format(s.vat) }}</div><div class="muted" style="font-size:12px">ก่อนภาษี {{ "{:,.2f}".format(s.subtotal) }}</div></div>
+  <div class="card"><div class="muted" style="font-size:12px">ถูกหัก ณ ที่จ่าย</div><div style="font-size:22px;font-weight:700">{{ "{:,.2f}".format(s.wht) }}</div><div class="muted" style="font-size:12px">ขอหนังสือรับรองจากลูกค้า</div></div>
+  <div class="card"><div class="muted" style="font-size:12px">ค้างรับทั้งหมด</div><div style="font-size:22px;font-weight:700">{{ "{:,.0f}".format(s.outstanding) }}</div><div class="muted" style="font-size:12px">{{ s.open }} ใบ{% if s.overdue %} · <span style="color:#b42318">เกินกำหนด {{ s.overdue }}</span>{% endif %}</div></div>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+  <form method="post" action="/admin/accounting/run"><button class="btn sm" type="submit">ออกใบแจ้งหนี้/ทวงชำระตอนนี้</button></form>
+  <form method="post" action="/admin/accounting/toggle"><input type="hidden" name="on" value="{{ '' if on else '1' }}"><button class="btn ghost sm" type="submit">{{ 'ปิดฝ่ายบัญชี' if on else 'เปิดฝ่ายบัญชี' }}</button></form>
+  <span class="muted" style="font-size:12.5px">ลูกค้า PromptPay ที่ต้องเก็บเงินเอง {{ customers }} ราย{% if last.at %} · รอบล่าสุด {{ last.at[5:16].replace('T',' ') }}{% endif %}{% if not on %} · <b>ปิดอยู่</b>{% endif %}</span>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  {% if docs %}
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>ยอด</th><th>สถานะ</th><th>วันที่</th><th></th></tr></thead>
+    <tbody>{% for d in docs %}
+    {% set overdue = d.kind == 'invoice' and d.status == 'open' and d.due_date and d.due_date < today %}
+    <tr>
+      <td style="white-space:nowrap"><b>{{ d.number }}</b><div class="muted" style="font-size:11.5px">{{ title(d) }}{% if d.source %} · {{ source_th.get(d.source, d.source) }}{% endif %}</div></td>
+      <td style="font-size:13px">{% if d.lead_id %}<a class="link" href="/admin/leads/{{ d.lead_id }}">{{ doms.get(d.lead_id) }}</a>{% endif %}<div class="muted" style="font-size:11.5px">{{ d.buyer_name or '' }}{% if d.buyer_tax_id %} · {{ d.buyer_tax_id }}{% endif %}</div></td>
+      <td style="white-space:nowrap">{{ "{:,.2f}".format(d.total) }}{% if d.vat %}<div class="muted" style="font-size:11.5px">VAT {{ "{:,.2f}".format(d.vat) }}</div>{% endif %}{% if d.wht %}<div class="muted" style="font-size:11.5px">หัก ณ ที่จ่าย {{ "{:,.2f}".format(d.wht) }}</div>{% endif %}</td>
+      <td><span class="pill {{ 'ok' if d.status in ('paid','issued') else ('no' if d.status == 'void' or overdue else '') }}">{{ 'เกินกำหนด' if overdue else status_th.get(d.status, d.status) }}</span>{% if d.reminders %}<div class="muted" style="font-size:11.5px">เตือนแล้ว {{ d.reminders }} ครั้ง</div>{% endif %}{% if d.void_reason %}<div class="muted" style="font-size:11.5px">{{ d.void_reason[:80] }}</div>{% endif %}</td>
+      <td class="muted" style="font-size:12px;white-space:nowrap">{{ d.created_at[:10] }}{% if d.due_date and d.kind == 'invoice' %}<div>ครบ {{ d.due_date }}</div>{% endif %}</td>
+      <td style="font-size:12.5px;min-width:220px">
+        <a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}" target="_blank">ดู</a> ·
+        <a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}.pdf" target="_blank">PDF</a>
+        {% if d.status != 'void' %} · <form method="post" action="/admin/acct/{{ d.id }}/send" style="display:inline"><button class="btn ghost sm" type="submit" style="padding:2px 8px">ส่งอีเมล</button></form>{% endif %}
+        {% if d.kind == 'invoice' and d.status in ('open','claimed') %}
+          {% if d.slip_path %} · <a class="link" href="/uploads/{{ d.slip_path }}" target="_blank">สลิป</a>{% endif %}
+          <form method="post" action="/admin/acct/{{ d.id }}/paid" style="margin-top:4px" onsubmit="return confirm('ยืนยันว่ายอด {{ d.number }} เข้าบัญชีแล้ว? ระบบจะออกใบเสร็จและส่งให้ลูกค้า')">
+            <label style="font-size:12px"><input type="checkbox" name="wht" value="1"> ลูกค้าหัก ณ ที่จ่าย {{ wht_rate }}%</label>
+            <button class="btn sm" type="submit" style="padding:2px 8px">ยืนยันยอดเข้า</button></form>
+          {% if overdue or (d.reminders or 0) >= 3 %}<form method="post" action="/admin/acct/{{ d.id }}/suspend" style="margin-top:4px" onsubmit="return confirm('ระงับบริการลูกค้ารายนี้ (ลดเป็นแผนฟรี)? ยืนยันยอดเมื่อไหร่ระบบคืนแผนให้เอง')"><button class="btn ghost sm" type="submit" style="padding:2px 8px">ระงับบริการ</button></form>{% endif %}
+        {% endif %}
+        {% if d.kind == 'receipt' and d.status != 'void' %}<form method="post" action="/admin/acct/{{ d.id }}/reissue" style="display:inline" onsubmit="return confirm('ยกเลิก {{ d.number }} แล้วออกใบใหม่ด้วยข้อมูลผู้ซื้อปัจจุบัน?')"> · <button class="btn ghost sm" type="submit" style="padding:2px 8px">ออกใหม่</button></form>{% endif %}
+        {% if d.status != 'void' and d.status != 'paid' %}
+        <details style="margin-top:4px"><summary class="muted" style="cursor:pointer;font-size:12px">ยกเลิกเอกสาร</summary>
+          <form method="post" action="/admin/acct/{{ d.id }}/void" style="display:flex;gap:4px;margin-top:4px"><input type="text" name="reason" placeholder="เหตุผล" maxlength="200" style="flex:1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-family:inherit;font-size:12px"><button class="btn ghost sm" type="submit" style="padding:2px 8px">ยกเลิก</button></form>
+        </details>{% endif %}
+      </td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีเอกสาร — ใบเสร็จฉบับแรกออกเองเมื่อลูกค้ารายแรกชำระ</p></div>{% endif %}
+</div>
+{% endblock %}

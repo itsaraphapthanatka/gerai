@@ -27,6 +27,7 @@ ACTIONS = {
     "quote": ("ทำและส่งใบเสนอราคา", {"domain": "โดเมน", "package": "pro|agency", "discount_pct": "ส่วนลดพิเศษ %", "cycle": "month|year (year = รายปี ลด 17% Setup ฟรี)"}, True),
     "followup": ("ส่งข้อความติดตามผลครั้งถัดไปทันที", {"domain": "โดเมน"}, True),
     "ai_report": ("ถาม ChatGPT 20 คำถามให้ลีด (≈฿40)", {"domain": "โดเมน"}, True),
+    "billing": ("สรุปบัญชี: รับเงินเดือนนี้ ค้างรับ เกินกำหนด", {}, False),
     "post": ("โพสต์การตลาดทันที", {"kind": "insight|ai_test|tip"}, True),
     "note": ("จดบันทึกในไทม์ไลน์ลีด", {"domain": "โดเมน", "text": "ข้อความ"}, False),
     "pause": ("หยุดฉุกเฉิน — ทุกเรื่องกลับมารอคน", {}, True),
@@ -101,6 +102,8 @@ def _rules(text: str) -> dict | None:
     url = L.first_url(t)
     if url and re.search(r"(สถานะ|เป็นไง|ถึงไหน|status|ดูลีด|ข้อมูล)", t, re.I):
         return {"action": "lead_info", "args": {"domain": url}}
+    if not url and re.search(r"(ค้างจ่าย|ค้างชำระ|ค้างรับ|รายรับ|สรุปบัญชี|ใบเสร็จ|ใบแจ้งหนี้|ใบกำกับ)", t):
+        return {"action": "billing", "args": {}}
     if not url and re.search(r"^(สรุป|สถานะ|status|วันนี้เป็นไง|เป็นไงบ้าง)", t, re.I):
         return {"action": "status", "args": {}}
     if re.search(r"(ใคร.*โทร|โทรใคร|ควรโทร|รายชื่อโทร)", t):
@@ -295,6 +298,16 @@ def execute(action: str, args: dict) -> str:
                 + (f"\nใบเสนอราคา {qs[0]['number']}: {qs[0]['status']}" if qs else "")
                 + "\nล่าสุด: " + " · ".join(f"{e['created_at'][5:16].replace('T', ' ')} {L.EVENT_LABEL.get(e['kind'], e['kind'])}" for e in ev)
                 + f"\n{pipeline.public_base()}/admin/leads/{lead['id']}")
+    if action == "billing":
+        from . import accounting
+        sm = accounting.summary()
+        open_inv = [d for d in db.list_acct_docs("invoice", limit=500) if d["status"] in ("open", "claimed")]
+        lines = [f"บัญชีเดือนนี้: รับเงิน {sm['total']:,.0f} บาท ({sm['receipts']} ใบเสร็จ) · VAT {sm['vat']:,.2f} · ถูกหัก ณ ที่จ่าย {sm['wht']:,.2f}",
+                 f"ค้างรับ {sm['outstanding']:,.0f} บาท ({sm['open']} ใบ" + (f" · เกินกำหนด {sm['overdue']} ใบ {sm['overdue_total']:,.0f} บาท" if sm["overdue"] else "") + ")"]
+        for d in open_inv[:5]:
+            l = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+            lines.append(f"• {d['number']} {l['domain'] if l else ''} {d['total']:,.0f} บาท ครบ {d['due_date']} · {accounting.STATUS_TH.get(d['status'], d['status'])}")
+        return "\n".join(lines) + f"\n{pipeline.public_base()}/admin/accounting"
     if action == "contact_lead":
         return owner_contact(args)
     if action == "quote":

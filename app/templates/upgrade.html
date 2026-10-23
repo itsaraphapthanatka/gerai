@@ -125,4 +125,15 @@
   {% endif %}
 </div>
 {% endif %}
+{% if acct_docs %}
+<div class="card" style="margin-top:16px">
+  <h2 style="margin-top:0;font-size:15px">ใบเสร็จและใบแจ้งหนี้</h2>
+  <table style="font-size:13px">
+    <thead><tr><th>วันที่</th><th>เลขที่</th><th>ยอด (บาท)</th><th>สถานะ</th><th></th></tr></thead>
+    <tbody>{% for d in acct_docs %}<tr><td class="muted">{{ (d.created_at or '')[:10] }}</td><td>{{ d.number }}</td><td>{{ "{:,.2f}".format(d.total) }}</td>
+      <td><span class="pill {{ 'ok' if d.status in ('paid','issued') else '' }}">{{ {'issued':'ชำระแล้ว','paid':'ชำระแล้ว','open':'รอชำระ','claimed':'รอตรวจยอด'}.get(d.status, d.status) }}</span></td>
+      <td><a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}" target="_blank">{{ 'ชำระ/ดู' if d.kind == 'invoice' and d.status == 'open' else 'ดู' }}</a> · <a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}.pdf">PDF</a></td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
 {% endblock %}

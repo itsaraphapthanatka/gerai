@@ -321,7 +321,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -329,7 +329,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

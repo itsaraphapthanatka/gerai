@@ -164,6 +164,7 @@ def main():
     ap.add_argument("--inbox", action="store_true", help="อ่านอีเมลที่ลีดตอบกลับ (IMAP) → ตอบกลับ/ไม่สนใจ/ขอไม่รับ/ร่างคำตอบ")
     ap.add_argument("--plan", action="store_true", help="CEO วางแผนวันนี้จากด่านที่ยังขาด แล้วแจกงานให้เอเจนต์ (หาลูกค้า · หาช่องทางซ้ำ · วัด AI · การตลาด · ติดตามผล · ฝากเจ้าของโทร)")
     ap.add_argument("--success", action="store_true", help="ดูแลลูกค้าที่จ่ายแล้ว: เริ่มงาน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานก่อนรอบบิล · เตือนเสี่ยงหลุด")
+    ap.add_argument("--acct", action="store_true", help="ฝ่ายบัญชี: ออกใบแจ้งหนี้รอบถัดไปให้ลูกค้า PromptPay · ทวงวันครบกำหนด +3 +7 · แจ้งเจ้าของเมื่อค้าง")
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
     ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
@@ -179,6 +180,13 @@ def main():
         orchestrator.RUN_INLINE = True                     # cron: ทำให้เสร็จในโปรเซสนี้
         res = orchestrator.plan_and_run()
         print(orchestrator.summary(res["tasks"]))
+        return
+    if args.acct:
+        from app import accounting
+        res = accounting.run()
+        print("acct · " + (res.get("skipped") or f"ออกใบแจ้งหนี้ {len(res['invoiced'])} {res['invoiced']} · เตือน/แจ้งค้าง {res['actions']}"
+                                                + (f" · ล้ม {res['errors']}" if res["errors"] else "")))
+        print(accounting.status_text() or "acct · ยังไม่มีเอกสาร")
         return
     if args.success:
         from app import success

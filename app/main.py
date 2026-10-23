@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import json
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from fastapi import FastAPI, Request, Form, UploadFile, File
-from fastapi.responses import RedirectResponse, PlainTextResponse, Response, JSONResponse
+from fastapi.responses import RedirectResponse, PlainTextResponse, Response, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -634,6 +635,7 @@ def _company() -> dict:
     return {"name": db.get_setting("company_name") or "", "address": db.get_setting("company_address") or "",
             "tax_id": db.get_setting("company_tax_id") or "", "signer": db.get_setting("company_signer") or "",
             "phone": db.get_setting("company_phone") or "", "email": db.get_setting("company_email") or "",
+            "branch": db.get_setting("company_branch") or "สำนักงานใหญ่", "vat": db.get_setting("company_vat") == "1",
             "contract_reviewed": db.get_setting("contract_reviewed") == "1"}
 
 
@@ -775,13 +777,19 @@ async def stripe_webhook(request: Request):
 
 
 @app.post("/q/{token}/accept")
-def quote_accept(request: Request, token: str, name: str = Form(""), agree: str = Form(""), website: str = Form("")):
+def quote_accept(request: Request, token: str, name: str = Form(""), agree: str = Form(""), website: str = Form(""),
+                 buyer_name: str = Form(""), buyer_tax_id: str = Form(""), buyer_branch: str = Form(""), buyer_address: str = Form("")):
     q = db.get_quote_by_token(token)
     if not q or website.strip():
         return _redirect("/")
     lead = db.get_lead(q["lead_id"])
     if not agree:
         return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error="ติ๊กยอมรับเงื่อนไขและสัญญาก่อน"))
+    if q["status"] in ("sent", "viewed") and (buyer_name or buyer_tax_id or buyer_address):
+        from . import accounting
+        err = accounting.save_buyer(q["id"], buyer_name, buyer_tax_id, buyer_branch, buyer_address)
+        if err:
+            return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err))
     err = pipeline.accept_quote(q, name, _client_ip(request))
     if err:
         return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err))
@@ -831,7 +839,12 @@ def _lead_ctx(lead, notice: str = "") -> dict:
     from . import followup as _fu
     _h = _fu.history(lead["id"])
     from . import success as _cs
-    return {"cs": _cs.status(lead) if lead["status"] == "won" else None,
+    from . import accounting as _ac
+    _qs = db.list_quotes(lead["id"])
+    _bq = next((x for x in _qs if x["status"] in ("paid", "accepted", "claimed")), None)
+    return {"acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
+            "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
+            "cs": _cs.status(lead) if lead["status"] == "won" else None,
             "fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},
             "deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
             "ai_today": deep_audit.ai_today(), "ai_daily": deep_audit.ai_daily(),
@@ -1161,7 +1174,8 @@ def _upgrade_ctx(request, notice=None):
             "usage": billing.usage(tid), "requested": tenant["requested_plan"], "notice": notice,
             "is_admin": bool(tenant and tenant["is_admin"]),
             "stripe_portal": bool(tenant and tenant["stripe_customer_id"] and stripe_pay.available()),
-            "stripe_invoices": [dict(r) for r in db.list_stripe_invoices(tid)]}
+            "stripe_invoices": [dict(r) for r in db.list_stripe_invoices(tid)],
+            "acct_docs": [dict(r) for r in db.list_acct_docs(tenant_id=tid, limit=50) if r["status"] != "void"]}
 
 
 @app.get("/account/billing")
@@ -3334,9 +3348,19 @@ def admin_settings_stripe_webhook(request: Request):
 
 @app.post("/admin/settings/company")
 def admin_settings_company(request: Request, name: str = Form(""), address: str = Form(""), tax_id: str = Form(""),
-                           signer: str = Form(""), contract_reviewed: str = Form(""), phone: str = Form(""), email: str = Form("")):
+                           signer: str = Form(""), contract_reviewed: str = Form(""), phone: str = Form(""), email: str = Form(""),
+                           branch: str = Form(""), vat: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
+    from . import accounting
+    tax_digits = "".join(ch for ch in tax_id if ch.isdigit())
+    if tax_digits and not accounting.valid_tax_id(tax_digits):
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error="เลขประจำตัวผู้เสียภาษีของบริษัทไม่ถูกต้อง (13 หลัก)"))
+    if vat and not tax_digits:
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error="เปิด VAT ต้องใส่เลขประจำตัวผู้เสียภาษี 13 หลักก่อน"))
+    tax_id = tax_digits
+    db.set_setting("company_branch", branch.strip()[:60] or "สำนักงานใหญ่")
+    db.set_setting("company_vat", "1" if vat else "0")
     db.set_setting("company_name", name.strip()[:160])
     db.set_setting("company_address", address.strip()[:300])
     db.set_setting("company_tax_id", tax_id.strip()[:20])
@@ -3496,6 +3520,169 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
         st = deep_audit.start(lead_id)
         note = "เริ่มไต่เว็บใหม่แล้ว (ราว 2 นาที)" if st == "started" else "กำลังทำอยู่แล้ว"
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
+
+
+# ---------- ฝ่ายบัญชี: ใบเสร็จ/ใบกำกับภาษี · ใบแจ้งหนี้รอบถัดไป · ทวงชำระ ----------
+def _acct_page(request: Request, doc, error: str = ""):
+    from . import accounting
+    extra = {"error": error, "qr": None, "ppname": ""}
+    if doc["kind"] == "invoice" and doc["status"] == "open":
+        ppid, ppname = _promptpay_config()
+        extra.update(qr=promptpay.qr_data_uri(ppid, doc["total"]) if ppid else None, ppname=ppname if ppid else "")
+    return HTMLResponse(accounting.render(doc, extra=extra))
+
+
+def _acct_pdf(doc):
+    from . import accounting
+    pdf = accounting.pdf_bytes(doc)
+    if not pdf:
+        return Response("สร้าง PDF ไม่ได้ตอนนี้ — เปิดหน้าเว็บแล้วสั่งพิมพ์แทนได้", status_code=503, media_type="text/plain; charset=utf-8")
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{doc["number"]}.pdf"'})
+
+
+@app.get("/doc/{token}.pdf")
+def acct_doc_pdf(token: str):
+    doc = db.get_acct_doc_by_token(token)
+    return _acct_pdf(doc) if doc and doc["kind"] == "receipt" else _redirect("/")
+
+
+@app.get("/doc/{token}")
+def acct_doc_page(request: Request, token: str):
+    doc = db.get_acct_doc_by_token(token)
+    return _acct_page(request, doc) if doc and doc["kind"] == "receipt" else _redirect("/")
+
+
+@app.get("/bill/{token}.pdf")
+def acct_bill_pdf(token: str):
+    doc = db.get_acct_doc_by_token(token)
+    return _acct_pdf(doc) if doc and doc["kind"] == "invoice" else _redirect("/")
+
+
+@app.get("/bill/{token}")
+def acct_bill_page(request: Request, token: str):
+    doc = db.get_acct_doc_by_token(token)
+    return _acct_page(request, doc) if doc and doc["kind"] == "invoice" else _redirect("/")
+
+
+@app.post("/bill/{token}/pay")
+async def acct_bill_pay(request: Request, token: str, slip: UploadFile = File(None), website: str = Form("")):
+    from . import accounting
+    doc = db.get_acct_doc_by_token(token)
+    if not doc or doc["kind"] != "invoice" or website.strip():
+        return _redirect("/")
+    if doc["status"] not in ("open", "claimed"):
+        return _redirect(f"/bill/{token}")
+    slip_path = None
+    if slip is not None and slip.filename:
+        data = await slip.read()
+        if data:
+            ext = os.path.splitext(slip.filename)[1].lower()
+            ext = ext if ext in (".jpg", ".jpeg", ".png", ".webp", ".pdf") else ".jpg"
+            up = BASE.parent / "uploads" / "slips"
+            up.mkdir(parents=True, exist_ok=True)
+            fname = f"inv{doc['id']}-{secrets.token_hex(6)}{ext}"
+            (up / fname).write_bytes(data[:8_000_000])
+            slip_path = f"slips/{fname}"
+    if doc["status"] == "claimed":
+        db.update_acct_doc(doc["id"], slip_path=slip_path or doc["slip_path"])
+    else:
+        accounting.claim(doc, slip_path)
+    return _redirect(f"/bill/{token}")
+
+
+def _accounting_ctx(month: str = "", notice: str = "") -> dict:
+    import datetime as _dt
+    from . import accounting
+    month = month if (len(month) == 7 and month[4] == "-") else _dt.date.today().strftime("%Y-%m")
+    docs = [dict(d) for d in db.list_acct_docs(limit=300)]
+    doms = {}
+    for d in docs:
+        if d["lead_id"] not in doms:
+            l = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+            doms[d["lead_id"]] = l["domain"] if l else "-"
+    today = _dt.date.today().isoformat()
+    try:
+        last = json.loads(db.get_setting("acct_last") or "{}")
+    except Exception:
+        last = {}
+    return {"s": accounting.summary(month), "month": month, "docs": docs, "doms": doms, "today": today, "notice": notice,
+            "title": accounting.title, "status_th": accounting.STATUS_TH, "source_th": accounting.SOURCE_TH, "seller": accounting.seller(),
+            "on": accounting.enabled(), "last": last, "customers": len(accounting.customers()), "wht_rate": accounting.WHT_RATE,
+            "lead_days": accounting.INVOICE_LEAD}
+
+
+@app.get("/admin/accounting")
+def admin_accounting(request: Request, month: str = "", notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_accounting.html", _accounting_ctx(month, notice))
+
+
+@app.get("/admin/accounting.csv")
+def admin_accounting_csv(request: Request, month: str = ""):
+    import datetime as _dt
+    from . import accounting
+    if not _is_admin(request):
+        return _redirect("/login")
+    month = month if (len(month) == 7 and month[4] == "-") else _dt.date.today().strftime("%Y-%m")
+    return Response(accounting.csv_month(month), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="jerai-accounting-{month}.csv"'})
+
+
+@app.post("/admin/accounting/run")
+def admin_accounting_run(request: Request):
+    from . import accounting
+    if not _is_admin(request):
+        return _redirect("/login")
+    res = accounting.run()
+    note = res.get("skipped") or f"ออกใบแจ้งหนี้ {len(res['invoiced'])} ใบ · เตือน/แจ้งค้าง {len(res['actions'])} รายการ"
+    return _redirect(f"/admin/accounting?notice={note}")
+
+
+@app.post("/admin/accounting/toggle")
+def admin_accounting_toggle(request: Request, on: str = Form("")):
+    from . import accounting
+    if not _is_admin(request):
+        return _redirect("/login")
+    accounting.set_enabled(bool(on))
+    return _redirect("/admin/accounting?notice=" + ("เปิดฝ่ายบัญชีแล้ว" if on else "ปิดฝ่ายบัญชีแล้ว — ไม่ออกเอกสาร ไม่ทวง"))
+
+
+@app.post("/admin/acct/{did}/{action}")
+def admin_acct_action(request: Request, did: int, action: str, wht: str = Form(""), reason: str = Form("")):
+    from . import accounting
+    if not _is_admin(request):
+        return _redirect("/login")
+    doc = db.get_acct_doc(did)
+    if not doc:
+        return _redirect("/admin/accounting?notice=ไม่พบเอกสาร")
+    who = request.session.get("email") or "admin"
+    if action == "paid":
+        note = accounting.mark_paid(doc, who, wht=bool(wht))
+    elif action == "send":
+        note = accounting.send(doc)
+    elif action == "void":
+        note = accounting.void(doc, reason, who)
+    elif action == "reissue":
+        note = accounting.reissue(doc, who)
+    elif action == "suspend":
+        note = accounting.suspend(db.get_quote(doc["quote_id"]), who)
+    else:
+        note = "ไม่รู้จักคำสั่ง"
+    return _redirect(f"/admin/accounting?notice={note}")
+
+
+@app.post("/admin/leads/{lead_id}/buyer")
+def admin_lead_buyer(request: Request, lead_id: int, quote_id: int = Form(0), name: str = Form(""), tax_id: str = Form(""),
+                     branch: str = Form(""), address: str = Form("")):
+    from . import accounting
+    if not _is_admin(request):
+        return _redirect("/login")
+    q = db.get_quote(quote_id) if quote_id else None
+    if not q or q["lead_id"] != lead_id:
+        return _redirect(f"/admin/leads/{lead_id}?notice=ไม่พบใบเสนอราคา")
+    err = accounting.save_buyer(q["id"], name, tax_id, branch, address)
+    return _redirect(f"/admin/leads/{lead_id}?notice=" + (err or "บันทึกข้อมูลออกเอกสารแล้ว — ใบเสร็จที่ออกแล้วกด \"ออกใหม่\" ที่หน้าบัญชีถ้าต้องการแก้"))
 
 
 # ---------- บทโทรปิดดีล: เอเจนต์คัดลีดที่ควรโทรและเตรียมบท คุณโทรเองแล้วจดผล ----------

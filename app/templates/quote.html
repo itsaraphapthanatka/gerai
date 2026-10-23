@@ -145,6 +145,12 @@
         <form method="post" action="/q/{{ q.token }}/accept">
           {% if error %}<div class="err">{{ error }}</div>{% endif %}
           <input type="text" name="name" placeholder="ชื่อ-นามสกุลผู้ยืนยัน" maxlength="120" value="{{ lead.name or '' }}">
+          <details style="margin:8px 0"><summary style="cursor:pointer">ข้อมูลออกใบเสร็จ/ใบกำกับภาษี (บริษัทกรอกได้ ไม่บังคับ)</summary>
+            <input type="text" name="buyer_name" placeholder="ชื่อบริษัท/ผู้ซื้อตามที่จดทะเบียน" maxlength="200" value="{{ q.buyer_name or '' }}">
+            <input type="text" name="buyer_tax_id" placeholder="เลขประจำตัวผู้เสียภาษี 13 หลัก" maxlength="20" value="{{ q.buyer_tax_id or '' }}">
+            <input type="text" name="buyer_branch" placeholder="สำนักงานใหญ่ หรือ สาขาที่ ..." maxlength="60" value="{{ q.buyer_branch or '' }}">
+            <input type="text" name="buyer_address" placeholder="ที่อยู่ออกเอกสาร" maxlength="400" value="{{ q.buyer_address or '' }}">
+          </details>
           <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
           <label class="consent"><input type="checkbox" name="agree" value="1"> ข้าพเจ้ายอมรับเงื่อนไขข้างต้นและ<a href="{{ base }}/q/{{ q.token }}/contract" target="_blank">สัญญาบริการมาตรฐาน</a> ในนามของ {{ lead.domain }}</label>
           <button type="submit">ยืนยันรับข้อเสนอ</button>

@@ -261,8 +261,8 @@
   </div>
 </div>
 
-<div class="card">
-  <h2>ข้อมูลบริษัท — ใบเสนอราคาและสัญญาบริการ</h2>
+<div class="card" id="company">
+  <h2>ข้อมูลบริษัท — ใบเสนอราคา สัญญา และเอกสารบัญชี</h2>
   <p class="muted" style="margin:0 0 12px">แสดงบนใบเสนอราคา/สัญญาที่ส่งให้ลูกค้าเป้าหมาย · ว่าง = ใช้ชื่อ "เจอ.AI" อย่างเดียว · สัญญาเป็น "ร่างมาตรฐาน" จนกว่าจะติ๊กว่าทนายตรวจแล้ว</p>
   <form method="post" action="/admin/settings/company">
     <label>ชื่อผู้ให้บริการ (บริษัท/บุคคล)</label>
@@ -270,7 +270,10 @@
     <label style="margin-top:12px">ที่อยู่</label>
     <input type="text" name="address" value="{{ company.address }}" placeholder="ที่อยู่สำหรับออกเอกสาร">
     <label style="margin-top:12px">เลขประจำตัวผู้เสียภาษี</label>
-    <input type="text" name="tax_id" value="{{ company.tax_id }}" placeholder="13 หลัก (ไม่บังคับ)">
+    <input type="text" name="tax_id" value="{{ company.tax_id }}" placeholder="13 หลัก (ต้องมีถ้าเปิด VAT)">
+    <label style="margin-top:12px">สำนักงานใหญ่/สาขา (บนใบกำกับภาษี)</label>
+    <input type="text" name="branch" value="{{ company.branch }}" placeholder="สำนักงานใหญ่ หรือ สาขาที่ 00001">
+    <label style="margin-top:12px;display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="vat" value="1" {% if company.vat %}checked{% endif %}> จดทะเบียนภาษีมูลค่าเพิ่มแล้ว — ใบเสร็จเป็น "ใบเสร็จรับเงิน/ใบกำกับภาษี" แยก VAT 7% จากราคา (ราคาแพ็กเกจถือว่ารวม VAT แล้ว)</label>
     <label style="margin-top:12px">เบอร์โทร (แสดงท้ายอีเมลถึงลูกค้า)</label>
     <input type="text" name="phone" value="{{ company.phone }}" placeholder="เช่น 02-123-4567">
     <label style="margin-top:12px">อีเมลติดต่อ (แสดงท้ายอีเมลถึงลูกค้า)</label>

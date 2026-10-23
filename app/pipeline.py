@@ -205,6 +205,10 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "quote" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return send_quote(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "payment" and pl.get("acct_doc_id"):
+        from . import accounting
+        inv = db.get_acct_doc(pl["acct_doc_id"])
+        return accounting.mark_paid(inv, who) if inv else "ไม่พบใบแจ้งหนี้"
     if d["kind"] == "payment" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return confirm_payment(q, who) if q else "ไม่พบใบเสนอราคา"
@@ -418,6 +422,11 @@ def confirm_payment(q, who: str = "admin") -> str:
             note = f" · ส่งอีเมลต้อนรับไม่สำเร็จ ({type(e).__name__})"
     else:
         note = " · ไม่มีอีเมลจริงของลูกค้า — แจ้งรหัสเข้าใช้เอง (แก้อีเมลบัญชีที่หน้าผู้ดูแล)"
+    try:
+        from . import accounting
+        accounting.first_receipt(db.get_quote(q["id"]))   # ฝ่ายบัญชี: ใบเสร็จ (หรือใบกำกับภาษีเมื่อเปิด VAT) ส่งให้ลูกค้าทันที
+    except Exception as e:
+        db.notify_admins(f"⚠️ ออกใบเสร็จ {q['number']} ไม่สำเร็จ ({type(e).__name__}) — ออกเองได้ที่หน้าบัญชี", "/admin/accounting", "payment")
     try:
         from . import success
         success.kickoff_quote(q)                       # ดูแลหลังการขายเริ่มทันที: แผน 30 วัน + Autopilot รอบแรก

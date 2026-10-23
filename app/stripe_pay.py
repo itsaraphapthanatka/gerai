@@ -285,6 +285,12 @@ def _paid_session(obj: dict) -> str:
     if q["status"] == "paid":
         return "already-paid"
     q = db.get_quote(q["id"])
+    try:
+        from . import accounting
+        accounting.capture_stripe_buyer(q, obj)                     # ชื่อ/ที่อยู่/เลขผู้เสียภาษีจาก Checkout → ใบเสร็จ
+        q = db.get_quote(q["id"])
+    except Exception:
+        pass
     note = pipeline.confirm_payment(q, "stripe")
     q = db.get_quote(q["id"])
     if q["tenant_id"] and obj.get("customer"):
@@ -321,7 +327,12 @@ def handle_event(evt: dict) -> str:
                               obj.get("number"))
         if obj.get("billing_reason") == "subscription_create":
             return "first-invoice"                                   # บิลแรกจัดการที่ checkout.session.completed แล้ว
-        pipeline.record(q["lead_id"], "paid", f"ต่ออายุรายเดือนผ่าน Stripe {amt:,} บาท", "stripe")
+        pipeline.record(q["lead_id"], "paid", f"ต่ออายุผ่าน Stripe {amt:,} บาท", "stripe")
+        try:
+            from . import accounting
+            accounting.stripe_receipt(q, obj)                         # ใบของ Stripe ไม่ใช่ใบกำกับภาษีไทย → ออกของเราเอง
+        except Exception as e:
+            db.notify_admins(f"⚠️ ออกใบเสร็จต่ออายุ {lead['domain']} ไม่สำเร็จ ({type(e).__name__})", "/admin/accounting", "payment")
         if q["tenant_id"] and db.get_tenant(q["tenant_id"]) and db.get_tenant(q["tenant_id"])["plan"] != q["package"]:
             db.set_plan(q["tenant_id"], q["package"])                 # เคยถูกลดเป็น free เพราะค้างชำระ → คืนแผน
         db.notify_admins(f"🔁 {lead['domain']} ต่ออายุผ่าน Stripe {amt:,} บาท", f"/admin/leads/{lead['id']}", "payment")

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ title }} {{ doc.number }}</title>
+{% if not pdf %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon-32.png">
+{% endif %}
+<style>
+  :root{--ink:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--line:#e5e7eb;--font:{% if pdf %}'Sarabun',sans-serif{% else %}'IBM Plex Sans Thai',system-ui,sans-serif{% endif %}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--ink);background:#fff;line-height:1.55;font-size:14px}
+  .wrap{max-width:820px;margin:0 auto;padding:{% if pdf %}10px 4px{% else %}32px 16px 56px{% endif %}}
+  .top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:16px}
+  .seller b{font-size:17px}.seller div{color:var(--slate);font-size:13px}
+  .docttl{text-align:right}.docttl h1{font-size:22px;line-height:1.25}.docttl .copy{font-size:12px;color:var(--stone)}
+  .pill{display:inline-block;font-size:12px;padding:2px 10px;border-radius:999px;background:var(--surface);color:var(--slate)}
+  .pill.ok{background:#e8f7ee;color:#1c7a44}.pill.warn{background:#fff4e5;color:#9a5b00}.pill.no{background:#fdecec;color:#b42318}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:16px}
+  .box{border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .box h3{font-size:12px;color:var(--stone);font-weight:600;margin-bottom:4px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13.5px}.kv span:nth-child(odd){color:var(--slate)}
+  table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--stone);font-weight:600;background:var(--surface)}
+  .num{text-align:right;white-space:nowrap}
+  .sum{margin-left:auto;width:min(360px,100%)}
+  .sum td{border:0;padding:4px 8px}.sum tr.total td{font-weight:700;font-size:16px;border-top:2px solid var(--ink)}
+  .words{background:var(--surface);border-radius:8px;padding:8px 12px;margin:8px 0 16px;font-weight:600}
+  .note{font-size:12.5px;color:var(--slate);margin-top:6px}
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:36px;text-align:center;font-size:13px;color:var(--slate)}
+  .sign div{border-top:1px solid var(--stone);padding-top:6px}
+  .void{border:2px solid #b42318;color:#b42318;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:600}
+  .pay{margin-top:22px;border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+  .pay img{width:200px;height:200px}
+  .pay .amt{font-size:24px;font-weight:700}
+  input[type=file]{margin:8px 0}
+  button{font-family:inherit;font-size:15px;font-weight:600;background:var(--ink);color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer}
+  .ok{background:#e8f7ee;color:#1c7a44;border-radius:10px;padding:10px 14px;margin-top:16px}
+  .err{color:#b42318;margin-bottom:6px}
+  .hp{position:absolute;left:-9999px}
+  .tools{margin-top:16px;font-size:13px}.tools a{color:var(--slate)}
+  @media (max-width:640px){.grid,.pay,.sign{grid-template-columns:1fr}.docttl{text-align:left}.pay img{width:180px;height:180px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  {% if doc.status == 'void' %}<div class="void">ยกเลิกแล้ว — {{ doc.void_reason }}</div>{% endif %}
+  <div class="top">
+    <div class="seller">
+      <b>{{ seller.name }}</b>
+      {% if seller.address %}<div>{{ seller.address }}</div>{% endif %}
+      {% if seller.tax_id %}<div>เลขประจำตัวผู้เสียภาษี {{ seller.tax_id }} · {{ seller.branch }}</div>{% endif %}
+      {% if seller.phone or seller.email %}<div>{{ seller.phone }}{% if seller.phone and seller.email %} · {% endif %}{{ seller.email }}</div>{% endif %}
+    </div>
+    <div class="docttl">
+      <h1>{{ title }}</h1>
+      {% if doc.kind == 'receipt' %}<div class="copy">ต้นฉบับ</div>{% endif %}
+      {% if not pdf or doc.status == 'void' %}<span class="pill {{ 'ok' if doc.status in ('paid','issued') else ('no' if doc.status == 'void' else 'warn') }}">{{ status_th }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>{{ 'ผู้ซื้อ / ผู้รับบริการ' if doc.kind == 'receipt' else 'เรียกเก็บจาก' }}</h3>
+      <div><b>{{ doc.buyer_name or '-' }}</b></div>
+      {% if doc.buyer_address %}<div>{{ doc.buyer_address }}</div>{% endif %}
+      {% if doc.buyer_tax_id %}<div>เลขประจำตัวผู้เสียภาษี {{ doc.buyer_tax_id }}{% if doc.buyer_branch %} · {{ doc.buyer_branch }}{% endif %}</div>{% endif %}
+    </div>
+    <div class="box kv">
+      <span>เลขที่</span><span><b>{{ doc.number }}</b></span>
+      <span>วันที่</span><span>{{ issued }}</span>
+      {% if doc.kind == 'invoice' %}<span>ครบกำหนด</span><span>{{ due }}</span>{% endif %}
+      {% if doc.kind == 'receipt' and paid %}<span>วันที่รับเงิน</span><span>{{ paid }}</span>{% endif %}
+      {% if period %}<span>รอบบริการ</span><span>{{ period }}</span>{% endif %}
+      {% if invoice_number %}<span>อ้างอิง</span><span>{{ invoice_number }}</span>{% endif %}
+      {% if doc.kind == 'receipt' %}<span>ชำระโดย</span><span>{{ source_th }}</span>{% endif %}
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:40px">#</th><th>รายการ</th><th class="num">จำนวนเงิน (บาท)</th></tr></thead>
+    <tbody>{% for it in items %}<tr><td>{{ loop.index }}</td><td>{{ it.desc }}</td><td class="num">{{ "{:,.2f}".format(it.amount) }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <table class="sum">
+    {% if doc.vat_mode == 'vat7' %}
+    <tr><td>มูลค่าก่อนภาษีมูลค่าเพิ่ม</td><td class="num">{{ "{:,.2f}".format(doc.subtotal) }}</td></tr>
+    <tr><td>ภาษีมูลค่าเพิ่ม 7%</td><td class="num">{{ "{:,.2f}".format(doc.vat) }}</td></tr>
+    {% endif %}
+    <tr class="total"><td>รวมทั้งสิ้น</td><td class="num">{{ "{:,.2f}".format(doc.total) }}</td></tr>
+    {% if doc.wht %}
+    <tr><td>หักภาษี ณ ที่จ่าย 3%</td><td class="num">−{{ "{:,.2f}".format(doc.wht) }}</td></tr>
+    <tr><td>รับชำระสุทธิ</td><td class="num">{{ "{:,.2f}".format(net_received) }}</td></tr>
+    {% endif %}
+  </table>
+  <div class="words">({{ words }})</div>
+  {% if doc.vat_mode == 'vat7' %}<p class="note">ราคารวมภาษีมูลค่าเพิ่มแล้ว</p>{% endif %}
+  {% if doc.kind == 'invoice' %}<p class="note">ใบแจ้งหนี้นี้ไม่ใช่ใบกำกับภาษี — ออกใบเสร็จรับเงิน{% if doc.vat_mode == 'vat7' %}/ใบกำกับภาษี{% endif %}ให้เมื่อได้รับชำระ · นิติบุคคลที่หักภาษี ณ ที่จ่าย 3% ({{ "{:,.2f}".format(wht_suggest) }} บาท) ชำระ {{ "{:,.2f}".format(doc.total - wht_suggest) }} บาท และส่งหนังสือรับรองการหักภาษี ณ ที่จ่ายมาทางอีเมล</p>{% endif %}
+  {% if doc.kind == 'receipt' %}
+  <div class="sign"><div>ผู้รับเงิน{% if seller.signer %}<br>{{ seller.signer }}{% endif %}</div><div>วันที่ {{ paid or issued }}</div></div>
+  <p class="note" style="margin-top:14px">เอกสารนี้ออกโดยระบบอิเล็กทรอนิกส์ของ{{ seller.name }}</p>
+  {% endif %}
+
+  {% if not pdf %}
+    {% if doc.kind == 'invoice' and doc.status == 'open' %}
+    <div class="pay">
+      <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">ช่องทางชำระตามที่ทีมงานแจ้ง</div>{% endif %}</div>
+      <div>
+        <div class="amt">{{ "{:,.2f}".format(doc.total) }} บาท</div>
+        <div class="note">{% if ppname %}สแกน PromptPay ({{ ppname }}) ยอดตามนี้ แล้วแนบสลิป{% else %}โอนตามช่องทางที่ทีมงานแจ้ง แล้วแนบสลิป{% endif %}</div>
+        <form method="post" action="/bill/{{ doc.token }}/pay" enctype="multipart/form-data">
+          {% if error %}<div class="err">{{ error }}</div>{% endif %}
+          <input type="file" name="slip" accept=".jpg,.jpeg,.png,.webp,.pdf">
+          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+          <div><button type="submit">แจ้งชำระเงินแล้ว</button></div>
+        </form>
+      </div>
+    </div>
+    {% elif doc.kind == 'invoice' and doc.status == 'claimed' %}
+    <div class="ok">ได้รับแจ้งชำระแล้ว ทีมงานกำลังตรวจยอด ใบเสร็จจะส่งให้ทางอีเมลเมื่อยืนยันแล้ว</div>
+    {% elif doc.kind == 'invoice' and doc.status == 'paid' %}
+    <div class="ok">ชำระแล้ว ขอบคุณครับ ใบเสร็จส่งไปทางอีเมลแล้ว</div>
+    {% endif %}
+    <p class="tools"><a href="{{ base }}/{{ 'bill' if doc.kind == 'invoice' else 'doc' }}/{{ doc.token }}.pdf">ดาวน์โหลด PDF</a></p>
+  {% endif %}
+</div>
+</body>
+</html>
