@@ -263,9 +263,10 @@ def events_today(start: str, dom: dict) -> list[dict]:
             if d_["created_at"] >= start:
                 out.append(_ev(f"dec:{d_['id']}:digest", d_["created_at"], "ceo", "digest", "CEO ส่งสรุปเช้าให้เจ้าของ"))
             continue
-        kth = KIND_TH.get(kind, kind)
+        from . import execs as _ex
+        kth = KIND_TH.get(kind) or _ex.KINDS.get(kind, kind)          # ป้ายไทยของทุกเรื่อง (รวมของฝ่ายพันธมิตร ฯลฯ)
         if d_["created_at"] >= start and st != "auto":
-            out.append(_ev(f"dec:{d_['id']}:proposed", d_["created_at"], agent, "propose", f"{NAME[agent]} เสนอ{kth}: {title}", kind=kind, lead=lead))
+            out.append(_ev(f"dec:{d_['id']}:proposed", d_["created_at"], agent, "propose", (f"{NAME[agent]} เสนอ: {title}" if kth and kth in (title or "") else f"{NAME[agent]} เสนอ{kth}: {title}"), kind=kind, lead=lead))
         when = d_["decided_at"] or d_["created_at"]
         if st == "auto":
             out.append(_ev(f"dec:{d_['id']}:auto", when, agent, "auto", f"{NAME[agent]} ทำเองในกรอบ: {title}", kind=kind, lead=lead))

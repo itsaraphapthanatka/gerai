@@ -69,6 +69,29 @@ body.tv.idle #stage canvas{cursor:none}
 /* แชตสั่งงาน CEO */
 #chat{position:absolute;left:12px;bottom:12px;width:340px;max-width:calc(100% - 24px);z-index:6;display:flex;flex-direction:column;
   background:color-mix(in srgb,var(--surface) 94%,transparent);border:1px solid var(--rule);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);overflow:hidden}
+#tray{position:absolute;right:12px;top:12px;bottom:12px;width:420px;max-width:calc(100% - 24px);z-index:8;display:none;flex-direction:column;
+  background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.18);overflow:hidden}
+#tray.on{display:flex}
+#tray .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--rule);font-weight:600}
+#tray .hd .n{background:var(--accent);color:#fff;border-radius:9999px;font-size:12px;padding:1px 9px}
+#tray .hd a{margin-left:auto;font-size:12.5px;color:var(--ink-2);font-weight:500}
+#tray .hd button{border:0;background:transparent;font-size:20px;line-height:1;cursor:pointer;color:var(--ink-3);padding:0 2px}
+#tray .ls{overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+#tray .it{border:1px solid var(--rule);border-radius:12px;padding:10px 12px;font-size:13.5px}
+#tray .it.esc{border-color:#f0b4ae;background:#fff7f6}
+#tray .it .t{font-weight:600}
+#tray .it .m{color:var(--ink-3);font-size:12px;margin:2px 0 6px}
+#tray .it .tag{display:inline-block;font-size:11px;border-radius:9999px;padding:1px 8px;margin-left:6px;background:#fff4e5;color:#9a5b00}
+#tray .it details summary{cursor:pointer;color:var(--ink-2);font-size:12.5px}
+#tray .it pre{white-space:pre-wrap;font-family:inherit;font-size:12.5px;color:var(--ink-2);margin:6px 0 0;max-height:220px;overflow:auto}
+#tray .it .b{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+#tray .it .b button,#tray .it .b a{font:inherit;font-size:13px;font-weight:600;border-radius:9999px;padding:6px 14px;cursor:pointer;text-decoration:none}
+#tray .it .b .ok{background:#0a0a0a;color:#fff;border:1px solid #0a0a0a}
+#tray .it .b .no{background:#fff;color:#0a0a0a;border:1px solid var(--rule)}
+#tray .it .b a{color:var(--ink-2);border:1px solid transparent}
+#tray .it .res{font-size:12.5px;margin-top:6px;color:#1c7a44}
+#tray .empty{color:var(--ink-3);text-align:center;padding:30px 10px;font-size:14px}
+body.tv #tray{display:none}
 #chat .hd{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13.5px;font-weight:600;cursor:pointer;border-bottom:1px solid var(--rule)}
 #chat .hd i{width:9px;height:9px;border-radius:50%;background:#d97706;display:inline-block}
 #chat .hd span{margin-left:auto;font-weight:400;color:var(--ink-3);font-size:12px}
@@ -96,6 +119,7 @@ body.tv #chat{display:none}
   <div id="tvbar"><b>ออฟฟิศเจอ.AI</b><span class="clk" id="tvclock"></span><span class="tvp" id="tvpres"></span></div>
   <div id="cele" role="status" aria-live="polite"><b id="celeT"></b><span id="celeS"></span></div>
   <button id="tvexit">ออกจากโหมดทีวี (Esc)</button>
+  <div id="tray" role="dialog" aria-label="เรื่องรออนุมัติ"><div class="hd">ถาดเรื่องรออนุมัติ <span class="n" id="trayn">0</span><a href="/admin/decisions">เปิดหน้าการตัดสินใจ ↗</a><button id="trayx" aria-label="ปิด">×</button></div><div class="ls" id="trayls"></div></div>
   <div id="chat"><div class="hd" id="chathd"><i></i>สั่งงาน CEO<span id="chatst">พิมพ์ภาษาคนได้เลย</span></div>
     <div class="msgs" id="chatmsgs"></div>
     <form id="chatform"><input id="chatin" autocomplete="off" maxlength="500" placeholder="เช่น สรุปวันนี้ · วันนี้ควรโทรใคร"><button type="submit">ส่ง</button></form></div></div>
@@ -156,7 +180,10 @@ canvas.addEventListener('pointermove',e=>{ const p=pointers.get(e.pointerId); if
   if(pointers.size===2){ p.x=e.clientX; p.y=e.clientY; const [a,b]=[...pointers.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); if(pinch0) setZoom(zoom0*d/pinch0); return; }
   const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY; moved+=Math.abs(dx)+Math.abs(dy); panBy(dx,dy); });
 const endP=e=>{ const wasClick=pointers.size===1&&moved<6; pointers.delete(e.pointerId); if(pointers.size<2) pinch0=0; if(wasClick&&e.type==='pointerup') pick(e); };
-canvas.addEventListener('pointerup',endP); canvas.addEventListener('pointercancel',endP);
+canvas.addEventListener('pointerup',endP);
+let hoverT=0; canvas.addEventListener('mousemove',e=>{ if(pointers.size||e.timeStamp-hoverT<80) return; hoverT=e.timeStamp;   // เมาส์อยู่บนถาด/ตัวละคร = มือชี้
+  const r=canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc,cam);
+  const h=ray.intersectObjects(pickables,false)[0]; canvas.style.cursor=h?'pointer':''; }); canvas.addEventListener('pointercancel',endP);
 canvas.addEventListener('wheel',e=>{ tourPause(); e.preventDefault(); setZoom(zoom*(e.deltaY<0?1.12:1/1.12)); },{passive:false});
 document.getElementById('zin').onclick=()=>setZoom(zoom*1.25);
 document.getElementById('zout').onclick=()=>setZoom(zoom/1.25);
@@ -327,6 +354,7 @@ function sitPose(a){ const u=a.mesh.userData; u.upper.position.y=-0.17; u.legL.p
 function standPose(a){ const u=a.mesh.userData; u.upper.position.y=0; u.legL.position.y=u.legR.position.y=0.72; u.legL.rotation.x=u.legR.rotation.x=0; a.sitting=false; }
 const V=(x,z)=>new THREE.Vector3(x,0,z);
 const pickables=[];
+{ const hit=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.4,2.8),new THREE.MeshBasicMaterial({visible:false})); hit.position.set(17.2,1.0,-12.9); hit.userData={tray:true}; scene.add(hit); pickables.push(hit); }   // ถาดเรื่องรออนุมัติ + ป้าย = กดเปิดรายการได้
 function hitBox(mesh,data){ const hit=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.2,1.2),new THREE.MeshBasicMaterial({visible:false})); hit.position.set(0,1.1,0); hit.userData=data; mesh.add(hit); pickables.push(hit); }
 
 /* ---------- the team ---------- */
@@ -474,13 +502,13 @@ function renderBar(d){ bar.textContent=''; const byId={}; d.actors.forEach(a=>by
     if(id==='owner'){ r1.innerHTML='<b></b>'; r1.querySelector('b').textContent=`ปิดดีลวันนี้ ${d.board.won_today}`; r2.textContent=`ตรงกัน ${(d.board.kpi.rows.find(x=>x.key==='agreement')||{}).value??'—'}%`; }
     else if(id==='hop'){ r1.textContent='LINE OA'; r2.textContent=a.next?'':''; }
     else { r1.innerHTML='วันนี้ <b></b> รอบ'; r1.querySelector('b').textContent=String(a.runs_today||0); r2.textContent=a.next?'รอบถัดไป '+nextText(a.next):''; r2.title=a.next?a.next.label:''; }
-    r.append(r1,r2); c.append(b,sm,s,r); c.onclick=()=>select(id,true); bar.appendChild(c); }); }
+    r.append(r1,r2); c.append(b,sm,s,r); c.onclick=()=>{ select(id,true); if(id==='owner') openTray(); }; bar.appendChild(c); }); }
 function select(id,focus){ selected=id; [...bar.children].forEach((c,i)=>c.classList.toggle('sel',ACTOR_ORDER[i]===id));
   const A=id&&actors[id]; if(A&&focus){ const s=A.seat; target.set(s.x,0,s.z); placeCam(); if(zoom<1.9) setZoom(1.9); tourPause(); } }
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 function pick(e){ const r=canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,cam); const hit=ray.intersectObjects(pickables,false)[0]; if(!hit){ select(null); return; }
-  const u=hit.object.userData; if(u.actor) select(u.actor,false); else if(u.visitor&&visitors[u.visitor]){ select(null); const v=visitors[u.visitor]; bounce(v,1.5); float(v,`${v.lead.domain} · ${STAGE_TH[v.stage]||''}`,'#1b2528'); } }
+  const u=hit.object.userData; if(u.tray){ openTray(); return; } if(u.actor==='owner'){ select('owner',false); openTray(); return; } if(u.actor) select(u.actor,false); else if(u.visitor&&visitors[u.visitor]){ select(null); const v=visitors[u.visitor]; bounce(v,1.5); float(v,`${v.lead.domain} · ${STAGE_TH[v.stage]||''}`,'#1b2528'); } }
 
 /* ---------- celebration: a deal closed while the page is open ---------- */
 const celeEl=document.getElementById('cele'), celeT=document.getElementById('celeT'), celeS=document.getElementById('celeS');
@@ -563,6 +591,33 @@ document.getElementById('chatform').addEventListener('submit',async e=>{ e.preve
     if(r.status===401){ location.href='/login'; return; } const d=await r.json(); renderChat(d.log,d.pending); chatSt.textContent='พิมพ์ภาษาคนได้เลย';
     if(A){ setBubble(A,shortLabel((d.reply||'').split('\n')[0],40)); float(A,d.pending?'❓ รอยืนยัน':'✓','#d97706'); setTimeout(()=>{ if(!A.busyCount) setBubble(A,''); },8000); }
   }catch(err){ chatSt.textContent='ส่งไม่สำเร็จ ลองใหม่'; } });
+
+/* ---------- approval tray: click the tray (or the owner) → read proposals and approve/reject here ---------- */
+const trayEl=document.getElementById('tray'), trayLs=document.getElementById('trayls'), trayNEl=document.getElementById('trayn');
+document.getElementById('trayx').onclick=()=>trayEl.classList.remove('on');
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') trayEl.classList.remove('on'); });
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function loadTray(){ try{ const r=await fetch('/admin/office/pending.json?t='+Date.now(),{cache:'no-store'}); if(r.status===401){ location.href='/login'; return; }
+    const d=await r.json(); trayNEl.textContent=d.items.length; trayLs.innerHTML='';
+    if(!d.items.length){ trayLs.innerHTML='<div class="empty">ไม่มีเรื่องรออนุมัติ ✓</div>'; return; }
+    d.items.forEach(it=>{ const el=document.createElement('div'); el.className='it'+(it.escalate||it.risky?' esc':'');
+      el.innerHTML=`<div class="t">${esc(it.title)}${it.escalate?'<span class="tag">นอกกรอบ</span>':''}${it.risky?'<span class="tag">อีเมลเสี่ยงเด้ง</span>':''}${it.money?'<span class="tag">เรื่องเงิน</span>':''}</div>
+        <div class="m">${esc(it.agent)} · ${esc(it.kind_th)} · ${hhmm(it.at)}${it.domain?` · <a href="/admin/leads/${it.lead_id}" target="_blank">${esc(it.domain)}</a>`:''}</div>
+        <details><summary>อ่านข้อเสนอ</summary><pre>${esc(it.proposal)}</pre></details>
+        <div class="b"><button class="ok">${it.money?'ยืนยันยอดเข้า':'อนุมัติ'}</button><button class="no">ไม่อนุมัติ</button></div><div class="res" hidden></div>`;
+      const res=el.querySelector('.res'), bOk=el.querySelector('.ok'), bNo=el.querySelector('.no');
+      bOk.onclick=async()=>{ if(it.money&&!confirm('เช็กบัญชีแล้ว ยอดเข้าจริงใช่ไหม? ระบบจะเปิดบัญชี/ออกใบเสร็จให้ลูกค้า')) return;
+        if(it.escalate&&!confirm('เรื่องนี้อยู่นอกกรอบอำนาจที่ตั้งไว้ — อนุมัติในฐานะบอร์ดใช่ไหม?')) return;
+        bOk.disabled=bNo.disabled=true; bOk.textContent='กำลังทำ…'; await act(`/admin/decisions/${it.id}/approve`,{},res,'อนุมัติแล้ว'); };
+      bNo.onclick=async()=>{ const why=prompt('เหตุผลที่ไม่อนุมัติ (ไม่บังคับ — ช่วยให้เอเจนต์ตัดสินใจตรงกับคุณมากขึ้น)',''); if(why===null) return;
+        bOk.disabled=bNo.disabled=true; await act(`/admin/decisions/${it.id}/reject`,{reason:why},res,'ไม่อนุมัติแล้ว'); };
+      trayLs.appendChild(el); });
+  }catch(e){ trayLs.innerHTML='<div class="empty">โหลดไม่สำเร็จ ลองใหม่</div>'; } }
+async function act(url,form,res,done){ try{ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(form)});
+    let note=done; try{ const u=new URL(r.url); note=u.searchParams.get('notice')||done; }catch(e){}
+    res.hidden=false; res.textContent='✓ '+note; setTimeout(loadTray,1600); }
+  catch(e){ res.hidden=false; res.style.color='#b42318'; res.textContent='ทำไม่สำเร็จ ลองใหม่'; } }
+function openTray(){ trayEl.classList.add('on'); tourPause(); loadTray(); }
 
 /* ---------- live state (state.json every 5 s): first load shows the state, later loads replay only what is new ---------- */
 const seen=new Set(); let first=true, fails=0, lastState=null;

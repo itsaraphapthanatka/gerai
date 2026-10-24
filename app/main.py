@@ -3561,6 +3561,25 @@ def admin_office(request: Request):
     return templates.TemplateResponse(request, "admin_office.html", {"actors": office.ACTORS})
 
 
+@app.get("/admin/office/pending.json")
+def admin_office_pending(request: Request):
+    """ถาดเรื่องรออนุมัติในออฟฟิศ: เรื่องที่เสนอไว้ทั้งหมด พร้อมข้อเสนอให้อ่านและกดอนุมัติได้เลย"""
+    if not _is_admin(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    out = []
+    for d in db.list_decisions("proposed", 100):
+        try:
+            pl = json.loads(d["payload_json"] or "{}")
+        except Exception:
+            pl = {}
+        lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+        out.append({"id": d["id"], "agent": execs.AGENTS.get(d["agent"], d["agent"]), "kind": d["kind"], "kind_th": execs.KINDS.get(d["kind"], d["kind"]),
+                    "title": d["title"], "proposal": (d["proposal"] or "")[:1500], "at": d["created_at"], "escalate": bool(pl.get("escalate")),
+                    "risky": bool(pl.get("risky_email")), "money": d["kind"] == "payment",
+                    "lead_id": d["lead_id"], "domain": lead["domain"] if lead else ""})
+    return JSONResponse({"items": out}, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/admin/office/state.json")
 def admin_office_state(request: Request):
     if not _is_admin(request):

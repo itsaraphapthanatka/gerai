@@ -104,4 +104,15 @@ r = a.get("/admin/office/state.json"); assert r.status_code == 200 and r.headers
 j = r.json(); assert j["actors"][0]["id"] == "owner" and isinstance(j["events"], list) and j["board"]["pending"] == 1
 r = a.get("/admin/decisions"); assert "/admin/office" in r.text                                                   # เมนู
 print("page: /admin/office + state.json (แอดมินเท่านั้น · no-store · เมนู) OK")
+
+# ---- ถาดเรื่องรออนุมัติ: กดได้ · รายการ + อนุมัติ/ไม่อนุมัติในออฟฟิศ ----
+pg = a.get("/admin/office").text; assert 'id="tray"' in pg and "openTray" in pg and "/admin/office/pending.json" in pg
+pd = db.add_decision("partner", "partner_outreach", "ชวนพันธมิตร x.co.th", "ข้อเสนอเต็ม", {"partner_id": 0})
+j = a.get("/admin/office/pending.json").json(); it = next(i for i in j["items"] if i["id"] == pd)
+assert it["kind_th"] == "ชวนพันธมิตร" and it["agent"] == "พันธมิตร" and it["proposal"] == "ข้อเสนอเต็ม" and not it["money"]
+assert c.get("/admin/office/pending.json").status_code == 401
+ev = [e for e in O.state()["events"] if e["id"] == f"dec:{pd}:proposed"]; assert ev and ev[0]["text"] == "พันธมิตร เสนอ: ชวนพันธมิตร x.co.th", ev
+r = a.post(f"/admin/decisions/{pd}/reject", data={"reason": "ยังไม่ใช่ตอนนี้"}); assert db.get_decision(pd)["status"] == "rejected"
+assert all(i["id"] != pd for i in a.get("/admin/office/pending.json").json()["items"])
+print("tray: กดถาดเปิดรายการ · ป้ายไทยทุกเรื่อง · ไม่อนุมัติจากออฟฟิศได้ · แอดมินเท่านั้น OK")
 print("ALL OK")
