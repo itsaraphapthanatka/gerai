@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}ผลลัพธ์ลูกค้า — เจอ.AI{% endblock %}
+{% block content %}
+{% set inp = "padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px" %}
+<h1>ผลลัพธ์ลูกค้า</h1>
+<p class="muted">ฝ่ายผลลัพธ์รีวิวทุกแบรนด์หลังรอบวัดผล (ทุกวัน 11:15 · รีวิวซ้ำเมื่อมีผลวัดใหม่หรือครบ {{ every }} วัน): AI แนะนำแบรนด์ไหม · ใครถูกอ้างแทนและเป็นหน้าแบบไหน · รูป/ลิงก์ในบทความ · งานที่ทีมเว็บลูกค้าต้องทำ (ตรวจเองว่าขึ้นแล้วหรือยัง ขึ้นแล้ววัดผลซ้ำทันที · ค้างเกิน {{ nudge }} วันร่างข้อความตามให้คุณส่งเอง)</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+  <form method="post" action="/admin/results/run"><button class="btn sm" type="submit">รีวิวทุกแบรนด์ตอนนี้</button></form>
+  <form method="post" action="/admin/results/settings" style="display:flex;gap:6px;align-items:center">
+    <label style="font-size:12.5px"><input type="checkbox" name="on" value="1" {% if on %}checked{% endif %}> รีวิวเองทุกวัน</label>
+    <button class="btn ghost sm" type="submit">บันทึก</button>
+  </form>
+</div>
+
+{% for s in rows %}{% set b = s.brand %}{% set r = s.review %}
+<div class="card" style="margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+    <h2 style="margin:0">{{ b.name }} <span class="muted" style="font-size:13px;font-weight:400">{{ b.domain }}</span>
+      <span class="pill {{ 'ok' if s.state == 'win' else ('warn' if s.state in ('stalled','blocked') else '') }}" style="font-size:11px">{{ state_th.get(s.state, s.state) }}</span></h2>
+    <div style="display:flex;gap:6px;align-items:center">
+      {% if s.at %}<span class="muted" style="font-size:12px">รีวิว {{ s.at }}</span>{% endif %}
+      <form method="post" action="/admin/results/run"><input type="hidden" name="bid" value="{{ b.id }}"><button class="btn ghost sm" type="submit">รีวิวตอนนี้</button></form>
+    </div>
+  </div>
+  {% if r %}
+  {% set v = r.vis %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:10px;font-size:13px">
+    <div><div class="muted" style="font-size:12px">ถาม AI จริง · ถูกแนะนำ (เก่า → ใหม่)</div>
+      {% if v.series %}<div style="font-size:15px;font-weight:600">{% for x in v.series %}{{ x.hits }}/{{ x.asked }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+      <div class="muted" style="font-size:11.5px">{{ v.series[0].at }} → {{ v.series[-1].at }}</div>{% else %}<div class="muted">ยังไม่มีผลวัด</div>{% endif %}
+      {% if v.serp_last %}<div style="margin-top:6px">Google AI Overview: ขึ้น {{ v.serp_last.shown }} จาก {{ v.serp_last.asked }} คำ · อ้างเรา {{ v.serp_last.hits }}</div>{% endif %}
+    </div>
+    <div><div class="muted" style="font-size:12px">AI อ้างใครแทน</div>
+      {% for d, n in r.wins.domains[:5] %}<div>{{ d }} <span class="muted">×{{ n }}</span></div>{% else %}<div class="muted">—</div>{% endfor %}
+      {% if r.wins.kinds %}<div class="muted" style="font-size:12px;margin-top:4px">ชนิดหน้า: {% for k, n in r.wins.kinds %}{{ kind_th.get(k, k) }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+    </div>
+    <div><div class="muted" style="font-size:12px">คอนเทนต์ที่เผยแพร่</div>
+      {% set h = r.health %}
+      <div>{{ h.published }} ชิ้น · มีรูป {{ h.img_ok }} · ไม่มีรูป {{ h.no_img }}{% if h.img_fixed %} · เอารูปเสียออก {{ h.img_fixed|length }}{% endif %}</div>
+      {% if h.index_total %}<div>Google index {{ h.indexed }} / {{ h.index_total }} หน้า</div>{% endif %}
+      {% if h.dead_links %}<div>ลิงก์ภายในตาย {{ h.dead_links|length }}</div>{% endif %}
+      <div class="muted" style="font-size:12px">ข้อมูลเว็บที่ใช้เขียน {{ "{:,}".format(h.ctx_chars) }} ตัวอักษร{% if h.ctx_refreshed %} (ดึงใหม่รอบนี้){% endif %}</div>
+    </div>
+  </div>
+  {% if r.actions %}<div style="margin-top:10px"><div class="muted" style="font-size:12px">ควรทำ</div><ol style="margin:4px 0 0 18px;padding:0;font-size:13px;line-height:1.6">{% for a in r.actions %}<li>{{ a }}</li>{% endfor %}</ol></div>{% endif %}
+  {% for n in r.tasks.nudges %}<details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px">ร่างข้อความตามงาน "{{ n.title }}" (คัดลอกส่งทีมเว็บเอง)</summary><textarea readonly rows="5" style="width:100%;{{ inp }};margin-top:6px">{{ n.nudge }}</textarea></details>{% endfor %}
+  {% endif %}
+
+  <div style="margin-top:12px"><div class="muted" style="font-size:12px">งานที่ทีมเว็บลูกค้าต้องทำ</div>
+    {% for t in s.tasks %}
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding:6px 0;font-size:13px">
+      <div><b>{{ t.title }}</b> <span class="pill {{ 'ok' if t.status == 'done' else '' }}" style="font-size:10px">{{ 'เสร็จ' if t.status == 'done' else 'ค้าง' }}</span>
+        <div class="muted" style="font-size:12px">ตั้งแต่ {{ t.created_at[:10] }}{% if t.done_at %} · เสร็จ {{ t.done_at[:10] }}{% endif %} · {{ check_kinds.get(t.check_kind or 'manual') }}{% if t.check_url %}: <a class="link" href="{{ t.check_url }}" target="_blank" rel="noopener">{{ t.check_url[:70] }}</a>{% endif %}{% if t.check_text %} มี "{{ t.check_text }}"{% endif %}{% if t.last_check_note %} · ตรวจล่าสุด: {{ t.last_check_note }}{% endif %}</div>
+        {% if t.detail %}<div style="font-size:12.5px;white-space:pre-line">{{ t.detail }}</div>{% endif %}</div>
+      <div style="display:flex;gap:4px;align-items:start">
+        {% for act, lb in ([('check','ตรวจตอนนี้'),('done','เสร็จแล้ว')] if t.status == 'open' else [('reopen','เปิดใหม่')]) + [('delete','ลบ')] %}
+        <form method="post" action="/admin/results/task/{{ t.id }}/{{ act }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px"{% if act == 'delete' %} onclick="return confirm('ลบงานนี้?')"{% endif %}>{{ lb }}</button></form>{% endfor %}
+      </div>
+    </div>
+    {% else %}<div class="muted" style="font-size:12.5px">ยังไม่มีงาน</div>{% endfor %}
+    <details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px">+ เพิ่มงานให้ทีมเว็บ</summary>
+      <form method="post" action="/admin/results/task" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:8px">
+        <input type="hidden" name="bid" value="{{ b.id }}">
+        <input name="title" required placeholder="งาน เช่น หน้าทำเล × ประเภท 22 เขต" style="{{ inp }}">
+        <select name="check_kind" style="{{ inp }}">{% for k, lb in check_kinds.items() %}<option value="{{ k }}">{{ lb }}</option>{% endfor %}</select>
+        <input name="check_url" placeholder="URL ที่ใช้ตรวจ (ถ้ามี)" style="{{ inp }}">
+        <input name="check_text" placeholder="ข้อความที่ต้องมีในหน้า เช่น /geo/" style="{{ inp }}">
+        <textarea name="detail" rows="2" placeholder="รายละเอียด/ลิงก์สเปก" style="{{ inp }};grid-column:1/-1"></textarea>
+        <div><button class="btn sm" type="submit">เพิ่มงาน</button></div>
+      </form>
+    </details>
+  </div>
+</div>
+{% else %}<p class="muted">ยังไม่มีแบรนด์ลูกค้า</p>{% endfor %}
+{% endblock %}

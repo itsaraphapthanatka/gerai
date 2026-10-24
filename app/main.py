@@ -4,6 +4,7 @@ import os
 import json
 import secrets
 from pathlib import Path
+from urllib.parse import quote
 from dotenv import load_dotenv
 
 # โหลด .env ก่อน import db (db อ่าน GEO_DB_PATH ตอน import)
@@ -3684,6 +3685,84 @@ def partner_unsub(request: Request, token: str):
         partners.unsubscribe(p)
     return HTMLResponse("<!doctype html><meta charset='utf-8'><body style='font-family:system-ui,sans-serif;max-width:520px;margin:60px auto;padding:0 16px'>"
                         "<h2>เรียบร้อย — เราจะไม่ติดต่อเรื่องนี้อีก</h2></body>")
+
+
+@app.get("/admin/results")
+def admin_results(request: Request, notice: str = ""):
+    from . import results as RS
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_results.html", {
+        "rows": RS.summary(), "on": RS.enabled(), "notice": notice, "every": RS.REVIEW_EVERY_DAYS, "nudge": RS.NUDGE_AFTER_DAYS,
+        "state_th": RS.STATE_TH, "kind_th": RS.KIND_TH, "check_kinds": RS.CHECK_KINDS})
+
+
+@app.post("/admin/results/run")
+def admin_results_run(request: Request, bid: str = Form("")):
+    from . import results as RS
+    if not _is_admin(request):
+        return _redirect("/login")
+    if bid.isdigit() and db.get_brand(int(bid)):
+        pipeline._spawn(lambda: RS.run_one(int(bid)))
+    else:
+        pipeline._spawn(lambda: RS.run(force=True))
+    return _redirect("/admin/results?notice=" + quote("เริ่มรีวิวแล้ว ใช้เวลาราวครึ่งนาทีต่อแบรนด์ (ตรวจรูปและลิงก์ในบทความ) รีเฟรชหน้านี้สักครู่"))
+
+
+@app.post("/admin/results/settings")
+def admin_results_settings(request: Request, on: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_setting("results_on", "1" if on else "0")
+    return _redirect("/admin/results?notice=" + quote("บันทึกแล้ว"))
+
+
+@app.post("/admin/results/task")
+def admin_results_task(request: Request, bid: str = Form(...), title: str = Form(...), detail: str = Form(""),
+                       check_kind: str = Form("manual"), check_url: str = Form(""), check_text: str = Form("")):
+    from . import results as RS
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not bid.isdigit() or not db.get_brand(int(bid)) or not title.strip():
+        return _redirect("/admin/results?notice=" + quote("ข้อมูลไม่ครบ"))
+    kind = check_kind if check_kind in RS.CHECK_KINDS else "manual"
+    url = check_url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    if kind != "manual" and not url:
+        kind = "manual"
+    db.add_result_task(int(bid), title.strip()[:200], detail=detail.strip()[:2000] or None, check_kind=kind,
+                       check_url=url[:500] or None, check_text=check_text.strip()[:200] or None)
+    return _redirect("/admin/results?notice=" + quote("เพิ่มงานแล้ว — ระบบตรวจให้ทุกรอบรีวิว"))
+
+
+@app.post("/admin/results/task/{tid}/{action}")
+def admin_results_task_action(request: Request, tid: int, action: str):
+    from . import results as RS
+    if not _is_admin(request):
+        return _redirect("/login")
+    t = db.get_result_task(tid)
+    if not t:
+        return _redirect("/admin/results")
+    note = ""
+    if action == "done":
+        db.update_result_task(tid, status="done", done_at=db.now(), last_check_note="เจ้าของกดเสร็จ")
+        pipeline._spawn(lambda: RS._remeasure(t["brand_id"]))
+        note = "บันทึกว่าเสร็จแล้ว และสั่งวัดผลซ้ำ"
+    elif action == "reopen":
+        db.update_result_task(tid, status="open", done_at=None)
+        note = "เปิดงานใหม่แล้ว"
+    elif action == "delete":
+        db.delete_result_task(tid)
+        note = "ลบงานแล้ว"
+    elif action == "check":
+        ok, n = RS.check_task(t)
+        db.update_result_task(tid, last_check_at=db.now(), last_check_note=n)
+        if ok:
+            db.update_result_task(tid, status="done", done_at=db.now())
+            pipeline._spawn(lambda: RS._remeasure(t["brand_id"]))
+        note = ("ขึ้นแล้ว — ปิดงานและสั่งวัดผลซ้ำ" if ok else f"ยังไม่เสร็จ: {n}")
+    return _redirect("/admin/results?notice=" + quote(note or "ไม่รู้จักคำสั่ง"))
 
 
 @app.get("/admin/partners")

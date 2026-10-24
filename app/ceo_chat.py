@@ -31,6 +31,7 @@ ACTIONS = {
     "ai_report": ("ถาม ChatGPT 20 คำถามให้ลีด (≈฿40)", {"domain": "โดเมน"}, True),
     "billing": ("สรุปบัญชี: รับเงินเดือนนี้ ค้างรับ เกินกำหนด", {}, False),
     "expansion": ("สรุปการขยายบัญชีลูกค้าเดิม: ข้อเสนอรออนุมัติ ส่งแล้ว อัปเกรดแล้ว", {}, False),
+    "results": ("สรุปผลลัพธ์ลูกค้า: แบรนด์ไหนถูก AI แนะนำ ไม่ขยับ ใครถูกอ้างแทน งานทีมเว็บค้าง", {}, False),
     "partners": ("สรุปพันธมิตร: กี่ราย รออนุมัติ ลีดที่แนะนำ ค่าแนะนำค้างจ่าย", {}, False),
     "email_health": ("สุขภาพการส่งอีเมล: เด้ง ขอไม่รับ เข้ากล่องหลักไหม การทดลองข้อความ", {}, False),
     "post": ("โพสต์การตลาดทันที", {"kind": "insight|ai_test|tip"}, True),
@@ -128,6 +129,8 @@ def _rules(text: str) -> dict | None:
     url = L.first_url(t)
     if url and re.search(r"(สถานะ|เป็นไง|ถึงไหน|status|ดูลีด|ข้อมูล)", t, re.I):
         return {"action": "lead_info", "args": {"domain": url}}
+    if not url and re.search(r"(ผลลัพธ์ลูกค้า|เห็นผล|ai แนะนำ|ไม่ขยับ|ถูกอ้าง|งานทีมเว็บ)", t, re.I):
+        return {"action": "results", "args": {}}
     if not url and re.search(r"(ขยายบัญชี|อัปเซล|upsell|ลูกค้าเดิม)", t, re.I):
         return {"action": "expansion", "args": {}}
     if not url and re.search(r"(พันธมิตร|partner|ค่าแนะนำ|เอเจนซี่ที่แนะนำ)", t, re.I):
@@ -345,6 +348,19 @@ def execute(action: str, args: dict) -> str:
                 + (f"\nใบเสนอราคา {qs[0]['number']}: {qs[0]['status']}" if qs else "")
                 + "\nล่าสุด: " + " · ".join(f"{e['created_at'][5:16].replace('T', ' ')} {L.EVENT_LABEL.get(e['kind'], e['kind'])}" for e in ev)
                 + f"\n{pipeline.public_base()}/admin/leads/{lead['id']}")
+    if action == "results":
+        from . import results as RS
+        lines = []
+        for s in RS.summary():
+            rep = s["review"]
+            if not rep:
+                continue
+            v = rep["vis"]["last"] or {}
+            top = ", ".join(d for d, _ in rep["wins"]["domains"][:3])
+            lines.append(f"• {s['brand']['name']}: {RS.STATE_TH.get(s['state'], s['state'])} · AI แนะนำ {v.get('hits', 0)}/{v.get('asked', 0)}"
+                         + (f" · ถูกอ้างแทน: {top}" if top else "") + (f"\n  → {rep['actions'][0]}" if rep["actions"] else ""))
+        return ((RS.status_text() or "ยังไม่มีรีวิวผลลัพธ์ — ฝ่ายผลลัพธ์รีวิวทุกวัน 11:15 หลังรอบวัดผล") + ("\n" + "\n".join(lines) if lines else "")
+                + f"\n{pipeline.public_base()}/admin/results")
     if action == "expansion":
         from . import expansion as EX
         return (EX.status_text() or "ยังไม่มีข้อเสนอขยายบัญชี — ฝ่ายขยายบัญชีดูลูกค้าที่จ่ายแล้วทุกวัน 10:45") + f"\n{pipeline.public_base()}/admin/decisions"

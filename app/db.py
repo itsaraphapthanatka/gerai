@@ -289,6 +289,29 @@ def _tables() -> list[str]:
             paid_at TEXT,
             note TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS result_tasks (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            detail TEXT,
+            owner TEXT NOT NULL DEFAULT 'client',
+            check_kind TEXT,
+            check_url TEXT,
+            check_text TEXT,
+            status TEXT NOT NULL DEFAULT 'open',
+            done_at TEXT,
+            last_check_at TEXT,
+            last_check_note TEXT,
+            nudged_at TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS result_reviews (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+            state TEXT NOT NULL,
+            report TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS acct_docs (
             id {_PK},
             created_at TEXT NOT NULL,
@@ -1822,3 +1845,66 @@ def leads_of_partner(pid: int):
 def set_trial_until(tenant_id: int, date_iso: str | None) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE tenants SET trial_until=? WHERE id=?"), (date_iso, tenant_id))
+
+
+# ---- ฝ่ายผลลัพธ์ลูกค้า: งานที่ฝั่งเว็บลูกค้าต้องทำ + รีวิวรายสัปดาห์ ----
+RESULT_TASK_FIELDS = ("title", "detail", "owner", "check_kind", "check_url", "check_text", "status", "done_at",
+                      "last_check_at", "last_check_note", "nudged_at")
+
+
+def add_result_task(brand_id: int, title: str, created_at: str | None = None, **f) -> int:
+    f = {k: v for k, v in f.items() if k in RESULT_TASK_FIELDS}
+    cols = ["created_at", "brand_id", "title"] + list(f)
+    with get_conn() as c:
+        cur = c.execute(q(f"INSERT INTO result_tasks({','.join(cols)}) VALUES({','.join('?' * len(cols))}) RETURNING id"),
+                        tuple([created_at or now(), brand_id, title] + list(f.values())))
+        return cur.fetchone()["id"]
+
+
+def update_result_task(tid: int, **fields) -> None:
+    cols = [k for k in fields if k in RESULT_TASK_FIELDS]
+    if cols:
+        with get_conn() as c:
+            c.execute(q(f"UPDATE result_tasks SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (tid,))
+
+
+def get_result_task(tid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM result_tasks WHERE id=?"), (tid,)).fetchone()
+
+
+def list_result_tasks(brand_id: int | None = None, status: str | None = None) -> list:
+    sql, args = "SELECT * FROM result_tasks WHERE 1=1", []
+    if brand_id is not None:
+        sql += " AND brand_id=?"; args.append(brand_id)
+    if status:
+        sql += " AND status=?"; args.append(status)
+    with get_conn() as c:
+        return c.execute(q(sql + " ORDER BY id"), tuple(args)).fetchall()
+
+
+def delete_result_task(tid: int) -> None:
+    with get_conn() as c:
+        c.execute(q("DELETE FROM result_tasks WHERE id=?"), (tid,))
+
+
+def add_result_review(brand_id: int, state: str, report: str, created_at: str | None = None) -> int:
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO result_reviews(created_at,brand_id,state,report) VALUES(?,?,?,?) RETURNING id"),
+                        (created_at or now(), brand_id, state, report))
+        return cur.fetchone()["id"]
+
+
+def last_result_review(brand_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM result_reviews WHERE brand_id=? ORDER BY id DESC LIMIT 1"), (brand_id,)).fetchone()
+
+
+def list_ai_visibility(brand_id: int, limit: int = 12) -> list:
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM ai_visibility WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)).fetchall()
+
+
+def list_ai_serp(brand_id: int, limit: int = 12) -> list:
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM ai_serp_checks WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)).fetchall()

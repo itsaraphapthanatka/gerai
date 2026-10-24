@@ -572,7 +572,10 @@ def propose_case_studies(now: datetime.datetime | None = None, llm=None) -> int:
             cands.append((b, m))
     if not cands:
         return 0
-    cands.sort(key=lambda x: -(x[1]["published"] + (10 if x[0]["case_study_ok"] else 0)))
+    def _won(b):                                    # ฝ่ายผลลัพธ์เห็นว่าขยับขึ้นแล้ว = เรื่องที่ดีที่สุดสำหรับเคสศึกษา
+        r = db.last_result_review(b["id"])
+        return bool(r and r["state"] == "win")
+    cands.sort(key=lambda x: -(x[1]["published"] + (10 if x[0]["case_study_ok"] else 0) + (50 if _won(x[0]) else 0)))
     b, m = cands[0]
     case = case_study_text(b, m, bool(b["case_study_ok"]), llm)
     n = 0
