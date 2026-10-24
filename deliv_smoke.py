@@ -229,4 +229,34 @@ a.post("/admin/deliverability/sender", data={"addr": "sales@sender.test", "name"
 assert "Send to a Worker" in a.get("/admin/deliverability").text
 a.post("/admin/deliverability/sender", data={"addr": "", "name": ""}); assert D.outreach_sender()["addr"] == ""
 print("sender: ตรวจรูปแบบ/โดเมน/ไม่ซ้ำที่อยู่ระบบ · ใช้เมื่อตรวจเส้นทางผ่านเท่านั้น · อีเมลทัก+ตอบลูกค้าส่งจากที่อยู่แยก · อีเมลระบบคงเดิม · Inbox อ่านทั้งสองที่อยู่ · เปลี่ยนที่อยู่ต้องตรวจใหม่ OK")
+
+# ---- กันเด้ง: อีเมลตัวอย่างในธีม · ไม่มี MX · อีเมลเดาจากผลค้นหา ----
+import app.mailer as M2
+assert M2.is_placeholder("company@email.com") and M2.is_placeholder("name@yourcompany.co.th") and M2.is_placeholder("youremail@shop.co.th")
+assert not M2.is_placeholder("info@vetclinic.co.th") and not M2.is_placeholder("sales@email-marketing.co.th")
+import app.prospecting as PRS
+page = '<a href="mailto:company@email.com">x</a> <a href="mailto:info@realshop.co.th">y</a>'
+zone[("realshop.co.th", "MX")] = ["10 mx.realshop.co.th."]; zone[("nomx.co.th", "MX")] = []
+c1 = PRS.find_contact("https://realshop.co.th", fetch=lambda u: page, search=False); assert c1["email"] == "info@realshop.co.th", c1
+c2 = PRS.find_contact("https://nomx.co.th", fetch=lambda u: '<a href="mailto:info@nomx.co.th">x</a>', search=False); assert c2["email"] == "info@nomx.co.th"   # สวิตช์ปิด = ไม่ตรวจ
+db.set_setting("mx_check", "1"); D._MX_CACHE.clear()
+c2 = PRS.find_contact("https://nomx.co.th", fetch=lambda u: '<a href="mailto:info@nomx.co.th">x</a>', search=False); assert c2["email"] == "", c2
+assert D.mx_status("realshop.co.th") is True and D.mx_status("nomx.co.th") is False
+zone_fail = D.HOOKS["dns"]; D.HOOKS["dns"] = lambda n, t: None; D._MX_CACHE.clear(); assert D.mx_ok("a@unknown.co.th"); D.HOOKS["dns"] = zone_fail   # DNS ล่ม = ไม่บล็อก
+# ส่งไปโดเมนที่ไม่มี MX → ไม่ส่ง ล้างอีเมล
+cap.clear(); mailer.send = lambda to, subj, html, text="", attachments=(): cap.append((to, subj, ""))
+ln = mk("nomx.co.th"); db.update_lead(ln["id"], email="info@nomx.co.th"); D._MX_CACHE.clear()
+assert P._send_text(db.get_lead(ln["id"]), "s", "b", plain=True) == "" and not cap and db.get_lead(ln["id"])["email"] is None
+assert any("ไม่มี MX" in e["note"] for e in db.list_lead_events(ln["id"]))
+db.set_setting("mx_check", "0")
+# อีเมลเดาจากผลค้นหา → ไม่ส่งเอง · ข้อเสนอเตือน · หน้าลีดติดป้าย
+real_gate = X.auto_gate; X.auto_gate = lambda k: {"on": True, "reason": ""}
+lr = mk("guess.co.th"); db.update_lead(lr["id"], email="info@guess.co.th", email_src="search", contact="https://lin.ee/abc")
+P.ceo_propose(db.get_lead(lr["id"])); dg = [x for x in db.list_decisions(None, 30) if x["lead_id"] == lr["id"] and x["kind"] == "outreach"][0]
+assert dg["status"] == "proposed" and "เดาจากผลค้นหา" in dg["proposal"] and "lin.ee/abc" in dg["proposal"] and json.loads(dg["payload_json"])["risky_email"]
+ls_ = mk("site.co.th"); db.update_lead(ls_["id"], email_src="site"); P.ceo_propose(db.get_lead(ls_["id"]))
+assert [x for x in db.list_decisions(None, 30) if x["lead_id"] == ls_["id"] and x["kind"] == "outreach"][0]["status"] == "auto"   # อีเมลบนเว็บยังส่งเองตามปกติ
+X.auto_gate = real_gate
+assert "เดาจากผลค้นหา · เสี่ยงเด้ง" in a.get(f"/admin/leads/{lr['id']}").text
+print("bounce-guard: อีเมลตัวอย่างในธีมถูกกรอง · ไม่มี MX ไม่เก็บ/ไม่ส่ง (DNS ล่มไม่บล็อก) · อีเมลเดาจากผลค้นหาไม่ส่งเอง+เตือน+ป้ายหน้าลีด OK")
 print("\ndeliv_smoke: ผ่านทั้งหมด")

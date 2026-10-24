@@ -155,6 +155,36 @@ def check_dns(domain: str | None = None) -> dict:
     return res
 
 
+# ---------- โดเมนผู้รับมีเซิร์ฟเวอร์รับอีเมลไหม (MX) ----------
+_MX_CACHE: dict = {}
+MX_TTL = 6 * 3600
+
+
+def mx_check_on() -> bool:
+    return _get("mx_check", "0") == "1"
+
+
+def mx_status(domain: str) -> bool | None:
+    """True = มี MX · False = ไม่มีเซิร์ฟเวอร์รับอีเมล (ส่งไปเด้งแน่) · None = ถาม DNS ไม่ได้ (ไม่บล็อก)"""
+    d = (domain or "").strip().lower().rstrip(".")
+    if not d:
+        return None
+    hit = _MX_CACHE.get(d)
+    if hit and time.time() - hit[1] < MX_TTL:
+        return hit[0]
+    ans = _dns(d, "MX")
+    st = None if ans is None else bool([a for a in ans if a.strip() and not a.strip().endswith(" .")])
+    _MX_CACHE[d] = (st, time.time())
+    return st
+
+
+def mx_ok(email: str) -> bool:
+    """ใช้ก่อนส่ง: บล็อกเฉพาะเมื่อแน่ใจว่าไม่มี MX · ปิดสวิตช์ (mx_check) = ไม่ตรวจ"""
+    if not mx_check_on() or "@" not in (email or ""):
+        return True
+    return mx_status(email.split("@")[-1]) is not False
+
+
 # ---------- ตรวจเนื้อหาก่อนส่ง ----------
 def spam_flags(subject: str, body: str) -> list[str]:
     flags = []

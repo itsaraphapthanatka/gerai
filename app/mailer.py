@@ -20,10 +20,21 @@ TIMEOUT = 30
 PLACEHOLDER_SUFFIXES = (".local", ".invalid", ".test", ".example", "@localhost", "@example.com")
 
 
+import re as _re0
+# อีเมลตัวอย่างที่ติดมากับธีม/แม่แบบเว็บ (เช่น company@email.com) — ส่งไปเด้งแน่นอน (พบจริงในการทักลูกค้า 24 ต.ค.)
+PLACEHOLDER_EMAIL = _re0.compile(
+    r"(@(email|domain|company|website|mysite|sitename|yourdomain|yourcompany|yoursite|yourwebsite|example|sample|test|mail\.example)\.[a-z.]+$"
+    r"|@your[a-z]*\.|@xxx|^(yourname|youremail|your\.?email|your\.?name|name|username|user|email|abc|xxx|test|sample|someone|john\.?doe|jane\.?doe)@)", _re0.I)
+
+
+def is_placeholder(email: str) -> bool:
+    return bool(PLACEHOLDER_EMAIL.search((email or "").strip()))
+
+
 def is_deliverable(email: str) -> bool:
-    """ที่อยู่สมมติที่ติดมาตั้งแต่ตั้งระบบ (admin@geo.local ฯลฯ) ส่งไปแล้วเด้งเปล่า ๆ และทำชื่อเสียงโดเมนเสีย — ข้ามไว้ก่อน"""
+    """ที่อยู่สมมติที่ติดมาตั้งแต่ตั้งระบบ (admin@geo.local ฯลฯ) และอีเมลตัวอย่างในธีมเว็บ ส่งไปแล้วเด้งเปล่า ๆ และทำชื่อเสียงโดเมนเสีย — ข้าม"""
     e = (email or "").strip().lower()
-    return "@" in e and not e.endswith(PLACEHOLDER_SUFFIXES)
+    return "@" in e and not e.endswith(PLACEHOLDER_SUFFIXES) and not is_placeholder(e)
 
 
 def config() -> dict | None:

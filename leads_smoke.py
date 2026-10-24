@@ -67,12 +67,12 @@ token = str(r.url).rsplit("/", 1)[-1]
 assert c.post("/audit", data={"url": "www.example.co.th"}).url.path.endswith(token)              # โดเมนเดิมใน 24 ชม. ใช้ผลเดิม
 assert c.post("/audit", data={"url": "x", "website": "bot"}).url.path == "/audit"                # honeypot
 assert "กรอกที่อยู่เว็บให้ถูกต้อง" in c.post("/audit", data={"url": "ไม่ใช่เว็บ"}).text
-r = c.post(f"/audit/{token}/contact", data={"name": "สมชาย", "email": "owner@example.co.th", "consent": ""})
+r = c.post(f"/audit/{token}/contact", data={"name": "สมชาย", "email": "owner@somchai-shop.co.th", "consent": ""})
 assert "ติ๊กยินยอม" in r.text
-r = c.post(f"/audit/{token}/contact", data={"name": "สมชาย", "email": "owner@example.co.th", "consent": "1"})
+r = c.post(f"/audit/{token}/contact", data={"name": "สมชาย", "email": "owner@somchai-shop.co.th", "consent": "1"})
 assert "รับเรื่องแล้ว" in r.text
 lead_row = db.get_lead_by_token(token)
-assert lead_row["email"] == "owner@example.co.th" and lead_row["consent"] == 1 and lead_row["score"] == 58
+assert lead_row["email"] == "owner@somchai-shop.co.th" and lead_row["consent"] == 1 and lead_row["score"] == 58
 pend = db.list_decisions("proposed")
 assert len(pend) == 1 and pend[0]["kind"] == "outreach" and pend[0]["lead_id"] == lead_row["id"]
 print("public: ตรวจ → ผล → ใช้ผลเดิมซ้ำ → honeypot → ยินยอม → CEO เสนอข้อความทัก OK")
@@ -84,7 +84,7 @@ assert "example.co.th" in a.get("/admin/leads").text and "รอยืนยั�
 r = a.get("/admin/decisions"); assert "ทัก example.co.th (pro)" in r.text and "CFO:" in r.text
 did = pend[0]["id"]
 r = a.post(f"/admin/decisions/{did}/approve")
-assert "ส่งอีเมลถึง owner@example.co.th" in r.text and sent and sent[0][0] == "owner@example.co.th"
+assert "ส่งอีเมลถึง owner@somchai-shop.co.th" in r.text and sent and sent[0][0] == "owner@somchai-shop.co.th"
 assert db.get_lead(lead_row["id"])["status"] == "contacted" and db.get_decision(did)["status"] == "executed"
 st = db.decision_stats(); assert st["decided"] == 1 and st["agreement_pct"] == 100
 # นำเข้า + ตรวจ + CEO ไม่รับ (เว็บผ่านเกือบทุกข้อ) → ปฏิเสธข้อเสนอ → ตัวเลขตรงกันลด

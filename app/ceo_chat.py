@@ -457,8 +457,9 @@ def owner_contact(args) -> str:
         try:
             c = prospecting.find_contact(lead["site_url"])
             if c.get("email"):
-                db.update_lead(lead["id"], email=c["email"])
-                found = f"เจออีเมล {c['email']} บนเว็บ · "
+                risky = c.get("source") == "ผลค้นหา"
+                db.update_lead(lead["id"], email=c["email"], email_src="search" if risky else "site")
+                found = f"เจออีเมล {c['email']} " + ("จากผลค้นหา (ไม่ได้อยู่บนเว็บ · เสี่ยงเด้ง) · " if risky else "บนเว็บ · ")
             ph = closer.find_phone(db.get_lead(lead["id"]))
             if ph:
                 d = closer._data(db.get_lead(lead["id"])); d["phone"] = ph; closer._save(lead["id"], d)

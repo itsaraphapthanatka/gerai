@@ -22,7 +22,7 @@
     <h2 style="margin-top:0;font-size:15px">ติดต่อ</h2>
     <div style="font-size:13.5px;line-height:1.8">
       <div><span class="muted">ชื่อ</span> {{ lead['name'] or '—' }}</div>
-      <div><span class="muted">อีเมล</span> {{ lead['email'] or '—' }}</div>
+      <div><span class="muted">อีเมล</span> {{ lead['email'] or '—' }}{% if lead['email'] and lead['email_src'] == 'search' %} <span class="pill" style="background:#fff4e5;color:#9a5b00" title="ไม่ได้อยู่บนเว็บของเขา ระบบไม่ส่งเอง">เดาจากผลค้นหา · เสี่ยงเด้ง</span>{% endif %}</div>
       <div><span class="muted">LINE/โทร</span> {{ lead['contact'] or '—' }}{% if lead['line_user_id'] %} <span class="pill ok" style="font-size:10px">LINE ผูกแล้ว</span>{% endif %}</div>
       <div><span class="muted">ยินยอมติดต่อ</span> {{ 'ใช่' if lead['consent'] else 'ยังไม่ได้ให้' }}</div>
       <div><span class="muted">เว็บ</span> <a class="link" href="{{ lead['site_url'] }}" target="_blank">{{ lead['site_url'] }}</a></div>

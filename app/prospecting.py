@@ -173,7 +173,9 @@ def find_email_via_search(domain: str, search=None) -> str:
             for m in EMAIL_RE.finditer(text):
                 e = m.group(0).strip().lower().rstrip(".")
                 if (e.endswith("@" + a) or e.endswith("." + a)) and not SKIP_EMAIL.search(e):
-                    found.add(e)
+                    from . import mailer, deliverability
+                    if not mailer.is_placeholder(e) and deliverability.mx_ok(e):
+                        found.add(e)
         if found:
             break
     return sorted(found, key=_rank_email)[0] if found else ""
@@ -210,7 +212,9 @@ def find_contact(site_url: str, fetch=None, search=None) -> dict:
                 more.append(u)
     for u in more[:3]:
         harvest(fetch(u))
-    clean = sorted({e.strip().lower().rstrip(".") for e in emails if e and not SKIP_EMAIL.search(e)})
+    from . import mailer, deliverability
+    clean = sorted({e.strip().lower().rstrip(".") for e in emails if e and not SKIP_EMAIL.search(e) and not mailer.is_placeholder(e)})
+    clean = [e for e in clean if deliverability.mx_ok(e)]                      # โดเมนไม่มีเซิร์ฟเวอร์รับอีเมล = ไม่เก็บ
     same = [e for e in clean if e.split("@")[-1].endswith(host)]
     others = [e for e in clean if e not in same]
     ordered = sorted(same, key=_rank_email) + sorted(others, key=_rank_email)
@@ -276,7 +280,8 @@ def run(limit: int | None = None, search=None, contact=None, queries: list[str] 
         except Exception:
             c = {"email": "", "line": "", "n": 0}
         if c.get("email") or c.get("line"):
-            db.update_lead(lid, email=(c.get("email") or None), contact=(c.get("line") or None))
+            db.update_lead(lid, email=(c.get("email") or None), contact=(c.get("line") or None),
+                           email_src=("search" if c.get("source") == "ผลค้นหา" else "site") if c.get("email") else None)
             pipeline.record(lid, "contact_found", (c.get("email") or "") + (f" (จาก{c['source']})" if c.get("email") and c.get("source") else "")
                             + (f" · {c['line']}" if c.get("line") else ""), "prospecting")
         else:
@@ -316,7 +321,8 @@ def refind_contact(lead) -> dict:
     c = find_contact(lead["site_url"])
     out = {"email": c.get("email") or "", "line": c.get("line") or "", "source": c.get("source") or "", "proposed": None}
     if c.get("email") and not lead["email"]:
-        db.update_lead(lead["id"], email=c["email"], contact=lead["contact"] or (c.get("line") or None))
+        db.update_lead(lead["id"], email=c["email"], contact=lead["contact"] or (c.get("line") or None),
+                       email_src="search" if c.get("source") == "ผลค้นหา" else "site")
         pipeline.record(lead["id"], "contact_found", f"{c['email']} (จาก{c.get('source') or 'เว็บ'}) — หาซ้ำ", "prospecting")
         if lead["status"] in ("new", "lost") and lead["audit_json"]:
             out["proposed"] = pipeline.ceo_propose(db.get_lead(lead["id"]))

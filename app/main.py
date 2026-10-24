@@ -3262,7 +3262,9 @@ def admin_lead_contact(request: Request, lead_id: int, name: str = Form(""), ema
     e = email.strip().lower()
     if e and not _re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e):
         return _redirect(f"/admin/leads/{lead_id}?notice=รูปแบบอีเมลไม่ถูกต้อง")
-    db.update_lead(lead_id, name=name.strip()[:120] or None, email=e[:160] or None, contact=contact.strip()[:160] or None)
+    old = db.get_lead(lead_id)
+    db.update_lead(lead_id, name=name.strip()[:120] or None, email=e[:160] or None, contact=contact.strip()[:160] or None,
+                   **({"email_src": "manual" if e else None} if old and (e or None) != (old["email"] or None) else {}))   # คนกรอกเอง = ไม่ใช่อีเมลเดา
     db.add_lead_event(lead_id, "note", f"แก้ช่องทางติดต่อ: {e or '—'} · {contact.strip() or '—'}", request.session.get("email") or "admin")
     return _redirect(f"/admin/leads/{lead_id}?notice=บันทึกช่องทางติดต่อแล้ว")
 

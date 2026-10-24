@@ -486,6 +486,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
+        _ensure_column(c, "leads", "email_src", "TEXT")                     # ที่มาของอีเมล: site | search (เดาจากผลค้นหา = เสี่ยงเด้ง) | manual | form | email | partner
         _ensure_column(c, "tenants", "trial_until", "TEXT")                  # ต่อเวลาทดลองใช้แผนฟรี (YYYY-MM-DD) · ว่าง = วันสร้างบัญชี + 14 วัน
         _ensure_column(c, "leads", "exp_arm", "TEXT")
         _ensure_column(c, "leads", "partner_id", "INTEGER")                  # ลีดที่พันธมิตรแนะนำมา (ลิงก์ /p/<code> หรือส่งผ่านแดชบอร์ดพันธมิตร)                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
@@ -1281,7 +1282,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",

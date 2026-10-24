@@ -34,7 +34,7 @@ print("filter: โดเมนธุรกิจ/ไม่ใช่ธุรก�
 pages = {"https://lawfirm.co.th": '<html><a href="/contact">ติดต่อเรา</a> <img src="logo@2x.png"> noreply@lawfirm.co.th</html>',
          "https://lawfirm.co.th/contact": '<a href="mailto:Info@LawFirm.co.th">อีเมล</a> sales@lawfirm.co.th someone@gmail.com <a href="https://lin.ee/abc123">LINE</a>'}
 c = PR.find_contact("https://lawfirm.co.th", fetch=lambda u: pages.get(u.rstrip("/"), ""))
-assert c["email"] == "info@lawfirm.co.th" and c["line"] == "https://lin.ee/abc123" and c["n"] == 3, c
+assert c["email"] == "info@lawfirm.co.th" and c["line"] == "https://lin.ee/abc123" and c["n"] == 2, c   # someone@ = อีเมลตัวอย่าง กรองทิ้ง
 c2 = PR.find_contact("https://nothing.co.th", fetch=lambda u: "<html>hi</html>"); assert c2["email"] == "" and c2["n"] == 0
 c3 = PR.find_contact("https://gmailonly.co.th", fetch=lambda u: "ติดต่อ shopowner@gmail.com"); assert c3["email"] == "shopowner@gmail.com"   # อีเมลธุรกิจที่เปิดเผย แม้เป็น gmail
 # เว็บไม่มีอีเมล → หาจากผลค้นหา (รับเฉพาะโดเมน/โดเมนหลักเดียวกัน)

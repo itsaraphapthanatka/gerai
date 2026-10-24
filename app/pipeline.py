@@ -106,6 +106,10 @@ def _maybe_auto(did: int) -> int:
         escalate = False
     if escalate:                                     # นอกกรอบ CFO → รอคนเสมอ ไม่ว่าโหมดไหน
         return did
+    if d["kind"] in ("outreach", "followup") and d["lead_id"]:
+        ld = db.get_lead(d["lead_id"])
+        if ld and ld["email_src"] == "search" and send_channel(ld).startswith("อีเมล"):
+            return did                               # อีเมลเดาจากผลค้นหา = เสี่ยงเด้ง → ไม่ส่งเอง ให้เจ้าของเลือก
     if execs.auto_enabled(d["kind"]):
         try:
             result = execute_decision(d, "auto")
@@ -142,7 +146,11 @@ def ceo_propose(lead) -> int | None:
     pl["cfo"] = execs.cfo_check(pl)
     pl["escalate"] = not pl["cfo"]["ok"]
     pl["channel"] = send_channel(lead)
-    proposal = (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
+    risky = lead["email_src"] == "search" and pl["channel"].startswith("อีเมล")
+    if risky:
+        pl["risky_email"] = True
+    proposal = (("⚠️ อีเมลนี้เดาจากผลค้นหา ไม่ได้อยู่บนเว็บของเขา — เสี่ยงเด้ง (เด้งเยอะ = โดเมนเราเสียชื่อ) ระบบไม่ส่งเอง"
+                 + (f" · มีช่องทาง {lead['contact']} ลองทักทางนั้นแทนได้" if lead["contact"] else "") + "\n\n") if risky else "") + (f"รับลูกค้า · แพ็กเกจ {pl['package']} {pl['price']:,} บาท/เดือน · โอกาส {pl['level']} ({pl['score']}/100)\n"
                 f"เหตุผล: {'; '.join(pl['reasons'])}\nCFO: {pl['cfo']['note']}\nส่งทาง: {pl['channel'] or 'ไม่มีช่องทางอัตโนมัติ — เติมอีเมลที่หน้าลูกค้าก่อน ไม่งั้นอนุมัติแล้วก็ส่งไม่ได้'}"
                 f"\n\nหัวข้อ: {pl['subject']}\n\n{pl['body']}")
     return _maybe_auto(db.add_decision("ceo", "outreach", f"ทัก {lead['domain']} ({pl['package']})", proposal, pl, lead_id=lead["id"]))
@@ -165,6 +173,11 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
     """ส่งถึงลูกค้าทางที่มี: อีเมลที่ส่งได้ก่อน → LINE → ไม่มี (คืน '' ให้คนส่งเอง)
     plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)"""
     if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
+        from . import deliverability
+        if not deliverability.mx_ok(lead["email"]):          # โดเมนผู้รับไม่มีเซิร์ฟเวอร์รับอีเมล → ส่งไปเด้งแน่ ไม่ส่ง และล้างอีเมลทิ้ง
+            record(lead["id"], "note", f"ไม่ส่งถึง {lead['email']} — โดเมนนี้ไม่มีเซิร์ฟเวอร์รับอีเมล (ไม่มี MX) ล้างอีเมลออกแล้ว ใช้ช่องทางอื่นแทน", "deliv")
+            db.update_lead(lead["id"], email=None, email_src=None)
+            return ""
         if plain:
             from . import deliverability
             fa, fn = deliverability.active_from()
