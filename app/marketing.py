@@ -408,14 +408,60 @@ def metrics_for(brand) -> dict:
             "health_ok": hrep.get("n_ok"), "health_fail": hrep.get("n_fail"), "market": brand["market"] or ""}
 
 
+ENGINE_TH = {"chatgpt": "ChatGPT", "perplexity": "Perplexity", "gemini": "Gemini", "claude": "Claude"}
+
+
+def ai_trend(brand_id: int) -> dict | None:
+    """ผลถาม AI จริง รอบแรกที่ถามครบ → รอบล่าสุด (เฉพาะเมื่อดีขึ้น) + เอนจินที่ขยับ · None = ไม่มีข้อมูล/ไม่ดีขึ้น"""
+    from . import results as RS
+    runs = []
+    for r in reversed(db.list_ai_visibility(brand_id, 50)):
+        rows = [x for x in RS._rows(r["report"]) if x.get("status") != "skip"]
+        if not rows:
+            continue
+        eng = {}
+        for x in rows:
+            e = eng.setdefault(x.get("engine") or "", [0, 0]); e[1] += 1; e[0] += bool(x.get("cited") is True or x.get("named") is True)
+        runs.append({"at": str(r["checked_at"])[:10], "asked": len(rows), "hits": RS._hits(rows), "eng": eng})
+    if len(runs) < 2:
+        return None
+    full = max(r["asked"] for r in runs)
+    runs = [r for r in runs if r["asked"] == full]                  # เทียบเฉพาะรอบที่ถามครบชุดเดียวกัน
+    if len(runs) < 2 or runs[-1]["hits"] <= runs[0]["hits"]:
+        return None
+    a, b = runs[0], runs[-1]
+    moved = [f"{ENGINE_TH.get(k, k)} จาก {a['eng'].get(k, [0])[0]} เป็น {v[0]} จาก {v[1]}" for k, v in b["eng"].items()
+             if v[0] > a["eng"].get(k, [0, 0])[0]]
+    return {"asked": full, "first": a, "last": b, "engines": [ENGINE_TH.get(k, k) for k in b["eng"] if k], "moved": moved}
+
+
+def case_image(brand, m: dict, named: bool, channel: str) -> str | None:
+    """การ์ดรูปเคสศึกษา (มีเฉพาะเมื่อผลถาม AI ดีขึ้นจริง) — โพสต์มีรูปคนหยุดดูมากกว่าการ์ดลิงก์เปล่า"""
+    from . import post_studio as PS
+    t = ai_trend(brand["id"])
+    if not t:
+        return None
+    who = brand["name"] if named else (f"ธุรกิจ{(m.get('market') or '')[:40]}" if m.get("market") else "ลูกค้ารายหนึ่ง")
+    extra = t["moved"][:1] + [f"เผยแพร่คำตอบคำถามลูกค้า {m['published']} ชิ้นบนเว็บของลูกค้าเอง"]
+    if m.get("health_ok") is not None:
+        extra.append(f"เว็บผ่านตรวจสุขภาพ {m['health_ok']} ข้อ")
+    return PS.case_card(who, t, extra, channel, _base())
+
+
 def case_study_text(brand, m: dict, named: bool, llm=None) -> dict:
     """เคสศึกษาสั้น ๆ จากตัวเลขจริงเท่านั้น (ห้ามแต่งตัวเลข ห้ามการันตี) · ไม่ได้รับอนุญาตใช้ชื่อ → เรียกตามประเภทธุรกิจ"""
     who = brand["name"] if named else (f"ธุรกิจ{m['market']}" if m.get("market") else "ลูกค้ารายหนึ่ง")
     facts = [f"ลูกค้า: {who}", f"ใช้บริการมา {m['days']} วัน", f"เผยแพร่คอนเทนต์ตอบคำถามลูกค้าแล้ว {m['published']} ชิ้น"]
+    t = ai_trend(brand["id"]) if "id" in brand.keys() else None
+    if t:                                                             # ตัวเลขที่แข็งที่สุด: ถาม AI จริง รอบแรก → ล่าสุด
+        facts.append(f"ถาม {' · '.join(t['engines'])} จริง {t['asked']} ครั้ง (คำถามแบบที่ลูกค้าถาม): แนะนำ{'แบรนด์นี้' if named else 'ธุรกิจนี้'} "
+                     f"{t['first']['hits']} ครั้ง ({t['first']['at']}) → {t['last']['hits']} ครั้ง ({t['last']['at']})")
+        if t["moved"]:
+            facts.append("ที่ขยับ: " + " · ".join(t["moved"]))
     sf, sl = m.get("sov_first"), m.get("sov_last")
     if sf is not None and sl is not None and sl > sf:                 # บอกเฉพาะเมื่อดีขึ้นจริง และเป็นเปอร์เซ็นต์ที่คนอ่านรู้เรื่อง
         pct = lambda v: f"{v * 100:.0f}%" if v <= 1 else f"{v:.0f}"
-        facts.append(f"การมองเห็นในคำตอบ AI จาก {pct(sf)} เป็น {pct(sl)}")
+        facts.append(f"ติดผลค้นหาตามคำถามลูกค้า จาก {pct(sf)} เป็น {pct(sl)} ของคำถามที่ติดตาม")   # วัดจากผลค้นหา ไม่ใช่คำตอบ AI
     if m.get("health_ok") is not None:
         facts.append(f"สุขภาพเว็บผ่าน {m['health_ok']} ข้อ ตก {m['health_fail']} ข้อ")
     fallback = {"title": f"เคสจริง: {who} กับการทำให้ AI รู้จักธุรกิจ",
@@ -481,6 +527,14 @@ def fb_photo(cfg: dict, message: str, image_url: str) -> str:
     if r.status_code >= 400 or not (body.get("post_id") or body.get("id")):
         raise RuntimeError((body.get("error") or {}).get("message") or f"Facebook HTTP {r.status_code}")
     return body.get("post_id") or body["id"]
+
+
+def fb_delete(cfg: dict, post_id: str) -> None:
+    """ลบโพสต์บนเพจ (เจ้าของสั่ง) — โยน error ถ้า Facebook ไม่ยอม"""
+    r = httpx.delete(f"{GRAPH}/{post_id}", params={"access_token": cfg["token"]}, timeout=20)
+    body = r.json() if r.content else {}
+    if r.status_code >= 400 or body.get("success") is False:
+        raise RuntimeError((body.get("error") or {}).get("message") or f"Facebook HTTP {r.status_code}")
 
 
 def fb_test_post() -> str:
@@ -582,7 +636,9 @@ def propose_case_studies(now: datetime.datetime | None = None, llm=None) -> int:
     for ch in channels():
         if db.count_posts_since(ch, month, kind="case_study"):
             continue
-        _propose(ch, "case_study", write_post(ch, "case_study", case=case, llm=_LLM))
+        c = write_post(ch, "case_study", case=case, llm=_LLM)
+        c["image"] = c.get("image") or case_image(b, m, bool(b["case_study_ok"]), ch)
+        _propose(ch, "case_study", c)
         n += 1
     return n
 

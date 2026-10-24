@@ -20,7 +20,7 @@ GEN_DIR = Path(__file__).parent / "static" / "gen" / "posts"
 PDF_URL = os.getenv("PDF_SERVICE_URL", "http://pdf:3000")
 RENDER = None                 # เทสต์ฉีด render(html) → bytes
 MIN_SITES = 10                # สถิติต้องมีเว็บที่ตรวจอย่างน้อยเท่านี้ ไม่งั้นไม่โพสต์
-KINDS = {"insight": "สถิติจากการตรวจจริง", "ai_test": "ลองถาม AI จริง", "tip": "เคล็ดลับเช็กเอง"}
+KINDS = {"insight": "สถิติจากการตรวจจริง", "ai_test": "ลองถาม AI จริง", "tip": "เคล็ดลับเช็กเอง", "case_study": "เคสจริงจากลูกค้า"}
 # ข้อที่ความหมายตรงกับเว็บทั่วไป (ไม่ใช่ข้อที่วัดตัวเชื่อมของเราเอง) → ใช้ทำสถิติสาธารณะได้
 PUBLIC_STAT = {
     "llms": "ไม่มีไฟล์ llms.txt ที่ช่วยให้ AI อ่านสรุปเว็บ",
@@ -206,6 +206,25 @@ li:before{{content:"";position:absolute;left:0;top:18px;width:22px;height:22px;b
 <h1>{e(title or '')}</h1>{big_html}<ul>{bullets}</ul>
 <div class="foot"><b>เจอ.AI</b><span>ตรวจเว็บฟรี · geo.appreview.cloud/audit</span></div>
 </body></html>"""
+
+
+def _span(d1: str, d2: str, th) -> str:
+    """4 ต.ค. + 19 ต.ค. → 4–19 ต.ค. (เดือนเดียวกัน) · คนละเดือน → 28 ก.ย.–19 ต.ค."""
+    a, b = th(d1), th(d2)
+    return f"{a.split()[0]}–{b}" if a.split()[1] == b.split()[1] else f"{a}–{b}"
+
+
+def case_card(who: str, trend: dict, extra: list[str], channel: str, base_url: str) -> str | None:
+    """การ์ดเคสศึกษา: ตัวเลขใหญ่ = AI แนะนำ รอบแรก → ล่าสุด (จากผลถามจริง) · คืน URL รูป หรือ None ถ้า render ไม่ได้"""
+    th = lambda d: f"{int(d[8:10])} {('ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.')[int(d[5:7]) - 1]}"
+    f = {"kind": "case_study", "card_title": who, "big": f"{trend['first']['hits']} → {trend['last']['hits']}",
+         "big_label": f"ครั้งที่ AI แนะนำ จาก {trend['asked']} คำถามจริง ({_span(trend['first']['at'], trend['last']['at'], th)})",
+         "lines": [x for x in extra if x][:3]}
+    try:
+        stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
+        return save_card(f"case-{channel}-{stamp}", render_png(card_html({"hook": who, "bullets": []}, f)), base_url)
+    except Exception:
+        return None
 
 
 def render_png(html: str) -> bytes:

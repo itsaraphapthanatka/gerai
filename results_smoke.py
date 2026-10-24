@@ -103,7 +103,22 @@ rep3 = RS.review(db.get_brand(bid), dt.datetime(2026, 10, 26, 11, 15), http=http
 assert rep3["state"] == "win" and any("ถูก AI แนะนำแล้ว 2 จาก 8" in a for a in alerts)
 import app.marketing as MK
 assert db.last_result_review(bid)["state"] == "win"
-print("win: ขยับขึ้นแจ้งเจ้าของ · CMO ให้น้ำหนักเคสศึกษา OK")
+t = MK.ai_trend(bid)
+assert t and t["first"]["hits"] == 0 and t["last"]["hits"] == 2 and t["asked"] == 8 and t["engines"] == ["ChatGPT"] and t["moved"] == ["ChatGPT จาก 0 เป็น 2 จาก 8"], t
+cs = MK.case_study_text(db.get_brand(bid), {"days": 40, "published": 3, "sov_first": 0.0, "sov_last": 0.2, "health_ok": None, "market": ""}, True, llm=lambda m: "")
+assert "0 ครั้ง (2026-09-28) → 2 ครั้ง (2026-10-26)" in cs["body"] and "ติดผลค้นหาตามคำถามลูกค้า จาก 0% เป็น 20%" in cs["body"] and "คำตอบ AI จาก" not in cs["body"], cs
+assert MK.ai_trend(b2) is None                                                                     # ไม่ดีขึ้น = ไม่ใช้
+import app.post_studio as PS, pathlib
+seen_html = []
+PS.RENDER = lambda html: seen_html.append(html) or b"png"
+PS.GEN_DIR = pathlib.Path(tempfile.mkdtemp(prefix="geo-cards-"))
+u = MK.case_image(db.get_brand(bid), {"published": 3, "health_ok": 15, "market": ""}, True, "facebook")
+assert u and u.endswith(".png") and "/static/gen/posts/case-facebook-" in u
+assert "0 → 2" in seen_html[-1] and "28 ก.ย.–26 ต.ค." in seen_html[-1] and "เคสจริงจากลูกค้า" in seen_html[-1] and "Shop" in seen_html[-1]
+assert MK.case_image(db.get_brand(b2), {"published": 0, "health_ok": None, "market": ""}, True, "line") is None   # ไม่ดีขึ้น = ไม่มีการ์ด
+PS.RENDER = lambda html: (_ for _ in ()).throw(RuntimeError("pdf down"))
+assert MK.case_image(db.get_brand(bid), {"published": 3, "health_ok": None, "market": ""}, True, "line") is None  # render ล้ม = โพสต์ข้อความตามเดิม
+print("win: ขยับขึ้นแจ้งเจ้าของ · CMO ให้น้ำหนักเคสศึกษา · เคสศึกษาใช้ผลถาม AI จริง (เฉพาะเมื่อดีขึ้น) OK")
 
 # ---- run / due / summary / status ----
 assert not RS.due(db.get_brand(bid), dt.datetime(2026, 10, 27, 11, 15))                          # เพิ่งรีวิว ไม่มีผลวัดใหม่
