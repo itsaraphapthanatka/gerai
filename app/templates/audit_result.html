@@ -75,6 +75,18 @@
   .foot{color:var(--stone);font-size:12.5px;margin-top:28px}
   .foot a{color:inherit}
   @media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}.cta form{grid-template-columns:1fr}.big .score{font-size:44px}}
+  a.kpi-link{text-decoration:none;color:inherit;border:1px dashed var(--hairline)}
+  .tw.scroll{position:relative}.scroll-hint{display:none;font-size:12px;color:var(--stone);margin:-2px 0 8px}
+  @media (max-width:640px){
+    table.fix,table.fix tbody{display:block;width:100%;min-width:0;table-layout:auto} table.fix colgroup{display:none} table.fix tr:first-child{display:none}
+    table.fix td{min-width:0;overflow-wrap:anywhere;white-space:normal}
+    table.fix tr{display:grid;grid-template-columns:28px 1fr auto;gap:2px 10px;padding:12px 10px;border-bottom:1px solid var(--hairline)}
+    table.fix td{display:block;border:0;padding:0}
+    table.fix td.fx{grid-column:2 / 4;color:var(--slate);font-size:13.5px;margin-top:4px}
+    table.fix td:last-child{grid-column:3;grid-row:1}
+    .scroll-hint{display:block}
+    h1 .tag{display:block;margin-top:4px}
+  }
 {% endraw %}</style>
 </head>
 <body>
@@ -85,14 +97,14 @@
 {% macro path(u) %}{{ ('/' ~ (u.split('/', 3)[3] if u.count('/') >= 3 else '')) if u else '' }}{% endmacro %}
 <div class="wrap">
   <div class="brand"><a href="/">เจอ.AI</a> · <a href="/audit">ตรวจเว็บฟรี</a> <span class="live">LIVE</span></div>
-  <h1>ผลตรวจ {{ lead['domain'] }} <span style="font-size:.55em;color:var(--stone);font-weight:600">รายงาน AI SEO</span></h1>
+  <h1>ผลตรวจ {{ lead['domain'] }} <span class="tag" style="font-size:.55em;color:var(--stone);font-weight:600">รายงาน AI SEO</span></h1>
   <p class="sub">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }}{% if deep %} · ไต่เว็บ {{ deep.crawl.n }} หน้า · อันดับ Google ประเทศไทย{% endif %}{% if ai %} · ถาม {{ 'ChatGPT' if ai.engine == 'chatgpt' else ai.engine }} {{ ai.asked }} คำถาม{% endif %}</p>
 
   <div class="kpis">
     {% if rk and rk.get('ok', rk.n) %}<div class="kpi {{ 'good' if rk.page1 else 'bad' }}"><b>{{ rk.page1 }}<small>/{{ rk.n }}</small></b><span>keyword ติดหน้าแรก Google</span></div>
     {% else %}<div class="kpi"><b>…</b><span>keyword ติดหน้าแรก Google</span></div>{% endif %}
     {% if ai %}<div class="kpi {{ 'good' if ai.mentioned else 'bad' }}"><b>{{ ai.mentioned }}<small>/{{ ai.asked }}</small></b><span>คำถามที่ AI เอ่ยถึงคุณ{% if ai.comp_mentions %} · คู่แข่งสูงสุด {{ ai.comp_mentions.values()|max }}{% endif %}</span></div>
-    {% else %}<div class="kpi"><b>{{ '…' if progress.ai == 'running' else '—' }}</b><span>คำถามที่ AI เอ่ยถึงคุณ {{ '(กำลังวัด)' if progress.ai == 'running' else '(วัดเมื่อขอแผน)' }}</span></div>{% endif %}
+    {% else %}<a class="kpi kpi-link" href="#ai" onclick="var b=document.querySelector('[data-t=ai]');if(b)b.click();"><b style="font-size:{{ '28px' if progress.ai == 'running' else '19px' }}">{{ '…' if progress.ai == 'running' else 'ยังไม่วัด' }}</b><span>{{ 'กำลังถาม ChatGPT 20 คำถาม' if progress.ai == 'running' else 'AI เอ่ยถึงคุณไหม — วัดฟรีเมื่อขอแผนแก้' }}</span></a>{% endif %}
     {% if hlth %}<div class="kpi {{ 'good' if hlth.score >= benchmark else ('mid' if hlth.score >= 60 else 'bad') }}"><b>{{ hlth.score }}<small>/100</small></b><span>Site health (Benchmark {{ benchmark }})</span></div>
     {% else %}<div class="kpi {{ 'bad' if score.n_fail else 'good' }}"><b>{{ score.n_ok }}<small>/{{ score.n_checked }}</small></b><span>ข้อที่ผ่าน (หน้าแรก)</span></div>{% endif %}
     {% set n_urgent = (deep.issues|selectattr('severity','equalto','Error')|list|length if deep else 0) %}
@@ -116,9 +128,9 @@
   <p class="sub">ขั้นต่อไปคือทำให้ AI "เอ่ยถึง" เมื่อลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้าและมีหน้าให้ AI อ่าน</p>
   {% endif %}
 
-  <div class="tabs" role="tablist"><button data-t="ranking" role="tab">Ranking</button><button data-t="ai" role="tab">AI Visibility</button><button data-t="audit" role="tab">Site Audit</button></div>
+  {% set t0 = "ranking" if deep else "audit" %}<div class="tabs" role="tablist"><button data-t="ranking" role="tab" class="{{ 'on' if t0 == 'ranking' }}">Ranking</button><button data-t="ai" role="tab">AI Visibility</button><button data-t="audit" role="tab" class="{{ 'on' if t0 == 'audit' }}">Site Audit</button></div>
 
-  <section class="pane" id="p-ranking">
+  <section class="pane{{ ' on' if t0 == 'ranking' }}" id="p-ranking">
     {% if rk and rk.rows %}
     <h3>อันดับ Google ของ keyword ที่ลูกค้าใช้หา</h3>
     <div class="tw"><table>
@@ -127,6 +139,7 @@
     </table></div>
     <p class="fine">ติดหน้าแรก {{ rk.page1 }} จาก {{ rk.n }} คำ · สี: 1–5 · 6–10 · 11–20 · ไม่ติด {{ rk.rows|map(attribute='depth')|select|min if rk.rows|map(attribute='depth')|select|list else rk.depth }} อันดับแรก · วัด ณ วันที่ตรวจครั้งเดียว ไม่ใช่ค่าเฉลี่ย · คำค้นเลือกจากสินค้า/บริการที่เว็บคุณเขียนไว้</p>
     <h3>ใครติด Top 10 ในแต่ละ keyword</h3>
+    <div class="scroll-hint">เลื่อนตารางไปทางขวาเพื่อดู keyword อื่น →</div>
     <div class="tw"><table>
       <tr><th>#</th>{% for r in rk.rows %}<th>{{ r.keyword }}</th>{% endfor %}</tr>
       {% for i in range(10) %}<tr><td class="num">{{ i + 1 }}</td>{% for r in rk.rows %}{% set d = r.top[i] if r.top|length > i else '' %}<td class="{{ 'me' if d and (d == lead['domain'] or d.endswith('.' ~ lead['domain'])) else ('cp' if d in comps else '') }}">{{ d }}</td>{% endfor %}</tr>{% endfor %}
@@ -164,7 +177,7 @@
     {% endif %}
   </section>
 
-  <section class="pane" id="p-audit">
+  <section class="pane{{ ' on' if t0 == 'audit' }}" id="p-audit">
     {% if deep %}
     <div class="big"><div class="score">{{ hlth.score }}<small>/100</small></div>
       <div class="s"><b>{{ hlth.errors }}</b>Errors</div><div class="s"><b>{{ hlth.warnings }}</b>Warnings</div><div class="s"><b>{{ hlth.urls }}</b>URL ที่ไต่</div></div>
@@ -175,13 +188,13 @@
       {% for i in deep.issues %}<tr><td>{{ i.label }}</td><td class="num">{{ i.count }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td></tr>{% endfor %}</table></div>
     <h3>ปัญหาและวิธีแก้ เรียงตามความสำคัญ</h3>
     <div class="tw"><table class="fix"><colgroup><col class="c1"><col><col class="c3"><col class="c4"></colgroup><tr><th>#</th><th>ปัญหา · URL</th><th>วิธีแก้</th><th>ระดับ</th></tr>
-      {% for i in deep.issues %}<tr><td class="num">{{ loop.index }}</td><td><div class="grp">{{ i.group }}</div>{{ i.label }}<div class="urls">{% for u in i.urls[:3] %}{{ u|urlpath(56) }}{{ ' · ' if not loop.last }}{% endfor %}{% if i.count > 3 %} · และอีก {{ i.count - 3 }}{% endif %}</div></td><td>{{ i.fix }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td></tr>{% endfor %}</table></div>
+      {% for i in deep.issues %}<tr><td class="num">{{ loop.index }}</td><td><div class="grp">{{ i.group }}</div>{{ i.label }}<div class="urls">{% for u in i.urls[:3] %}{{ u|urlpath(56) }}{{ ' · ' if not loop.last }}{% endfor %}{% set nu = i.n_urls or i.urls|length %}{% if nu > 3 %} · และอีก {{ nu - 3 }} หน้า{% endif %}</div>{% if i.key == 'alt_missing' and i.count != nu %}<div class="urls">รูปไม่ซ้ำ {{ "{:,}".format(i.count) }} รูป</div>{% endif %}</td><td class="fx">{{ i.fix }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td></tr>{% endfor %}</table></div>
     <p class="fine">เริ่มจากกลุ่ม Crawl & Index ก่อน — ถ้า Google เก็บหน้าไม่ได้ งานอื่นไม่มีผล · ลำดับ: Crawl & Index → On-page core → Content → Schema & links → Media & speed</p>
     {% else %}<p class="sub">ไม่พบปัญหาในหน้าที่ไต่</p>{% endif %}
     {% elif progress.tier1 == 'running' %}<p class="sub">กำลังไต่เว็บ…</p>
     {% else %}<p class="sub">ยังไม่มีผลไต่เว็บทั้งเว็บ</p>{% endif %}
     <h3>ตรวจหน้าแรก {{ score.n_checked }} ข้อ (สิ่งที่บอท AI เห็น)</h3>
-    <div class="tw"><table><tr><th>ข้อ</th><th>ผล</th></tr>{% for c in report.checks %}{% if c.key not in ('freshness','wp') %}<tr><td>{{ c.label }}{% if c.detail and c.status != 'ok' %}<div class="urls">{{ c.detail[:140] }}</div>{% endif %}</td><td><span class="sev {{ 'Error' if c.status == 'fail' else ('Warning' if c.status == 'warn' else 'Notice') }}">{{ 'ผ่าน' if c.status == 'ok' else ('ต้องแก้' if c.status == 'fail' else 'ควรดู') }}</span></td></tr>{% endif %}{% endfor %}</table></div>
+    <div class="tw"><table><tr><th>ข้อ</th><th>ผล</th></tr>{% for c in report.checks %}{% if c.key not in ('freshness','wp') %}{% set ours = c.key in ('sitemap','connector') and c.status != 'ok' %}<tr><td>{{ c.label }}{% if ours %}<div class="urls">ตัวเชื่อมที่เจอ.AI ติดตั้งให้เมื่อเริ่มใช้บริการ — ตอนนี้ยังไม่มีเป็นเรื่องปกติ</div>{% elif c.detail and c.status != 'ok' %}<div class="urls">{{ c.detail[:140] }}</div>{% endif %}</td><td><span class="sev {{ 'Notice' if ours else ('Error' if c.status == 'fail' else ('Warning' if c.status == 'warn' else 'Notice')) }}">{{ 'ติดตั้งให้' if ours else ('ผ่าน' if c.status == 'ok' else ('ต้องแก้' if c.status == 'fail' else 'ควรดู')) }}</span></td></tr>{% endif %}{% endfor %}</table></div>
   </section>
 
   <h2>สิ่งที่เจอ.AI ทำให้</h2>

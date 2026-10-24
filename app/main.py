@@ -390,14 +390,32 @@ def _src(v: str) -> str:
     return v if _re.fullmatch(r"[a-z0-9_-]{1,24}", v) else ""
 
 
+def _ref(request: Request, ref: str = "") -> str:
+    """รหัสพันธมิตรจากลิงก์ (?ref=) หรือคุกกี้ /p/<code>"""
+    return _src(ref) or _src(request.cookies.get("jr_ref", ""))
+
+
+@app.get("/p/{code}")
+def partner_link(request: Request, code: str):
+    """ลิงก์แนะนำของพันธมิตร → หน้าตรวจเว็บฟรี + จำรหัสไว้ 60 วัน"""
+    from . import partners
+    code = _src(code)
+    p = db.find_partner(code=code) if code else None
+    resp = _redirect(f"/audit?src=partner&ref={code}" if p and p["status"] == "active" else "/audit")
+    if p and p["status"] == "active":
+        resp.set_cookie("jr_ref", code, max_age=partners.COOKIE_DAYS * 86400, httponly=True, samesite="lax")
+    return resp
+
+
 @app.get("/audit")
-def audit_page(request: Request, src: str = ""):
-    return templates.TemplateResponse(request, "audit.html", {"error": "", "url": "", "src": _src(src)})
+def audit_page(request: Request, src: str = "", ref: str = ""):
+    return templates.TemplateResponse(request, "audit.html", {"error": "", "url": "", "src": _src(src), "ref": _ref(request, ref)})
 
 
 @app.post("/audit")
-def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form("")):
+def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form(""), ref: str = Form("")):
     src = _src(src)
+    ref = _ref(request, ref)
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
@@ -415,6 +433,9 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
     if src and not (recent and recent["src"]):
         db.update_lead(lid, src=src)                      # ช่องทางที่ลีดมา (รหัสในลิงก์ที่ CMO โพสต์)
+    if ref:
+        from . import partners
+        partners.attribute(lid, ref, "ลิงก์แนะนำ")              # มาจากพันธมิตร (ครั้งแรกเท่านั้น)
     try:
         token = _run_lead_audit(lid, site, ip)
     except Exception:
@@ -3534,6 +3555,138 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
         st = deep_audit.start(lead_id)
         note = "เริ่มไต่เว็บใหม่แล้ว (ราว 2 นาที)" if st == "started" else "กำลังทำอยู่แล้ว"
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
+
+
+# ---------- ฝ่ายพันธมิตร ----------
+def _partner_public_ctx(**kw) -> dict:
+    from . import partners
+    return {"pct": partners.pct(), "months": partners.months(), "cookie_days": partners.COOKIE_DAYS, "error": "", "done": False,
+            "form": {}, "plans": billing.PLANS, **kw}
+
+
+@app.get("/partners")
+def partners_page(request: Request, src: str = ""):
+    return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(src=_src(src)))
+
+
+@app.post("/partners")
+def partners_apply(request: Request, name: str = Form(""), company: str = Form(""), email: str = Form(""), phone: str = Form(""),
+                   website: str = Form(""), clients: str = Form(""), agree: str = Form(""), src: str = Form(""), hp: str = Form("")):
+    from . import partners
+    form = {"name": name, "company": company, "email": email, "phone": phone, "website": website, "clients": clients}
+    if hp.strip():
+        return _redirect("/partners")
+    if not agree:
+        return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(error="ติ๊กยอมรับกติกาพันธมิตรก่อน", form=form))
+    err, _ = partners.apply(name, company, email, phone, website, clients, src=_src(src))
+    if err:
+        return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(error=err, form=form))
+    return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(done=True))
+
+
+def _partner_dash(request: Request, p, notice: str = "", error: str = ""):
+    from . import partners
+    st = partners.stats(p)
+    return templates.TemplateResponse(request, "partner_dash.html", {"p": dict(p), "st": st, "ref_url": partners.ref_url(p) if p["code"] else "",
+                                      "notice": notice, "error": error, "cst": partners.CSTATUS_TH, "lst": leads.STATUS_LABEL,
+                                      "pct": partners.pct(), "months": partners.months()})
+
+
+@app.get("/partner/{token}")
+def partner_dashboard(request: Request, token: str, notice: str = ""):
+    p = db.find_partner(token=token)
+    if not p or p["status"] not in ("active", "paused"):
+        return _redirect("/partners")
+    return _partner_dash(request, p, notice)
+
+
+@app.post("/partner/{token}/client")
+def partner_client(request: Request, token: str, website: str = Form(""), email: str = Form(""), name: str = Form(""), consent: str = Form("")):
+    from . import partners
+    p = db.find_partner(token=token)
+    if not p or p["status"] != "active":
+        return _redirect("/partners")
+    err = partners.submit_client(p, website, email, name, bool(consent))
+    if err:
+        return _partner_dash(request, p, error=err)
+    return _redirect(f"/partner/{token}?notice=รับชื่อลูกค้าแล้ว — ตรวจเว็บและทีมขายจะติดต่อพร้อมบอกว่าคุณแนะนำมา")
+
+
+@app.get("/partner/{token}/unsubscribe")
+def partner_unsub_page(request: Request, token: str):
+    p = db.find_partner(token=token)
+    if not p:
+        return _redirect("/")
+    return HTMLResponse("<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>ไม่รับการติดต่อ</title>"
+                        "<body style='font-family:system-ui,sans-serif;max-width:520px;margin:60px auto;padding:0 16px'>"
+                        "<h2>ไม่รับการติดต่อเรื่องพันธมิตรจากเจอ.AI</h2>"
+                        f"<form method='post'><button style='padding:10px 18px;font-size:15px'>ยืนยัน ไม่รับการติดต่ออีก</button></form></body>")
+
+
+@app.post("/partner/{token}/unsubscribe")
+def partner_unsub(request: Request, token: str):
+    from . import partners
+    p = db.find_partner(token=token)
+    if p and p["status"] != "unsubscribed":
+        partners.unsubscribe(p)
+    return HTMLResponse("<!doctype html><meta charset='utf-8'><body style='font-family:system-ui,sans-serif;max-width:520px;margin:60px auto;padding:0 16px'>"
+                        "<h2>เรียบร้อย — เราจะไม่ติดต่อเรื่องนี้อีก</h2></body>")
+
+
+@app.get("/admin/partners")
+def admin_partners(request: Request, notice: str = ""):
+    from . import partners
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    ps = [dict(p) for p in db.list_partners()]
+    for p in ps:
+        st = partners.stats(p)
+        p.update(n_leads=st["leads"], n_won=st["won"], due=st["approved"], pending=st["pending"], paid=st["paid"])
+    try:
+        last = json.loads(db.get_setting("partner_last") or "{}")
+    except Exception:
+        last = {}
+    return templates.TemplateResponse(request, "admin_partners.html", {"ps": ps, "s": partners.summary(), "sth": partners.STATUS_TH, "notice": notice,
+                                      "pct": partners.pct(), "months": partners.months(), "on": partners.enabled(), "daily": partners.daily_limit(),
+                                      "daily_max": partners.DAILY_MAX, "last": last, "base": _public_base(),
+                                      "comms": [dict(c) for c in db.list_commissions(limit=100)], "cst": partners.CSTATUS_TH})
+
+
+@app.post("/admin/partners/{action}")
+def admin_partners_action(request: Request, action: str, pid: int = Form(0), name: str = Form(""), company: str = Form(""), email: str = Form(""),
+                          phone: str = Form(""), website: str = Form(""), on: str = Form(""), daily: str = Form("")):
+    from . import partners
+    if not _is_admin(request):
+        return _redirect("/login")
+    who = request.session.get("email") or "admin"
+    p = db.get_partner(pid) if pid else None
+    if action == "run":
+        r = partners.run(force=True)
+        note = f"หาพันธมิตร: พบ {r['found']} เพิ่ม {r['added']} เสนอคำชวน {r['proposed']} ติดตาม {r['followups']}" + (f" · {', '.join(r['domains'])}" if r["domains"] else "")
+    elif action == "add":
+        err, did = partners.apply(name, company, email, phone, website, "", src="เพิ่มโดยผู้ดูแล")
+        note = err or "เพิ่มแล้ว — อนุมัติได้ที่ตารางด้านล่างหรือหน้าการตัดสินใจ"
+    elif action == "activate" and p:
+        note = partners.activate(p, who)
+        for d in db.list_decisions("proposed", 300):
+            if d["kind"] == "partner_apply" and json.loads(d["payload_json"] or "{}").get("partner_id") == p["id"]:
+                db.set_decision(d["id"], "executed", who, note)
+    elif action == "pause" and p:
+        db.update_partner(p["id"], status="paused" if p["status"] == "active" else "active")
+        note = "พักพันธมิตรแล้ว (ลิงก์ไม่นับลีดใหม่)" if p["status"] == "active" else "เปิดใช้งานอีกครั้งแล้ว"
+    elif action == "invite" and p:
+        partners.propose_invite(p)
+        note = "ร่างคำชวนแล้ว — อนุมัติที่หน้าการตัดสินใจ"
+    elif action == "paid" and p:
+        note = partners.mark_paid(p["id"], who)
+    elif action == "settings":
+        db.set_setting("partner_on", "1" if on else "0")
+        if daily.strip():
+            db.set_setting("partner_daily", str(max(1, min(partners.DAILY_MAX, int(float(daily))))))
+        note = "บันทึกการตั้งค่าแล้ว"
+    else:
+        note = "ไม่รู้จักคำสั่ง"
+    return _redirect(f"/admin/partners?notice={note}")
 
 
 # ---------- ฝ่ายส่งอีเมล: โดเมนผู้ส่ง · ทดสอบกล่อง · กันสแปม · ทดลองข้อความ ----------

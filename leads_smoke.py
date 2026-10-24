@@ -31,7 +31,8 @@ assert sc["score"] == 56 and sc["level"] == "สูง" and sc["n_fail"] == 3 an
 assert L.score_audit(rep(home_fail=True))["score"] == 0
 assert L.score_audit(rep("www"))["level"] == "ต่ำ" and L.score_audit(rep())["score"] == 0
 assert L.score_audit(rep("freshness", "wp"))["n_fail"] == 0 and L.public_summary(rep("freshness", "csr"))[0]["key"] == "csr"   # ข้อของแพลตฟอร์มไม่นับกับเว็บคนนอก
-assert [s["key"] for s in L.public_summary(rep("www", "csr", "sitemap", "orphan"))] == ["csr", "sitemap", "orphan"]
+assert [s["key"] for s in L.public_summary(rep("www", "csr", "sitemap", "orphan"))] == ["csr", "orphan", "www"]   # ตัวเชื่อมของเราไม่ใช่ปัญหาของเว็บลีด
+assert "connector" not in [s["key"] for s in L.public_summary(rep("connector", "csr"))]
 rows = L.parse_import("domain, email, name\nexample.co.th, Sales@Example.co.th, คุณสมชาย\nwww.example.co.th\nbad\tx\nshop.com;info@shop.com")
 assert [r["domain"] for r in rows] == ["example.co.th", "shop.com"] and rows[0]["email"] == "sales@example.co.th" and rows[0]["name"] == "คุณสมชาย"
 print("leads: normalize/score/summary/import OK")

@@ -52,7 +52,7 @@ assert urls[f"{SITE}/info@shopabc.co.th"]["status"] == 404 and urls[f"{SITE}/con
 iss = D.issues(cr); by = {i["key"]: i for i in iss}
 assert by["mailto"]["count"] == 2 and "mailto:" in by["mailto"]["fix"] and by["4xx"]["count"] == 1 and by["5xx"]["count"] == 1
 assert by["https"]["severity"] == "Error" and set(by["dup_title"]["urls"]) == {f"{SITE}/services/", f"{SITE}/services-2/"}
-assert f"{SITE}/about/" in by["h1_missing"]["urls"] and f"{SITE}/about/" in by["desc_missing"]["urls"] and by["alt_missing"]["count"] == 2
+assert f"{SITE}/about/" in by["h1_missing"]["urls"] and f"{SITE}/about/" in by["desc_missing"]["urls"] and by["alt_missing"]["count"] == 1   # รูปเดียวกันซ้ำหลายจุด/หลายหน้า นับครั้งเดียว
 assert by["orphan"]["urls"] == [f"{SITE}/orphan/"]
 assert [i["group"] for i in iss] == sorted([i["group"] for i in iss], key=D.GROUPS.index) and iss[0]["group"] == "Crawl & Index"
 hl = D.health(cr, iss); assert 0 < hl["score"] < 70 and hl["urls"] == cr["n"] and hl["errors"] >= 7, hl
@@ -111,7 +111,7 @@ lead = db.list_leads(None, 5)[0]; t1 = D.tier1(lead)
 assert t1["state"] == "done" and t1["health"]["score"] == hl["score"] and t1["ranking"]["page1"] == 1 and D.tier2(lead) == {}
 assert any(e["kind"] == "deep_audit" for e in db.list_lead_events(lead["id"]))
 html = r.text
-for s in ("Ranking", "AI Visibility", "Site Audit", "รับผลิตเสื้อยืด", "rival.co.th", "ลิงก์อีเมลไม่มี mailto", f"{hl['score']}<small>/100", "สรุปสำคัญ", "วัดเมื่อขอแผน", "ส่งแผนแก้ให้ฉัน"):
+for s in ("Ranking", "AI Visibility", "Site Audit", "รับผลิตเสื้อยืด", "rival.co.th", "ลิงก์อีเมลไม่มี mailto", f"{hl['score']}<small>/100", "สรุปสำคัญ", "วัดฟรีเมื่อขอแผนแก้", "ส่งแผนแก้ให้ฉัน"):
     assert s in html, s
 assert c.get(f"/audit/{lead['token']}/progress").json() == {"tier1": "done", "ai": "none", "step": None}
 r = c.post(f"/audit/{lead['token']}/contact", data={"email": "owner@shopabc.co.th", "consent": "1"}); assert r.status_code == 200
@@ -132,4 +132,11 @@ lid3 = db.add_lead(SITE, "shopabc3.co.th", source="prospect"); db.update_lead(li
 assert "Site Audit" in c.get("/audit/tok3").text and D.tier1(db.get_lead(lid3))["state"] == "done"             # ลีดเก่าเปิดหน้าครั้งแรก → ทำรายงานเต็ม
 os.environ["GEO_DEEP_AUDIT"] = "0"; assert D.start(lid3) == "disabled"
 print("cap/admin: เพดานต่อวัน → คิว · ปุ่มแอดมินข้ามเพดาน · ลีดเก่าเปิดหน้าแล้วทำให้ · สวิตช์ปิด OK")
+import app.deep_audit as _DA
+pp = _DA.parse_page('<img src="/x.png"><img src="/x.png"><img src="/y.png" alt=""><img src="data:image/png;base64,AA"><img data-src="/z.png">', "https://s.co.th/", "s.co.th")
+assert pp["no_alt"] == 2 and pp["no_alt_src"] == ["/x.png", "/z.png"]          # alt="" = รูปตกแต่ง ถูกต้อง · data: ไม่นับ · ซ้ำนับครั้งเดียว
+old = {"issues": [{"key": "alt_missing", "severity": "Warning", "label": "รูปไม่มี alt text", "urls": ["a", "b"], "count": 19126, "fix": "ใส่ alt"},
+                  {"key": "desc_missing", "severity": "Warning", "label": "x", "urls": ["a"], "count": 4, "fix": "x"}], "health": {"warnings": 19130}}
+nd = _DA._normalize(old); assert nd["issues"][0]["count"] == 2 and nd["health"]["warnings"] == 6     # รายงานเก่าแสดงถูกโดยไม่ต้องไต่ใหม่
+print("alt: นับรูปไม่ซ้ำ · alt ว่าง = รูปตกแต่ง · รายงานเก่าแก้ตัวเลขตอนแสดง OK")
 print("ALL OK")

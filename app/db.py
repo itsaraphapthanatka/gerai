@@ -251,6 +251,44 @@ def _tables() -> list[str]:
             category TEXT,
             action TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS partners (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'prospect',
+            kind TEXT,
+            name TEXT,
+            company TEXT,
+            email TEXT,
+            phone TEXT,
+            website TEXT,
+            domain TEXT,
+            clients TEXT,
+            code TEXT UNIQUE,
+            token TEXT NOT NULL,
+            source TEXT,
+            touches INTEGER NOT NULL DEFAULT 0,
+            last_contacted_at TEXT,
+            replied_at TEXT,
+            applied_at TEXT,
+            activated_at TEXT,
+            payout TEXT,
+            notes TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS partner_commissions (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            partner_id INTEGER NOT NULL,
+            lead_id INTEGER,
+            quote_id INTEGER,
+            receipt_id INTEGER UNIQUE,
+            base REAL NOT NULL DEFAULT 0,
+            pct REAL NOT NULL DEFAULT 0,
+            amount REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            eligible_at TEXT,
+            paid_at TEXT,
+            note TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS acct_docs (
             id {_PK},
             created_at TEXT NOT NULL,
@@ -448,7 +486,8 @@ def init_db() -> None:
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
-        _ensure_column(c, "leads", "exp_arm", "TEXT")                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
+        _ensure_column(c, "leads", "exp_arm", "TEXT")
+        _ensure_column(c, "leads", "partner_id", "INTEGER")                  # ลีดที่พันธมิตรแนะนำมา (ลิงก์ /p/<code> หรือส่งผ่านแดชบอร์ดพันธมิตร)                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
         _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
         _ensure_column(c, "quotes", "period_total", "INTEGER")           # ยอดต่อรอบบิล (รายปี = ทั้งปี)
         _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
@@ -1241,7 +1280,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1698,3 +1737,80 @@ def get_lead_by_email(email: str):
 def leads_with_arm(prefix: str):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM leads WHERE exp_arm LIKE ? ORDER BY id"), (prefix + "%",)).fetchall()
+
+
+# ---------- ฝ่ายพันธมิตร ----------
+PARTNER_FIELDS = {"status", "kind", "name", "company", "email", "phone", "website", "domain", "clients", "code", "touches",
+                  "last_contacted_at", "replied_at", "applied_at", "activated_at", "payout", "notes", "source"}
+
+
+def add_partner(**f) -> int:
+    import secrets as _s
+    f.setdefault("token", _s.token_urlsafe(12))
+    cols = ["created_at"] + list(f)
+    with get_conn() as c:
+        cur = c.execute(q(f"INSERT INTO partners({','.join(cols)}) VALUES({','.join('?' * len(cols))}) RETURNING id"), tuple([now()] + list(f.values())))
+        return cur.fetchone()["id"]
+
+
+def update_partner(pid: int, **fields) -> None:
+    cols = [k for k in fields if k in PARTNER_FIELDS]
+    if cols:
+        with get_conn() as c:
+            c.execute(q(f"UPDATE partners SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (pid,))
+
+
+def get_partner(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM partners WHERE id=?"), (pid,)).fetchone()
+
+
+def find_partner(**where):
+    k, v = next(iter(where.items()))
+    with get_conn() as c:
+        if k in ("email", "domain", "code"):
+            return c.execute(q(f"SELECT * FROM partners WHERE LOWER({k})=? ORDER BY id LIMIT 1"), ((v or "").lower(),)).fetchone()
+        return c.execute(q(f"SELECT * FROM partners WHERE {k}=? ORDER BY id LIMIT 1"), (v,)).fetchone()
+
+
+def list_partners(status: str = None, limit: int = 1000):
+    with get_conn() as c:
+        if status:
+            return c.execute(q("SELECT * FROM partners WHERE status=? ORDER BY id DESC LIMIT ?"), (status, limit)).fetchall()
+        return c.execute(q("SELECT * FROM partners ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def add_commission(**f) -> int:
+    cols = ["created_at"] + list(f)
+    with get_conn() as c:
+        cur = c.execute(q(f"INSERT INTO partner_commissions({','.join(cols)}) VALUES({','.join('?' * len(cols))}) RETURNING id"), tuple([now()] + list(f.values())))
+        return cur.fetchone()["id"]
+
+
+def update_commission(cid: int, **fields) -> None:
+    cols = [k for k in fields if k in ("status", "paid_at", "note", "eligible_at")]
+    if cols:
+        with get_conn() as c:
+            c.execute(q(f"UPDATE partner_commissions SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?"), tuple(fields[k] for k in cols) + (cid,))
+
+
+def list_commissions(partner_id: int = None, status: str = None, limit: int = 2000):
+    sql, args = "SELECT * FROM partner_commissions WHERE 1=1", []
+    if partner_id is not None:
+        sql += " AND partner_id=?"
+        args.append(partner_id)
+    if status:
+        sql += " AND status=?"
+        args.append(status)
+    with get_conn() as c:
+        return c.execute(q(sql + " ORDER BY id DESC LIMIT ?"), tuple(args) + (limit,)).fetchall()
+
+
+def commission_for_receipt(receipt_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM partner_commissions WHERE receipt_id=?"), (receipt_id,)).fetchone()
+
+
+def leads_of_partner(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM leads WHERE partner_id=? ORDER BY id DESC"), (pid,)).fetchall()

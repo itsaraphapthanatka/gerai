@@ -165,6 +165,7 @@ def main():
     ap.add_argument("--inbox", action="store_true", help="อ่านอีเมลที่ลีดตอบกลับ (IMAP) → ตอบกลับ/ไม่สนใจ/ขอไม่รับ/ร่างคำตอบ")
     ap.add_argument("--plan", action="store_true", help="CEO วางแผนวันนี้จากด่านที่ยังขาด แล้วแจกงานให้เอเจนต์ (หาลูกค้า · หาช่องทางซ้ำ · วัด AI · การตลาด · ติดตามผล · ฝากเจ้าของโทร)")
     ap.add_argument("--success", action="store_true", help="ดูแลลูกค้าที่จ่ายแล้ว: เริ่มงาน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานก่อนรอบบิล · เตือนเสี่ยงหลุด")
+    ap.add_argument("--partners", action="store_true", help="ฝ่ายพันธมิตร: หาเอเจนซี่/ฟรีแลนซ์ → ร่างคำชวน (รออนุมัติ) · ติดตามครั้งเดียว · อนุมัติค่าแนะนำที่พ้นช่วงคืนเงิน")
     ap.add_argument("--deliv", action="store_true", help="ฝ่ายส่งอีเมล: ตรวจ SPF/DKIM/DMARC/บัญชีดำ · ทดสอบกล่องจริง · กันเด้ง/ร้องเรียน · เพิ่มปริมาณทีละขั้น · ตัดสินการทดลองข้อความ")
     ap.add_argument("--acct", action="store_true", help="ฝ่ายบัญชี: ออกใบแจ้งหนี้รอบถัดไปให้ลูกค้า PromptPay · ทวงวันครบกำหนด +3 +7 · แจ้งเจ้าของเมื่อค้าง")
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
@@ -187,6 +188,12 @@ def main():
         orchestrator.RUN_INLINE = True                     # cron: ทำให้เสร็จในโปรเซสนี้
         res = orchestrator.plan_and_run()
         print(orchestrator.summary(res["tasks"]))
+        return
+    if args.partners:
+        from app import partners
+        res = partners.run()
+        print("partners · " + json.dumps(res, ensure_ascii=False))
+        print(partners.status_text() or "partners · ยังไม่มีพันธมิตร")
         return
     if args.deliv:
         from app import deliverability

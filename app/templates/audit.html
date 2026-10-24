@@ -42,6 +42,7 @@
     <input type="text" name="url" value="{{ url }}" placeholder="เช่น example.co.th" required autofocus autocomplete="url">
     <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
     <input type="hidden" name="src" value="{{ src or '' }}">
+    <input type="hidden" name="ref" value="{{ ref or '' }}">
     <button type="submit">ตรวจเลย</button>
   </form>
   <div id="wait" class="wait">กำลังดึงเว็บจริงมาตรวจ 16 ข้อ รอครึ่งนาที…</div>

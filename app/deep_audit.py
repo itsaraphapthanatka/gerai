@@ -73,7 +73,17 @@ def parse_page(html: str, url: str, apex: str) -> dict:
     desc_c = re.search(r"""(?is)content=["']([^"']*)""", desc.group(0)) if desc else None
     h1s = re.findall(r"(?is)<h1[^>]*>(.*?)</h1>", h)
     imgs = re.findall(r"(?is)<img\b[^>]*>", h)
-    no_alt = sum(1 for i in imgs if not re.search(r"""(?i)\balt\s*=\s*["'][^"']+["']""", i))
+    # ไม่มี alt = ไม่มีแอตทริบิวต์ alt เลย (alt="" คือรูปตกแต่ง ถูกต้องตามหลัก) · เก็บที่อยู่รูปไว้นับแบบไม่ซ้ำทั้งเว็บ (โลโก้/ไอคอนซ้ำทุกหน้านับครั้งเดียว)
+    no_alt_src = []
+    for i in imgs:
+        if re.search(r"(?i)\balt\s*=", i):
+            continue
+        m = re.search(r"""(?i)\b(?:data-src|src)\s*=\s*["']([^"']+)["']""", i)
+        s = (m.group(1).strip() if m else "")
+        if not s or s.startswith("data:"):
+            continue
+        no_alt_src.append(s.split("?")[0][:200])
+    no_alt = len(set(no_alt_src))
     robots = re.search(r"""(?is)<meta[^>]+name=["']robots["'][^>]*content=["']([^"']*)""", h)
     links = set()
     for href in re.findall(r"""(?is)<a\b[^>]*?href\s*=\s*["']([^"']*)["']""", h):
@@ -88,7 +98,7 @@ def parse_page(html: str, url: str, apex: str) -> dict:
         links.add(_norm(full.split("?")[0]))
     clean = lambda s: re.sub(r"\s+", " ", _html.unescape(re.sub(r"(?s)<[^>]+>", " ", s or ""))).strip()
     return {"title": clean(title.group(1))[:200] if title else "", "desc": (desc_c.group(1).strip() if desc_c else ""),
-            "h1": [clean(x)[:150] for x in h1s][:3], "n_img": len(imgs), "no_alt": no_alt,
+            "h1": [clean(x)[:150] for x in h1s][:3], "n_img": len(imgs), "no_alt": no_alt, "no_alt_src": sorted(set(no_alt_src))[:60],
             "noindex": bool(robots and "noindex" in robots.group(1).lower()), "links": links}
 
 
@@ -215,7 +225,7 @@ def issues(cr: dict) -> list[dict]:
     ok = [p for p in pages if 200 <= p["status"] < 300 and p.get("html")]
     out = []
     add = lambda key, group, sev, label, urls, fix, count=None: out.append(
-        {"key": key, "group": group, "severity": sev, "label": label, "urls": urls[:40], "count": count if count is not None else len(urls), "fix": fix})
+        {"key": key, "group": group, "severity": sev, "label": label, "urls": urls[:40], "n_urls": len(urls), "count": count if count is not None else len(urls), "fix": fix})
     e5 = [p for p in pages if p["status"] >= 500 or p["status"] == 0]
     if e5:
         add("5xx", "Crawl & Index", "Error", "หน้าตอบกลับ 5XX หรือเปิดไม่ได้ — Google และ AI เข้าไม่ได้", [p["url"] for p in e5],
@@ -268,8 +278,10 @@ def issues(cr: dict) -> list[dict]:
             "ใส่ลิงก์จากเมนู/ส่วนท้าย/หน้าที่เกี่ยวข้อง หรือถ้าเป็นหน้าทิ้ง (เช่น /sample-page) ให้ลบหรือ noindex")
     alt = [p for p in ok if p.get("no_alt")]
     if alt:
+        uniq = {s for p in alt for s in (p.get("no_alt_src") or [])}
         add("alt_missing", "Media & speed", "Warning", "รูปไม่มี alt text", [p["url"] for p in alt],
-            "ใส่ alt อธิบายรูปสั้น ๆ ช่วยทั้งการค้นหารูปและผู้ใช้ที่มองไม่เห็น", count=sum(p["no_alt"] for p in alt))
+            "ใส่ alt อธิบายรูปสั้น ๆ ช่วยทั้งการค้นหารูปและผู้ใช้ที่มองไม่เห็น (รูปเดียวกันที่ซ้ำทุกหน้านับครั้งเดียว)",
+            count=len(uniq) or len(alt))
     out.sort(key=lambda x: (GROUPS.index(x["group"]), SEV_ORDER[x["severity"]], -x["count"]))
     return out
 
@@ -479,7 +491,21 @@ def _get(lead, col: str) -> dict:
 
 
 def tier1(lead) -> dict:
-    return _get(lead, "deep_json")
+    return _normalize(_get(lead, "deep_json"))
+
+
+def _normalize(d: dict) -> dict:
+    """รายงานเก่าที่นับ alt ทุกครั้งที่รูปโผล่ (โลโก้ซ้ำ 100 หน้า = 100) → นับเป็นจำนวนหน้าแทน แล้วคิด Warning ใหม่ — ไม่ต้องไต่ใหม่"""
+    iss = d.get("issues") or []
+    fixed = False
+    for i in iss:
+        if i.get("key") == "alt_missing" and "ครั้งเดียว" not in (i.get("fix") or "") and i.get("count", 0) > len(i.get("urls") or []):
+            i["count"] = len(i.get("urls") or [])
+            i["label"] = "หน้าที่มีรูปไม่มี alt text"
+            fixed = True
+    if fixed and d.get("health"):
+        d["health"]["warnings"] = sum(i["count"] for i in iss if i.get("severity") == "Warning")
+    return d
 
 
 def tier2(lead) -> dict:

@@ -160,6 +160,14 @@ def process(m: dict, llm=None) -> dict:
     mid = m.get("message_id") or hashlib.sha1((m["from"] + m.get("subject", "") + (m.get("body") or "")[:200]).encode()).hexdigest()
     if _seen(mid):
         return {"skip": "seen"}
+    from . import partners
+    pm = None if match_lead(m) else partners.match_inbox(m)     # พันธมิตร/คนที่เราชวน ตอบกลับ → ไม่ใช่ลีดลูกค้า
+    if pm:
+        with db.get_conn() as c:
+            c.execute(db.q("INSERT INTO inbox_messages(received_at,message_id,from_addr,subject,body,lead_id,category,action) VALUES(?,?,?,?,?,?,?,?)"),
+                      (db.now(), mid, m["from"], (m.get("subject") or "")[:300], (m.get("body") or "")[:4000], None, "partner",
+                       f"พันธมิตร {pm['company'] or pm['domain']} ตอบกลับ — แจ้งเจ้าของแล้ว"))
+        return {"category": "partner", "action": "พันธมิตรตอบกลับ", "lead_id": None}
     lead = match_lead(m)
     created = False
     if not lead and not BOUNCE_FROM.search(m["from"]):

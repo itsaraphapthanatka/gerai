@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="th">
+<head>
+<title>แดชบอร์ดพันธมิตร · เจอ.AI</title>
+<meta name="robots" content="noindex">
+{% include "_public_head.html" %}
+</head>
+<body><div class="wrap">
+  <div class="brand"><a href="/">เจอ.AI</a> · แดชบอร์ดพันธมิตร</div>
+  <h1>{{ p.company or p.name }}</h1>
+  <p class="sub">รหัสแนะนำ <b>{{ p.code }}</b>{% if p.status == 'paused' %} · <span class="pill">พักไว้ — ลิงก์ยังไม่นับลีดใหม่</span>{% endif %} · ค่าแนะนำ {{ "%g"|format(pct) }}% ของค่าบริการ {{ months }} เดือนแรก</p>
+  {% if notice %}<div class="ok">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+  <div class="grid">
+    <div class="card"><b>{{ st.leads }}</b><span>ลีดที่คุณแนะนำ · จ่ายแล้ว {{ st.won }} ราย</span></div>
+    <div class="card"><b>{{ "{:,.0f}".format(st.approved) }}</b><span>บาท ถึงกำหนดจ่าย{% if st.pending %} · รออีก {{ "{:,.0f}".format(st.pending) }}{% endif %}</span></div>
+    <div class="card"><b>{{ "{:,.0f}".format(st.paid) }}</b><span>บาท จ่ายแล้ว</span></div>
+  </div>
+
+  <h2>ลิงก์ตรวจเว็บฟรีของคุณ</h2>
+  <div class="copy"><input id="rl" type="text" readonly value="{{ ref_url }}" onclick="this.select()"><button type="button" onclick="navigator.clipboard.writeText(document.getElementById('rl').value).then(()=>{this.textContent='คัดลอกแล้ว ✓'})">คัดลอก</button></div>
+  <p class="sub" style="font-size:14px;margin-top:6px">ลูกค้าที่ตรวจเว็บผ่านลิงก์นี้ภายใน 60 วัน นับเป็นของคุณ</p>
+
+  {% if p.status == 'active' %}
+  <h2>ส่งชื่อลูกค้าให้เรา</h2>
+  <form class="f" method="post" action="/partner/{{ p.token }}/client">
+    <input class="full" type="text" name="website" placeholder="เว็บไซต์ของลูกค้า เช่น example.co.th" required>
+    <input type="email" name="email" placeholder="อีเมลลูกค้า (ถ้ามี)">
+    <input type="text" name="name" placeholder="ชื่อผู้ติดต่อฝั่งลูกค้า (ถ้ามี)" maxlength="120">
+    <label class="consent full"><input type="checkbox" name="consent" value="1"> ลูกค้ายินยอมให้เจอ.AI ติดต่อเรื่องผลตรวจเว็บแล้ว</label>
+    <div class="full"><button type="submit">ส่งให้ทีมขาย</button></div>
+  </form>
+  {% endif %}
+
+  <h2>ลีดที่คุณแนะนำ</h2>
+  {% if st.lead_rows %}<div class="tw"><table><tr><th>เว็บ</th><th>สถานะ</th><th>เมื่อ</th></tr>
+    {% for l in st.lead_rows %}<tr><td>{{ l['domain'] }}</td><td>{{ lst.get(l['status'], l['status']) }}</td><td style="color:var(--stone);font-size:12.5px">{{ (l['created_at'] or '')[:10] }}</td></tr>{% endfor %}</table></div>
+  {% else %}<p class="sub" style="font-size:14px">ยังไม่มี — ส่งลิงก์ด้านบนให้ลูกค้า หรือส่งชื่อลูกค้าในฟอร์ม</p>{% endif %}
+
+  <h2>ค่าแนะนำ</h2>
+  {% if st.commissions %}<div class="tw"><table><tr><th>ใบเสร็จ</th><th>ฐาน (ก่อน VAT)</th><th>ค่าแนะนำ</th><th>สถานะ</th></tr>
+    {% for c in st.commissions %}<tr><td>{{ c['note'] }}</td><td>{{ "{:,.2f}".format(c['base']) }}</td><td><b>{{ "{:,.2f}".format(c['amount']) }}</b></td><td>{{ cst.get(c['status'], c['status']) }}{% if c['status'] == 'pending' and c['eligible_at'] %}<div style="color:var(--stone);font-size:12px">ถึงกำหนด {{ c['eligible_at'][:10] }}</div>{% endif %}</td></tr>{% endfor %}</table></div>
+  {% else %}<p class="sub" style="font-size:14px">ยังไม่มี — ค่าแนะนำเกิดเมื่อลูกค้าที่คุณแนะนำจ่ายค่าบริการ</p>{% endif %}
+  <p class="foot">ลิงก์หน้านี้เป็นของคุณคนเดียว อย่าส่งต่อ · มีคำถามตอบอีเมลต้อนรับได้เลย</p>
+</div></body></html>

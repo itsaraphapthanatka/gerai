@@ -16,10 +16,13 @@ MANDATE_DEFAULT = {
     "ai_cost_cap_thb": 570,     # ต้นทุน AI/เครื่องมือต่อลูกค้าต่อเดือน (จากแผน)
     "min_margin_pct": 70,
     "yearly_discount_pct": 17,  # ส่วนลดมาตรฐานเมื่อจ่ายรายปี (ไม่นับรวมกับส่วนลดสูงสุดของดีล)
+    "partner_commission_pct": 20,     # ค่าแนะนำพันธมิตร (% ของค่าบริการก่อน VAT)
+    "partner_commission_months": 12,  # จ่ายค่าแนะนำกี่เดือนแรกของลูกค้าแต่ละราย
 }
 MANDATE_LABEL = {"max_discount_pct": "ส่วนลดสูงสุด (%)", "max_deal_thb": "วงเงินต่อดีล (บาท/เดือน)", "refund_days": "คืนเงินเต็มภายใน (วัน)",
                  "ai_cost_cap_thb": "เพดานต้นทุน AI ต่อลูกค้า (บาท/เดือน)", "min_margin_pct": "กำไรขั้นต้นขั้นต่ำ (%)",
-                 "yearly_discount_pct": "ส่วนลดเมื่อจ่ายรายปี (%)"}
+                 "yearly_discount_pct": "ส่วนลดเมื่อจ่ายรายปี (%)", "partner_commission_pct": "ค่าแนะนำพันธมิตร (%)",
+                 "partner_commission_months": "จ่ายค่าแนะนำกี่เดือนแรก"}
 
 
 class _Mandate(dict):
@@ -62,8 +65,9 @@ def set_mandate(key: str, value) -> None:
     if key.endswith("_pct") and v > 100:
         raise ValueError("เปอร์เซ็นต์ต้องไม่เกิน 100")
     db.set_setting(f"mandate_{key}", str(v))
-AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR"}
-KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า"}
+AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR", "partner": "พันธมิตร"}
+KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า",
+         "partner_outreach": "ชวนพันธมิตร", "partner_apply": "รับพันธมิตร"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
 # ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
 AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup"}
@@ -350,7 +354,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting, deliverability
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting, deliverability, partners
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -358,7 +362,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), deliverability.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), deliverability.status_text(), partners.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

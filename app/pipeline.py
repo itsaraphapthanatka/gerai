@@ -213,6 +213,9 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "quote" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return send_quote(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] in ("partner_outreach", "partner_apply"):
+        from . import partners
+        return partners.execute(d, who)
     if d["kind"] == "payment" and pl.get("acct_doc_id"):
         from . import accounting
         inv = db.get_acct_doc(pl["acct_doc_id"])

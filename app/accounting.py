@@ -288,6 +288,11 @@ def issue_receipt(q, items: list[dict], source: str, period: tuple[str, str], st
     did = _create("receipt", q, lead, items, period, source, "issued", stripe_ref=stripe_ref,
                   invoice_id=invoice["id"] if invoice is not None else None, wht=wht, total=total)
     doc = db.get_acct_doc(did)
+    try:
+        from . import partners
+        partners.accrue(doc)                              # ลูกค้าที่พันธมิตรแนะนำ → ค่าแนะนำ (รอพ้นช่วงคืนเงิน)
+    except Exception:
+        pass
     res = send(doc) if send_mail else "ไม่ส่งอีเมล"
     _record(q["lead_id"], "acct_receipt", f"{doc['number']} {doc['total']:,.0f} บาท ({SOURCE_TH.get(source, source)}) · {res}")
     return db.get_acct_doc(did)
@@ -479,6 +484,11 @@ def void(doc, reason: str, who: str = "admin") -> str:
     if len((reason or "").strip()) < 3:
         return "ใส่เหตุผลการยกเลิก"
     db.update_acct_doc(doc["id"], status="void", void_reason=f"{reason.strip()[:200]} · โดย {who} {db.now()[:16]}")
+    try:
+        from . import partners
+        partners.void_for_receipt(doc)
+    except Exception:
+        pass
     if doc["kind"] == "receipt" and doc["invoice_id"]:
         inv = db.get_acct_doc(doc["invoice_id"])
         if inv and inv["status"] == "paid":
@@ -493,10 +503,13 @@ def reissue(doc, who: str = "admin") -> str:
         return "ออกใหม่ได้เฉพาะใบเสร็จที่ยังไม่ยกเลิก"
     q = db.get_quote(doc["quote_id"])
     db.update_acct_doc(doc["id"], status="void", void_reason=f"ออกใบใหม่แทน · โดย {who} {db.now()[:16]}")
+    from . import partners
+    partners.void_for_receipt(doc)
     inv = db.get_acct_doc(doc["invoice_id"]) if doc["invoice_id"] else None
     did = _create("receipt", q, db.get_lead(q["lead_id"]), json.loads(doc["items_json"] or "[]"), (doc["period_start"], doc["period_end"]),
                   doc["source"], "issued", stripe_ref=None, invoice_id=inv["id"] if inv else None, wht=doc["wht"], total=doc["total"])
     new = db.get_acct_doc(did)
+    partners.accrue(new)
     res = send(new, intro=f"แนบใบเสร็จฉบับแก้ไขแทนเลขที่ {doc['number']} ครับ")
     _record(q["lead_id"], "acct_receipt", f"{new['number']} ออกแทน {doc['number']} · {res}")
     return f"ออก {new['number']} แทน {doc['number']} แล้ว · {res}"

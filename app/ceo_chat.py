@@ -30,6 +30,7 @@ ACTIONS = {
     "followup": ("ส่งข้อความติดตามผลครั้งถัดไปทันที", {"domain": "โดเมน"}, True),
     "ai_report": ("ถาม ChatGPT 20 คำถามให้ลีด (≈฿40)", {"domain": "โดเมน"}, True),
     "billing": ("สรุปบัญชี: รับเงินเดือนนี้ ค้างรับ เกินกำหนด", {}, False),
+    "partners": ("สรุปพันธมิตร: กี่ราย รออนุมัติ ลีดที่แนะนำ ค่าแนะนำค้างจ่าย", {}, False),
     "email_health": ("สุขภาพการส่งอีเมล: เด้ง ขอไม่รับ เข้ากล่องหลักไหม การทดลองข้อความ", {}, False),
     "post": ("โพสต์การตลาดทันที", {"kind": "insight|ai_test|tip"}, True),
     "note": ("จดบันทึกในไทม์ไลน์ลีด", {"domain": "โดเมน", "text": "ข้อความ"}, False),
@@ -126,6 +127,8 @@ def _rules(text: str) -> dict | None:
     url = L.first_url(t)
     if url and re.search(r"(สถานะ|เป็นไง|ถึงไหน|status|ดูลีด|ข้อมูล)", t, re.I):
         return {"action": "lead_info", "args": {"domain": url}}
+    if not url and re.search(r"(พันธมิตร|partner|ค่าแนะนำ|เอเจนซี่ที่แนะนำ)", t, re.I):
+        return {"action": "partners", "args": {}}
     if not url and re.search(r"(สแปม|spam|อีเมลเด้ง|เข้ากล่อง|สุขภาพอีเมล|ทดลองข้อความ|a/b)", t, re.I):
         return {"action": "email_health", "args": {}}
     if not url and re.search(r"(ค้างจ่าย|ค้างชำระ|ค้างรับ|รายรับ|สรุปบัญชี|ใบเสร็จ|ใบแจ้งหนี้|ใบกำกับ)", t):
@@ -337,6 +340,9 @@ def execute(action: str, args: dict) -> str:
                 + (f"\nใบเสนอราคา {qs[0]['number']}: {qs[0]['status']}" if qs else "")
                 + "\nล่าสุด: " + " · ".join(f"{e['created_at'][5:16].replace('T', ' ')} {L.EVENT_LABEL.get(e['kind'], e['kind'])}" for e in ev)
                 + f"\n{pipeline.public_base()}/admin/leads/{lead['id']}")
+    if action == "partners":
+        from . import partners as PT
+        return (PT.status_text() or "ยังไม่มีพันธมิตร — ฝ่ายพันธมิตรหาเอเจนซี่ให้ทุกวัน 11:00 และรับสมัครที่ /partners") + f"\n{pipeline.public_base()}/admin/partners"
     if action == "email_health":
         from . import deliverability as D
         return (D.status_text() or "ยังไม่มีการส่งอีเมลทักและยังไม่ได้ตั้งกล่องทดสอบ") + f"\n{pipeline.public_base()}/admin/deliverability"

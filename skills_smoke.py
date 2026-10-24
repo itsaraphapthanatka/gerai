@@ -13,7 +13,7 @@ from app.main import app
 db.init_db()
 
 # ---- โหลด / แก้ทับ / คืนค่า ----
-assert set(SK.AGENTS) == {"ceo", "cfo", "cto", "cmo", "prospecting", "delivery", "sdr", "cs", "acct", "deliv"}
+assert set(SK.AGENTS) == {"ceo", "cfo", "cto", "cmo", "prospecting", "delivery", "sdr", "cs", "acct", "deliv", "partner"}
 for n in SK.AGENTS:
     t = SK.load(n); assert len(t) > 800 and t.startswith("# ทักษะ"), n
 assert "การันตี" in SK.load("ceo") and "answer-first" in SK.load("delivery").lower() or "TL;DR" in SK.load("delivery")

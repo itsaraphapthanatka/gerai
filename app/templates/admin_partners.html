@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}พันธมิตร — เจอ.AI{% endblock %}
+{% block content %}
+{% set inp = "padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px" %}
+<h1>พันธมิตร</h1>
+<p class="muted">เอเจนซี่เว็บ/การตลาดและฟรีแลนซ์ที่ส่งลูกค้ามาให้ · ค่าแนะนำ {{ "%g"|format(pct) }}% ของค่าบริการก่อน VAT {{ months }} เดือนแรก (แก้ได้ที่กรอบอำนาจ) · จ่ายหลังพ้นช่วงคืนเงิน 7 วัน · คำชวนทุกฉบับรอคุณอนุมัติ · หาพันธมิตรเองทุกวัน 11:00 · หน้าสมัคร <a class="link" href="/partners" target="_blank">{{ base }}/partners</a></p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0">
+  {% for lb, v in [('พันธมิตร', s.active), ('รออนุมัติ', s.applied), ('ชวนแล้ว', s.invited), ('ตอบกลับ', s.replied), ('ลีดจากพันธมิตร', s.leads), ('ค่าแนะนำถึงกำหนด', "{:,.0f}".format(s.due))] %}
+  <div class="card"><div class="muted" style="font-size:12px">{{ lb }}</div><div style="font-size:22px;font-weight:700">{{ v }}</div></div>{% endfor %}
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+  <form method="post" action="/admin/partners/run"><button class="btn sm" type="submit">หาพันธมิตรตอนนี้</button></form>
+  <form method="post" action="/admin/partners/settings" style="display:flex;gap:6px;align-items:center">
+    <label style="font-size:12.5px"><input type="checkbox" name="on" value="1" {% if on %}checked{% endif %}> หาเองทุกวัน</label>
+    <input type="number" name="daily" value="{{ daily }}" min="1" max="{{ daily_max }}" style="{{ inp }};width:70px" title="จำนวนต่อวัน">
+    <button class="btn ghost sm" type="submit">บันทึก</button>
+  </form>
+  {% if last.at %}<span class="muted" style="font-size:12.5px">รอบล่าสุด {{ last.at[5:16].replace('T',' ') }} · พบ {{ last.found }} เพิ่ม {{ last.added }} เสนอ {{ last.proposed }}</span>{% endif %}
+</div>
+
+<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">เพิ่มพันธมิตรเอง (คนที่คุยกันแล้ว)</summary>
+  <form method="post" action="/admin/partners/add" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:10px">
+    <input name="name" placeholder="ชื่อผู้ติดต่อ" style="{{ inp }}"><input name="company" placeholder="บริษัท/ทีม" style="{{ inp }}">
+    <input name="email" type="email" placeholder="อีเมล" style="{{ inp }}"><input name="phone" placeholder="เบอร์โทร" style="{{ inp }}">
+    <input name="website" placeholder="เว็บไซต์" style="{{ inp }}"><div><button class="btn ghost sm" type="submit">เพิ่ม</button></div>
+  </form>
+</details>
+
+<div class="card" style="padding:0;overflow:hidden">
+  {% if ps %}<div style="overflow-x:auto"><table>
+    <thead><tr><th>พันธมิตร</th><th>สถานะ</th><th>ลีด/จ่าย</th><th>ค่าแนะนำ</th><th></th></tr></thead>
+    <tbody>{% for p in ps %}<tr>
+      <td><b>{{ p.company or p.name or p.domain }}</b><div class="muted" style="font-size:11.5px">{{ p.email or 'ยังไม่มีอีเมล' }}{% if p.website %} · <a class="link" href="{{ p.website }}" target="_blank">{{ p.domain }}</a>{% endif %}</div>
+        {% if p.code %}<div class="muted" style="font-size:11.5px">รหัส {{ p.code }} · <a class="link" href="/partner/{{ p.token }}" target="_blank">แดชบอร์ด</a></div>{% endif %}
+        {% if p.notes %}<details><summary class="muted" style="font-size:11.5px;cursor:pointer">ประวัติ</summary><div class="muted" style="font-size:11.5px;white-space:pre-line">{{ p.notes[:800] }}</div></details>{% endif %}</td>
+      <td><span class="pill {{ 'ok' if p.status == 'active' else ('no' if p.status in ('unsubscribed','rejected') else '') }}">{{ sth.get(p.status, p.status) }}</span><div class="muted" style="font-size:11px">{{ (p.source or '')[:40] }}</div></td>
+      <td>{{ p.n_leads }} / {{ p.n_won }}</td>
+      <td style="font-size:12.5px">{% if p.due %}<b>ถึงกำหนด {{ "{:,.2f}".format(p.due) }}</b><br>{% endif %}{% if p.pending %}รอ {{ "{:,.2f}".format(p.pending) }}<br>{% endif %}{% if p.paid %}จ่ายแล้ว {{ "{:,.2f}".format(p.paid) }}{% endif %}</td>
+      <td style="white-space:nowrap;font-size:12.5px">
+        {% if p.status in ('applied','replied','invited','prospect') and p.email %}<form method="post" action="/admin/partners/activate" style="display:inline"><input type="hidden" name="pid" value="{{ p.id }}"><button class="btn sm" type="submit" style="padding:2px 8px">รับเป็นพันธมิตร</button></form>{% endif %}
+        {% if p.status == 'prospect' and p.email %}<form method="post" action="/admin/partners/invite" style="display:inline"><input type="hidden" name="pid" value="{{ p.id }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">ร่างคำชวน</button></form>{% endif %}
+        {% if p.status in ('active','paused') %}<form method="post" action="/admin/partners/pause" style="display:inline"><input type="hidden" name="pid" value="{{ p.id }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">{{ 'พัก' if p.status == 'active' else 'เปิดใหม่' }}</button></form>{% endif %}
+        {% if p.due %}<form method="post" action="/admin/partners/paid" style="display:inline" onsubmit="return confirm('โอนค่าแนะนำ {{ '{:,.2f}'.format(p.due) }} บาทให้ {{ p.company or p.name }} แล้วใช่ไหม?')"><input type="hidden" name="pid" value="{{ p.id }}"><button class="btn sm" type="submit" style="padding:2px 8px">โอนแล้ว</button></form>{% endif %}
+      </td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีพันธมิตร — กด "หาพันธมิตรตอนนี้" หรือส่งลิงก์หน้าสมัครให้เอเจนซี่ที่รู้จัก</p></div>{% endif %}
+</div>
+{% endblock %}
