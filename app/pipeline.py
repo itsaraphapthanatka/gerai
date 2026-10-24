@@ -226,6 +226,9 @@ def execute_decision(d, who: str) -> str:
     if d["kind"] == "quote" and pl.get("quote_id"):
         q = db.get_quote(pl["quote_id"])
         return send_quote(q, who) if q else "ไม่พบใบเสนอราคา"
+    if d["kind"] == "expansion":
+        from . import expansion
+        return expansion.execute(d, who)
     if d["kind"] in ("partner_outreach", "partner_apply"):
         from . import partners
         return partners.execute(d, who)
@@ -466,6 +469,7 @@ def confirm_payment(q, who: str = "admin") -> str:
     """เจ้าของ/CFO ยืนยันยอดเข้า → เปิดบัญชีและแบรนด์ → ลูกค้าเป้าหมายปิดดีล → อีเมลต้อนรับ"""
     if q["status"] == "paid":
         return "ใบนี้ยืนยันไปแล้ว"
+    prev = [x for x in db.list_quotes(q["lead_id"]) if x["status"] == "paid" and x["id"] != q["id"]]   # ลูกค้าเดิมจ่ายใบใหม่ = อัปเกรด/เปลี่ยนรอบบิล
     prov = provision_customer(q)
     db.update_quote(q["id"], status="paid", paid_at=db.now(), tenant_id=prov["tenant_id"], brand_id=prov["brand_id"])
     lead = db.get_lead(q["lead_id"])
@@ -475,7 +479,20 @@ def confirm_payment(q, who: str = "admin") -> str:
     record(lead["id"], "won", f"แพ็กเกจ {q['package']} " + (f"รายปี {Q.period_total(q):,} บาท/ปี (เทียบ {q['net']:,}/เดือน)" if Q.cycle_of(q) == "year" else f"{q['net']:,} บาท/เดือน"), who)
     base = public_base()
     note = ""
-    if mailer.is_deliverable(prov["email"]) and mailer.config():
+    if prev:
+        from . import expansion
+        stop = expansion.on_upgrade(db.get_quote(q["id"]), prev)
+        note = f" · อัปเกรดจาก {prev[0]['number']}" + (f" · {stop}" if stop else "")
+        if mailer.is_deliverable(prov["email"]) and mailer.config():
+            try:
+                mailer.send(prov["email"], f"อัปเกรด {lead['domain']} เรียบร้อยแล้ว",
+                            mailer.wrap_html("อัปเกรดเรียบร้อยแล้ว", f"<p>เรายืนยันยอดชำระตามใบเสนอราคา {q['number']} แล้ว บัญชีของ {_html.escape(lead['domain'])} เปลี่ยนเป็นแพ็กเกจ "
+                                             f"{_html.escape(q['package'])} {'รายปี' if Q.cycle_of(q) == 'year' else 'รายเดือน'} ทันที และเราหยุดเก็บเงินแผนเดิมให้แล้ว</p>"
+                                             f"<p>เข้าใช้งาน: <a href='{base}/login'>{base}/login</a></p>", "ข้อความนี้ส่งจากระบบของเจอ.AI"),
+                            text=f"ยืนยันยอด {q['number']} แล้ว {lead['domain']} เปลี่ยนเป็น {q['package']} ทันที และหยุดเก็บเงินแผนเดิมแล้ว")
+            except Exception:
+                pass
+    elif mailer.is_deliverable(prov["email"]) and mailer.config():
         pw_line = f"<p>รหัสผ่านชั่วคราว: <code>{_html.escape(prov['temp_password'])}</code> — เข้าแล้วเปลี่ยนได้ที่เมนู <b>บัญชี → เปลี่ยนรหัสผ่าน</b></p>" if prov["temp_password"] else "<p>ใช้บัญชีเดิมที่มีอยู่เข้าสู่ระบบได้เลย</p>"
         html = mailer.wrap_html(f"บัญชีของ {lead['domain']} พร้อมแล้ว",
                                 f"<p>ขอบคุณที่ใช้บริการเจอ.AI ครับ เรายืนยันยอดชำระตามใบเสนอราคา {q['number']} แล้ว</p>"
@@ -501,6 +518,8 @@ def confirm_payment(q, who: str = "admin") -> str:
         success.kickoff_quote(q)                       # ดูแลหลังการขายเริ่มทันที: แผน 30 วัน + Autopilot รอบแรก
     except Exception:
         pass
+    if prev:
+        return f"ยืนยันยอด {Q.baht(Q.payable(q))} บาทแล้ว · {lead['domain']} เป็น {q['package']} {'รายปี' if Q.cycle_of(q) == 'year' else 'รายเดือน'}" + note
     return (f"ยืนยันยอด {Q.baht(Q.payable(q))} บาทแล้ว · เปิดบัญชี{'ใหม่' if prov['created'] else 'เดิม'} + แบรนด์{'ใหม่' if prov['brand_new'] else 'เดิม'} "
             f"แพ็กเกจ {q['package']} · ลูกค้า {lead['domain']} ปิดดีล" + note)
 
