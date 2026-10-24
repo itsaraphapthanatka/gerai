@@ -13,7 +13,7 @@ import time
 import base64
 import urllib.request
 import urllib.error
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from . import ai_client
 
@@ -25,6 +25,8 @@ MAX_INLINE_BYTES = 2_500_000
 _UA = "curl/8.5.0"
 _PHOTO_EXT = (".jpg", ".jpeg", ".png", ".webp")
 _SKIP = ("logo", "icon", "sprite", "favicon", "avatar", "placeholder", "spacer", "1x1", "loading", "blank")
+# alt ที่บอกว่าเป็นโลโก้/ตรา/เครื่องหมายรับรอง (เช่น ตรา DBD จากเว็บราชการ) — ไม่ใช่ภาพธุรกิจ ใช้หัวบทความไม่ได้
+_SKIP_ALT = re.compile(r"logo|โลโก้|ตรา(สัญลักษณ์)?|สัญลักษณ์|badge|certif|ใบรับรอง|เครื่องหมาย|icon|ไอคอน", re.I)
 
 
 def _fetch_text(url: str) -> str:
@@ -45,9 +47,14 @@ def _fetch_bytes(url: str) -> bytes | None:
         return None
 
 
+_GOV_HOST = re.compile(r"\.(go|ac|or|mi)\.th$|\.gov(\.[a-z]{2})?$|\.edu$", re.I)   # ตรารับรอง/โลโก้หน่วยงาน ไม่ใช่ภาพธุรกิจ
+
+
 def _ok_img(u: str) -> bool:
     low = u.lower()
     if low.startswith("data:"):
+        return False
+    if _GOV_HOST.search(urlparse(low).netloc.split(":")[0]):
         return False
     if any(x in low for x in _SKIP):
         return False
@@ -118,6 +125,8 @@ def scrape_site_images(site_url: str, limit: int = 8) -> list[dict]:
         if not _ok_img(u) or u in seen:
             continue
         a = re.search(r'\balt=["\']([^"\']*)', tag, re.I)
+        if a and _SKIP_ALT.search(a.group(1)):
+            continue
         seen.add(u); out.append({"url": u, "alt": a.group(1) if a else ""})
         if len(out) >= limit:
             break
@@ -142,6 +151,7 @@ def pick_relevant(candidates: list[dict], topic: str, brand_name: str, fetch=Non
         f"รูปต่อไปนี้มาจากเว็บไซต์ของ {brand_name}. บทความหัวข้อ: \"{topic}\".\n"
         f"รูปไหน (ลำดับ 1-{len(cands)}) เหมาะใช้ประกอบบทความนี้ที่สุด? "
         "ตอบรูปแบบเดียว: เลข|คำบรรยายภาพภาษาไทยสั้นๆ (เช่น 2|โกดังพื้นที่กว้างใกล้ถนนใหญ่). "
+        "ห้ามเลือกโลโก้ ตราสัญลักษณ์ เครื่องหมายรับรอง ไอคอน หรือภาพที่มีแต่ตัวอักษร — ต้องเป็นภาพสถานที่/สินค้า/งานจริง · "
         "ถ้าไม่มีรูปไหนเกี่ยวข้องเลย ตอบ 0"}]
     for i, c in enumerate(cands, 1):
         parts.append({"type": "text", "text": f"รูปที่ {i}:"})
@@ -163,6 +173,8 @@ def pick_relevant(candidates: list[dict], topic: str, brand_name: str, fetch=Non
     if idx < 1 or idx > len(cands):
         return None, "โมเดลตอบเลขรูปที่ไม่มี"
     ch = cands[idx - 1]
+    if _SKIP_ALT.search(cap or ""):                    # โมเดลเลือกแต่บรรยายเองว่าเป็นโลโก้/ตรา → ไม่ใช้
+        return None, f"รูปที่เลือกเป็นโลโก้/ตรา ไม่ใช่ภาพธุรกิจ ({cap[:40]})"
     alt = cap or ch.get("alt") or topic
     return {"url": ch["url"], "alt": alt}, f"เลือกรูปจากเว็บ: {alt[:60]}"
 

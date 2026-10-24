@@ -46,6 +46,15 @@ assert pick == {"url": "http://x/3.png", "alt": "คลังสินค้า�
 seen["answer"] = "0"; assert imf.pick_relevant(cands, "t", "b", fetch=fetch) == (None, "โมเดลบอกว่าไม่มีรูปบนเว็บที่เกี่ยวข้อง")
 seen["answer"] = "9|x"; assert imf.pick_relevant(cands, "t", "b", fetch=fetch)[1] == "โมเดลตอบเลขรูปที่ไม่มี"
 seen["answer"] = "รูปสวยดี"; assert imf.pick_relevant(cands, "t", "b", fetch=fetch)[1] == "อ่านคำตอบโมเดลไม่ออก"
+seen["answer"] = "1|โลโก้กรมพัฒนาธุรกิจการค้า"; assert imf.pick_relevant(cands, "t", "b", fetch=fetch)[0] is None   # โลโก้/ตรา ไม่ใช้
+_html = ('<img src="/a/dbd.png" alt="โลโก้กรมพัฒนาธุรกิจการค้า (DBD)"><img src="/a/cert.jpg" alt="ใบรับรองมาตรฐาน">'
+         '<img src="/a/warehouse.jpg" alt="โกดัง 300 ตร.ม.">')
+_orig_ft = imf._fetch_text; imf._fetch_text = lambda u: _html
+assert [c["alt"] for c in imf.scrape_site_images("https://x.co.th")] == ["โกดัง 300 ตร.ม."]
+imf._fetch_text = lambda u: '<img src="https://www.dbd.go.th/data-storage/image/88ba.png" alt="DBD"><img src="/w.jpg" alt="w">'
+assert [c["url"] for c in imf.scrape_site_images("https://x.co.th")] == ["https://x.co.th/w.jpg"]       # รูปจากโดเมนราชการ = ตรารับรอง
+imf._fetch_text = _orig_ft
+print("ไม่เลือกโลโก้/ตรา/ใบรับรองเป็นรูปหัวบทความ OK")
 def boom(messages, **kw): raise RuntimeError("HTTP Error 500")
 ai._chat = boom
 assert imf.pick_relevant(cands, "t", "b", fetch=fetch)[1].startswith("โมเดล vision ตอบไม่ได้ (RuntimeError")
