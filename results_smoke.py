@@ -116,6 +116,14 @@ u = MK.case_image(db.get_brand(bid), {"published": 3, "health_ok": 15, "market":
 assert u and u.endswith(".png") and "/static/gen/posts/case-facebook-" in u
 assert "0 → 2" in seen_html[-1] and "28 ก.ย.–26 ต.ค." in seen_html[-1] and "เคสจริงจากลูกค้า" in seen_html[-1] and "Shop" in seen_html[-1]
 assert MK.case_image(db.get_brand(b2), {"published": 0, "health_ok": None, "market": ""}, True, "line") is None   # ไม่ดีขึ้น = ไม่มีการ์ด
+import app.pipeline as P, app.execs as EX
+_orig_auto = EX.auto_enabled
+EX.auto_enabled = lambda kind: True                                                                # เปิดโหมดอัตโนมัติทุกเรื่อง
+pc = db.add_post("facebook", "case_study", None, "เคส", "ข้อความ", None)
+dc = db.add_decision("cmo", "post", "โพสต์เคสศึกษา", "ข้อความ", {"post_id": pc, "channel": "facebook", "kind": "case_study"})
+P._maybe_auto(dc); P.run_pending_auto("post")
+assert db.get_decision(dc)["status"] == "proposed" and db.get_post(pc)["status"] != "published"     # เคสศึกษารอเจ้าของเสมอ
+EX.auto_enabled = _orig_auto
 PS.RENDER = lambda html: (_ for _ in ()).throw(RuntimeError("pdf down"))
 assert MK.case_image(db.get_brand(bid), {"published": 3, "health_ok": None, "market": ""}, True, "line") is None  # render ล้ม = โพสต์ข้อความตามเดิม
 print("win: ขยับขึ้นแจ้งเจ้าของ · CMO ให้น้ำหนักเคสศึกษา · เคสศึกษาใช้ผลถาม AI จริง (เฉพาะเมื่อดีขึ้น) OK")

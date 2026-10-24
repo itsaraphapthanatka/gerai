@@ -106,6 +106,8 @@ def _maybe_auto(did: int) -> int:
         escalate = False
     if escalate:                                     # นอกกรอบ CFO → รอคนเสมอ ไม่ว่าโหมดไหน
         return did
+    if d["kind"] == "post" and json.loads(d["payload_json"] or "{}").get("kind") == "case_study":
+        return did                                   # เคสศึกษามีชื่อและตัวเลขของลูกค้า → เจ้าของอนุมัติเสมอ แม้เปิดโพสต์อัตโนมัติ
     if d["kind"] in ("outreach", "followup") and d["lead_id"]:
         ld = db.get_lead(d["lead_id"])
         if ld and ld["email_src"] == "search" and send_channel(ld).startswith("อีเมล"):
