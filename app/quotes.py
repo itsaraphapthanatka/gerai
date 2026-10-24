@@ -83,6 +83,43 @@ def alternative(q) -> dict:
     return {**pr, "saving_year": saving}
 
 
+VAT_RATE = 7
+
+
+def vat_rate_now() -> float:
+    """ราคาแพ็กเกจยังไม่รวม VAT (เจ้าของกำหนด 24 ต.ค.) → บวก 7% เมื่อบริษัทจด VAT แล้ว (ตั้งค่าบริษัท) · ยังไม่จด = 0"""
+    try:
+        from . import accounting
+        return float(VAT_RATE) if accounting.seller()["vat"] else 0.0
+    except Exception:
+        return 0.0
+
+
+def vat_pct(q) -> float:
+    try:
+        return float((q["vat_pct"] if "vat_pct" in q.keys() else 0) or 0)
+    except Exception:
+        return float((q.get("vat_pct") if isinstance(q, dict) else 0) or 0)
+
+
+def with_vat(amount: float, pct: float) -> float:
+    return round(float(amount) * (1 + pct / 100), 2)
+
+
+def payable(q) -> float:
+    """ยอดที่ลูกค้าจ่ายจริงงวดแรก (รวม VAT ที่บวกเพิ่ม) · ใบเก่าก่อนเปลี่ยนนโยบาย vat_pct = 0 → ราคาเดิมตามที่ตกลง"""
+    return with_vat(q["first_total"], vat_pct(q))
+
+
+def payable_period(q) -> float:
+    return with_vat(period_total(q), vat_pct(q))
+
+
+def baht(x: float) -> str:
+    x = round(float(x), 2)
+    return f"{x:,.0f}" if x == int(x) else f"{x:,.2f}"
+
+
 def cycle_of(q) -> str:
     try:
         return (q["cycle"] if "cycle" in q.keys() else None) or "month"
@@ -116,7 +153,8 @@ def summary_text(q, domain: str) -> str:
                  + f" · ลด {yearly_discount():.0f}%" + (f" และส่วนลดพิเศษอีก {q['discount_pct']:.0f}%" if q["discount_pct"] else "") + ")"]
         if q["setup"]:
             lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ฟรีเมื่อจ่ายรายปี (ปกติ {setup_addon()['price']:,} บาท)")
-        lines.append(f"• ยอดชำระครั้งเดียวทั้งปี {q['first_total']:,} บาท · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
+        lines.append(f"• ยอดชำระครั้งเดียวทั้งปี {q['first_total']:,} บาท" + (f" + VAT {vat_pct(q):g}% = {baht(payable(q))} บาท" if vat_pct(q) else "")
+                     + f" · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
         alt = alternative(q)
         lines.append(f"• หรือเลือกจ่ายรายเดือน {alt['net']:,} บาท/เดือน" + (f" + GEO Setup {alt['setup_price']:,} บาท" if alt["setup_price"] else "")
                      + f" (รายปีประหยัดกว่า {alt['saving_year']:,} บาท) — เปลี่ยนได้ในหน้าใบเสนอราคา")
@@ -126,7 +164,8 @@ def summary_text(q, domain: str) -> str:
              + (f" ลด {q['discount_pct']:.0f}% เหลือ {q['net']:,} บาท/เดือน" if q["discount_pct"] else "")]
     if q["setup"]:
         lines.append(f"• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว {q['setup_price']:,} บาท")
-    lines.append(f"• ยอดชำระงวดแรก {q['first_total']:,} บาท · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
+    lines.append(f"• ยอดชำระงวดแรก {q['first_total']:,} บาท" + (f" + VAT {vat_pct(q):g}% = {baht(payable(q))} บาท" if vat_pct(q) else "")
+                 + f" · ใบเสนอราคาใช้ได้ถึง {q['valid_until']}")
     alt = alternative(q)
     lines.append(f"• หรือจ่ายรายปี {alt['period_total']:,} บาท (ประหยัด {alt['saving_year']:,} บาท" + (" · GEO Setup ฟรี" if q["setup"] else "") + ") — เปลี่ยนได้ในหน้าใบเสนอราคา")
     return "\n".join(lines)
@@ -150,7 +189,9 @@ TERMS_YEAR = [
 
 
 def terms_for(q) -> list[str]:
-    return TERMS_YEAR if cycle_of(q) == "year" else TERMS
+    base = TERMS_YEAR if cycle_of(q) == "year" else TERMS
+    v = vat_pct(q)
+    return base + ([f"ราคายังไม่รวมภาษีมูลค่าเพิ่ม {v:g}% ซึ่งบวกเพิ่มในยอดชำระและใบกำกับภาษี"] if v else [])
 
 
 def contract_sections(company: dict, customer: dict, q) -> list[dict]:
@@ -163,8 +204,10 @@ def contract_sections(company: dict, customer: dict, q) -> list[dict]:
     items = "; ".join(plan["perks"])
     setup_txt = (f" และงาน GEO Setup ครั้งเดียว (แก้โครงสร้างเว็บให้บอทอ่านได้ ติดตั้ง /geo, llms.txt, sitemap, แก้ robots/canonical/index) "
                  + ("โดยไม่มีค่าใช้จ่ายเพิ่มเมื่อชำระรายปี" if yearly else f"ค่าบริการ {q['setup_price']:,} บาท") if q["setup"] else "")
-    fee = (f"ค่าบริการ {period_total(q):,} บาทต่อปี (เทียบ {net} บาทต่อเดือน) ชำระครั้งเดียวล่วงหน้าทั้งปีผ่านช่องทางที่ผู้ให้บริการกำหนด (บัตรผ่าน Stripe หรือ PromptPay/โอนเงิน)"
-           if yearly else f"ค่าบริการ {net} บาทต่อเดือน ชำระล่วงหน้าต้นรอบผ่านช่องทางที่ผู้ให้บริการกำหนด (PromptPay หรือโอนเงิน)")
+    vt = vat_pct(q)
+    vtxt = (lambda amt: f" ยังไม่รวมภาษีมูลค่าเพิ่ม ผู้รับบริการชำระภาษีมูลค่าเพิ่มร้อยละ {vt:g} เพิ่ม รวมเป็น {baht(with_vat(amt, vt))} บาท") if vt else (lambda amt: "")
+    fee = (f"ค่าบริการ {period_total(q):,} บาทต่อปี{vtxt(period_total(q))} (เทียบ {net} บาทต่อเดือน) ชำระครั้งเดียวล่วงหน้าทั้งปีผ่านช่องทางที่ผู้ให้บริการกำหนด (บัตรผ่าน Stripe หรือ PromptPay/โอนเงิน)"
+           if yearly else f"ค่าบริการ {net} บาทต่อเดือน{vtxt(q['net'])} ชำระล่วงหน้าต้นรอบผ่านช่องทางที่ผู้ให้บริการกำหนด (PromptPay หรือโอนเงิน)")
     term = ("สัญญามีผลหนึ่งปีนับจากวันที่ชำระ และต่ออายุอัตโนมัติครั้งละหนึ่งปี ผู้รับบริการยกเลิกการต่ออายุได้ทุกเมื่อโดยแจ้งผ่านอีเมลหรือระบบ มีผลเมื่อสิ้นปีสัญญาที่ชำระแล้ว"
             if yearly else "สัญญามีผลเป็นรายเดือนและต่ออายุอัตโนมัติ ผู้รับบริการยกเลิกได้ทุกเมื่อโดยแจ้งผ่านอีเมลหรือระบบ มีผลเมื่อสิ้นรอบที่ชำระแล้ว")
     refund = ("ภายใน 7 วันนับจากชำระค่าบริการรายปี หากผู้รับบริการไม่พอใจ ผู้ให้บริการคืนเงินเต็มจำนวน หลังพ้น 7 วัน ผู้ให้บริการไม่คืนค่าบริการส่วนที่เหลือของปี แต่ผู้รับบริการใช้บริการได้จนครบปีสัญญา"

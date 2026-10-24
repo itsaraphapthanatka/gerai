@@ -300,11 +300,12 @@ def issue_receipt(q, items: list[dict], source: str, period: tuple[str, str], st
 
 def first_receipt(q) -> None:
     """เรียกจาก pipeline.confirm_payment — เงินงวดแรกเข้าแล้ว (Stripe หรือ PromptPay)"""
+    from . import quotes as Q
     if not enabled():
         return
     start = _date(q["paid_at"]) or dt.date.today()
     issue_receipt(q, _items(q, first=True), "stripe" if q["paid_via"] == "stripe" else "promptpay", period_of(q, start),
-                  total=float(q["first_total"]))
+                  total=Q.payable(q))                       # ยอดที่จ่ายจริง (ราคา + VAT ที่บวกเพิ่ม) → แยก VAT ในใบเสร็จ
 
 
 def stripe_receipt(q, inv: dict) -> None:
@@ -359,7 +360,7 @@ def issue_invoice(q, start: dt.date, send_mail: bool = True):
     from . import quotes as Q
     lead = db.get_lead(q["lead_id"])
     did = _create("invoice", q, lead, _items(q, first=False), period_of(q, start), "promptpay", "open",
-                  due=start.isoformat(), total=float(Q.period_total(q)))
+                  due=start.isoformat(), total=Q.payable_period(q))            # ราคาไม่รวม VAT → บวก VAT ตามที่ตกลงในใบเสนอราคา
     doc = db.get_acct_doc(did)
     res = send(doc) if send_mail else "ไม่ส่งอีเมล"
     _record(q["lead_id"], "acct_invoice", f"{doc['number']} {doc['total']:,.0f} บาท ครบกำหนด {th_date(doc['due_date'])} · {res}")

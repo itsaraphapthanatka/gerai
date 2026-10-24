@@ -79,10 +79,14 @@ A.save_buyer(q2["id"], "หจก. แบงก์", BUYER_TAX, "00001", "2 ถ�
 db.update_quote(q2["id"], status="claimed"); q2 = db.get_quote(q2["id"]); P.confirm_payment(q2, "owner")
 q2 = db.get_quote(q2["id"]); paid = dt.date.fromisoformat(q2["paid_at"][:10])
 rc2 = db.list_acct_docs("receipt", lead_id=lid2)[0]
-assert rc2["vat_mode"] == "vat7" and rc2["vat"] == 647.66 and rc2["subtotal"] == 9252.34 and rc2["source"] == "promptpay" and rc2["buyer_branch"] == "00001"
+assert rc2["vat_mode"] == "vat7" and rc2["vat"] == 693.0 and rc2["subtotal"] == 9900.0 and rc2["total"] == 10593.0 and rc2["source"] == "promptpay" and rc2["buyer_branch"] == "00001"
+import app.quotes as QQ
+assert QQ.vat_pct(q2) == 7 and QQ.payable(q2) == 10593.0 and QQ.vat_pct(db.get_quote(q1["id"])) == 0     # ราคาไม่รวม VAT · ใบก่อนเปิด VAT คงราคาเดิม
+assert "+ VAT 7% = 10,593" in QQ.summary_text(q2, "bank.co.th") and any("ยังไม่รวมภาษีมูลค่าเพิ่ม" in t for t in QQ.terms_for(q2))
+assert "รวมเป็น 10,593 บาท" in json.dumps(QQ.contract_sections({"name": "x"}, {"name": "y"}, q2), ensure_ascii=False)
 assert A.title(rc2) == "ใบเสร็จรับเงิน/ใบกำกับภาษี" and rc2["number"].endswith("0003")
 page = a.get(f"/doc/{rc2['token']}").text
-for s_ in ("ใบเสร็จรับเงิน/ใบกำกับภาษี", "ต้นฉบับ", SELLER_TAX, BUYER_TAX, "647.66", "9,252.34", "เก้าพันเก้าร้อยบาทถ้วน", "หจก. แบงก์", "สำนักงานใหญ่"):
+for s_ in ("ใบเสร็จรับเงิน/ใบกำกับภาษี", "ต้นฉบับ", SELLER_TAX, BUYER_TAX, "693.00", "9,900.00", "10,593.00", "หนึ่งหมื่นห้าร้อยเก้าสิบสามบาทถ้วน", "ไม่รวมภาษีมูลค่าเพิ่ม", "หจก. แบงก์", "สำนักงานใหญ่"):
     assert s_ in page, s_
 assert a.get(f"/doc/{rc2['token']}.pdf").content == b"%PDF-fake" and a.get(f"/bill/{rc2['token']}").status_code in (200, 303)
 assert len(A.customers()) == 1 and A.customers()[0]["id"] == q2["id"]
@@ -90,7 +94,7 @@ mails.clear()
 assert A.run(dt.datetime.combine(A.add_months(paid, 1) - dt.timedelta(days=8), dt.time(8)))["invoiced"] == []     # ยังไม่ถึง 7 วันก่อนรอบ
 res = A.run(dt.datetime.combine(A.add_months(paid, 1) - dt.timedelta(days=7), dt.time(8))); assert len(res["invoiced"]) == 1, res
 inv2 = db.list_acct_docs("invoice", lead_id=lid2)[0]
-assert inv2["number"].startswith(f"INV-{dt.date.today().year + 543}-0001") and inv2["total"] == 9900 and inv2["due_date"] == A.add_months(paid, 1).isoformat() and inv2["status"] == "open"
+assert inv2["number"].startswith(f"INV-{dt.date.today().year + 543}-0001") and inv2["total"] == 10593.0 and inv2["due_date"] == A.add_months(paid, 1).isoformat() and inv2["status"] == "open"
 assert any("ใบแจ้งหนี้" in x["subj"] and "/bill/" in x["text"] for x in mails)
 assert A.run(dt.datetime.combine(A.add_months(paid, 1) - dt.timedelta(days=6), dt.time(8)))["invoiced"] == []     # ไม่ออกซ้ำ
 bill = TestClient(app).get(f"/bill/{inv2['token']}").text; assert "แจ้งชำระเงินแล้ว" in bill and "ไม่ใช่ใบกำกับภาษี" in bill and "หักภาษี ณ ที่จ่าย 3%" in bill
@@ -102,7 +106,7 @@ inv2 = db.get_acct_doc(inv2["id"]); assert inv2["status"] == "claimed" and inv2[
 dec = [d for d in db.list_decisions("proposed", 50) if json.loads(d["payload_json"]).get("acct_doc_id") == inv2["id"]]; assert dec and dec[0]["kind"] == "payment"
 out = P.execute_decision(dec[0], "owner"); assert "ออกใบเสร็จ" in out, out
 inv2 = db.get_acct_doc(inv2["id"]); rc = db.find_acct_doc("receipt", invoice_id=inv2["id"])
-assert inv2["status"] == "paid" and rc and rc["total"] == 9900 and rc["period_start"] == inv2["period_start"] and db.get_decision(dec[0]["id"])["status"] == "executed"
+assert inv2["status"] == "paid" and rc and rc["total"] == 10593.0 and rc["period_start"] == inv2["period_start"] and db.get_decision(dec[0]["id"])["status"] == "executed"
 assert A.mark_paid(inv2) == "ใบนี้ชำระแล้ว"
 print("claim: แนบสลิป → ข้อเสนอยืนยันยอด → อนุมัติ → ใบเสร็จอ้างอิงใบแจ้งหนี้ · ยืนยันซ้ำไม่ได้ OK")
 
@@ -121,19 +125,19 @@ assert A.run(day(14))["actions"][inv3["number"]] == ["ask_suspend"] and any("ร
 assert A.run(day(20))["actions"] == {}
 ap = a.get("/admin/accounting").text; assert "เตือนแล้ว 3 ครั้ง" in ap and "ระงับบริการ" in ap and inv3["number"] in ap
 a.post(f"/admin/acct/{inv3['id']}/suspend"); assert db.get_tenant(q2["tenant_id"])["plan"] == "free" and A.customers() == []
-r = a.post(f"/admin/acct/{inv3['id']}/paid", data={"wht": "1"}); assert "หัก ณ ที่จ่าย 277.57" in r.text, r.text[:300]
+r = a.post(f"/admin/acct/{inv3['id']}/paid", data={"wht": "1"}); assert "หัก ณ ที่จ่าย 297.00" in r.text, r.text[:300]
 assert db.get_tenant(q2["tenant_id"])["plan"] == "pro"
-rc3 = db.find_acct_doc("receipt", invoice_id=inv3["id"]); assert rc3["wht"] == 277.57
-p3 = a.get(f"/doc/{rc3['token']}").text; assert "หักภาษี ณ ที่จ่าย 3%" in p3 and "9,622.43" in p3
+rc3 = db.find_acct_doc("receipt", invoice_id=inv3["id"]); assert rc3["wht"] == 297.0
+p3 = a.get(f"/doc/{rc3['token']}").text; assert "หักภาษี ณ ที่จ่าย 3%" in p3 and "10,296.00" in p3
 print("collect: เตือน 0/+3/+7 ครั้งละฉบับ · แจ้งเจ้าของ +7 · เสนอระงับ +14 ครั้งเดียว · ระงับ/คืนแผน · หัก ณ ที่จ่ายในใบเสร็จ OK")
 
 # ---- รายปี PromptPay: ใบแจ้งหนี้ล่วงหน้า 30 วัน ยอดทั้งปี ----
 lid4, q4 = lead_q("year.co.th", cycle="year")
 db.update_quote(q4["id"], status="claimed"); P.confirm_payment(db.get_quote(q4["id"]), "owner"); q4 = db.get_quote(q4["id"])
-rc4 = db.list_acct_docs("receipt", lead_id=lid4)[0]; assert rc4["total"] == 98604 and "รายปี" in rc4["description"] and "ฟรี" in rc4["items_json"]
+rc4 = db.list_acct_docs("receipt", lead_id=lid4)[0]; assert rc4["total"] == 105506.28 and rc4["subtotal"] == 98604.0 and "รายปี" in rc4["description"] and "ฟรี" in rc4["items_json"]
 p4 = dt.date.fromisoformat(q4["paid_at"][:10])
 assert A.due_invoices(q4, A.add_months(p4, 12) - dt.timedelta(days=31)) == [] and A.due_invoices(q4, A.add_months(p4, 12) - dt.timedelta(days=30)) == [A.add_months(p4, 12)]
-inv4 = A.issue_invoice(q4, A.add_months(p4, 12)); assert inv4["total"] == 98604 and inv4["period_end"] == (A.add_months(p4, 24) - dt.timedelta(days=1)).isoformat()
+inv4 = A.issue_invoice(q4, A.add_months(p4, 12)); assert inv4["total"] == 105506.28 and inv4["period_end"] == (A.add_months(p4, 24) - dt.timedelta(days=1)).isoformat()
 print("yearly: ใบเสร็จทั้งปี (Setup ฟรี) · ใบแจ้งหนี้ล่วงหน้า 30 วัน ยอดทั้งปี OK")
 
 # ---- ยกเลิก / ออกใหม่ ----
@@ -148,8 +152,8 @@ r = a.post(f"/admin/acct/{inv4['id']}/void", data={"reason": "ลูกค้า
 print("void/reissue: ต้องมีเหตุผล · ออกใหม่ใช้ข้อมูลผู้ซื้อล่าสุด เลขใหม่ ไม่ซ้ำ · ยกเลิกใบแจ้งหนี้ OK")
 
 # ---- สรุป · CSV · หน้าเว็บ · แชต · ออฟฟิศ ----
-sm = A.summary(); assert sm["receipts"] >= 5 and sm["wht"] == 277.57 and sm["vat"] > 0
-csv_ = a.get(f"/admin/accounting.csv?month={dt.date.today():%Y-%m}"); assert csv_.status_code == 200 and csv_.text.startswith("﻿") and rc3["number"] in csv_.text and "277.57" in csv_.text
+sm = A.summary(); assert sm["receipts"] >= 5 and sm["wht"] == 297.0 and sm["vat"] > 0
+csv_ = a.get(f"/admin/accounting.csv?month={dt.date.today():%Y-%m}"); assert csv_.status_code == 200 and csv_.text.startswith("﻿") and rc3["number"] in csv_.text and "297.00" in csv_.text
 assert "attachment" in csv_.headers["content-disposition"]
 assert "บัญชี: เดือนนี้รับ" in A.status_text()
 lid5, q5 = lead_q("form.co.th"); db.update_quote(q5["id"], status="sent")
@@ -164,4 +168,28 @@ assert "บัญชีเดือนนี้" in C.handle("ค้างชำ
 assert "acct" in O.IDS and any(s_[0] == "acct" for s_ in O.SCHEDULE) and "acct" in SK.AGENTS and SK.load("acct").startswith("# ทักษะ")
 assert a.get("/admin/office/state.json").status_code == 200
 print("report/web: สรุปเดือน · CSV (BOM) · ฟอร์มผู้ซื้อตอนยืนยัน · หน้าลีด · แชต CEO \"ค้างชำระ\" · ออฟฟิศ/ทักษะ OK")
+
+# ---- ราคาไม่รวม VAT: Stripe บวก VAT · หน้าใบเสนอราคาแสดง VAT ----
+import app.stripe_pay as SP2
+calls2 = []
+SP2.save_config("sk_test_abcdefghijklmnop", "whsec_x")
+SP2._get_json = lambda path: {"data": []}
+def _fp(path, data, idem=None):
+    calls2.append((path, data))
+    if path == "/products": return {"id": "prod_v"}
+    if path == "/prices": return {"id": "price_v", "product": "prod_v"}
+    if path == "/tax_rates": return {"id": "txr_7"}
+    if path == "/checkout/sessions": return {"id": "cs_v", "url": "https://checkout.stripe.com/x"}
+    raise RuntimeError(path)
+SP2._post = _fp
+lv, qv = lead_q("vatcard.co.th", setup=True)
+assert QQ.vat_pct(qv) == 7 and QQ.payable(qv) == 21186.0
+SP2.create_checkout(qv, db.get_lead(lv), "https://geo.example")
+tr = [d for p_, d in calls2 if p_ == "/tax_rates"][0]; assert tr["percentage"] == "7" and tr["inclusive"] == "false" and tr["country"] == "TH"
+ss = [d for p_, d in calls2 if p_ == "/checkout/sessions"][0]; assert ss["line_items[0][tax_rates][0]"] == "txr_7" and ss["line_items[1][tax_rates][0]"] == "txr_7"
+assert db.get_setting("stripe_taxrate_7") == "txr_7"
+db.update_quote(qv["id"], status="sent"); pg = TestClient(app).get(f"/q/{qv['token']}").text
+assert "ภาษีมูลค่าเพิ่ม 7%" in pg and "21,186" in pg and "(ก่อน VAT)" in pg
+db.update_quote(qv["id"], status="accepted"); pg = TestClient(app).get(f"/q/{qv['token']}").text; assert "21,186 บาท (รวม VAT)" in pg
+print("vat-exclusive: ใบใหม่บวก VAT 7% · Stripe ใส่ tax rate ทุกบรรทัด · หน้าใบเสนอราคาแสดง ก่อน VAT/VAT/รวม OK")
 print("\naccounting_smoke: ผ่านทั้งหมด")

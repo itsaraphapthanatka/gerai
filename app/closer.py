@@ -188,7 +188,7 @@ def script(lead) -> dict:
     price = (f"แพ็กเกจ {q['package'].capitalize()} รายปี {Q.period_total(q):,} บาท (เทียบ {q['net']:,} บาท/เดือน ลด {Q.yearly_discount():.0f}%"
              + (" · GEO Setup ฟรี" if q["setup"] else "") + f") · คืนเงินได้ภายใน 7 วันแรก · ถ้าอยากเริ่มเบา ๆ มีรายเดือน {Q.alternative(q)['net']:,} บาท/เดือน") if yearly else \
             (f"แพ็กเกจ {q['package'].capitalize()} {q['net']:,} บาท/เดือน" + (f" + GEO Setup {q['setup_price']:,} บาท (ครั้งเดียว)" if q["setup"] else "")
-             + f" · งวดแรก {q['first_total']:,} บาท" + (f" (ลดแล้ว {q['discount_pct']:.0f}%)" if q["discount_pct"] else "")
+             + f" · งวดแรก {Q.baht(Q.payable(q))} บาท" + (" รวม VAT" if Q.vat_pct(q) else "") + (f" (ลดแล้ว {q['discount_pct']:.0f}%)" if q["discount_pct"] else "")
              + f" · เสนอรายปีได้ ประหยัด {Q.alternative(q)['saving_year']:,} บาท (Setup ฟรี)") if q else \
             (f"แพ็กเกจ Pro รายปี {Q.price_for('pro', 0, False, 'year')['period_total']:,} บาท (เทียบ {Q.price_for('pro', 0, False, 'year')['net']:,} บาท/เดือน · Setup ฟรี) "
              f"หรือรายเดือน {execs._plan('pro')['price']:,} บาท (ยังไม่มีใบเสนอราคา — ทำในระบบหลังวางสาย)")

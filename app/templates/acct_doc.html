@@ -100,7 +100,7 @@
     {% endif %}
   </table>
   <div class="words">({{ words }})</div>
-  {% if doc.vat_mode == 'vat7' %}<p class="note">ราคารวมภาษีมูลค่าเพิ่มแล้ว</p>{% endif %}
+  {% if doc.vat_mode == 'vat7' %}{% set isum = items|sum(attribute='amount') %}<p class="note">{{ 'ราคารวมภาษีมูลค่าเพิ่มแล้ว' if (isum - doc.total)|abs < 0.05 else 'ราคาไม่รวมภาษีมูลค่าเพิ่ม · VAT 7% บวกเพิ่มในยอดรวม' }}</p>{% endif %}
   {% if doc.kind == 'invoice' %}<p class="note">ใบแจ้งหนี้นี้ไม่ใช่ใบกำกับภาษี — ออกใบเสร็จรับเงิน{% if doc.vat_mode == 'vat7' %}/ใบกำกับภาษี{% endif %}ให้เมื่อได้รับชำระ · นิติบุคคลที่หักภาษี ณ ที่จ่าย 3% ({{ "{:,.2f}".format(wht_suggest) }} บาท) ชำระ {{ "{:,.2f}".format(doc.total - wht_suggest) }} บาท และส่งหนังสือรับรองการหักภาษี ณ ที่จ่ายมาทางอีเมล</p>{% endif %}
   {% if doc.kind == 'receipt' %}
   <div class="sign"><div>ผู้รับเงิน{% if seller.signer %}<br>{{ seller.signer }}{% endif %}</div><div>วันที่ {{ paid or issued }}</div></div>

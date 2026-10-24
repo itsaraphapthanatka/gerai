@@ -150,6 +150,22 @@ def ensure_coupon(pct: float, product_id: str, package: str) -> str:
     return cid
 
 
+def ensure_tax_rate(pct: float) -> str:
+    """อัตรา VAT แบบบวกเพิ่ม (exclusive) ใน Stripe — ราคาแพ็กเกจยังไม่รวม VAT · หาอันที่มีอยู่ก่อน ไม่มีค่อยสร้าง (แคชใน settings)"""
+    key = f"stripe_taxrate_{pct:g}"
+    cached = db.get_setting(key)
+    if cached:
+        return cached
+    for t in (_get_json("/tax_rates?active=true&limit=100").get("data") or []):
+        if not t.get("inclusive") and float(t.get("percentage") or 0) == float(pct) and (t.get("country") in (None, "TH")):
+            db.set_setting(key, t["id"])
+            return t["id"]
+    t = _post("/tax_rates", {"display_name": "VAT", "description": f"ภาษีมูลค่าเพิ่ม {pct:g}%", "percentage": f"{pct:g}", "inclusive": "false",
+                             "country": "TH", "tax_type": "vat"}, idem=f"geo-taxrate-{pct:g}")
+    db.set_setting(key, t["id"])
+    return t["id"]
+
+
 def _cycle(q) -> str:
     from . import quotes as Q
     return Q.cycle_of(q)
@@ -171,6 +187,10 @@ def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None)
     if q["setup"] and prices.get("setup") and _cycle(q) != "year":      # รายปี Setup ฟรี
         p["line_items[1][price]"] = prices["setup"]
         p["line_items[1][quantity]"] = "1"
+    if prices.get("tax_rate"):                                           # ราคาไม่รวม VAT → Stripe บวก VAT ทุกรายการ (รวมบิลต่ออายุ)
+        for i in (0, 1):
+            if f"line_items[{i}][price]" in p:
+                p[f"line_items[{i}][tax_rates][0]"] = prices["tax_rate"]
     if coupon:
         p["discounts[0][coupon]"] = coupon
     if lead["email"] and "@" in lead["email"] and not lead["email"].endswith((".local", ".invalid", ".test")):
@@ -186,7 +206,8 @@ def create_checkout(q, lead, base: str, company: str = "เจอ.AI") -> str:
     yearly = _cycle(q) == "year"
     kind = q["package"] + ("_year" if yearly else "")
     plan = ensure_price(kind, company, Q.period_total(q) if yearly else None)        # รายปี: ยอดตามใบ (รวมส่วนลดพิเศษแล้ว) ไม่ใช้คูปอง
-    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] and not yearly else None}
+    prices = {"plan": plan["price"], "setup": ensure_price("setup", company)["price"] if q["setup"] and not yearly else None,
+              "tax_rate": ensure_tax_rate(Q.vat_pct(q)) if Q.vat_pct(q) else None}
     coupon = ensure_coupon(q["discount_pct"], plan["product"], kind) if q["discount_pct"] and not yearly else None
     resp = _post("/checkout/sessions", checkout_params(q, lead, base, prices, coupon), idem=f"geo-checkout-{q['id']}-{int(time.time()) // 600}")
     db.update_quote(q["id"], stripe_session_id=resp.get("id"))
@@ -277,7 +298,7 @@ def _quote_of_session(obj: dict):
 
 def _paid_session(obj: dict) -> str:
     """ชำระสำเร็จ → เปิดบัญชี (ครั้งเดียว ส่งซ้ำไม่เป็นไร)"""
-    from . import pipeline
+    from . import pipeline, quotes as Q
     q = _quote_of_session(obj)
     if not q:
         return "no-quote"
@@ -302,8 +323,8 @@ def _paid_session(obj: dict) -> str:
         if d["kind"] == "payment" and json.loads(d["payload_json"] or "{}").get("quote_id") == q["id"]:
             db.set_decision(d["id"], "executed", "stripe", note)
     lead = db.get_lead(q["lead_id"])
-    pipeline.alert_admins(f"💳 {lead['domain']} ชำระ {q['first_total']:,} บาทผ่าน Stripe แล้ว — {note}", f"/admin/leads/{lead['id']}", "payment",
-                          subject=f"💳 {lead['domain']} ชำระผ่าน Stripe {q['first_total']:,} บาท เปิดบัญชีแล้ว")
+    pipeline.alert_admins(f"💳 {lead['domain']} ชำระ {Q.baht(Q.payable(q))} บาทผ่าน Stripe แล้ว — {note}", f"/admin/leads/{lead['id']}", "payment",
+                          subject=f"💳 {lead['domain']} ชำระผ่าน Stripe {Q.baht(Q.payable(q))} บาท เปิดบัญชีแล้ว")
     return "paid"
 
 

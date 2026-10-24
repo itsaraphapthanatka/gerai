@@ -486,6 +486,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
+        _ensure_column(c, "quotes", "vat_pct", "REAL DEFAULT 0")             # VAT ที่บวกเพิ่มจากราคา ณ วันออกใบ (ราคาไม่รวม VAT · 0 = ไม่บวก)
         _ensure_column(c, "leads", "email_src", "TEXT")                     # ที่มาของอีเมล: site | search (เดาจากผลค้นหา = เสี่ยงเด้ง) | manual | form | email | partner
         _ensure_column(c, "tenants", "trial_until", "TEXT")                  # ต่อเวลาทดลองใช้แผนฟรี (YYYY-MM-DD) · ว่าง = วันสร้างบัญชี + 14 วัน
         _ensure_column(c, "leads", "exp_arm", "TEXT")
@@ -1436,17 +1437,17 @@ QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name"
                 "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via",
                 "buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address",
                 "cycle", "period_total", "net", "setup_price", "first_total",        # เปลี่ยนรอบบิลก่อนยืนยัน
-                "package", "price", "discount_pct", "setup"}                          # เจ้าของสั่งปรับใบเดิม
+                "package", "price", "discount_pct", "setup", "vat_pct"}                          # เจ้าของสั่งปรับใบเดิม
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,
               setup: bool, setup_price: int, first_total: int, valid_until: str, created_by: str = "ceo", notes: str = "",
-              cycle: str = "month", period_total: int | None = None) -> int:
+              cycle: str = "month", period_total: int | None = None, vat_pct: float = 0) -> int:
     with get_conn() as c:
         cur = c.execute(q("INSERT INTO quotes(created_at,lead_id,number,token,package,price,discount_pct,net,setup,setup_price,"
-                          "first_total,valid_until,status,created_by,notes,cycle,period_total) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?) RETURNING id"),
+                          "first_total,valid_until,status,created_by,notes,cycle,period_total,vat_pct) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?) RETURNING id"),
                         (now(), lead_id, number, token, package, price, discount_pct, net, 1 if setup else 0, setup_price,
-                         first_total, valid_until, created_by, notes or None, cycle, period_total if period_total is not None else net))
+                         first_total, valid_until, created_by, notes or None, cycle, period_total if period_total is not None else net, vat_pct or 0))
         return cur.fetchone()["id"]
 
 

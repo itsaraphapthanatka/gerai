@@ -65,6 +65,7 @@ templates.env.globals["trial_of"] = lambda req: (
     billing.trial(db.get_tenant(req.session["tenant_id"])) if req.session.get("tenant_id") else {"on": False}
 )
 templates.env.globals["trial_fn"] = billing.trial
+templates.env.globals["q_payable"] = lambda q: quotes.baht(quotes.payable(q))
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
 )
@@ -677,7 +678,8 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
             "summary": leads.public_summary(report), "company": _company(),
             "status_label": quotes.STATUS_LABEL.get(q["status"], q["status"]), "expired": quotes.is_expired(q),
             "ppid": ppid, "ppname": ppname,
-            "qr": promptpay.qr_data_uri(ppid, q["first_total"]) if (ppid and q["status"] == "accepted" and not pdf) else None,
+            "qr": promptpay.qr_data_uri(ppid, quotes.payable(q)) if (ppid and q["status"] == "accepted" and not pdf) else None,
+            "vat": quotes.vat_pct(q), "payable": quotes.payable(q), "baht": quotes.baht,
             "stripe_ready": stripe_pay.available() and not pdf, "stripe_mode": stripe_pay.mode(),
             "error": error, "pdf": pdf, "base": _public_base()}
 

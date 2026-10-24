@@ -253,7 +253,9 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
             head = (f"{lead['domain']} มีใบ {open_q['number']} อยู่แล้ว ({Q.STATUS_LABEL.get(open_q['status'], open_q['status'])} · "
                     f"{Q.CYCLES[Q.cycle_of(open_q)]} งวดแรก {open_q['first_total']:,} บาท) — จะปรับใบเดิมเป็น: " + head.replace("จะส่งใบเสนอราคา ", "")
                     + (" แล้วส่งให้ลูกค้ายืนยันใหม่ทางลิงก์เดิม" if open_q["status"] == "accepted" else " แล้วส่งให้ลูกค้าดูอีกครั้ง"))
-        return (head + f" งวดแรก {pr['first_total']:,} บาท ถึง {lead['domain']} ทาง {ch}"
+        vt = Q.vat_rate_now()
+        return (head + f" งวดแรก {pr['first_total']:,} บาท" + (f" + VAT {vt:g}% = {Q.baht(Q.with_vat(pr['first_total'], vt))} บาท" if vt else "")
+                + f" ถึง {lead['domain']} ทาง {ch}"
                 + ("" if warn["ok"] else f"\n⚠️ CFO: {warn['note']} — คุณเป็นบอร์ด สั่งได้ แต่เกินกรอบที่ตั้งไว้")), "ok"
     if action == "find_leads":
         seg = (args.get("segment") or "").strip()
@@ -371,7 +373,7 @@ def execute(action: str, args: dict) -> str:
                 return f"ปรับ {open_q['number']} ไม่ได้ — {err}"
             q = db.get_quote(open_q["id"])
             res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)", revised=True)
-            return f"ปรับ {q['number']} เป็น {Q.CYCLES[Q.cycle_of(q)]} งวดแรก {q['first_total']:,} บาทแล้ว · {res}\n{pipeline.quote_url(q)}"
+            return f"ปรับ {q['number']} เป็น {Q.CYCLES[Q.cycle_of(q)]} งวดแรก {Q.baht(Q.payable(q))} บาท" + (" (รวม VAT)" if Q.vat_pct(q) else "") + f"แล้ว · {res}\n{pipeline.quote_url(q)}"
         q = pipeline.create_quote(lead, args.get("package") or "pro", float(args.get("discount_pct") or 0), created_by="owner",
                                   cycle=args.get("cycle") if args.get("cycle") in ("year", "month") else Q.default_cycle())
         res = pipeline.send_quote(q, "owner (สั่งผ่าน CEO)")

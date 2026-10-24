@@ -88,13 +88,17 @@
       {% if q.discount_pct %}<tr><td>ส่วนลดพิเศษ {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(after_y - period_total) }}</td></tr>{% endif %}
       {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }} · ปกติ {{ "{:,}".format(setup.price) }} บาท</div></td><td>ครั้งเดียว</td><td class="num">ฟรี</td></tr>{% endif %}
       <tr><td>เทียบเป็นต่อเดือน</td><td>เฉลี่ย</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
-      <tr class="total"><td>ยอดชำระครั้งเดียวทั้งปี</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      <tr class="{{ '' if vat else 'total' }}"><td>ยอดชำระครั้งเดียวทั้งปี{{ ' (ก่อน VAT)' if vat }}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% if vat %}<tr><td>ภาษีมูลค่าเพิ่ม {{ "%g"|format(vat) }}%</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
+      <tr class="total"><td>{{ 'ยอดชำระครั้งเดียวทั้งปี' }} (รวม VAT)</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
       {% else %}
       <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
       {% if q.discount_pct %}<tr><td>ส่วนลด {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(q.price - q.net) }}</td></tr>{% endif %}
       {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }}</div></td><td>ครั้งเดียว</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
       <tr><td>ค่าบริการสุทธิต่อเดือน (รอบถัดไป)</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
-      <tr class="total"><td>ยอดชำระงวดแรก</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      <tr class="{{ '' if vat else 'total' }}"><td>ยอดชำระงวดแรก{{ ' (ก่อน VAT)' if vat }}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% if vat %}<tr><td>ภาษีมูลค่าเพิ่ม {{ "%g"|format(vat) }}%</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
+      <tr class="total"><td>{{ 'ยอดชำระงวดแรก' }} (รวม VAT)</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
       {% endif %}
     </tbody>
   </table>
@@ -127,7 +131,7 @@
       {% if stripe_ready %}
       <div class="cta" style="margin-top:14px">
         <h2>ชำระด้วยบัตรเครดิต/เดบิต</h2>
-        <p>{% if yearly %}ชำระครั้งเดียว {{ "{:,}".format(q.first_total) }} บาท ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ · คืนเงินเต็มภายใน 7 วันแรก{% else %}งวดแรก {{ "{:,}".format(q.first_total) }} บาท จากนั้น {{ "{:,}".format(q.net) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
+        <p>{% if yearly %}ชำระครั้งเดียว {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ · คืนเงินเต็มภายใน 7 วันแรก{% else %}งวดแรก {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} จากนั้น {{ baht(q.net * (1 + vat / 100)) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
         <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error }}</div>{% endif %}<button type="submit">ชำระผ่าน Stripe</button></form>
       </div>
       <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)</summary>
@@ -135,7 +139,7 @@
       <div class="pay">
         <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">ช่องทางชำระจะแจ้งทางอีเมล/LINE</div>{% endif %}</div>
         <div>
-          <div class="amt">{{ "{:,}".format(q.first_total) }} บาท</div>
+          <div class="amt">{{ baht(payable) }} บาท</div>{% if vat %}<div class="sub" style="margin:-4px 0 8px">รวม VAT {{ "%g"|format(vat) }}% แล้ว</div>{% endif %}
           <div class="sub" style="margin-bottom:8px">{% if ppid %}สแกน PromptPay ({{ ppname }}) ยอดตามนี้ แล้วแนบสลิปด้านล่าง{% else %}โอนตามช่องทางที่ทีมงานแจ้ง แล้วแนบสลิปด้านล่าง{% endif %}</div>
           <form method="post" action="/q/{{ q.token }}/pay" enctype="multipart/form-data">
             {% if error %}<div class="err">{{ error }}</div>{% endif %}

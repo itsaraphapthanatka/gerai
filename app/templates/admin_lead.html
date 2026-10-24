@@ -142,14 +142,14 @@
       <td><b>{{ q['number'] }}</b><div class="muted" style="font-size:11.5px">{{ (q['created_at'] or '')[:10] }} · โดย {{ q['created_by'] }}</div></td>
       <td>{{ q['package'] }}{% if q['cycle'] == 'year' %} <span class="pill ok">รายปี</span>{% endif %}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}</td>
       <td>{{ "{:,}".format(q['net']) }}</td>
-      <td>{{ "{:,}".format(q['first_total']) }}</td>
+      <td>{{ q_payable(q) }}{% if q['vat_pct'] %}<div class="muted" style="font-size:11px">รวม VAT</div>{% endif %}</td>
       <td><span class="pill {{ 'ok' if q['status'] in ('paid','accepted','claimed') else ('no' if q['status'] in ('expired','cancelled') else '') }}">{{ qstatus.get(q['status'], q['status']) }}</span>{% if q['accepted_name'] %}<div class="muted" style="font-size:11.5px">ยืนยันโดย {{ q['accepted_name'] }}</div>{% endif %}</td>
       <td class="muted" style="font-size:12px">{{ q['valid_until'] }}</td>
       <td style="white-space:nowrap;font-size:12.5px">
         <a class="link" href="/q/{{ q['token'] }}" target="_blank">เปิด ↗</a>
         {% if q['status'] in ('draft','sent','viewed') and lead['status'] != 'unsubscribed' %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/send" style="display:inline"><button class="btn ghost sm" type="submit">{{ 'ส่งซ้ำ' if q['status'] != 'draft' else 'ส่ง' }}</button></form>{% endif %}
         {% if q['slip_path'] %} · <a class="link" href="/admin/quotes/{{ q['id'] }}/slip" target="_blank">สลิป</a>{% endif %}
-        {% if q['status'] in ('accepted','claimed') %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/confirm" style="display:inline" onsubmit="return confirm('ยืนยันว่ายอด {{ "{:,}".format(q['first_total']) }} บาทเข้าบัญชีแล้ว? ระบบจะเปิดบัญชี+แบรนด์และส่งอีเมลต้อนรับ')"><button class="btn sm" type="submit">ยืนยันยอดเข้า</button></form>{% endif %}
+        {% if q['status'] in ('accepted','claimed') %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/confirm" style="display:inline" onsubmit="return confirm('ยืนยันว่ายอด {{ q_payable(q) }} บาทเข้าบัญชีแล้ว? ระบบจะเปิดบัญชี+แบรนด์และส่งอีเมลต้อนรับ')"><button class="btn sm" type="submit">ยืนยันยอดเข้า</button></form>{% endif %}
         {% if q['status'] in ('draft','sent','viewed','accepted') %} · <form method="post" action="/admin/quotes/{{ q['id'] }}/cancel" style="display:inline"><button class="btn ghost sm" type="submit">ยกเลิก</button></form>{% endif %}
       </td>
     </tr>

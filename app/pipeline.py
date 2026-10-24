@@ -314,7 +314,7 @@ def create_quote(lead, package: str = "pro", discount_pct: float = 0, setup: boo
     ym = db.now()[:7]
     qid = db.add_quote(lead["id"], Q.number(ym, db.count_quotes_month(ym) + 1), leads.new_token(), pr["package"], pr["price"],
                        pr["discount_pct"], pr["net"], pr["setup"], pr["setup_price"], pr["first_total"], Q.valid_until(), created_by, notes,
-                       cycle=pr["cycle"], period_total=pr["period_total"])
+                       cycle=pr["cycle"], period_total=pr["period_total"], vat_pct=Q.vat_rate_now())
     db.update_lead(lead["id"], package=package, monthly_thb=pr["net"])
     return db.get_quote(qid)
 
@@ -371,7 +371,7 @@ def revise_quote(q, package: str | None = None, discount_pct: float | None = Non
     db.update_quote(q["id"], package=package, price=pr["price"], discount_pct=pr["discount_pct"], setup=1 if setup else 0, cycle=cycle,
                     period_total=pr["period_total"], net=pr["net"], setup_price=pr["setup_price"], first_total=pr["first_total"],
                     status="sent" if q["status"] in ("accepted", "viewed") else q["status"], accepted_at=None, accepted_name=None,
-                    stripe_session_id=None, valid_until=Q.valid_until())
+                    stripe_session_id=None, valid_until=Q.valid_until(), vat_pct=Q.vat_rate_now())
     db.update_lead(q["lead_id"], package=package, monthly_thb=pr["net"])
     record(q["lead_id"], "note", f"ปรับ {q['number']}: {was} → {package} {Q.CYCLES[cycle]} {pr['first_total']:,} บาท"
            + (" (ลูกค้าต้องยืนยันใหม่)" if q["status"] == "accepted" else ""), who)
@@ -415,8 +415,8 @@ def accept_quote(q, name: str, ip: str = "") -> str:
     db.update_quote(q["id"], status="accepted", accepted_at=db.now(), accepted_name=name.strip()[:120], accepted_ip=ip[:64])
     record(q["lead_id"], "quote_accepted", f"{q['number']} โดย {name.strip()[:120]}", "customer")
     dom = db.get_lead(q["lead_id"])["domain"]
-    alert_admins(f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} แล้ว (โดย {name.strip()[:60]}) รอชำระ {q['first_total']:,} บาท — เมื่อเงินเข้าแล้วกด \"ยืนยันยอดเข้า\" ระบบจะเปิดบัญชีให้",
-                 f"/admin/leads/{q['lead_id']}", "lead", subject=f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} รอชำระ {q['first_total']:,} บาท")
+    alert_admins(f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} แล้ว (โดย {name.strip()[:60]}) รอชำระ {Q.baht(Q.payable(q))} บาท — เมื่อเงินเข้าแล้วกด \"ยืนยันยอดเข้า\" ระบบจะเปิดบัญชีให้",
+                 f"/admin/leads/{q['lead_id']}", "lead", subject=f"✅ {dom} ยืนยันรับข้อเสนอ {q['number']} รอชำระ {Q.baht(Q.payable(q))} บาท")
     return ""
 
 
@@ -424,13 +424,13 @@ def claim_payment(q, slip_path: str | None) -> int:
     """ลูกค้าแจ้งชำระ (แนบสลิป) → CFO เสนอ 'ยืนยันยอดเข้า' ให้เจ้าของเช็กบัญชีแล้วกดอนุมัติ → เปิดบัญชี"""
     db.update_quote(q["id"], status="claimed", claimed_at=db.now(), slip_path=slip_path)
     lead = db.get_lead(q["lead_id"])
-    record(lead["id"], "payment_claimed", f"{q['number']} ยอด {q['first_total']:,} บาท" + (" · แนบสลิป" if slip_path else ""), "customer")
-    pl = {"quote_id": q["id"], "number": q["number"], "amount": q["first_total"], "package": q["package"], "slip": bool(slip_path)}
-    proposal = (f"ยืนยันยอดเข้า {q['first_total']:,} บาท จาก {lead['domain']} ({q['number']} · แพ็กเกจ {q['package']})\n"
+    record(lead["id"], "payment_claimed", f"{q['number']} ยอด {Q.baht(Q.payable(q))} บาท" + (" · แนบสลิป" if slip_path else ""), "customer")
+    pl = {"quote_id": q["id"], "number": q["number"], "amount": Q.payable(q), "package": q["package"], "slip": bool(slip_path)}
+    proposal = (f"ยืนยันยอดเข้า {Q.baht(Q.payable(q))} บาท จาก {lead['domain']} ({q['number']} · แพ็กเกจ {q['package']})\n"
                 f"เช็กบัญชีรับเงินแล้วกดอนุมัติ → ระบบเปิดบัญชี+แบรนด์ และส่งอีเมลต้อนรับให้ลูกค้าเอง" + ("" if slip_path else "\nลูกค้าไม่ได้แนบสลิป"))
-    did = db.add_decision("cfo", "payment", f"ยอดเข้า {q['first_total']:,} บาท — {lead['domain']}", proposal, pl, lead_id=lead["id"])
-    alert_admins(f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท ({q['number']}) — เช็กบัญชีแล้วอนุมัติข้อเสนอของ CFO",
-                 "/admin/decisions", "payment", subject=f"💳 {lead['domain']} แจ้งชำระ {q['first_total']:,} บาท รอยืนยันยอด")
+    did = db.add_decision("cfo", "payment", f"ยอดเข้า {Q.baht(Q.payable(q))} บาท — {lead['domain']}", proposal, pl, lead_id=lead["id"])
+    alert_admins(f"💳 {lead['domain']} แจ้งชำระ {Q.baht(Q.payable(q))} บาท ({q['number']}) — เช็กบัญชีแล้วอนุมัติข้อเสนอของ CFO",
+                 "/admin/decisions", "payment", subject=f"💳 {lead['domain']} แจ้งชำระ {Q.baht(Q.payable(q))} บาท รอยืนยันยอด")
     return did
 
 
@@ -470,7 +470,7 @@ def confirm_payment(q, who: str = "admin") -> str:
     db.update_quote(q["id"], status="paid", paid_at=db.now(), tenant_id=prov["tenant_id"], brand_id=prov["brand_id"])
     lead = db.get_lead(q["lead_id"])
     db.update_lead(lead["id"], status="won", package=q["package"], monthly_thb=q["net"])
-    record(lead["id"], "paid", f"{q['number']} ยอด {q['first_total']:,} บาท", who)
+    record(lead["id"], "paid", f"{q['number']} ยอด {Q.baht(Q.payable(q))} บาท", who)
     record(lead["id"], "provisioned", f"บัญชี #{prov['tenant_id']} ({'ใหม่' if prov['created'] else 'เดิม'}) · แบรนด์ #{prov['brand_id']}", who)
     record(lead["id"], "won", f"แพ็กเกจ {q['package']} " + (f"รายปี {Q.period_total(q):,} บาท/ปี (เทียบ {q['net']:,}/เดือน)" if Q.cycle_of(q) == "year" else f"{q['net']:,} บาท/เดือน"), who)
     base = public_base()
@@ -501,7 +501,7 @@ def confirm_payment(q, who: str = "admin") -> str:
         success.kickoff_quote(q)                       # ดูแลหลังการขายเริ่มทันที: แผน 30 วัน + Autopilot รอบแรก
     except Exception:
         pass
-    return (f"ยืนยันยอด {q['first_total']:,} บาทแล้ว · เปิดบัญชี{'ใหม่' if prov['created'] else 'เดิม'} + แบรนด์{'ใหม่' if prov['brand_new'] else 'เดิม'} "
+    return (f"ยืนยันยอด {Q.baht(Q.payable(q))} บาทแล้ว · เปิดบัญชี{'ใหม่' if prov['created'] else 'เดิม'} + แบรนด์{'ใหม่' if prov['brand_new'] else 'เดิม'} "
             f"แพ็กเกจ {q['package']} · ลูกค้า {lead['domain']} ปิดดีล" + note)
 
 
