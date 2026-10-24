@@ -189,18 +189,18 @@ def card_html(copy: dict, f: dict) -> str:
     big_html = (f"<div class='big'>{e(big)}</div><div class='bl'>{e(f.get('big_label') or '')}</div>") if big else ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{width:1080px;height:1080px;font-family:'Sarabun',sans-serif;background:linear-gradient(155deg,#1b1340 0%,#3b1d8f 55%,#7132f5 100%);color:#fff;
+body{{width:1080px;height:1080px;font-family:'Sarabun',sans-serif;background:radial-gradient(circle at 88% 92%,rgba(255,85,48,.55) 0%,rgba(255,85,48,0) 46%),#0a0a0a;color:#fff;
   padding:84px 80px;display:flex;flex-direction:column}}
 .tag{{display:inline-block;align-self:flex-start;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:10px 26px;font-size:30px;font-weight:600}}
 h1{{font-size:{62 if len(title or '') < 46 else 50}px;line-height:1.28;font-weight:800;margin-top:44px}}
-.big{{font-size:190px;font-weight:800;line-height:1;margin-top:34px;color:#ffd54a}}
-.bl{{font-size:34px;line-height:1.35;color:#e9e2ff;margin-top:8px;max-width:880px}}
+.big{{font-size:190px;font-weight:800;line-height:1;margin-top:34px;color:#ff5530}}
+.bl{{font-size:34px;line-height:1.35;color:#c9cbd1;margin-top:8px;max-width:880px}}
 ul{{list-style:none;margin-top:38px}}
-li{{font-size:{36 if big else 40}px;line-height:1.4;padding-left:48px;position:relative;margin-bottom:{16 if big else 24}px;color:#f3efff}}
-li:before{{content:"";position:absolute;left:0;top:18px;width:22px;height:22px;border-radius:6px;background:#ffd54a}}
+li{{font-size:{36 if big else 40}px;line-height:1.4;padding-left:48px;position:relative;margin-bottom:{16 if big else 24}px;color:#f2f3f5}}
+li:before{{content:"";position:absolute;left:0;top:18px;width:22px;height:22px;border-radius:9999px;background:#ff5530}}
 .foot{{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;font-size:32px}}
 .foot b{{font-size:46px;font-weight:800}}
-.foot span{{color:#e9e2ff}}
+.foot span{{color:#c9cbd1}}
 </style></head><body>
 <div class="tag">{e(KINDS.get(f['kind'], 'เจอ.AI'))}</div>
 <h1>{e(title or '')}</h1>{big_html}<ul>{bullets}</ul>

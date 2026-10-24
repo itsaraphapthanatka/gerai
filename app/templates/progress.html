@@ -33,7 +33,7 @@
   <svg viewBox="0 0 {{ chart_w }} 180" style="width:100%;max-width:{{ chart_w }}px;height:auto" role="img" aria-label="กราฟแนวโน้ม Share of Voice">
     <line x1="38" y1="{{ base_y }}" x2="{{ chart_w - 6 }}" y2="{{ base_y }}" stroke="#dedee5"/>
     {% for b in bars %}
-    <rect x="{{ b.x }}" y="{{ b.y }}" width="38" height="{{ b.h }}" rx="4" fill="#7132f5"></rect>
+    <rect x="{{ b.x }}" y="{{ b.y }}" width="38" height="{{ b.h }}" rx="4" fill="#ff5530"></rect>
     <text x="{{ b.x + 19 }}" y="{{ b.y - 6 }}" text-anchor="middle" font-size="11" fill="#101114">{{ b.pct }}%</text>
     <text x="{{ b.x + 19 }}" y="168" text-anchor="middle" font-size="9.5" fill="#8595a8">{{ b.date[5:] }}</text>
     {% endfor %}

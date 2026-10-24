@@ -22,10 +22,11 @@
   .foot{color:var(--stone);font-size:12.5px;margin-top:28px}
   .foot a{color:inherit}
 </style>
+{% include "_ds.html" %}
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span>{% if pdf %}เจอ.AI{% else %}<a href="/">เจอ.AI</a>{% endif %}</span>{% if not pdf %}<span><a href="/q/{{ q.token }}">ใบเสนอราคา {{ q.number }}</a> · <a href="/q/{{ q.token }}/contract.pdf">PDF</a></span>{% endif %}</div>
+  <div class="brand"><span>{% include "_logo.html" %}</span>{% if not pdf %}<span><a href="/q/{{ q.token }}">ใบเสนอราคา {{ q.number }}</a> · <a href="/q/{{ q.token }}/contract.pdf">PDF</a></span>{% endif %}</div>
   <h1>สัญญาบริการมาตรฐาน</h1>
   <p class="sub">อ้างอิงใบเสนอราคา {{ q.number }} · เว็บไซต์ {{ lead.domain }} · ฉบับ {{ (q.created_at or '')[:10] }}</p>
   {% if not company.contract_reviewed %}<div class="draft">ร่างมาตรฐาน — ฉบับนี้อยู่ระหว่างให้ที่ปรึกษากฎหมายตรวจทาน ข้อความอาจปรับเล็กน้อยก่อนฉบับลงนามจริง สาระสำคัญ (ราคา คืนเงิน 7 วัน ยกเลิกได้ทุกเมื่อ ไม่รับประกันผล) จะไม่เปลี่ยน</div>{% endif %}

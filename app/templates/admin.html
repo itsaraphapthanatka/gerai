@@ -80,6 +80,9 @@
             {% for k, p in plans.items() %}<option value="{{ k }}" {% if sel == k %}selected{% endif %}>{{ p.label }}</option>{% endfor %}
           </select>
         </form>
+        {% set tr = trial_fn(t) %}{% if tr.on %}<div style="margin-top:5px;font-size:12px" class="{{ '' if tr.expired else 'muted' }}">
+          {% if tr.expired %}<span class="pill no">หมดทดลอง {{ tr.ends[8:10] }}/{{ tr.ends[5:7] }}</span>{% else %}ทดลองเหลือ {{ tr.days_left }} วัน (ถึง {{ tr.ends[8:10] }}/{{ tr.ends[5:7] }}){% endif %}
+          <form method="post" action="/admin/tenants/{{ t['id'] }}/trial" style="display:inline"><input type="hidden" name="days" value="{{ trial_days }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">+{{ trial_days }} วัน</button></form></div>{% endif %}
         {% if not t['is_admin'] and t['requested_plan'] and t['requested_plan'] != (t['plan'] or 'free') %}
         <div style="margin-top:5px"><span class="pill admin" style="background:#fff0e6;color:#b4530b">⏳ ขอ {{ plans[t['requested_plan']].label if t['requested_plan'] in plans else t['requested_plan'] }}</span></div>
         {% endif %}

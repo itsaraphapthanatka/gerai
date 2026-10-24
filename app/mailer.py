@@ -141,7 +141,7 @@ import html as _h
 import os as _os
 import re as _re
 
-BANNER_PATH = "/static/email/header.png"
+BANNER_PATH = "/static/email/header-v2.png"      # ดีไซน์เดียวกับหน้าแรก (ดำ + ส้มแดง) · ชื่อไฟล์ใหม่กันกล่องจดหมายแคชรูปเก่า
 _CTA_RULES = [("/q/", "ดูใบเสนอราคาและยืนยัน"), ("/audit/", "ดูผลตรวจเว็บของคุณ"), ("/login", "เข้าสู่ระบบ"),
               ("/assets", "เปิดชุดติดตั้ง"), ("/content", "ตรวจคอนเทนต์"), ("/report", "ดูรายงาน"), ("/brands/", "เปิดแบรนด์ของคุณ"),
               ("/admin/", "เปิดในระบบ")]
@@ -178,7 +178,7 @@ def _boxes(body_html: str) -> str:
     """รายการ "• ..." ตั้งแต่ 2 บรรทัดติดกัน → กล่องสรุปสีอ่อน อ่านง่ายกว่าบรรทัดเปล่า (เช่น รายละเอียดใบเสนอราคา)"""
     def rep(m):
         items = [x.strip() for x in _re.split(r"<br>\s*", m.group(0)) if x.strip()]
-        rows = "".join(f"<div style='padding:3px 0'><span style='color:#7132f5;font-weight:700'>•</span> {x.lstrip('•').strip()}</div>" for x in items)
+        rows = "".join(f"<div style='padding:3px 0'><span style='color:#ff5530;font-weight:700'>•</span> {x.lstrip('•').strip()}</div>" for x in items)
         return f"<div style='background:#f6f3ff;border:1px solid #e4dcff;border-radius:10px;padding:12px 16px;margin:8px 0 10px'>{rows}</div>"
     return _re.sub(r"(?:•[^<]*(?:<a\b[^>]*>.*?</a>[^<]*)*(?:<br>\s*)?){2,}", rep, body_html)
 
@@ -198,8 +198,8 @@ def auto_cta(body_html: str):
 def button(label: str, url: str) -> str:
     """ปุ่มแบบตาราง (bulletproof) — Outlook/Gmail แสดงเหมือนกัน"""
     return (f"<table role='presentation' cellspacing='0' cellpadding='0' border='0' align='center' style='margin:26px auto 6px'><tr>"
-            f"<td bgcolor='#7132f5' style='border-radius:10px'><a href='{url}' style='display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;"
-            f"color:#ffffff;text-decoration:none;border-radius:10px;font-family:Sarabun,Tahoma,sans-serif'>{_h.escape(label)}</a></td></tr></table>")
+            f"<td bgcolor='#0a0a0a' style='border-radius:9999px'><a href='{url}' style='display:inline-block;padding:14px 32px;font-size:16px;font-weight:700;"
+            f"color:#ffffff;text-decoration:none;border-radius:9999px;font-family:Sarabun,Tahoma,sans-serif'>{_h.escape(label)}</a></td></tr></table>")
 
 
 def wrap_html(title: str, body_html: str, footer: str = "", cta=None, preheader: str = "") -> str:

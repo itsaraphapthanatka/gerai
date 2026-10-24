@@ -42,6 +42,17 @@ def _due(last_run_at, days: int) -> bool:
 
 
 def select_targets(brands, all_=False, due=False, days=7, brand_id=None):
+    from app import billing
+    tenants = {}
+    def ok(b):                                            # แผนฟรีที่หมดช่วงทดลอง 14 วัน → ไม่ทำงานที่มีต้นทุน AI ให้
+        try:
+            tid = b["tenant_id"] if "tenant_id" in b.keys() else None
+        except Exception:
+            tid = b.get("tenant_id") if isinstance(b, dict) else None
+        if tid not in tenants:
+            tenants[tid] = billing.can_run(db.get_tenant(tid)) if tid else True
+        return tenants[tid]
+    brands = [b for b in brands if ok(b)]
     if brand_id is not None:
         return [b for b in brands if b["id"] == brand_id]
     if due:

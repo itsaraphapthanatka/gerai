@@ -61,6 +61,10 @@ templates.env.globals["sidebar_brands"] = lambda req: (
 templates.env.globals["unread_count"] = lambda req: (
     db.count_unread(req.session["tenant_id"]) if req.session.get("tenant_id") else 0
 )
+templates.env.globals["trial_of"] = lambda req: (
+    billing.trial(db.get_tenant(req.session["tenant_id"])) if req.session.get("tenant_id") else {"on": False}
+)
+templates.env.globals["trial_fn"] = billing.trial
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
 )
@@ -345,8 +349,12 @@ def logout(request: Request):
 # ---------- landing (public) ----------
 @app.get("/")
 def landing(request: Request):
+    from . import partners as _pt
     return templates.TemplateResponse(request, "landing.html",
-                                      {"plans": billing.PLANS, "addons": billing.ADDONS, "ai_live": _ai_live()})
+                                      {"plans": billing.PLANS, "addons": billing.ADDONS, "ai_live": _ai_live(),
+                                       "yearly_pct": quotes.yearly_discount(), "refund_days": execs.MANDATE["refund_days"],
+                                       "partner_pct": _pt.pct(), "partner_months": _pt.months(),
+                                       "stripe_on": stripe_pay.available()})
 
 
 @app.post("/api/contact")
@@ -2978,7 +2986,7 @@ def _admin_ctx(error=None):
         addon_summary[tid] = [f"{addon_labels.get(k, k)}{(' ×' + str(n)) if n > 1 else ''}"
                               for k, n in Counter(keys).items()]
     return {
-        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error,
+        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error, "trial_days": billing.TRIAL_DAYS,
         "pending_payments": db.list_pending_payments(),
         "addon_labels": addon_labels, "addon_summary": addon_summary,
         "stats": {
@@ -3049,6 +3057,23 @@ def admin_set_email(request: Request, tid: int, email: str = Form(...)):
         return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote("รูปแบบอีเมลไม่ถูกต้อง"))
     if not db.set_email(tid, e):
         return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote(f"อีเมล {e} ถูกใช้กับบัญชีอื่นแล้ว"))
+    return _redirect("/admin")
+
+
+@app.post("/admin/tenants/{tid}/trial")
+def admin_extend_trial(request: Request, tid: int, days: int = Form(14)):
+    """ต่อเวลาทดลองใช้แผนฟรี — นับต่อจากวันหมดเดิม (หรือจากวันนี้ถ้าหมดไปแล้ว)"""
+    import datetime as _dt
+    if not _is_admin(request):
+        return _redirect("/login")
+    t = db.get_tenant(tid)
+    if not t:
+        return _redirect("/admin")
+    tr = billing.trial(t)
+    base = max(_dt.date.today(), _dt.date.fromisoformat(tr["ends"])) if tr.get("ends") else _dt.date.today()
+    new = base + _dt.timedelta(days=max(1, min(90, int(days))))
+    db.set_trial_until(tid, new.isoformat())
+    db.add_notification(tid, f"ต่อเวลาทดลองใช้ฟรีถึง {new.strftime('%d/%m/')}{new.year + 543} แล้ว", "/upgrade", "plan")
     return _redirect("/admin")
 
 

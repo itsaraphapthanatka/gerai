@@ -131,17 +131,17 @@
     // หา run ที่ใกล้ที่สุดหลัง publish
     const idx = runs.findIndex(r => (r.started_at||'').slice(0,10) >= pubDate);
     const x = idx >= 0 ? xPos(idx) : xPos(runs.length - 1);
-    ctx.strokeStyle = 'rgba(113,50,245,0.35)'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,85,48,0.35)'; ctx.lineWidth = 1.5;
     ctx.setLineDash([4,3]);
     ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = 'var(--purple,#7132f5)'; ctx.font = 'bold 9px IBM Plex Sans Thai, sans-serif';
+    ctx.fillStyle = 'var(--purple,#ff5530)'; ctx.font = 'bold 9px IBM Plex Sans Thai, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('📄', x, PAD.top + 10);
   });
 
   // SoV line
-  ctx.strokeStyle = '#7132f5'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+  ctx.strokeStyle = '#ff5530'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
   let started = false;
   sovData.forEach((v, i) => {
     if (v === null) return;
@@ -156,7 +156,7 @@
     const x = xPos(i);
     if (v !== null) {
       ctx.beginPath(); ctx.arc(x, yPos(v), 4, 0, Math.PI*2);
-      ctx.fillStyle = '#7132f5'; ctx.fill();
+      ctx.fillStyle = '#ff5530'; ctx.fill();
     }
     if (i === 0 || i === runs.length-1 || runs.length <= 6) {
       ctx.fillStyle = '#9497a9'; ctx.font = '10px IBM Plex Sans Thai, sans-serif';

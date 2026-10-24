@@ -6,7 +6,7 @@
 {% include "_public_head.html" %}
 </head>
 <body><div class="wrap">
-  <div class="brand"><a href="/">เจอ.AI</a> · แดชบอร์ดพันธมิตร</div>
+  <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub">แดชบอร์ดพันธมิตร</span></div>
   <h1>{{ p.company or p.name }}</h1>
   <p class="sub">รหัสแนะนำ <b>{{ p.code }}</b>{% if p.status == 'paused' %} · <span class="pill">พักไว้ — ลิงก์ยังไม่นับลีดใหม่</span>{% endif %} · ค่าแนะนำ {{ "%g"|format(pct) }}% ของค่าบริการ {{ months }} เดือนแรก</p>
   {% if notice %}<div class="ok">{{ notice }}</div>{% endif %}

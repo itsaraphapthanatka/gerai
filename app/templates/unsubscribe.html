@@ -13,9 +13,10 @@
   button{font:inherit;font-weight:600;font-size:16px;padding:12px 22px;border-radius:9999px;border:0;background:#0a0a0a;color:#fff;cursor:pointer}
   .ok{background:#e8f7ee;color:#1c7a44;padding:14px 16px;border-radius:12px}
 </style>
+{% include "_ds.html" %}
 </head>
 <body><div class="wrap">
-  <div class="brand"><a href="/">เจอ.AI</a></div>
+  <div class="ds-head">{% include "_logo.html" %}</div>
   {% if done %}
   <h1>เรียบร้อย</h1>
   <div class="ok">เราบันทึกว่า {{ lead.domain }} ไม่ต้องการรับการติดต่อจากเจอ.AI แล้ว ข้อเสนอที่ค้างอยู่ถูกยกเลิกทั้งหมด และเราจะไม่ส่งข้อความถึงคุณอีก</div>

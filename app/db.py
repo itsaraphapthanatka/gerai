@@ -486,6 +486,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
+        _ensure_column(c, "tenants", "trial_until", "TEXT")                  # ต่อเวลาทดลองใช้แผนฟรี (YYYY-MM-DD) · ว่าง = วันสร้างบัญชี + 14 วัน
         _ensure_column(c, "leads", "exp_arm", "TEXT")
         _ensure_column(c, "leads", "partner_id", "INTEGER")                  # ลีดที่พันธมิตรแนะนำมา (ลิงก์ /p/<code> หรือส่งผ่านแดชบอร์ดพันธมิตร)                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
         _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
@@ -1814,3 +1815,8 @@ def commission_for_receipt(receipt_id: int):
 def leads_of_partner(pid: int):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM leads WHERE partner_id=? ORDER BY id DESC"), (pid,)).fetchall()
+
+
+def set_trial_until(tenant_id: int, date_iso: str | None) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET trial_until=? WHERE id=?"), (date_iso, tenant_id))

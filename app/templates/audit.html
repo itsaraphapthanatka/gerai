@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/favicon-32.png">
 <style>
-  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--purple:#a855f7;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--purple:#ff5530;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
   .wrap{max-width:720px;margin:0 auto;padding:40px 24px 64px}
@@ -31,10 +31,11 @@
   .hp{position:absolute;left:-9999px;opacity:0}
   .wait{display:none;margin-top:16px;color:var(--slate);font-size:14px}
 </style>
+{% include "_ds.html" %}
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><a href="/">เจอ.AI</a> · ตรวจเว็บฟรี</div>
+  <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub">ตรวจเว็บฟรี</span></div>
   <h1>เว็บคุณโผล่ใน Google และคำตอบของ AI ไหม</h1>
   <p class="sub">ตรวจ 16 ข้อที่ขวางไม่ให้บอทของ Google, ChatGPT, Gemini และ Perplexity อ่านเว็บคุณ ฟรี ไม่ต้องสมัคร ใช้เวลาราวครึ่งนาที</p>
   {% if error %}<div class="err">{{ error }}</div>{% endif %}

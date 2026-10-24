@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/favicon-32.png">
 <style>{% raw %}
-  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--accent:#7132f5;--accent-t:rgba(113,50,245,.08);
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--accent:#ff5530;--accent-t:#fff4f1;
     --good:#1c7a44;--good-t:#e8f7ee;--mid:#b7791f;--mid-t:#fdf3e1;--bad:#c0392b;--bad-t:#fdeaea;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
@@ -26,8 +26,8 @@
   .kpi b small{font-size:15px;color:var(--stone);font-weight:500}
   .kpi span{color:var(--slate);font-size:13px;display:block}
   .kpi.bad b{color:var(--bad)}.kpi.good b{color:var(--good)}.kpi.mid b{color:var(--mid)}
-  .note{background:var(--accent-t);color:#3b2a7a;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
-  .note.run::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #7132f5;border-right-color:transparent;margin-right:8px;vertical-align:-1px;animation:spin 1s linear infinite}
+  .note{background:var(--accent-t);color:#c8341a;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+  .note.run::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #ff5530;border-right-color:transparent;margin-right:8px;vertical-align:-1px;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   h2{font-size:18px;margin:24px 0 10px}
   h3{font-size:15px;margin:18px 0 8px}
@@ -49,7 +49,7 @@
   td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   .pos{display:inline-block;min-width:38px;text-align:center;border-radius:8px;padding:2px 8px;font-weight:700;font-size:13px}
   .p1{background:#d6f5e3;color:var(--good)}.p2{background:#e6f4ea;color:#2f7d4f}.p3{background:var(--mid-t);color:var(--mid)}.p4{background:var(--bad-t);color:var(--bad)}
-  .me{background:#ede5ff;font-weight:700;color:var(--accent)}.cp{background:#fff3e0;font-weight:600}
+  .me{background:#fff0ec;font-weight:700;color:#c8341a}.cp{background:#fff3e0;font-weight:600}
   .sev{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600}
   .sev.Error{background:var(--bad-t);color:var(--bad)}.sev.Warning{background:var(--mid-t);color:var(--mid)}.sev.Notice{background:var(--surface);color:var(--slate)}
   .grp{font-size:11.5px;color:var(--stone);white-space:nowrap}
@@ -88,6 +88,7 @@
     h1 .tag{display:block;margin-top:4px}
   }
 {% endraw %}</style>
+{% include "_ds.html" %}
 </head>
 <body>
 {% set rk = deep.ranking if deep else None %}
@@ -96,7 +97,7 @@
 {% macro posclass(p) %}{% if not p %}p4{% elif p <= 5 %}p1{% elif p <= 10 %}p2{% elif p <= 20 %}p3{% else %}p4{% endif %}{% endmacro %}
 {% macro path(u) %}{{ ('/' ~ (u.split('/', 3)[3] if u.count('/') >= 3 else '')) if u else '' }}{% endmacro %}
 <div class="wrap">
-  <div class="brand"><a href="/">เจอ.AI</a> · <a href="/audit">ตรวจเว็บฟรี</a> <span class="live">LIVE</span></div>
+  <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub"><a href="/audit" style="color:inherit;text-decoration:none">ตรวจเว็บฟรี</a> <span class="live">LIVE</span></span></div>
   <h1>ผลตรวจ {{ lead['domain'] }} <span class="tag" style="font-size:.55em;color:var(--stone);font-weight:600">รายงาน AI SEO</span></h1>
   <p class="sub">ตรวจเมื่อ {{ (lead['audit_at'] or '')[:16].replace('T',' ') }}{% if deep %} · ไต่เว็บ {{ deep.crawl.n }} หน้า · อันดับ Google ประเทศไทย{% endif %}{% if ai %} · ถาม {{ 'ChatGPT' if ai.engine == 'chatgpt' else ai.engine }} {{ ai.asked }} คำถาม{% endif %}</p>
 

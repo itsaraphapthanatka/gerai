@@ -58,10 +58,11 @@
   @media (max-width:600px){.grid{grid-template-columns:1fr}.pay{grid-template-columns:1fr}ul.perks{columns:1}}
   @media print{.cta,.pay form,.noprint{display:none}}
 </style>
+{% include "_ds.html" %}
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span>{% if pdf %}เจอ.AI{% else %}<a href="/">เจอ.AI</a>{% endif %}{% if company.name %} · {{ company.name }}{% endif %}</span>
+  <div class="brand"><span>{% include "_logo.html" %}{% if company.name %}<span style="margin-left:8px">· {{ company.name }}</span>{% endif %}</span>
     {% if not pdf %}<span class="noprint"><a href="/q/{{ q.token }}.pdf">ดาวน์โหลด PDF</a> · <a href="/q/{{ q.token }}/contract">สัญญาบริการ</a></span>{% endif %}</div>
   <h1>ใบเสนอราคา {{ q.number }} <span class="pill {{ 'ok' if q.status in ('accepted','claimed','paid') else ('warn' if expired else '') }}">{{ status_label }}</span></h1>
   <p class="sub">ออกเมื่อ {{ (q.created_at or '')[:10] }} · ใช้ได้ถึง {{ q.valid_until }} · สำหรับเว็บ <b>{{ lead.domain }}</b></p>

@@ -1,0 +1,25 @@
+{# ระบบดีไซน์ของเจอ.AI (ตามหน้าแรก): ดำ #0a0a0a เป็นสีหลัก · ส้มแดง #ff5530 เป็นสีเน้นเท่านั้น · ปุ่มแคปซูล · การ์ดขอบบาง · DM Sans + IBM Plex Sans Thai
+   ฝังเป็น <style> ในหน้า (ไม่ใช่ไฟล์ภายนอก) เพื่อให้ PDF ที่สร้างจาก HTML ได้หน้าตาเดียวกัน · ใส่ท้าย <head> ให้ทับค่าเดิมของหน้า #}
+{% if not pdf %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">{% endif %}
+<style>
+  :root{
+    --primary:#0a0a0a;--on-primary:#fff;--charcoal:#222;--slate:#45515e;--steel:#5f5f5f;--stone:#8e8e93;--muted:#a8aab2;
+    --canvas:#fff;--surface:#f7f8fa;--surface-soft:#f2f3f5;--hairline:#e5e7eb;--hairline-soft:#eaecf0;
+    --coral:#ff5530;--coral-deep:#c8341a;--coral-tint:#fff4f1;--coral-subtle:rgba(255,85,48,.14);
+    --magenta:#ea5ec1;--blue:#1456f0;--purple-brand:#a855f7;--cyan:#3daeff;
+    --success-bg:#e8ffea;--success-text:#1ba673;--good:#1c7a44;--bad:#b42318;
+    --font:{% if pdf %}'Sarabun',{% endif %}'DM Sans','IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+  }
+  body{font-family:var(--font)}
+  .ds-logo{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--primary);text-decoration:none}
+  .ds-logo .dot{width:9px;height:9px;border-radius:9999px;background:var(--coral);display:inline-block}
+  .ds-logo .ai{color:var(--coral)}
+  .ds-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+  .ds-head .ds-sub{font-size:13.5px;font-weight:500;color:var(--slate)}
+  .ds-eyebrow{font-size:13px;font-weight:600;color:var(--coral);text-transform:uppercase;letter-spacing:.5px}
+  button,.btn,a.btn{border-radius:9999px}
+  button:not([style*="background"]):not(.ghost):not(.outline):not(.alt):not(.danger){background:var(--primary);color:var(--on-primary)}
+  button:not([style*="background"]):not(.ghost):not(.outline):not(.alt):not(.danger):hover{background:var(--charcoal)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--coral-subtle)}
+</style>

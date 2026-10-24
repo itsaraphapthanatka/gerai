@@ -142,6 +142,42 @@
   @media(max-width:860px){.ftiles{grid-template-columns:1fr 1fr}}
   @media(max-width:520px){.ftiles{grid-template-columns:1fr}}
 
+  /* free audit tabs */
+  .atabs{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .atab{border:1px solid var(--hairline);border-radius:24px;padding:28px 26px;background:var(--canvas);display:flex;flex-direction:column}
+  .atab .tk{font-size:12px;font-weight:600;color:var(--slate);background:var(--surface);border-radius:9999px;padding:4px 12px;align-self:flex-start}
+  .atab h3{font-size:21px;font-weight:600;letter-spacing:-.3px;margin:16px 0 8px}
+  .atab p{font-size:14px;color:var(--steel);line-height:1.6}
+  .atab .big{font-size:40px;font-weight:600;letter-spacing:-1px;margin-top:auto;padding-top:18px}
+  .atab .big small{font-size:14px;color:var(--stone);font-weight:500;letter-spacing:0}
+  .acta{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:32px;flex-wrap:wrap}
+  .acta .note{font-size:13px;color:var(--stone)}
+  @media(max-width:860px){.atabs{grid-template-columns:1fr}}
+
+  /* care timeline */
+  .tl{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .tl-i{background:var(--canvas);border-radius:16px;padding:22px 20px;border:1px solid var(--hairline)}
+  .tl-i .d{font-size:13px;font-weight:600;color:var(--coral)}
+  .tl-i h4{font-size:16px;font-weight:600;margin:8px 0 6px;letter-spacing:-.2px}
+  .tl-i p{font-size:13.5px;color:var(--steel);line-height:1.55}
+  @media(max-width:860px){.tl{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.tl{grid-template-columns:1fr}}
+
+  /* pricing extras */
+  .pay-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px}
+  .pay-i{background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;padding:18px 20px;font-size:14px;color:var(--slate)}
+  .pay-i b{display:block;color:var(--primary);font-size:15px;margin-bottom:4px}
+  .pay-i .hl{color:var(--coral);font-weight:600}
+  @media(max-width:860px){.pay-row{grid-template-columns:1fr}}
+
+  /* partner band */
+  .pband{background:var(--primary);color:#fff;border-radius:32px;padding:44px 48px;display:flex;gap:32px;align-items:center;justify-content:space-between;flex-wrap:wrap;position:relative;overflow:hidden}
+  .pband::after{content:"";position:absolute;right:-80px;top:-120px;width:340px;height:340px;border-radius:9999px;background:radial-gradient(circle,rgba(255,85,48,.32),transparent 68%)}
+  .pband h3{font-size:30px;font-weight:600;letter-spacing:-.8px;line-height:1.2;position:relative}
+  .pband p{font-size:15.5px;color:#c9cbd1;margin-top:10px;max-width:560px;position:relative;line-height:1.6}
+  .pband .btn{position:relative}
+  .pband .pct{color:var(--coral)}
+
   /* promo cta */
   .cta-card{background:var(--coral);color:#fff;border-radius:32px;padding:64px 48px;text-align:center;position:relative;overflow:hidden}
   .cta-card::after{content:"";position:absolute;left:-60px;bottom:-80px;width:300px;height:300px;border-radius:9999px;
@@ -203,12 +239,13 @@
 
 <nav>
   <div class="wrap nav-in">
-    <a href="/" class="logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
+    <a href="/" class="logo"><span class="dot"></span><span>เจอ<span style="color:var(--coral)">.AI</span></span></a>
     <div class="nav-links">
+      <a href="#audit">ตรวจเว็บฟรี</a>
       <a href="#features">ฟีเจอร์</a>
       <a href="#how">วิธีทำงาน</a>
-      <a href="#install">ติดตั้ง</a>
       <a href="#pricing">ราคา</a>
+      <a href="/partners">พันธมิตร</a>
     </div>
     <div class="nav-cta">
       {% if request.session.get('tenant_id') %}
@@ -227,10 +264,10 @@
     {# รายชื่อเจ้า AI = เจ้าที่มีคีย์ถามได้จริง (ai_live) — ไม่โฆษณาเจ้าที่ยังวัดให้ไม่ได้ #}
     <p class="hero-sub">คนหันไปถาม{{ " " if ai_live.n }}{{ ai_live.text }} แทน Google — เจอ.AI วัดว่าแบรนด์คุณถูกพูดถึงแค่ไหน หาช่องว่าง แล้วสร้างคอนเทนต์ + Schema ปิดให้อัตโนมัติ ติดตั้งได้ทุกเว็บ</p>
     <div class="hero-cta">
-      <a href="/login" class="btn btn-primary">เริ่มใช้งาน →</a>
-      <a href="#how" class="btn btn-outline">ดูวิธีทำงาน</a>
+      <a href="/audit?src=home" class="btn btn-primary">ตรวจเว็บฟรี →</a>
+      <a href="/login" class="btn btn-outline">เริ่มใช้งาน</a>
     </div>
-    <div class="hero-note">ไม่ต้องใช้บัตรเครดิต · ติดตั้งครั้งเดียว ทำงานอัตโนมัติ</div>
+    <div class="hero-note">ตรวจฟรีไม่ต้องสมัคร · ได้รายงานเต็มในราว 2 นาที · ติดตั้งครั้งเดียว ทำงานอัตโนมัติ</div>
 
     <!-- mock -->
     <div class="mock">
@@ -256,6 +293,28 @@
       <div class="stat"><div class="n">100%</div><div class="l">อัตโนมัติ ตั้งแต่วัดถึงเผยแพร่</div></div>
       <div class="stat"><div class="n">24/7</div><div class="l">มอนิเตอร์ตามรอบที่ตั้งเอง</div></div>
     </div>
+  </div>
+</section>
+
+<section id="audit">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">ตรวจเว็บฟรี</div>
+      <h2>รู้ใน 2 นาทีว่าลูกค้าหาคุณเจอไหม</h2>
+      <p class="sec-sub">ใส่ที่อยู่เว็บอย่างเดียว ไม่ต้องสมัคร ได้รายงานเต็ม 3 แท็บเหมือนที่เอเจนซี่ทำมือ พร้อมวิธีแก้ทีละข้อ</p>
+    </div>
+    <div class="atabs">
+      <div class="atab"><span class="tk">แท็บ 1 · Ranking</span><h3>อันดับ Google ของคำที่ลูกค้าใช้หา</h3>
+        <p>ระบบเลือก 5 คำค้นจากสินค้าและบริการที่เว็บคุณเขียนไว้ เช็กอันดับจริง และบอกว่าใครติด 10 อันดับแรกแทนคุณ ไม่นับแพลตฟอร์มอย่าง YouTube หรือ Facebook เป็นคู่แข่ง</p>
+        <div class="big">5 <small>คำค้น · Top 10 ต่อคำ</small></div></div>
+      <div class="atab"><span class="tk">แท็บ 2 · AI Visibility</span><h3>ถาม ChatGPT จริง 20 คำถาม</h3>
+        <p>คำถามแบบที่ลูกค้าของคุณพิมพ์จริง แล้วดูว่า AI เอ่ยชื่อคุณหรือคู่แข่ง และอ้างอิงเว็บใคร วัดให้ฟรีเมื่อคุณขอแผนแก้</p>
+        <div class="big">20 <small>คำถาม · วัดจริง ไม่ประมาณ</small></div></div>
+      <div class="atab"><span class="tk">แท็บ 3 · Site Audit</span><h3>ไต่เว็บแล้วบอกวิธีแก้ทีละข้อ</h3>
+        <p>ไต่สูงสุด 100 หน้า ตรวจ title ซ้ำ description หาย H1 หน้ากำพร้า รูปไม่มี alt และ 16 ข้อที่ขวางบอท AI ได้คะแนนสุขภาพเว็บที่อธิบายได้ในประโยคเดียว</p>
+        <div class="big">100 <small>หน้า · เรียงตามความสำคัญ</small></div></div>
+    </div>
+    <div class="acta"><a href="/audit?src=home" class="btn btn-primary">ตรวจเว็บของคุณฟรี →</a><span class="note">ไม่ล็อกอิน · ดึงเฉพาะหน้าสาธารณะของเว็บ</span></div>
   </div>
 </section>
 
@@ -351,12 +410,28 @@
   </div>
 </section>
 
+<section id="care">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">หลังสมัคร</div>
+      <h2>ไม่ปล่อยให้คุณงงหลังจ่ายเงิน</h2>
+      <p class="sec-sub">ทีมดูแลลูกค้าพาไปจนเห็นผลก่อนรอบบิลถัดไป ทุกขั้นแจ้งทางอีเมลพร้อมลิงก์ไปหน้าที่ต้องทำ</p>
+    </div>
+    <div class="tl">
+      <div class="tl-i"><div class="d">วันแรก</div><h4>แผน 30 วัน + เริ่มงานทันที</h4><p>ได้แผนว่าเดือนแรกจะเกิดอะไร ระบบตรวจเว็บ วัด AI และร่างคอนเทนต์ชิ้นแรกให้ในวันเดียวกัน</p></div>
+      <div class="tl-i"><div class="d">วันที่ 3</div><h4>เช็กการติดตั้ง</h4><p>ตรวจว่าหน้า /geo, llms.txt และ sitemap ขึ้นบนโดเมนคุณแล้ว ถ้ายังไม่ขึ้น ส่งขั้นตอนแบบง่ายที่สุดให้ทีมเว็บ</p></div>
+      <div class="tl-i"><div class="d">วันที่ 7</div><h4>งานชิ้นแรก</h4><p>คอนเทนต์ที่ตอบคำถามจริงของลูกค้าพร้อมให้ตรวจ เริ่มเป็นโหมดร่าง คุณกดเผยแพร่เองได้</p></div>
+      <div class="tl-i"><div class="d">ทุกเดือน</div><h4>รายงานผลจริง</h4><p>สุขภาพเว็บ งานที่ทำ และการมองเห็นใน AI ก่อนรอบบิลทุกครั้ง พร้อม PDF ส่งต่อหัวหน้าได้</p></div>
+    </div>
+  </div>
+</section>
+
 <section id="pricing" style="background:var(--surface)">
   <div class="wrap">
     <div class="sec-head center">
       <div class="sec-eyebrow">ราคา</div>
       <h2>แพ็กเกจที่เหมาะกับคุณ</h2>
-      <p class="sec-sub">เริ่มฟรี อัปเกรดเมื่อพร้อม · ชำระง่ายผ่าน PromptPay · ราคายังไม่รวม VAT</p>
+      <p class="sec-sub">ทดลองใช้ฟรี 14 วัน อัปเกรดเมื่อพร้อม · {{ 'จ่ายด้วยบัตรหรือ PromptPay' if stripe_on else 'ชำระง่ายผ่าน PromptPay' }} · ราคายังไม่รวม VAT</p>
     </div>
     {% set logged_in = request.session.get('tenant_id') %}
     <div class="plans-l">
@@ -368,7 +443,7 @@
         <div class="pl-tag">{{ p.tagline }}</div>
         <div class="pl-price">{% if p.get('hidden') %}<span style="font-size:23px;font-weight:600;letter-spacing:-.3px">ติดต่อเรา</span>{% elif p.price %}฿{{ '{:,}'.format(p.price) }}{% else %}ฟรี{% endif %}<span>{{ p.period }}</span></div>
         <ul>{% for f in p.perks %}<li>{{ f }}</li>{% endfor %}</ul>
-        {% set lbl = 'ติดต่อทีมงาน' if p.get('hidden') else ('เริ่มฟรี' if key=='free' else 'เลือกแผนนี้ →') %}
+        {% set lbl = 'ติดต่อทีมงาน' if p.get('hidden') else ('ทดลองฟรี 14 วัน' if key=='free' else 'เลือกแผนนี้ →') %}
         {% if logged_in %}
         <a href="/upgrade" class="btn {{ 'btn-primary' if key=='pro' else 'btn-outline' }}">{{ lbl }}</a>
         {% else %}
@@ -384,6 +459,21 @@
       {% endfor %}
     </div>
     {% endif %}
+    <div class="pay-row">
+      <div class="pay-i"><b>จ่ายรายปี <span class="hl">ลด {{ "%g"|format(yearly_pct) }}%</span></b>จ่ายครั้งเดียวทั้งปี และได้ GEO Setup ฟรี (ปกติ ฿9,900) · รายเดือนยังยกเลิกได้ทุกเมื่อ</div>
+      <div class="pay-i"><b>{{ 'บัตรเครดิต หรือ PromptPay' if stripe_on else 'PromptPay / โอนเงิน' }}</b>{% if stripe_on %}จ่ายด้วยบัตรผ่าน Stripe เปิดบัญชีให้ทันที หรือสแกน PromptPay แล้วแนบสลิป{% else %}สแกน PromptPay แล้วแนบสลิป ทีมงานยืนยันยอดและเปิดบัญชีให้{% endif %}</div>
+      <div class="pay-i"><b>ใบเสร็จส่งให้อัตโนมัติ</b>ทุกครั้งที่ชำระ ส่งทางอีเมลพร้อม PDF · ไม่พอใจภายใน {{ refund_days }} วันแรก คืนเงินเต็มจำนวน</div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-bottom:0">
+  <div class="wrap">
+    <div class="pband">
+      <div><h3>เป็นเอเจนซี่หรือฟรีแลนซ์?<br>แนะนำลูกค้า รับ <span class="pct">{{ "%g"|format(partner_pct) }}%</span> ทุกเดือน</h3>
+        <p>ค่าแนะนำ {{ "%g"|format(partner_pct) }}% ของค่าบริการ {{ partner_months }} เดือนแรกของลูกค้าแต่ละราย ได้ลิงก์ตรวจเว็บฟรีของตัวเองและแดชบอร์ดดูลีดกับค่าแนะนำ ไม่ต้องทำงานเพิ่ม</p></div>
+      <a href="/partners?src=home" class="btn btn-white">สมัครเป็นพันธมิตร →</a>
+    </div>
   </div>
 </section>
 
@@ -391,9 +481,10 @@
   <div class="wrap">
     <div class="cta-card">
       <h2>พร้อมให้ AI เจอแบรนด์คุณ?</h2>
-      <p>เริ่มวัด Share of Voice วันนี้ แล้วปล่อยให้ระบบทำงานเอง</p>
+      <p>เริ่มจากตรวจเว็บฟรี แล้วปล่อยให้ระบบวัด เขียน และรายงานผลให้ทุกเดือน</p>
       <div class="hero-cta">
-        <a href="/login" class="btn btn-white">เริ่มใช้งาน →</a>
+        <a href="/audit?src=home" class="btn btn-white">ตรวจเว็บฟรี →</a>
+        <a href="/login" class="btn btn-outline" style="border-color:#fff;color:#fff">เริ่มใช้งาน</a>
       </div>
     </div>
   </div>
@@ -403,7 +494,7 @@
   <div class="wrap">
     <div class="foot-top">
       <div class="foot-brand">
-        <div class="logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></div>
+        <div class="logo"><span class="dot"></span><span>เจอ<span style="color:var(--coral)">.AI</span></span></div>
         <p>แพลตฟอร์ม GEO สำหรับแบรนด์ไทย — ให้ AI พูดถึงแบรนด์คุณในคำตอบ</p>
       </div>
       <div class="foot-cols">
@@ -412,10 +503,13 @@
           <a href="#features">ฟีเจอร์</a>
           <a href="#how">วิธีทำงาน</a>
           <a href="#install">ติดตั้ง</a>
+          <a href="#care">หลังสมัคร</a>
           <a href="#pricing">ราคา</a>
         </div>
         <div class="foot-col">
           <h5>เริ่มต้น</h5>
+          <a href="/audit?src=home">ตรวจเว็บฟรี</a>
+          <a href="/partners">พันธมิตร</a>
           <a href="/login">เข้าสู่ระบบ</a>
         </div>
       </div>
