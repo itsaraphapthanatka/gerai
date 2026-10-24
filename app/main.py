@@ -302,10 +302,14 @@ def _attach_image(brand, content_id: int, topic: str) -> str:
 def _brand_grounded(brand):
     """คืน brand ที่มี site_context (ดึงเนื้อหาเว็บจริงมา cache ครั้งแรก) เพื่อใช้ ground การเขียน"""
     try:
-        if not brand["site_context"]:
-            txt = ai_client._fetch_text(geo_content._site_url(brand))
-            if txt and len(txt) > 40:
-                db.set_brand_site_context(brand["id"], txt[:4000])
+        if ai_client.context_stale(brand["site_context"]):        # ว่าง / หน้า placeholder ของเซิร์ฟเวอร์ / บางจนไม่มีข้อเท็จจริง → ดึงใหม่
+            txt = ai_client.site_context(geo_content._site_url(brand))
+            old = brand["site_context"] or ""
+            if txt and (len(txt) > len(old) or ai_client.is_placeholder(old)):
+                db.set_brand_site_context(brand["id"], txt)
+                brand = db.get_brand(brand["id"])
+            elif ai_client.is_placeholder(brand["site_context"]):
+                db.set_brand_site_context(brand["id"], "")            # placeholder ห้ามใช้ ดีกว่าไม่มี
                 brand = db.get_brand(brand["id"])
     except Exception:
         pass
@@ -1552,8 +1556,8 @@ def save_brand_facts(request: Request, brand_id: int, facts: str = Form(""), ref
     db.set_brand_facts(brand_id, facts.strip()[:4000])
     if refresh_site:   # ดึงเนื้อหาเว็บจริงใหม่ (grounding)
         try:
-            txt = ai_client._fetch_text(geo_content._site_url(brand))
-            db.set_brand_site_context(brand_id, (txt or "")[:4000])
+            txt = ai_client.site_context(geo_content._site_url(brand))
+            db.set_brand_site_context(brand_id, txt or "")
         except Exception:
             pass
     return _redirect(f"/brands/{brand_id}/content?saved=1")

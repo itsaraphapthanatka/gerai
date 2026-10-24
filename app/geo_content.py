@@ -123,7 +123,7 @@ def _llm_generate(brand, question: str, lang: str, ctype: str = "qa"):
     if site_ctx.strip():
         grounding += ("\nContent from the business's OWN website (ground your writing in this — reuse their real "
                       "service names, wording, and coverage; prefer these real specifics over generic phrasing):\n"
-                      f"{site_ctx.strip()[:2500]}\n")
+                      f"{site_ctx.strip()[:4000]}\n")
     prompt = (
         f"You are a GEO/AEO content writer for a Thai business. Write everything in {langname}.\n"
         f"Business: {brand['name']} (website: {brand['domain']}). Market/notes: {brand['market'] or '-'}.\n"

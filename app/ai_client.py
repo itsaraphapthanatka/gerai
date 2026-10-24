@@ -144,6 +144,81 @@ def _fetch_text(url: str, timeout: int = 18) -> str:
     return "\n".join(p for p in parts if p.split(": ", 1)[-1])
 
 
+PLACEHOLDER_SITE = re.compile(r"server block is working|welcome to nginx|apache2? (ubuntu |debian )?default page|it works!|"
+                              r"site (is )?under construction|coming soon|domain (is )?parked|default web site page|"
+                              r"this domain (is|may be) for sale", re.I)
+THIN_SITE_CHARS = 400            # บริบทสั้นกว่านี้ = แทบไม่มีข้อเท็จจริงให้เขียน (เช่น SPA ที่ HTML ว่าง) → ลองดึงใหม่
+CONTEXT_PAGE_HINT = re.compile(r"about|เกี่ยวกับ|faq|คำถาม|service|บริการ|why|เหตุผล", re.I)
+
+
+def is_placeholder(text: str) -> bool:
+    """หน้าเริ่มต้นของเซิร์ฟเวอร์/ยังไม่เปิดเว็บ — ห้ามใช้เป็นข้อมูลจริงของแบรนด์"""
+    return bool(PLACEHOLDER_SITE.search(text or ""))
+
+
+def context_stale(text: str) -> bool:
+    return not (text or "").strip() or is_placeholder(text) or len(text) < THIN_SITE_CHARS
+
+
+def site_context(url: str, fetch=None, max_pages: int = 3, limit: int = 4000) -> str:
+    """บริบทเว็บจริงสำหรับ grounding: หน้าแรก + หน้าเกี่ยวกับเรา/คำถามพบบ่อย/บริการ (โดเมนเดียวกัน ≤ max_pages หน้า)
+    หน้าแรกของเว็บขายของมักมีแต่เมนูกับช่องค้น — ข้อเท็จจริง (บริการ ใบรับรอง พื้นที่) อยู่ในหน้าเหล่านี้ · คืน '' ถ้าเป็นหน้า placeholder"""
+    from urllib.parse import urljoin, urlparse
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    fetch = fetch or _fetch_page
+    home_url, html = fetch(url)
+    home = _page_text(html, body_chars=1000)                # แบ่งงบให้ทุกหน้าได้พื้นที่ — หน้าแรกมักเป็นรายการสินค้า/เมนูยาว
+    if not home or is_placeholder(home):
+        return ""
+    host = urlparse(home_url).netloc.lower().removeprefix("www.")
+    seen, picks = {home_url.rstrip("/")}, []
+    for m in re.finditer(r"""<a[^>]+href=["']([^"'#]+)["'][^>]*>(.*?)</a>""", html, re.I | re.S):
+        href, label = m.group(1), re.sub(r"<[^>]+>", " ", m.group(2))
+        u = urljoin(home_url, href).split("?")[0].rstrip("/")
+        if urlparse(u).netloc.lower().removeprefix("www.") != host or u in seen:
+            continue
+        if CONTEXT_PAGE_HINT.search(urlparse(u).path) or CONTEXT_PAGE_HINT.search(label):
+            seen.add(u)
+            picks.append(u)
+        if len(picks) >= max_pages - 1:
+            break
+    parts = [home]
+    for u in picks:
+        try:
+            t = _page_text(fetch(u)[1], body_chars=1000)
+        except Exception:
+            continue
+        if t and not is_placeholder(t):
+            parts.append(f"[{urlparse(u).path}]\n{t}")
+    return "\n\n".join(parts)[:limit]
+
+
+def _fetch_page(url: str, timeout: int = 18) -> tuple[str, str]:
+    req = urllib.request.Request(url, headers={"User-Agent": "curl/8.5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.geturl(), r.read(500_000).decode("utf-8", "ignore")
+
+
+def _page_text(html: str, body_chars: int = 1500) -> str:
+    def _grp(pat):
+        m = re.search(pat, html, re.I | re.S)
+        return re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
+    title = _grp(r"<title[^>]*>(.*?)</title>")
+    desc = (re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)', html, re.I)
+            or re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)', html, re.I))
+    desc = desc.group(1).strip() if desc else ""
+    heads = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h[1-3][^>]*>(.*?)</h[1-3]>", html, re.I | re.S)]
+    heads = [h for h in heads if h][:10]
+    body = re.sub(r"<(script|style|nav|footer|header)[\s\S]*?</\1>", " ", html, flags=re.I)
+    body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
+    parts = [f"Title: {title}", f"Description: {desc}"]
+    if heads:
+        parts.append("Headings: " + " | ".join(heads))
+    parts.append("Content: " + body[:body_chars])
+    return "\n".join(p for p in parts if p.split(": ", 1)[-1])
+
+
 def classify_market(url: str, name: str = "") -> str:
     """อ่านเว็บไซต์ → ระบุ 'ตลาด / ธุรกิจ' สั้นๆ เป็นภาษาไทย (คืน '' ถ้าทำไม่ได้)"""
     try:
