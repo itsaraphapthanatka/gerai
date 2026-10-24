@@ -3229,10 +3229,11 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
 
 
 @app.post("/admin/settings/prospect")
-def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form(""), followup_on: str = Form(""), cs_on: str = Form("")):
+def admin_settings_prospect(request: Request, segments: str = Form(""), daily: str = Form("10"), enabled: str = Form(""), followup_on: str = Form(""), cs_on: str = Form(""),
+                            maps: str = Form("")):
     if not _is_admin(request):
         return _redirect("/login")
-    prospecting.save_config(segments, daily, bool(enabled))
+    prospecting.save_config(segments, daily, bool(enabled), maps=bool(maps) if prospecting.maps_available() else None)
     from . import followup as _fu
     _fu.set_enabled(bool(followup_on))
     from . import success as _cs

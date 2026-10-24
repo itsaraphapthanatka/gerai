@@ -26,6 +26,7 @@ AREAS = ["กรุงเทพ", "นนทบุรี", "เชียงใ�
 DAILY_DEFAULT = 10
 DAILY_MAX = 30
 QUERIES_PER_RUN = 3
+MAPS_MIN_REVIEWS = 5          # ธุรกิจบน Maps ที่รีวิวน้อยกว่านี้มักเล็กมาก/ปิดไปแล้ว ข้ามไป
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 # เว็บที่ไม่ใช่ธุรกิจเป้าหมาย: โซเชียล · พอร์ทัล/ไดเรกทอรี · มาร์เก็ตเพลส · ข่าว · เครื่องมือ
@@ -67,19 +68,30 @@ def daily_limit() -> int:
         return DAILY_DEFAULT
 
 
+def maps_available() -> bool:
+    return bool(geo_worker._cfg("serper_key", "SERPER_API_KEY"))
+
+
+def maps_on() -> bool:
+    """หาจาก Google Maps (ผ่าน Serper) — เปิดเป็นค่าเริ่มต้นเมื่อมีคีย์ Serper"""
+    return maps_available() and (db.get_setting("prospect_maps") or "1") == "1"
+
+
 def segments() -> list[str]:
     raw = db.get_setting("prospect_segments") or ""
     out = [s.strip() for s in raw.splitlines() if s.strip()]
     return out or list(DEFAULT_SEGMENTS)
 
 
-def save_config(segments_text: str, daily: str, on: bool) -> None:
+def save_config(segments_text: str, daily: str, on: bool, maps: bool | None = None) -> None:
     db.set_setting("prospect_segments", "\n".join(s.strip() for s in (segments_text or "").splitlines() if s.strip())[:4000])
     try:
         db.set_setting("prospect_daily", str(max(1, min(DAILY_MAX, int(daily or DAILY_DEFAULT)))))
     except ValueError:
         pass
     db.set_setting("prospect_enabled", "1" if on else "0")
+    if maps is not None:
+        db.set_setting("prospect_maps", "1" if maps else "0")
 
 
 def last_run() -> dict | None:
@@ -97,13 +109,15 @@ def status_text() -> str:
         return ""
     if r.get("skipped"):
         return f"หาลูกค้าเอง: {r['skipped']}"
-    return (f"หาลูกค้าเอง: รอบ {r['at'][:16].replace('T', ' ')} พบ {r['found']} เว็บ เพิ่ม {r['added']} ตรวจ {r['audited']} "
-            f"มีอีเมล {r['with_email']} เสนอทัก {r['proposed']}" + (f" ล้ม {r['errors']}" if r.get("errors") else ""))
+    return (f"หาลูกค้าเอง: รอบ {r['at'][:16].replace('T', ' ')} พบ {r['found']} เว็บ" + (f" (Google Maps {r['maps']})" if r.get("maps") else "")
+            + f" เพิ่ม {r['added']} ตรวจ {r['audited']} มีอีเมล {r['with_email']}" + (f" มีเบอร์ {r['with_phone']}" if r.get("with_phone") else "")
+            + f" เสนอทัก {r['proposed']}" + (f" ล้ม {r['errors']}" if r.get("errors") else ""))
 
 
 def public_config() -> dict:
     return {"enabled": enabled(), "daily": daily_limit(), "segments_text": "\n".join(segments()),
-            "default_text": "\n".join(DEFAULT_SEGMENTS), "last": last_run(), "backend": geo_worker.active_backend()}
+            "default_text": "\n".join(DEFAULT_SEGMENTS), "last": last_run(), "backend": geo_worker.active_backend(),
+            "maps": maps_on(), "maps_available": maps_available(), "maps_min_reviews": MAPS_MIN_REVIEWS}
 
 
 # ---------- กรองโดเมน ----------
@@ -227,8 +241,10 @@ def find_contact(site_url: str, fetch=None, search=None) -> dict:
 
 # ---------- รอบหาลูกค้า ----------
 @office.track("prospecting", "หาลูกค้าใหม่ตามกลุ่มเป้าหมาย")
-def run(limit: int | None = None, search=None, contact=None, queries: list[str] | None = None, force: bool = False) -> dict:
-    """ค้น → กรอง → เพิ่ม lead → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก · สรุปรอบเก็บใน settings (prospect_last) ให้สรุปเช้าอ่าน"""
+def run(limit: int | None = None, search=None, contact=None, queries: list[str] | None = None, force: bool = False,
+        places=None) -> dict:
+    """ค้น (Google Maps ก่อน ถ้าเปิด · แล้วเติมด้วยค้นเว็บ) → กรอง → เพิ่ม lead → ตรวจเว็บ → หาอีเมล → CEO เสนอทัก
+    รายจาก Maps ได้เบอร์โทร + คะแนน/จำนวนรีวิวติดมาด้วย (เก็บใน call_json ให้รายการโทรใช้) · สรุปรอบเก็บใน settings (prospect_last)"""
     if not enabled() and not force:                       # force = เจ้าของสั่งเอง (ผ่าน CEO) แม้ปิดรอบอัตโนมัติไว้
         res = {"skipped": "ปิดอยู่ (เปิดได้ที่ตั้งค่า → หาลูกค้าอัตโนมัติ)", "at": db.now()}
         db.set_setting("prospect_last", json.dumps(res, ensure_ascii=False))
@@ -238,29 +254,70 @@ def run(limit: int | None = None, search=None, contact=None, queries: list[str] 
     limit = max(1, min(DAILY_MAX, limit or daily_limit()))
     seen = {leads.domain_of(b["domain"]) for b in db.list_all_brands()} | {l["domain"] for l in db.list_leads(None, 100000)}
     queries = queries or next_queries()
-    cands = []
-    for q in queries:
-        try:
-            rows = search(q, 10)
-        except Exception:
-            rows = []
-        for r in rows or []:
-            site = leads.normalize_url(r.get("url") or "")
-            if not site:
-                continue
-            dom = leads.domain_of(site)
-            if dom in seen or not is_business_site(dom):
-                continue
-            seen.add(dom)
-            cands.append((site, dom, (r.get("title") or "").strip()[:160], q))
-        if len(cands) >= limit * 2:
-            break
-    out = {"at": db.now(), "queries": queries, "found": len(cands), "added": 0, "audited": 0, "with_email": 0, "proposed": 0,
-           "errors": 0, "leads": []}
-    for site, dom, title, q in cands[:limit]:
-        lid = db.add_lead(site, dom, source="prospect")
-        db.update_lead(lid, notes=f"พบจากคำค้น: {q}" + (f" · {title}" if title else ""), src="prospect")
-        pipeline.record(lid, "prospect", f"คำค้น: {q}" + (f" · {title}" if title else ""), "prospecting")
+    use_maps = places is not None or maps_on()
+    places = places or geo_worker.places_search
+    mcands, cands, no_site, few = [], [], 0, 0
+    if use_maps:
+        for q in queries:
+            try:
+                rows = places(q, 20)
+            except Exception:
+                rows = []
+            for r in rows or []:
+                site = leads.normalize_url(r.get("url") or "")
+                dom = leads.domain_of(site) if site else ""
+                if not site or not is_business_site(dom):
+                    no_site += 1                           # ไม่มีเว็บ / มีแค่เพจโซเชียล — ตรวจเว็บให้ไม่ได้
+                    continue
+                if dom in seen:
+                    continue
+                if (r.get("reviews") or 0) < MAPS_MIN_REVIEWS:
+                    few += 1
+                    continue
+                seen.add(dom)
+                mcands.append((site, dom, (r.get("title") or "").strip()[:160], q, r))
+        mcands.sort(key=lambda c: -(c[4].get("reviews") or 0))   # ธุรกิจที่คนรู้จักมาก (รีวิวเยอะ) ก่อน — มีลูกค้าจริง จ่ายไหว
+    if len(mcands) < limit:                                  # Maps ไม่พอ/ปิดอยู่ → เติมจากค้นเว็บแบบเดิม
+        for q in queries:
+            try:
+                rows = search(q, 10)
+            except Exception:
+                rows = []
+            for r in rows or []:
+                site = leads.normalize_url(r.get("url") or "")
+                if not site:
+                    continue
+                dom = leads.domain_of(site)
+                if dom in seen or not is_business_site(dom):
+                    continue
+                seen.add(dom)
+                cands.append((site, dom, (r.get("title") or "").strip()[:160], q, None))
+            if len(mcands) + len(cands) >= limit * 2:
+                break
+    cands = mcands + cands
+    out = {"at": db.now(), "queries": queries, "found": len(cands), "maps": len(mcands), "maps_no_site": no_site,
+           "maps_few_reviews": few, "added": 0, "audited": 0, "with_email": 0, "with_phone": 0, "proposed": 0, "errors": 0, "leads": []}
+    for site, dom, title, q, place in cands[:limit]:
+        lid = db.add_lead(site, dom, source="prospect", name=(title if place else ""))
+        if place:
+            stars = f"★{place['rating']} · {place['reviews']:,} รีวิว" if place.get("rating") else f"{place['reviews']:,} รีวิว"
+            info = " · ".join(x for x in (title, place.get("category"), stars) if x)
+            db.update_lead(lid, notes=f"พบบน Google Maps: {q} · {info}", src="maps")
+            pipeline.record(lid, "prospect", f"Google Maps: {q} · {info}", "prospecting")
+            try:
+                from . import closer
+                d = closer._data(db.get_lead(lid))
+                d["maps"] = {k: place.get(k) for k in ("title", "rating", "reviews", "category", "address", "cid")}
+                ph = closer.norm_phone(place.get("phone") or "")
+                if ph:
+                    d["phone"] = ph; d["phone_at"] = db.now(); d["phone_src"] = "maps"
+                    out["with_phone"] += 1
+                closer._save(lid, d)
+            except Exception:
+                pass
+        else:
+            db.update_lead(lid, notes=f"พบจากคำค้น: {q}" + (f" · {title}" if title else ""), src="prospect")
+            pipeline.record(lid, "prospect", f"คำค้น: {q}" + (f" · {title}" if title else ""), "prospecting")
         out["added"] += 1
         out["leads"].append(dom)
         try:
@@ -287,16 +344,21 @@ def run(limit: int | None = None, search=None, contact=None, queries: list[str] 
         else:
             pipeline.record(lid, "no_contact", "ไม่พบอีเมลธุรกิจบนเว็บ — เพิ่มช่องทางเองที่หน้าลูกค้า แล้วกดให้ CEO เสนอ", "prospecting")
         mob = ""
-        if not c.get("email"):                           # ไม่มีอีเมล → หามือถือบนเว็บไว้ส่ง SMS (และใช้ในบทโทร)
-            try:
-                from . import closer, sms
+        try:
+            from . import closer, sms
+            ph = closer._data(db.get_lead(lid)).get("phone") or ""
+            if ph:                                           # เบอร์จาก Google Maps — ไม่ต้องไต่เว็บหาอีก
+                mob = sms.mobile(ph)
+                pipeline.record(lid, "contact_found", f"เบอร์ {closer.fmt_phone(ph)} (จาก Google Maps" + (" · มือถือ ส่ง SMS ได้)" if mob else " · ใช้โทร)"), "prospecting")
+            elif not c.get("email"):                         # ไม่มีอีเมล → หามือถือบนเว็บไว้ส่ง SMS (และใช้ในบทโทร)
                 ph = closer.find_phone(db.get_lead(lid))
                 if ph:
                     d = closer._data(db.get_lead(lid)); d["phone"] = ph; d["phone_at"] = db.now(); closer._save(lid, d)
                     mob = sms.mobile(ph)
                     pipeline.record(lid, "contact_found", f"เบอร์ {closer.fmt_phone(ph)}" + (" (มือถือ ส่ง SMS ได้)" if mob else " (เบอร์บ้าน ใช้โทร)"), "prospecting")
-            except Exception:
-                pass
+                    out["with_phone"] += 1
+        except Exception:
+            pass
         if not c.get("email") and mob:
             try:
                 from . import sms

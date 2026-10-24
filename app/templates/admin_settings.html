@@ -212,11 +212,12 @@
 <div class="card">
   <h2>หาลูกค้าอัตโนมัติ (Prospecting) <span class="pill {{ 'ok' if prospect.enabled else '' }}" style="font-size:10px">{{ 'เปิด' if prospect.enabled else 'ปิด' }}</span></h2>
   <p class="muted" style="margin:0 0 12px">
-    ทุกเช้า 06:30 ระบบค้นธุรกิจตามกลุ่มเป้าหมายด้านล่าง (หมุนกลุ่ม × จังหวัดไปเรื่อย ๆ ผ่าน {{ prospect.backend }}) กรองโซเชียล/พอร์ทัล/ไดเรกทอรี/ราชการออก
+    ทุกเช้า 06:30 ระบบค้นธุรกิจตามกลุ่มเป้าหมายด้านล่าง (หมุนกลุ่ม × จังหวัดไปเรื่อย ๆ ผ่าน {% if prospect.maps %}Google Maps แล้วเติมด้วย {% endif %}{{ prospect.backend }}) กรองโซเชียล/พอร์ทัล/ไดเรกทอรี/ราชการออก
     → ตรวจเว็บฟรี → หาอีเมลธุรกิจที่เปิดเผยบนเว็บ → CEO ร่างข้อความทักให้คุณอนุมัติในสรุปเช้า 08:00 · รายที่ไม่พบอีเมลจะรออยู่ที่หน้าลูกค้าเป้าหมายให้เติมช่องทางเอง
   </p>
   <form method="post" action="/admin/settings/prospect">
     <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="enabled" value="1" {% if prospect.enabled %}checked{% endif %}> เปิดให้หาลูกค้าเองทุกเช้า</label>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:6px"><input type="checkbox" name="maps" value="1" {% if prospect.maps %}checked{% endif %} {% if not prospect.maps_available %}disabled{% endif %}> หาจาก Google Maps ก่อน (ผ่าน Serper · 1 เครดิตต่อคำค้น) <span class="muted" style="font-size:12px">— ได้เบอร์โทร คะแนน และจำนวนรีวิวติดมาด้วย เรียงธุรกิจรีวิวเยอะก่อน ข้ามรายที่รีวิวน้อยกว่า {{ prospect.maps_min_reviews }} · รายที่ไม่มีอีเมลแต่มีเบอร์จะขึ้นรายการโทร{% if not prospect.maps_available %} · ต้องใส่คีย์ Serper ก่อน{% endif %}</span></label>
     <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:6px"><input type="checkbox" name="followup_on" value="1" {% if followup_on %}checked{% endif %}> SDR ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14 · 10:00 ทุกวัน · หยุดเมื่อตอบ/ขอไม่รับ)</label>
     <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:6px"><input type="checkbox" name="cs_on" value="1" {% if cs_on %}checked{% endif %}> ดูแลลูกค้าหลังการขาย (แผน 30 วัน · เช็กติดตั้งวันที่ 3 · งานชิ้นแรกวันที่ 7 · รายงานวันที่ 25 · 10:30 ทุกวัน)</label>
     <label style="margin-top:12px">จำนวนเว็บใหม่ต่อวัน (1–30)</label>
@@ -229,7 +230,7 @@
     <button type="submit" class="btn ghost sm">หาตอนนี้</button>
     <input type="number" name="limit" min="1" max="30" value="5" style="max-width:90px"> <span class="muted" style="font-size:12px">เว็บ · ราวครึ่งนาทีต่อเว็บ</span>
   </form>
-  {% if prospect.last %}<div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.7">รอบล่าสุด {{ (prospect.last.at or '')[:16].replace('T',' ') }}: {% if prospect.last.skipped %}{{ prospect.last.skipped }}{% else %}คำค้น {{ prospect.last.queries|join(' · ') }}<br>พบ {{ prospect.last.found }} เว็บ · เพิ่ม {{ prospect.last.added }} · ตรวจ {{ prospect.last.audited }} · มีอีเมล {{ prospect.last.with_email }} · เสนอทัก {{ prospect.last.proposed }}{% if prospect.last.errors %} · ล้ม {{ prospect.last.errors }}{% endif %}{% if prospect.last.leads %}<br>{{ prospect.last.leads|join(', ') }}{% endif %}{% endif %}</div>{% endif %}
+  {% if prospect.last %}<div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.7">รอบล่าสุด {{ (prospect.last.at or '')[:16].replace('T',' ') }}: {% if prospect.last.skipped %}{{ prospect.last.skipped }}{% else %}คำค้น {{ prospect.last.queries|join(' · ') }}<br>พบ {{ prospect.last.found }} เว็บ{% if prospect.last.maps %} (Google Maps {{ prospect.last.maps }}{% if prospect.last.maps_no_site %} · ไม่มีเว็บ {{ prospect.last.maps_no_site }}{% endif %}){% endif %} · เพิ่ม {{ prospect.last.added }} · ตรวจ {{ prospect.last.audited }} · มีอีเมล {{ prospect.last.with_email }}{% if prospect.last.with_phone %} · มีเบอร์ {{ prospect.last.with_phone }}{% endif %} · เสนอทัก {{ prospect.last.proposed }}{% if prospect.last.errors %} · ล้ม {{ prospect.last.errors }}{% endif %}{% if prospect.last.leads %}<br>{{ prospect.last.leads|join(', ') }}{% endif %}{% endif %}</div>{% endif %}
 </div>
 
 <div class="card">

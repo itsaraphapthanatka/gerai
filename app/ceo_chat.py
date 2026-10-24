@@ -416,7 +416,8 @@ def execute(action: str, args: dict) -> str:
             res = prospecting.run(limit=n, queries=queries, force=True)
             try:
                 from . import line_oa
-                line_oa.notify_owner(f"หาลูกค้า \"{seg}\" เสร็จ: เพิ่ม {res.get('added', 0)} ราย · ตรวจ {res.get('audited', 0)} · ทัก {res.get('proposed', 0)}"
+                line_oa.notify_owner(f"หาลูกค้า \"{seg}\" เสร็จ: เพิ่ม {res.get('added', 0)} ราย" + (f" (Google Maps {res['maps']})" if res.get("maps") else "")
+                                     + f" · ตรวจ {res.get('audited', 0)} · มีเบอร์ {res.get('with_phone', 0)} · ทัก {res.get('proposed', 0)}"
                                      + (f"\n{', '.join(res.get('leads', [])[:8])}" if res.get("leads") else ""))
             except Exception:
                 pass

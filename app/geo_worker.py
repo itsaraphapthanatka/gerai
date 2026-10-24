@@ -87,6 +87,25 @@ def _cfg(db_key: str, env_key: str) -> str:
     return os.getenv(env_key, "")
 
 
+def places_search(query: str, limit: int = 10) -> list[dict]:
+    """ค้นธุรกิจบน Google Maps ผ่าน Serper (/places · 1 เครดิตต่อคำค้น) → ชื่อ เว็บ เบอร์ คะแนน จำนวนรีวิว ประเภท ที่อยู่
+    ไม่มีคีย์ Serper = คืน [] (ไม่มีทางเลือกฟรีที่ให้เบอร์+รีวิว)"""
+    key = _cfg("serper_key", "SERPER_API_KEY")
+    if not key:
+        return []
+    import httpx
+    r = httpx.post("https://google.serper.dev/places",
+        headers={"X-API-KEY": key, "Content-Type": "application/json"},
+        json={"q": query, "gl": "th", "hl": "th"}, timeout=20)
+    r.raise_for_status()
+    out = []
+    for x in (r.json().get("places") or [])[:limit]:
+        out.append({"title": (x.get("title") or "").strip(), "url": x.get("website") or "", "phone": x.get("phoneNumber") or "",
+                    "rating": x.get("rating"), "reviews": int(x.get("ratingCount") or 0), "category": x.get("category") or "",
+                    "address": x.get("address") or "", "cid": str(x.get("cid") or "")})
+    return out
+
+
 def active_backend() -> str:
     """backend ที่ใช้จริง — เลือก brave/serper เฉพาะเมื่อมี API key ไม่งั้น ddgs (ฟรี)."""
     b = (_cfg("search_backend", "GEO_SEARCH_BACKEND") or "ddgs").lower()
