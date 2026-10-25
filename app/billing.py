@@ -54,6 +54,15 @@ _NAME_TH = {"brands": "จำนวนแบรนด์", "runs": "การม
 TRIAL_DAYS = 14      # แผนฟรี = ทดลองใช้ 14 วันนับจากวันสร้างบัญชี (เจ้าของกำหนด 24 ต.ค.) · ผู้ดูแลต่อเวลาได้ (tenants.trial_until)
 
 
+def free_open() -> bool:
+    """เปิดเสนอแผนฟรี (ทดลองใช้ 14 วัน) ให้ลูกค้าใหม่ไหม — ปิด = ไม่โชว์ในหน้าแรก/หน้าอัปเกรด และตัวตอบแชตไม่เสนอ (บัญชีที่ทดลองอยู่ใช้ต่อได้จนหมดเวลา)"""
+    from . import db
+    try:
+        return (db.get_setting("free_plan_on") or "1") == "1"
+    except Exception:
+        return True
+
+
 def _key(tenant, k):
     try:
         return tenant[k] if k in tenant.keys() else None

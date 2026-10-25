@@ -56,3 +56,17 @@ assert "ทดลองใช้ฟรี เหลือ" not in pt and "ช่
 home = TestClient(app).get("/").text; assert "ทดลองใช้ฟรี 14 วัน" in home and "ทดลองฟรี 14 วัน" in home and "14 วัน" in home
 print("ui: แบนเนอร์เหลือกี่วัน/หมดแล้ว · แผนเสียเงินไม่เห็น · หน้าแรกบอก 14 วัน OK")
 print("\ntrial_smoke: ผ่านทั้งหมด")
+
+# ---- ปิดแผน Free (เจ้าของสั่ง 25 ต.ค.) ----
+import app.salesbot as _SB, app.billing as billing
+from fastapi.testclient import TestClient as _TC
+from app.main import app as _app
+db.set_setting("free_plan_on", "0")
+assert not billing.free_open()
+_c = _TC(_app)
+_t = _c.get("/").text
+assert "ทดลองฟรี 14 วัน" not in _t and "เริ่มจากตรวจเว็บฟรี" in _t and "฿9,900" in _t
+assert "ไม่มีแผนทดลองใช้ฟรี" in " ".join(_SB.knowledge()) and "ทดลองใช้ฟรี 14 วัน (" not in " ".join(_SB.knowledge())
+db.set_setting("free_plan_on", "1")
+assert billing.free_open() and "ทดลองฟรี 14 วัน" in _c.get("/").text
+print("free-plan: ปิด = หน้าแรกไม่เสนอ · ตัวตอบแชตไม่เสนอ · เปิดคืนได้ OK")

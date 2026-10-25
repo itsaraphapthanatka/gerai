@@ -358,7 +358,8 @@ def logout(request: Request):
 def landing(request: Request):
     from . import partners as _pt
     return templates.TemplateResponse(request, "landing.html",
-                                      {"plans": billing.PLANS, "addons": billing.ADDONS, "ai_live": _ai_live(),
+                                      {"plans": {k: v for k, v in billing.PLANS.items() if k != "free" or billing.free_open()},
+                                       "free_open": billing.free_open(), "addons": billing.ADDONS, "ai_live": _ai_live(),
                                        "yearly_pct": quotes.yearly_discount(), "refund_days": execs.MANDATE["refund_days"],
                                        "partner_pct": _pt.pct(), "partner_months": _pt.months(),
                                        "stripe_on": stripe_pay.available()})
@@ -1221,7 +1222,7 @@ def notifications_page(request: Request):
 def _upgrade_ctx(request, notice=None):
     tid = _tid(request)
     tenant = db.get_tenant(tid)
-    return {"plans": billing.PLANS, "addons": billing.ADDONS, "current": billing.plan_key(tenant),
+    return {"plans": billing.PLANS, "free_open": billing.free_open(), "addons": billing.ADDONS, "current": billing.plan_key(tenant),
             "usage": billing.usage(tid), "requested": tenant["requested_plan"], "notice": notice,
             "is_admin": bool(tenant and tenant["is_admin"]),
             "stripe_portal": bool(tenant and tenant["stripe_customer_id"] and stripe_pay.available()),
@@ -2994,7 +2995,7 @@ def _admin_ctx(error=None):
         addon_summary[tid] = [f"{addon_labels.get(k, k)}{(' ×' + str(n)) if n > 1 else ''}"
                               for k, n in Counter(keys).items()]
     return {
-        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error, "trial_days": billing.TRIAL_DAYS,
+        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error, "trial_days": billing.TRIAL_DAYS, "free_open": billing.free_open(),
         "pending_payments": db.list_pending_payments(),
         "addon_labels": addon_labels, "addon_summary": addon_summary,
         "stats": {
@@ -3065,6 +3066,14 @@ def admin_set_email(request: Request, tid: int, email: str = Form(...)):
         return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote("รูปแบบอีเมลไม่ถูกต้อง"))
     if not db.set_email(tid, e):
         return _redirect("/admin?error=" + __import__("urllib.parse").parse.quote(f"อีเมล {e} ถูกใช้กับบัญชีอื่นแล้ว"))
+    return _redirect("/admin")
+
+
+@app.post("/admin/free-plan")
+def admin_free_plan(request: Request, on: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_setting("free_plan_on", "1" if on else "0")
     return _redirect("/admin")
 
 

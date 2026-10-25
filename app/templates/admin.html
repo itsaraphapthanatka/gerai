@@ -2,6 +2,11 @@
 {% block title %}ผู้ดูแลระบบ — เจอ.AI{% endblock %}
 {% block content %}
 <h1>แผงผู้ดูแล</h1>
+<form method="post" action="/admin/free-plan" style="display:flex;gap:8px;align-items:center;margin:-4px 0 12px;font-size:13px">
+  <span>แผน Free (ทดลองใช้ {{ trial_days }} วัน): <b>{{ 'เปิดเสนอ' if free_open else 'ปิดไว้' }}</b></span>
+  <input type="hidden" name="on" value="{{ '' if free_open else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 10px">{{ 'ปิดแผน Free' if free_open else 'เปิดแผน Free' }}</button>
+  <span class="muted" style="font-size:12px">ปิด = ไม่โชว์ในหน้าแรก/หน้าอัปเกรด และตัวตอบแชตไม่เสนอ · บัญชีที่ทดลองอยู่ใช้ต่อได้จนหมดเวลา</span>
+</form>
 <p class="muted">มุมมองรวมทุกลูกค้าและแบรนด์ในระบบ</p>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 

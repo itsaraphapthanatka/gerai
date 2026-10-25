@@ -431,7 +431,7 @@
     <div class="sec-head center">
       <div class="sec-eyebrow">ราคา</div>
       <h2>แพ็กเกจที่เหมาะกับคุณ</h2>
-      <p class="sec-sub">ทดลองใช้ฟรี 14 วัน อัปเกรดเมื่อพร้อม · {{ 'จ่ายด้วยบัตรหรือ PromptPay' if stripe_on else 'ชำระง่ายผ่าน PromptPay' }} · ราคายังไม่รวม VAT</p>
+      <p class="sec-sub">{{ 'ทดลองใช้ฟรี 14 วัน อัปเกรดเมื่อพร้อม' if free_open else 'เริ่มจากตรวจเว็บฟรี แล้วเลือกแพ็กเกจที่เหมาะ' }} · {{ 'จ่ายด้วยบัตรหรือ PromptPay' if stripe_on else 'ชำระง่ายผ่าน PromptPay' }} · ราคายังไม่รวม VAT</p>
     </div>
     {% set logged_in = request.session.get('tenant_id') %}
     <div class="plans-l">

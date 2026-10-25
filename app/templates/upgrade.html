@@ -34,7 +34,7 @@
 
 <!-- แผน -->
 <div class="plans">
-  {% for key, p in plans.items() %}
+  {% for key, p in plans.items() if key != 'free' or free_open or key == current %}
   <div class="plan {{ 'rec' if key == 'pro' }} {{ 'ent' if p.get('hidden') }} {{ 'cur' if key == current and not is_admin }}">
     {% if key == 'pro' %}<div class="ribbon">แนะนำ</div>{% endif %}
     {% if p.get('hidden') %}<div class="ribbon ent-rb">Enterprise</div>{% endif %}
