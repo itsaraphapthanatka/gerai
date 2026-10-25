@@ -65,12 +65,12 @@ def set_mandate(key: str, value) -> None:
     if key.endswith("_pct") and v > 100:
         raise ValueError("เปอร์เซ็นต์ต้องไม่เกิน 100")
     db.set_setting(f"mandate_{key}", str(v))
-AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR", "partner": "พันธมิตร", "expand": "ขยายบัญชี"}
+AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR", "partner": "พันธมิตร", "expand": "ขยายบัญชี", "salesbot": "ตอบแชตขาย"}
 KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า",
          "partner_outreach": "ชวนพันธมิตร", "partner_apply": "รับพันธมิตร", "expansion": "ขยายบัญชีลูกค้า"}
 # สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
 # ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
-AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup"}
+AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup", "reply"}
 AUTO_MIN_DECIDED = 20
 AUTO_MIN_AGREEMENT = 95
 PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
@@ -82,7 +82,10 @@ GATES = {
 }
 GATE_LABEL = {"audits_week": "เว็บที่ตรวจฟรีต่อสัปดาห์", "reply_rate": "ผลตรวจ → คุยต่อ (%)", "close_rate": "คุยต่อ → จ่ายเงิน (%)",
               "new_paying": "ลูกค้าใหม่ที่จ่ายเงินสะสม", "agreement": "ตัดสินใจตรงกับเจ้าของ (%)", "escalations_week": "เรื่องส่งกลับเจ้าของต่อสัปดาห์ (ไม่เกิน)"}
-FORBIDDEN = re.compile(r"การันตี|รับประกัน(?:อันดับ|ผล)|อันดับ\s*1\s*แน่นอน|100\s*%", re.I)
+# คำสัญญาผลลัพธ์ที่ห้ามใช้ · ปฏิเสธได้ ("ไม่การันตีอันดับ" เป็นข้อเท็จจริงที่เราบอกลูกค้า) — ดักแค่ที่ไม่มี "ไม่" นำหน้า
+_NOT = r"(?<!ไม่)(?<!ไม่ )(?<!ไม่ได้)(?<!ไม่ได้ )"
+FORBIDDEN = re.compile(_NOT + r"(?:การันตี|รับประกัน\s*(?:ว่า\s*)?(?:จะ\s*)?(?:ติด\s*|ขึ้น\s*)?(?:อันดับ|ผล|หน้าแรก))"
+                       r"|(?:ติด|ขึ้น)\s*(?:อันดับ|หน้าแรก)\S{0,8}\s*แน่นอน|อันดับ\s*1\s*แน่นอน|100\s*%", re.I)
 MIN_SCORE_TO_PURSUE = 15
 
 
@@ -354,7 +357,7 @@ def digest_text(today: str, leads_new: int, leads_total: int, pending: list, pay
 @office.track("ceo", "สรุปเช้าให้เจ้าของ")
 def morning_digest(base_url: str) -> dict:
     """รวบรวม → เก็บเป็นการตัดสินใจชนิด digest (auto) → อีเมลถึงแอดมินที่มีที่อยู่จริง + LINE ถึงเจ้าของ (ถ้าผูกไว้)"""
-    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting, deliverability, partners, expansion, results
+    from . import db, mailer, line_oa, prospecting, pipeline, marketing, followup, success, closer, orchestrator, inbox, accounting, deliverability, partners, expansion, results, salesbot
     now = datetime.datetime.now()
     since = (now - datetime.timedelta(days=1)).isoformat(timespec="seconds")
     pipeline.run_pending_auto()                                   # เรื่องที่สลับเป็นตัดสินเองแล้วแต่ยังค้าง → เคลียร์ก่อนสรุป
@@ -362,7 +365,7 @@ def morning_digest(base_url: str) -> dict:
     kpi = kpis()
     text = digest_text(now.strftime("%Y-%m-%d"), db.count_leads_since(since), len(db.list_leads(None, 10000)),
                        pending, len(db.list_pending_payments()) + len(db.list_quotes(None, "claimed")), cto_status(),
-                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), deliverability.status_text(), partners.status_text(), expansion.status_text(), results.status_text(), marketing.status_text()])
+                       db.decision_stats(), kpi, mode_label(), [orchestrator.status_text(), inbox.status_text(), closer.status_text(), prospecting.status_text(), followup.status_text(), success.status_text(), accounting.status_text(), deliverability.status_text(), partners.status_text(), expansion.status_text(), results.status_text(), salesbot.status_text(), marketing.status_text()])
     db.add_decision("ceo", "digest", f"สรุปเช้า {now.strftime('%Y-%m-%d')}", text, {"pending": len(pending), "kpi": kpi["values"]}, status="auto")
     sent = []
     if mailer.config():

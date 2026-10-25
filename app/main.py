@@ -67,6 +67,7 @@ templates.env.globals["trial_of"] = lambda req: (
 )
 templates.env.globals["trial_fn"] = billing.trial
 templates.env.globals["q_payable"] = lambda q: quotes.baht(quotes.payable(q))
+templates.env.globals["chat_on"] = lambda: (db.get_setting("salesbot_web") or "1") == "1"
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
 )
@@ -3685,6 +3686,62 @@ def partner_unsub(request: Request, token: str):
         partners.unsubscribe(p)
     return HTMLResponse("<!doctype html><meta charset='utf-8'><body style='font-family:system-ui,sans-serif;max-width:520px;margin:60px auto;padding:0 16px'>"
                         "<h2>เรียบร้อย — เราจะไม่ติดต่อเรื่องนี้อีก</h2></body>")
+
+
+@app.post("/chat/ask")
+async def chat_ask(request: Request):
+    """กล่องแชตบนหน้าเว็บ → ตัวตอบแชตขาย · จำกัดต่อ IP ต่อวัน · token = ลีดที่กำลังดูรายงานของตัวเอง"""
+    from . import salesbot
+    if not salesbot.enabled("web"):
+        return JSONResponse({"answer": "ตอนนี้ปิดแชตชั่วคราว ส่งคำถามมาที่อีเมลในหน้าเว็บได้เลยครับ", "escalate": None})
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    q = str(data.get("q") or "").strip()[:500]
+    if len(q) < 2:
+        return JSONResponse({"answer": "พิมพ์คำถามมาได้เลยครับ", "escalate": None})
+    tok = str(data.get("token") or "")[:64]
+    lead = db.get_lead_by_token(tok) if tok else None
+    ip = _client_ip(request)
+    res = salesbot.handle("web", f"ip:{ip}", q, lead)
+    return JSONResponse({"answer": res["answer"], "escalate": bool(res.get("escalate")), "id": res.get("id")})
+
+
+@app.post("/chat/contact")
+async def chat_contact(request: Request):
+    from . import salesbot
+    import re as _re
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    c = str(data.get("contact") or "").strip()[:120]
+    if not data.get("consent"):
+        return JSONResponse({"ok": False, "message": "ติ๊กยินยอมก่อน เราถึงจะติดต่อกลับได้"})
+    if not (_re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", c, _re.I) or _re.search(r"\d{9,}", _re.sub(r"\D", "", c)) or _re.fullmatch(r"@?[\w.\-]{3,40}", c)):
+        return JSONResponse({"ok": False, "message": "ขออีเมล เบอร์โทร หรือ LINE ID ที่ติดต่อได้"})
+    ok = salesbot.add_contact(int(data.get("id") or 0), c)
+    return JSONResponse({"ok": ok, "message": "ได้รับแล้วครับ ผู้ดูแลจะติดต่อกลับภายในวันทำการนี้" if ok else "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง"})
+
+
+@app.get("/admin/salesbot")
+def admin_salesbot(request: Request, notice: str = ""):
+    from . import salesbot
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_salesbot.html", {"chats": salesbot.recent(150), "s7": salesbot.stats(7), "notice": notice,
+                                      "on": {ch: salesbot.enabled(ch) for ch in ("line", "web", "email")}, "facts": salesbot.knowledge()})
+
+
+@app.post("/admin/salesbot/settings")
+def admin_salesbot_settings(request: Request, line: str = Form(""), web: str = Form(""), email: str = Form("")):
+    from . import salesbot
+    if not _is_admin(request):
+        return _redirect("/login")
+    for ch, v in (("line", line), ("web", web), ("email", email)):
+        salesbot.set_enabled(ch, bool(v))
+    return _redirect("/admin/salesbot?notice=" + quote("บันทึกแล้ว"))
 
 
 @app.get("/admin/results")

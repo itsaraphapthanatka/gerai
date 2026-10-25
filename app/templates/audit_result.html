@@ -256,5 +256,6 @@
   }
 })();
 </script>
+{% if chat_on() %}{% with chat_token = lead["token"] %}{% include "_chat_widget.html" %}{% endwith %}{% endif %}
 </body>
 </html>

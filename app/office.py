@@ -31,6 +31,7 @@ ACTORS = [
     {"id": "partner", "name": "พันธมิตร", "role": "ชวนเอเจนซี่/ฟรีแลนซ์ · ติดตามลีดที่แนะนำ · ค่าแนะนำ", "hex": "b91c1c", "skill": "partner"},
     {"id": "expand", "name": "ขยายบัญชี", "role": "ลูกค้าเดิม: รายปี · Agency · แพ็กเสริม · เคสศึกษา", "hex": "0e7490", "skill": "expand"},
     {"id": "results", "name": "ผลลัพธ์ลูกค้า", "role": "AI แนะนำลูกค้าไหม · ใครถูกอ้างแทน · งานทีมเว็บลูกค้า", "hex": "a16207", "skill": "results"},
+    {"id": "salesbot", "name": "ตอบแชตขาย", "role": "ตอบคำถามลีดทาง LINE · เว็บ · อีเมล ทันที · นอกกรอบส่งต่อเจ้าของ", "hex": "be123c", "skill": "salesbot"},
     {"id": "hop", "name": "LINE OA เจอ.AI", "role": "ต้อนรับ · ตรวจเว็บในแชต · อ่านอีเมลตอบกลับ", "hex": "0891b2"},   # ชื่อตามชื่อ OA ที่ตั้งไว้ (ดู state)
 ]
 IDS = {a["id"] for a in ACTORS}
@@ -62,6 +63,7 @@ SCHEDULE = [
 # เหตุการณ์ลูกค้าเป้าหมาย → (ตัวละครเริ่มต้น, ชนิดสำหรับหน้าเว็บ, ข้อความ) · {dom} = โดเมน
 LEAD_EVENTS = {
     "prospect": ("prospecting", "found", "พบ {dom}"),
+    "chat": ("salesbot", "outreach", "ตอบคำถาม {dom}"),
     "contact_found": ("prospecting", "contact", "พบอีเมลของ {dom}"),
     "no_contact": ("prospecting", "nocontact", "ไม่พบอีเมลของ {dom}"),
     "audit": ("cto", "audit", "ตรวจเว็บ {dom}"),

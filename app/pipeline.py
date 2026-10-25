@@ -562,9 +562,20 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
         if not lead["consent"]:
             db.update_lead(lead["id"], consent=1, contact=lead["contact"] or "LINE")
         did = lead_replied(lead, t, via="LINE")
-        line_oa.reply(reply_token, [f"รับทราบครับ ทีม {line_oa.bot_name()} จะส่งใบเสนอราคาสำหรับ {lead['domain']} ให้ภายใน 1 วันทำการ"
-                                    + (" (รอเจ้าของอนุมัติ)" if did else "")])
+        promise = f"ทีม {line_oa.bot_name()} จะส่งใบเสนอราคาสำหรับ {lead['domain']} ให้ภายใน 1 วันทำการ" + (" (รอเจ้าของอนุมัติ)" if did else "")
+        from . import salesbot
+        if salesbot.enabled("line") and re.search(r"\?|ไหม|มั้ย|เท่าไ|อะไร|ยังไง|อย่างไร|กี่|ได้บ้าง|ต่างจาก|how|what", t, re.I):
+            res = salesbot.handle("line", user_id, t, lead)               # ถามจริง → ตอบก่อน แล้วบอกว่าใบเสนอราคากำลังมา
+            line_oa.reply(reply_token, [(res["answer"] + "\n\n" + promise)[:4900]])
+            return "replied_answered"
+        line_oa.reply(reply_token, [f"รับทราบครับ {promise}"])
         return "replied"
+    from . import salesbot
+    if salesbot.enabled("line") and len(t) >= 3 and not re.fullmatch(r"(สวัสดี\S*|hi|hello|ดีครับ|ดีค่ะ|👋|ok|โอเค)", t, re.I):
+        res = salesbot.handle("line", user_id, t, lead)                    # คำถามทั่วไป → ตอบทันทีจากข้อเท็จจริงในระบบ · นอกกรอบส่งต่อเจ้าของ
+        tail = "" if lead else f"\n\nอยากรู้ว่าเว็บคุณโผล่ใน AI ไหม พิมพ์ที่อยู่เว็บมาได้เลย {line_oa.bot_name()} ตรวจให้ฟรี"
+        line_oa.reply(reply_token, [(res["answer"] + tail)[:4900]])
+        return "salesbot_escalated" if res.get("escalate") else "salesbot"
     line_oa.reply(reply_token, [f"พิมพ์ที่อยู่เว็บของคุณมาได้เลย (เช่น example.co.th) {line_oa.bot_name()} จะตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI ให้ฟรี ใช้เวลาราวครึ่งนาที"])
     return "help"
 

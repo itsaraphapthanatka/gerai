@@ -83,8 +83,12 @@ print("owner-first: ไม่มีลีดก็ทักได้ · ผ่�
 replies = []; LO.reply = lambda tok, texts: replies.append(texts) or True; LO.push = lambda uid, texts: replies.append(texts) or True
 db.set_setting("line_owner_user_id", "Uowner")
 assert P.line_text("Uowner", "สรุปวันนี้", "rt") == "owner_command" and "สถานะ" in replies[-1][0]
-assert P.line_text("Ucustomer", "สรุปวันนี้", "rt2") == "help"
-print("line: เจ้าของสั่ง CEO · ลูกค้าเห็นบอทเดิม OK")
+import app.salesbot as _SB
+_SB.LLM = lambda m: '{"answer": "ถามเรื่องบริการได้เลยครับ", "needs_human": false}'
+r = P.line_text("Ucustomer", "สรุปวันนี้", "rt2")
+assert r in ("help", "salesbot", "salesbot_escalated") and "สถานะ" not in replies[-1][0], (r, replies[-1])    # ลูกค้าสั่ง CEO ไม่ได้ ไม่เห็นข้อมูลเจ้าของ
+_SB.LLM = None
+print("line: เจ้าของสั่ง CEO · ลูกค้าได้ตัวตอบแชต (สั่ง CEO ไม่ได้) OK")
 
 admin = "admin@test.local"; db.create_tenant(admin, bcrypt.hashpw(b"pw123456", bcrypt.gensalt()).decode(), "Op", is_admin=True)
 a = TestClient(app); a.post("/login", data={"email": admin, "password": "pw123456"})

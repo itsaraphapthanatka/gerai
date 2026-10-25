@@ -289,6 +289,19 @@ def _tables() -> list[str]:
             paid_at TEXT,
             note TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS sales_chats (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            user_ref TEXT,
+            lead_id INTEGER,
+            question TEXT,
+            answer TEXT,
+            escalated INTEGER NOT NULL DEFAULT 0,
+            reason TEXT,
+            source TEXT,
+            contact TEXT
+        )""",
         f"""CREATE TABLE IF NOT EXISTS result_tasks (
             id {_PK},
             created_at TEXT NOT NULL,

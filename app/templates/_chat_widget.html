@@ -1,0 +1,54 @@
+{# กล่องแชตถามตัวตอบแชตขาย — ใส่ท้าย <body> ของหน้าสาธารณะ · chat_token = token ของลีด (ถ้ามี) ให้ตอบจากผลตรวจเว็บของเขา #}
+<style>
+#jc-btn{position:fixed;right:18px;bottom:18px;z-index:60;background:#0a0a0a;color:#fff;border:0;border-radius:9999px;padding:12px 18px;font:600 15px var(--font,system-ui);
+  box-shadow:0 8px 24px rgba(0,0,0,.18);cursor:pointer;display:flex;gap:8px;align-items:center}
+#jc-btn .d{width:9px;height:9px;border-radius:9999px;background:#ff5530}
+#jc-box{position:fixed;right:18px;bottom:76px;z-index:61;width:min(360px,calc(100vw - 32px));max-height:min(520px,calc(100vh - 110px));background:#fff;color:#0a0a0a;
+  border:1px solid #e7e5e0;border-radius:18px;box-shadow:0 18px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;font-family:var(--font,system-ui)}
+#jc-box.open{display:flex}
+#jc-head{padding:12px 16px;border-bottom:1px solid #efede8;display:flex;justify-content:space-between;align-items:center;font-weight:700}
+#jc-head button{background:none;border:0;font-size:20px;cursor:pointer;color:#6b6b6b}
+#jc-log{padding:12px 14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;font-size:14.5px;line-height:1.55}
+.jc-m{padding:9px 12px;border-radius:14px;max-width:88%;white-space:pre-wrap;word-break:break-word}
+.jc-u{align-self:flex-end;background:#0a0a0a;color:#fff;border-bottom-right-radius:4px}
+.jc-b{align-self:flex-start;background:#f4f3f0;border-bottom-left-radius:4px}
+.jc-b a{color:#c8341a}
+#jc-form{display:flex;gap:6px;padding:10px;border-top:1px solid #efede8}
+#jc-form input{flex:1;padding:10px 12px;border:1px solid #e1ded7;border-radius:9999px;font:15px var(--font,system-ui)}
+#jc-form button,.jc-c button{background:#ff5530;color:#fff;border:0;border-radius:9999px;padding:0 16px;font-weight:600;cursor:pointer}
+.jc-c{display:flex;flex-direction:column;gap:6px;background:#fff4f1;border-radius:12px;padding:10px;font-size:13px}
+.jc-c input[type=text]{padding:8px 10px;border:1px solid #e1ded7;border-radius:9px;font:14px var(--font,system-ui)}
+.jc-c button{padding:8px;align-self:flex-start}
+.jc-sug{display:flex;flex-wrap:wrap;gap:6px}.jc-sug button{background:#fff;border:1px solid #e1ded7;border-radius:9999px;padding:6px 10px;font-size:13px;cursor:pointer}
+</style>
+<button id="jc-btn" type="button" aria-controls="jc-box"><span class="d"></span>ถามเจอ.AI</button>
+<div id="jc-box" role="dialog" aria-label="แชตถามเจอ.AI">
+  <div id="jc-head"><span>ถามเจอ.AI</span><button type="button" id="jc-x" aria-label="ปิด">×</button></div>
+  <div id="jc-log" aria-live="polite">
+    <div class="jc-m jc-b">สวัสดีครับ ถามเรื่องราคา แพ็กเกจ ขั้นตอน{% if chat_token %} หรือผลตรวจเว็บของคุณ{% endif %} ได้เลย ตอบจากข้อมูลจริงของเจอ.AI ครับ</div>
+    <div class="jc-sug">{% for s in ['ราคาเท่าไหร่', 'ต่างจาก SEO ยังไง', 'สมัครแล้วเริ่มงานยังไง'] + (['เว็บผมต้องแก้อะไรก่อน'] if chat_token else []) %}<button type="button">{{ s }}</button>{% endfor %}</div>
+  </div>
+  <form id="jc-form"><input id="jc-q" maxlength="500" placeholder="พิมพ์คำถาม…" autocomplete="off" aria-label="คำถาม"><button type="submit">ส่ง</button></form>
+</div>
+<script>
+(function(){
+  var box=document.getElementById('jc-box'), log=document.getElementById('jc-log'), q=document.getElementById('jc-q'), busy=false, tok={{ (chat_token or '')|tojson }};
+  function esc(s){return s.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+  function link(s){return esc(s).replace(/(https?:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
+  function add(t,who){var d=document.createElement('div');d.className='jc-m '+(who==='u'?'jc-u':'jc-b');d.innerHTML=who==='u'?esc(t):link(t);log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+  function contact(id){var c=document.createElement('form');c.className='jc-c';
+    c.innerHTML='<b>ให้ผู้ดูแลติดต่อกลับ</b><input type="text" name="c" maxlength="120" placeholder="อีเมล หรือ เบอร์โทร / LINE" required>'+
+      '<label><input type="checkbox" name="ok" required> ยินยอมให้เจอ.AI ติดต่อกลับเรื่องคำถามนี้</label><button type="submit">ส่ง</button>';
+    c.onsubmit=function(e){e.preventDefault();fetch('/chat/contact',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:id,contact:c.c.value,consent:c.ok.checked})}).then(function(r){return r.json();}).then(function(j){c.outerHTML='<div class="jc-m jc-b">'+esc(j.message||'ส่งแล้ว')+'</div>';});};
+    log.appendChild(c);log.scrollTop=log.scrollHeight;}
+  function ask(t){ if(busy||!t.trim())return; busy=true; add(t,'u'); var w=add('กำลังตอบ…','b');
+    fetch('/chat/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:t,token:tok})})
+      .then(function(r){return r.json();}).then(function(j){w.innerHTML=link(j.answer||'ขออภัย ตอบไม่ได้ตอนนี้'); if(j.escalate&&j.id) contact(j.id);})
+      .catch(function(){w.textContent='เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง';}).finally(function(){busy=false;});}
+  document.getElementById('jc-btn').onclick=function(){box.classList.toggle('open'); if(box.classList.contains('open')) q.focus();};
+  document.getElementById('jc-x').onclick=function(){box.classList.remove('open');};
+  document.getElementById('jc-form').onsubmit=function(e){e.preventDefault(); var t=q.value; q.value=''; ask(t);};
+  log.querySelectorAll('.jc-sug button').forEach(function(b){b.onclick=function(){ask(b.textContent);};});
+})();
+</script>

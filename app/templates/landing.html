@@ -573,5 +573,6 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeContac
 </script>
 
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+{% if chat_on() %}{% include "_chat_widget.html" %}{% endif %}
 </body>
 </html>

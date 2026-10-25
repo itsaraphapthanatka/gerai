@@ -200,11 +200,18 @@ def process(m: dict, llm=None) -> dict:
     else:
         did = pipeline.lead_replied(lead, (m.get("body") or "")[:500], via="อีเมล")
         action += ("ทักเข้ามาเอง · ตรวจเว็บให้แล้ว" if created else "นับเป็นตอบกลับ · หยุดติดตามผล") + (" · CEO เสนอใบเสนอราคา" if did else "")
-        if cat in ("question", "other"):
-            ans = draft_answer(lead, m.get("body") or "", llm)
-            rd = db.add_decision("ceo", "reply", f"ตอบอีเมล {lead['domain']}", f"ลูกค้าถาม:\n{(m.get('body') or '')[:800]}\n\nร่างคำตอบ:\n{ans}",
-                                 {"subject": "Re: " + (m.get("subject") or "")[:150], "body": ans, "to": m["from"]}, lead_id=lead["id"])
-            action += f" · CEO ร่างคำตอบรออนุมัติ (#{rd})"
+        asks = bool(re.search(r"\?|ไหม|มั้ย|เท่าไ|อะไร|ยังไง|อย่างไร|กี่|ได้บ้าง|ต่างจาก|how|what", strip_quoted(m.get("body") or "")[:1500], re.I))
+        if cat in ("question", "other") or (cat == "interested" and asks):     # สนใจแต่ถามมาด้วย → ตอบคำถามด้วย ไม่ใช่แค่ส่งใบเสนอราคา
+            from . import salesbot
+            res = salesbot.answer(strip_quoted(m.get("body") or "")[:1500], lead, "email", llm) if salesbot.enabled("email") else None
+            ans = res["answer"] if res and res["source"] == "llm" else draft_answer(lead, m.get("body") or "", llm)
+            esc = (res or {}).get("escalate")
+            rd = db.add_decision("salesbot" if res else "ceo", "reply", f"ตอบอีเมล {lead['domain']}" + (f" · ต้องให้คุณดู ({esc})" if esc else ""),
+                                 f"ลูกค้าถาม:\n{(m.get('body') or '')[:800]}\n\nร่างคำตอบ:\n{ans}",
+                                 {"subject": "Re: " + (m.get("subject") or "")[:150], "body": ans, "to": m["from"], "escalate": bool(esc)}, lead_id=lead["id"])
+            pipeline._maybe_auto(rd)                                   # ปลดล็อกแล้ว (ด่าน ≥ 20 เรื่อง ≥ 95%) = ส่งเอง · นอกกรอบรอคนเสมอ
+            st = db.get_decision(rd)["status"]
+            action += (f" · ตัวตอบแชตตอบอีเมลแล้ว (#{rd})" if st == "auto" else f" · ร่างคำตอบรออนุมัติ (#{rd})" + (f" — {esc}" if esc else ""))
     keep = cat != "unmatched"
     with db.get_conn() as c:
         c.execute(db.q("INSERT INTO inbox_messages(received_at,message_id,from_addr,subject,body,lead_id,category,action) VALUES(?,?,?,?,?,?,?,?)"),

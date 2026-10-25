@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}ตอบแชตขาย — เจอ.AI{% endblock %}
+{% block content %}
+<h1>ตอบแชตขาย</h1>
+<p class="muted">ตอบคำถามลีดทันทีจากข้อเท็จจริงในระบบเท่านั้น (ด้านล่าง) · ตัวเลขที่ไม่อยู่ในคลังจะไม่ถูกส่ง · ขอส่วนลดนอกจากรายปี · คืนเงิน · สัญญา · ร้องเรียน · ปัญหาการชำระ · งานองค์กร · ขอคุยกับคน → ตอบรับเรื่องแล้วแจ้งคุณทันที
+· อีเมลตอบกลับเป็นร่างรออนุมัติ (ปลดล็อกให้ส่งเองได้ที่หน้าการตัดสินใจเมื่อผ่านด่าน ≥ 20 เรื่อง ≥ 95%)</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0">
+  {% for lb, v in [('คำถาม 7 วัน', s7.n), ('ส่งต่อคุณ', s7.escalated), ('LINE', s7.by_channel.line), ('แชตบนเว็บ', s7.by_channel.web), ('อีเมล', s7.by_channel.email)] %}
+  <div class="card"><div class="muted" style="font-size:12px">{{ lb }}</div><div style="font-size:22px;font-weight:700">{{ v }}</div></div>{% endfor %}
+</div>
+<form method="post" action="/admin/salesbot/settings" class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+  {% for ch, lb in [('line', 'ตอบใน LINE OA ทันที'), ('web', 'กล่องแชตบนหน้าแรก/หน้ารายงาน'), ('email', 'ร่างคำตอบอีเมลที่ลีดถามมา')] %}
+  <label style="font-size:13px;font-weight:400"><input type="checkbox" name="{{ ch }}" value="1" {% if on[ch] %}checked{% endif %}> {{ lb }}</label>{% endfor %}
+  <button class="btn ghost sm" type="submit">บันทึก</button>
+</form>
+<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">คลังข้อเท็จจริงที่ใช้ตอบ (ดึงจากระบบสด ๆ — แก้ราคา/กรอบอำนาจแล้วคำตอบเปลี่ยนตาม)</summary>
+  <ul style="font-size:13px;line-height:1.7;margin-top:8px">{% for f in facts %}<li>{{ f }}</li>{% endfor %}</ul></details>
+<div class="card">
+  <h2 style="margin-top:0">คำถามล่าสุด</h2>
+  {% for c in chats %}
+  <div style="border-top:1px solid var(--border);padding:8px 0;font-size:13px">
+    <div class="muted" style="font-size:12px">{{ c.created_at[5:16].replace('T',' ') }} · {{ {'line':'LINE','web':'แชตบนเว็บ','email':'อีเมล'}.get(c.channel, c.channel) }}
+      {% if c.lead_id %} · <a class="link" href="/admin/leads/{{ c.lead_id }}">ลีด #{{ c.lead_id }}</a>{% endif %}
+      {% if c.escalated %} · <span class="pill warn" style="font-size:10px">ส่งต่อคุณ: {{ c.reason }}</span>{% endif %}{% if c.contact %} · ติดต่อกลับ: <b>{{ c.contact }}</b>{% endif %}</div>
+    <div><b>ถาม:</b> {{ c.question }}</div>
+    <div style="white-space:pre-line"><b>ตอบ:</b> {{ c.answer }}</div>
+  </div>
+  {% else %}<p class="muted">ยังไม่มีคำถาม</p>{% endfor %}
+</div>
+{% endblock %}
