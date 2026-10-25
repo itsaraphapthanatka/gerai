@@ -125,8 +125,18 @@ assert not X.auto_enabled("outreach") and X.auto_enabled("lead_review")
 newl = mk("held.co.th"); P.ceo_propose(newl)
 assert [x for x in db.list_decisions(None, 20) if x["lead_id"] == newl["id"] and x["kind"] == "outreach"][0]["status"] == "proposed"   # รอคน
 X.auto_gate = real_gate
-D.release_hold(); assert not D.on_hold()
-print("guard: สัญญาณ 30 วัน · เด้งเกิน 5% → หยุดทัก/ติดตามอัตโนมัติ (ข้อเสนอรอคน) · ปลดได้ OK")
+D.release_hold(); assert not D.on_hold() and D.released_at()
+import datetime as _dt
+with db.get_conn() as c:                                                                           # ของเก่า (ก่อนปลด) ย้อนไป 1 ชม.
+    c.execute(db.q("UPDATE lead_events SET created_at=?"), ((_dt.datetime.now() - _dt.timedelta(hours=1)).isoformat(timespec="seconds"),))
+assert D.metrics()["bounce_pct"] == 8.0 and D.guard() is None and not D.on_hold()                # 30 วันยังเห็นเด้ง 8% แต่ตัดสินจากตั้งแต่ปลด → ไม่หยุดซ้ำ
+for l in ls[:19]: db.add_lead_event(l["id"], "contacted", f"ส่งอีเมลถึง info@{l['domain']} แล้ว", "ceo")
+db.add_lead_event(ls[3]["id"], "bounced", "x", "deliv"); db.add_lead_event(ls[4]["id"], "bounced", "x", "deliv")
+assert D.guard_metrics()["sends"] == 19 and D.guard() is None                                     # ยังไม่ครบ 20 ฉบับ ยังไม่ตัดสิน
+db.add_lead_event(ls[5]["id"], "contacted", "ส่งอีเมลถึง info@m5.co.th แล้ว", "ceo")
+r = D.guard(); assert r and "ตั้งแต่ปลดการหยุด" in r and "10.0%" in r and D.on_hold()           # อีเมลใหม่เด้งเกิน 5% → หยุดเหมือนเดิม
+D.release_hold()
+print("guard: สัญญาณ 30 วัน · เด้งเกิน 5% → หยุดทัก/ติดตามอัตโนมัติ (ข้อเสนอรอคน) · ปลดแล้วนับใหม่ตั้งแต่ปลด (ครบ 20 ฉบับจึงตัดสิน) OK")
 
 # ---- Resend webhook ----
 c = TestClient(app)

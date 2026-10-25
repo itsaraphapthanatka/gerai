@@ -3902,7 +3902,7 @@ def _deliv_ctx(notice: str = "", error: str = "") -> dict:
         last = {}
     m = D.metrics()
     ok, why = D.healthy(m)
-    return {"notice": notice, "error": error, "dns": D._json("deliv_dns", {}), "m": m, "healthy": ok, "healthy_why": why,
+    return {"notice": notice, "error": error, "dns": D._json("deliv_dns", {}), "m": m, "gm": D.guard_metrics(), "released_at": D.released_at(), "healthy": ok, "healthy_why": why,
             "hold": D.hold_reason(), "seeds": D.public_seeds(), "tests": list(reversed(D._json("deliv_tests", [])))[:6], "place_th": D.PLACE_TH,
             "exp_on": D.exp_on(), "exp": e, "exp_stats": D.exp_stats(e["key"]) if e else None, "experiments": D.EXPERIMENTS,
             "adopted": [D.EXP[k] for k in D.adopted() if k in D.EXP], "results": list(reversed(D._json("deliv_exp_results", []))),

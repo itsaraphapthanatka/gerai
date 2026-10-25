@@ -44,6 +44,7 @@
   <div class="card"><div class="muted" style="font-size:12px">{{ lb }}</div><div style="font-size:22px;font-weight:700;{% if warn %}color:#b42318{% endif %}">{{ v }}</div></div>
   {% endfor %}
 </div>
+{% if released_at %}<p class="muted" style="font-size:12.5px;margin-bottom:0">ตัดสินหยุดส่งจากตัวเลข<b>ตั้งแต่ปลดการหยุด {{ released_at[5:16].replace('T',' ') }}</b>: ส่ง {{ gm.sends }} ฉบับ · เด้ง {{ gm.bounce_pct }}% · ร้องเรียน {{ gm.complaint_pct }}% · ขอไม่รับ {{ gm.unsub_pct }}%{% if gm.sends < 20 %} — ส่งครบ 20 ฉบับก่อนจึงเริ่มตัดสิน{% endif %}</p>{% endif %}
 <p class="muted" style="font-size:12.5px">ส่งถึงปลายทาง (จาก Resend) {{ m.delivered }} ฉบับ · สุขภาพ: <b>{{ 'ดี' if healthy else 'ยังไม่ผ่าน' }}</b> ({{ healthy_why }}) · หาลูกค้าตอนนี้ {{ daily }} ราย/วัน (เพดาน {{ daily_max }})
   <form method="post" action="/admin/deliverability/ramp" style="display:inline"><input type="hidden" name="on" value="{{ '' if ramp_on else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">{{ 'ปิดการเพิ่มจำนวนทักอัตโนมัติ' if ramp_on else 'เปิดการเพิ่มจำนวนทักอัตโนมัติ' }}</button></form></p>
 

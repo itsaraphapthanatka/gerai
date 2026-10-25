@@ -355,15 +355,26 @@ def reset_adopted(key: str | None = None) -> None:
 
 
 # ---------- สัญญาณ 30 วัน ----------
-def metrics(days: int = WINDOW_DAYS, now: dt.datetime | None = None) -> dict:
+def metrics(days: int = WINDOW_DAYS, now: dt.datetime | None = None, since_ts: str | None = None) -> dict:
     since = ((now or dt.datetime.now()) - dt.timedelta(days=days)).isoformat(timespec="seconds")
+    if since_ts and since_ts > since:
+        since = since_ts
     ev = db.events_since(("contacted", "followup", "bounced", "complained", "unsubscribed", "opened", "replied"), since)
     sends = sum(1 for e in ev if e["kind"] in ("contacted", "followup") and "ส่งอีเมลถึง" in (e["note"] or ""))
     cnt = {k: len({e["lead_id"] for e in ev if e["kind"] == k}) for k in ("bounced", "complained", "unsubscribed", "opened", "replied")}
     pct = lambda n: round(n / sends * 100, 1) if sends else 0.0
     return {"days": days, "sends": sends, **cnt, "bounce_pct": pct(cnt["bounced"]), "complaint_pct": pct(cnt["complained"]),
             "unsub_pct": pct(cnt["unsubscribed"]), "open_pct": pct(cnt["opened"]), "reply_pct": pct(cnt["replied"]),
-            "delivered": sum(v.get("delivered", 0) for d, v in _json("deliv_counts", {}).items() if d >= since[:10])}
+            "delivered": sum(v.get("delivered", 0) for d, v in _json("deliv_counts", {}).items() if d >= since[:10]), "since": since}
+
+
+def released_at() -> str:
+    return _get("deliv_released_at", "") or ""
+
+
+def guard_metrics(now: dt.datetime | None = None) -> dict:
+    """ตัวเลขที่ใช้ตัดสินหยุดส่ง: 30 วันล่าสุด แต่ถ้าเจ้าของปลดการหยุดหลังแก้ต้นเหตุ → นับใหม่ตั้งแต่ปลด (ของเก่าที่แก้แล้วไม่ลากมาหยุดซ้ำ)"""
+    return metrics(now=now, since_ts=released_at() or None)
 
 
 def on_hold() -> bool:
@@ -389,20 +400,21 @@ def set_hold(reason: str) -> bool:
 
 def release_hold() -> None:
     db.set_setting("deliv_hold", "")
+    db.set_setting("deliv_released_at", db.now())          # นับเด้ง/ร้องเรียน/ขอไม่รับใหม่ตั้งแต่ตอนนี้ (ต้องส่งครบ MIN_SENDS ก่อนตัดสิน)
 
 
 def guard(m: dict | None = None) -> str | None:
-    m = m or metrics()
+    m = m or guard_metrics()
     if m["sends"] >= MIN_SENDS:
         for key, lim in (("bounce", LIMITS["bounce"]), ("complaint", LIMITS["complaint"]), ("unsub", LIMITS["unsub"])):
             v = m[f"{key}_pct"]
             if v > lim:
                 th = {"bounce": "อีเมลเด้ง", "complaint": "ร้องเรียนว่าเป็นสแปม", "unsub": "ขอไม่รับ"}[key]
-                r = f"{th} {v}% จาก {m['sends']} ฉบับใน {m['days']} วัน (เกณฑ์ {lim}%)"
+                r = f"{th} {v}% จาก {m['sends']} ฉบับ" + (f" ตั้งแต่ปลดการหยุด {m['since'][5:16].replace('T', ' ')}" if released_at() and m["since"] == released_at() else f" ใน {m['days']} วัน") + f" (เกณฑ์ {lim}%)"
                 set_hold(r)
                 return r
     if m["complained"] >= 2:
-        r = f"ถูกร้องเรียนว่าเป็นสแปม {m['complained']} ครั้งใน {m['days']} วัน"
+        r = f"ถูกร้องเรียนว่าเป็นสแปม {m['complained']} ครั้ง" + (" ตั้งแต่ปลดการหยุด" if released_at() and m["since"] == released_at() else f"ใน {m['days']} วัน")
         set_hold(r)
         return r
     last = last_placement()
@@ -767,7 +779,7 @@ def run(now: dt.datetime | None = None) -> dict:
             res["placement_sent"] = t.get("error") or len(t.get("results", []))
     m = metrics(now=now)
     res["metrics"] = {k: m[k] for k in ("sends", "bounce_pct", "complaint_pct", "unsub_pct", "open_pct", "reply_pct")}
-    res["hold"] = guard(m) or (hold_reason() or None)
+    res["hold"] = guard() or (hold_reason() or None)                # ตัดสินจากตัวเลขตั้งแต่ปลดการหยุด (ถ้ามี) ไม่ใช่ 30 วันที่โชว์
     res["ramp"] = ramp(m, now)
     ev = evaluate_experiment()
     if ev:
