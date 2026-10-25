@@ -100,41 +100,44 @@ def _plan(name: str) -> dict:
 
 
 def outreach_template(lead, summary: list[dict], result_url: str, style: dict | None = None) -> dict:
-    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — ตรงไปตรงมา อ้างเฉพาะข้อที่ตรวจเจอจริง · style = แนวที่ฝ่ายส่งอีเมลทดลอง/ใช้อยู่"""
+    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — แบบคนเขียน: ปัญหาข้อเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน (ผ่านกล่องหลักในการทดสอบจริง)"""
+    from . import deliverability as D
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
     tpl = (style or {}).get("tpl") or {}
-    items = summary[:1] if tpl.get("short") else summary[:3]
-    bullets = "\n".join(f"• {s['label']} — {s['why']}" for s in items) or \
-        "• พื้นฐานผ่านทุกข้อแล้ว ขั้นต่อไปคือทำให้ ChatGPT, Gemini และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม ซึ่งต้องมีคอนเทนต์ที่ตอบคำถามจริงของลูกค้า"
-    if tpl.get("short"):
-        body = (f"สวัสดีครับ ทีม {dom}\n\nเว็บ {dom} มีข้อหนึ่งที่ทำให้ลูกค้าหาไม่เจอ\n{bullets}\n\nผลตรวจเต็ม: {result_url}\n\n"
-                "อยากให้ผมอธิบายวิธีแก้ 15 นาทีไหมครับ\n\nเจอ.AI")
-    elif tpl.get("opener"):
-        body = (f"สวัสดีครับ ทีม {dom}\n\n{bullets}\n\nนี่คือผลจากการตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
-                f"ดูผลเต็มได้ที่ {result_url}\n\nถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
+    top = summary[0] if summary else None
+    finding = (f"{top['why'] or top['label']}" if top else
+               "พื้นฐานของเว็บผ่านแล้ว ขั้นต่อไปคือทำให้ ChatGPT และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม")
+    if tpl.get("opener"):
+        body = f"สวัสดีครับ\n\nเว็บ {dom} ตอนนี้{finding}\n\nผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {result_url}\n\nถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"
     else:
-        body = (f"สวัสดีครับ ทีม {dom}\n\nผมตรวจเว็บ {dom} ด้วยระบบของเจอ.AI (ตรวจ 16 ข้อที่ทำให้เว็บไม่โผล่ใน Google และคำตอบของ AI) "
-                f"พบข้อที่ควรแก้ก่อนดังนี้\n{bullets}\n\nดูผลเต็มได้ที่ {result_url}\n\n"
-                "ถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้หรือทัก LINE ได้เลยครับ\n\nเจอ.AI")
-    subject = tpl["subject"].format(dom=dom) if tpl.get("subject") else f"ผลตรวจเว็บ {dom}: {len(summary)} ข้อที่ขวางไม่ให้ลูกค้าหาเจอ"
-    return {"subject": subject, "body": body, "source": "template"}
+        body = f"สวัสดีครับ\n\nผมลองตรวจเว็บ {dom} แล้วเจอว่า{finding}\n\nรายงานเต็ม: {result_url}\n\nถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"
+    subject = tpl["subject"].format(dom=dom) if tpl.get("subject") else f"เรื่องเว็บ {dom}"
+    return {"subject": subject, "body": D.sign(body), "source": "template"}
 
 
 def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: dict | None = None) -> dict:
-    """ให้โมเดลร่างอีเมลทักครั้งแรกจากผลตรวจจริง — คืน {subject, body, source} · ผิดกติกา/ล้ม → แม่แบบ"""
+    """ให้โมเดลร่างอีเมลทักครั้งแรกจากผลตรวจจริง — คืน {subject, body, source} · ผิดกติกา/ล้ม → แม่แบบ
+    ค่าเริ่มต้นใช้แม่แบบแบบคนเขียน: ทดสอบกล่องจริง 25 ต.ค. แม่แบบเข้ากล่องหลัก 6/6 · โมเดลเขียน (กติกาเดียวกัน) 2/4 — เปิดให้โมเดลเขียนได้ที่หน้าการส่งอีเมล"""
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
+    from . import deliverability as _D
+    if llm is None and not _D.llm_writes_outreach():
+        out = outreach_template(lead, summary, result_url, style)
+        out["source"] = "template (แบบคนเขียน)"
+        return out
     if llm is None:
         from . import ai_client
         llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=900, json_mode=True)
+    from . import deliverability as D
     bullets = "\n".join(f"- {s['label']}: {s['why']}" for s in summary[:3])
     prompt = f"""คุณคือทีมขายของ เจอ.AI บริการช่วยให้เว็บธุรกิจไทยโผล่ใน Google และในคำตอบของ AI (ChatGPT, Gemini, Perplexity)
-เขียนอีเมลทักครั้งแรกถึงเจ้าของเว็บ {dom} เป็นภาษาไทย สุภาพ เป็นกันเอง ไม่เกิน 150 คำ
+เขียนอีเมลทักครั้งแรกถึงเจ้าของเว็บ {dom} เป็นภาษาไทย สุภาพ เป็นกันเอง ไม่เกิน 70 คำ
 
 ผลตรวจจริงของเว็บนี้ (อ้างได้เฉพาะข้อเหล่านี้ ห้ามเพิ่มเอง):
 {bullets}
 ลิงก์ผลตรวจเต็ม: {result_url}
 
-กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน · ปิดท้ายด้วยข้อเสนอคุยฟรี 15 นาที
+กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน
+รูปแบบ (สำคัญมาก ไม่งั้นตกแท็บโปรโมชัน): {D.PERSONAL_RULES} · ไม่ต้องลงชื่อ ระบบลงชื่อให้ · หัวข้ออีเมลสั้นแบบคนเขียน ไม่มีตัวเลข
 {("แนวเขียนเพิ่ม (ทำตามทุกข้อ):" + chr(10) + style["prompt"] + chr(10)) if style and style.get("prompt") else ""}ตอบเป็น JSON เท่านั้น: {{"subject": "หัวข้ออีเมลสั้น ๆ", "body": "เนื้ออีเมล ขึ้นบรรทัดใหม่ด้วย \\n"}}"""
     try:
         raw = llm([{"role": "user", "content": prompt}])
@@ -150,8 +153,11 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
         if deliverability.spam_flags(subject, body):
             raise ValueError("เนื้อหาเสี่ยงตกสแปม")
         if result_url not in body:
-            body += f"\n\nดูผลตรวจเต็ม: {result_url}"
-        return {"subject": subject[:120], "body": body[:2000], "source": "llm"}
+            body += f"\n\nรายงานเต็ม: {result_url}"
+        why = D.personal_problems(body)
+        if why:
+            raise ValueError(f"ไม่ใช่แบบคนเขียน ({why})")
+        return {"subject": subject[:120], "body": D.sign(body)[:2000], "source": "llm"}
     except Exception as e:
         out = outreach_template(lead, summary, result_url, style)
         out["source"] = f"template ({type(e).__name__})"

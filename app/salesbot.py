@@ -107,7 +107,9 @@ def answer(question: str, lead=None, channel: str = "line", llm=None) -> dict:
     if llm is None:
         from . import ai_client
         llm = lambda msgs: ai_client.chat_for("salesbot", msgs, max_tokens=900, json_mode=True)
-    style = "ข้อความแชตสั้น ๆ ไม่เกิน 70 คำ" if channel in ("line", "web") else "อีเมลตอบกลับสุภาพ ไม่เกิน 120 คำ ลงชื่อ เจอ.AI"
+    from . import deliverability as D
+    style = ("ข้อความแชตสั้น ๆ ไม่เกิน 70 คำ" if channel in ("line", "web")
+             else "อีเมลตอบกลับแบบคนพิมพ์ ไม่เกิน 100 คำ ไม่ทำเป็นรายการหัวข้อ ไม่ต้องลงชื่อ (ระบบลงชื่อให้)")
     prompt = ("คุณคือผู้ช่วยขายของ เจอ.AI ตอบคำถามลูกค้าเป็นภาษาไทย (ถ้าลูกค้าถามภาษาอื่นให้ตอบภาษานั้น) แบบ" + style + "\n"
               "ใช้ได้เฉพาะข้อเท็จจริงด้านล่าง ห้ามเพิ่มตัวเลข ราคา ระยะเวลา หรือผลลัพธ์อื่น ห้ามคำว่า การันตี/รับประกัน ถ้าข้อเท็จจริงไม่พอตอบ ให้ needs_human=true\n"
               "ข้อเท็จจริง:\n- " + "\n- ".join(facts)
@@ -125,6 +127,8 @@ def answer(question: str, lead=None, channel: str = "line", llm=None) -> dict:
             raise ValueError(f"ไม่ผ่านกติกา{' ตัวเลขนอกคลัง ' + ','.join(sorted(bad_nums))[:60] if bad_nums else ''}")
         if need:
             return {"answer": ans + ("\n\n" if ans else "") + "เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้", "escalate": "ข้อมูลไม่พอตอบ", "source": "llm"}
+        if channel == "email":
+            ans = D.sign(ans)
         return {"answer": ans[:1500], "escalate": why, "source": "llm"}
     except Exception as e:
         return {"answer": HOLD, "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback"}

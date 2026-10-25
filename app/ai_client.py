@@ -32,6 +32,7 @@ TASKS = {"questions": "ตัวคิดคำถามเป้าหมาย
          "salesbot": "ตัวตอบแชตขาย (LINE · เว็บ · อีเมลตอบกลับ)"}
 MODEL_CHOICES = [("local", "โมเดลในเครื่อง (ค่าเริ่มต้น)"), ("gemini", "Gemini (คีย์เดียวกับผู้ช่วย AI)")]
 GEMINI_TIMEOUT = 120
+GEMINI_THINK_HEADROOM = 4096
 _LAST_FALLBACK: dict = {}   # task → เหตุผลครั้งล่าสุดที่ Gemini ใช้ไม่ได้ (หน้าตั้งค่าโชว์ให้เห็น ไม่เงียบ)
 
 
@@ -60,7 +61,9 @@ def gemini_body(messages: list[dict], max_tokens: int, json_mode: bool) -> dict:
     """แปลง messages แบบ chat → รูปแบบ generateContent (system → systemInstruction, ที่เหลือรวมเป็น user เดียว)"""
     system = [str(m["content"]) for m in messages if m.get("role") == "system"]
     users = [str(m["content"]) for m in messages if m.get("role") != "system"]
-    gen = {"maxOutputTokens": max_tokens}
+    # โมเดล Gemini รุ่นคิดก่อนตอบนับ "token คิด" รวมในเพดานนี้ (วัดได้ 450–800 ต่อคำตอบสั้น) — เพดานเท่าคำตอบล้วนทำให้คำตอบถูกตัดกลาง JSON
+    # (อีเมลทัก 43 จาก 45 ฉบับถอยไปใช้แม่แบบเพราะเหตุนี้) → เผื่อที่ให้การคิดแยกจากความยาวคำตอบที่ต้องการ
+    gen = {"maxOutputTokens": max_tokens + GEMINI_THINK_HEADROOM}
     if json_mode:
         gen["responseMimeType"] = "application/json"   # บังคับให้ตอบเป็น JSON ล้วน ไม่มีข้อความห่อ
     body = {"contents": [{"role": "user", "parts": [{"text": "\n\n".join(users)}]}], "generationConfig": gen}

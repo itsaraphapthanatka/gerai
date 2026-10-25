@@ -63,7 +63,21 @@ t = X.draft_outreach({"id": bl, "domain": "b.co.th"}, summary, "https://r/x", la
 assert t["subject"] == "b.co.th: ลูกค้าหาคุณใน Google และ AI เจอไหม?" and t["source"].startswith("template")
 sp = X.draft_outreach({"id": al, "domain": "a.co.th"}, summary, "https://r/x", lambda m: json.dumps({"subject": "ด่วนที่สุด!!", "body": "ลดราคา " * 30}))
 assert sp["source"].startswith("template")                                                        # เนื้อหาเสี่ยงสแปม → แม่แบบ
-short = X.outreach_template({"domain": "s.co.th"}, summary * 3, "https://r/x", {"tpl": {"short": True}}); assert short["body"].count("•") == 1
+short = X.outreach_template({"domain": "s.co.th"}, summary * 3, "https://r/x", {"tpl": {"short": True}})
+assert "•" not in short["body"] and short["body"].count("https://") == 1 and D.personal_problems(short["body"]) is None   # แบบคนเขียน (ผ่านกล่องหลัก)
+db.set_setting("outreach_signer", "สมชาย")
+assert X.outreach_template({"domain": "s.co.th"}, summary, "https://r/x")["body"].endswith("สมชาย\nเจอ.AI")
+assert D.personal_problems("• ข้อหนึ่ง\n• ข้อสอง") == "เป็นรายการหัวข้อ" and D.personal_problems("ตรวจ 16 ข้อ") and D.personal_problems("ลิงก์ https://a https://b")
+assert D.personal_problems("ผมลองตรวจเว็บแล้วเจอว่า robots.txt กันบอทไว้\n\nรายงานเต็ม: https://r/x") is None
+listy = X.draft_outreach({"id": al, "domain": "a.co.th"}, summary, "https://r/x",
+                         lambda m: json.dumps({"subject": "เรื่องเว็บ a.co.th", "body": "สวัสดีครับ\n\n• ข้อแรกที่ตรวจเจอบนเว็บ\n• ข้อสองที่ตรวจเจอบนเว็บ\n\nรายงาน https://r/x ตอบกลับได้เลยครับ"}))
+assert listy["source"].startswith("template") and "•" not in listy["body"]                      # โมเดลทำเป็นรายการ → แม่แบบแบบคนเขียน
+import app.ai_client as _AI
+_AI.chat_for = lambda *a, **k: (_ for _ in ()).throw(AssertionError("ค่าเริ่มต้นต้องไม่เรียกโมเดล"))
+dflt = X.draft_outreach({"id": al, "domain": "a.co.th"}, summary, "https://r/x")
+assert dflt["source"] == "template (แบบคนเขียน)" and D.personal_problems(dflt["body"]) is None and dflt["subject"] == "เรื่องเว็บ a.co.th"
+db.set_setting("outreach_llm", "1"); assert D.llm_writes_outreach(); db.set_setting("outreach_llm", "0")
+db.set_setting("outreach_signer", "")
 print("ab-style: ปิด = ไม่ทดลอง · แบ่งคงที่ครึ่งต่อครึ่ง · B เข้า prompt · แม่แบบสำรองตามแบบ · เนื้อหาเสี่ยงถอยแม่แบบ OK")
 
 # ---- ส่งจริงแล้วนับเข้าการทดลอง ----

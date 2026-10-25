@@ -127,19 +127,19 @@ def classify(m: dict, llm=None) -> str:
 def draft_answer(lead, body: str, llm=None) -> str:
     from . import pipeline
     llm = llm or LLM
-    base = (f"สวัสดีครับ ขอบคุณที่ตอบกลับมาครับ\n\nเรื่องที่ถามมา ผมขอสรุปให้ชัด ๆ ทางโทรศัพท์ 10 นาทีได้ไหมครับ หรือดูรายละเอียดและราคาได้ที่รายงานของเว็บคุณ {pipeline.result_url(lead)}"
-            "\n\nเจอ.AI")
+    from . import deliverability as D
+    base = D.sign(f"สวัสดีครับ ขอบคุณที่ตอบกลับมาครับ\n\nเรื่องที่ถามมา ผมขอเช็กให้ชัดแล้วตอบกลับภายในวันนี้ครับ ระหว่างนี้ดูรายละเอียดของเว็บคุณได้ที่ {pipeline.result_url(lead)}")
     try:
         if llm is None:
             from . import ai_client
             llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=1200, json_mode=True)
         raw = llm([{"role": "user", "content": f"ลูกค้าเว็บ {lead['domain']} ตอบอีเมลขายของเจอ.AI ว่า:\n{body[:1500]}\n\nร่างคำตอบภาษาไทยสุภาพ ไม่เกิน 100 คำ ตอบเฉพาะที่ถาม "
-                    "ถ้าไม่รู้ข้อเท็จจริงให้บอกว่าจะเช็กแล้วแจ้งกลับ ห้ามการันตีผล ห้ามแต่งตัวเลข ปิดด้วยชวนคุย 10 นาที ลงชื่อ เจอ.AI\nตอบ JSON {\"body\": \"...\"}"}])
+                    "ถ้าไม่รู้ข้อเท็จจริงให้บอกว่าจะเช็กแล้วแจ้งกลับ ห้ามการันตีผล ห้ามแต่งตัวเลข เขียนแบบคนพิมพ์ ไม่ทำเป็นรายการ ไม่ต้องลงชื่อ\nตอบ JSON {\"body\": \"...\"}"}])
         mm = re.search(r"\{[\s\S]*\}", raw or "")
         b = str((json.loads(mm.group(0)) if mm else {}).get("body") or "").strip()
         from . import execs
         if len(b) >= 40 and not execs.FORBIDDEN.search(b):
-            return b
+            return D.sign(b)
     except Exception:
         pass
     return base

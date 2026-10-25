@@ -218,6 +218,51 @@ def adopted() -> list[str]:
     return _json("deliv_adopted", [])
 
 
+# ---------- อีเมลแบบคนเขียน (ทดสอบกล่องจริง 25 ต.ค.: แม่แบบที่มีรายการ • / "ตรวจ 16 ข้อ" / ชวนนัด 15 นาที / ลงชื่อแบรนด์ = แท็บโปรโมชัน
+# ทั้งกล่องเก่าและกล่องใหม่ · ปัญหาข้อเดียวเป็นประโยค + ลิงก์รายงาน 1 ลิงก์ + ลงชื่อคน = กล่องหลัก แม้มีลิงก์และหัว List-Unsubscribe) ----------
+PERSONAL_RULES = ("เขียนเหมือนคนพิมพ์อีเมลถึงคนคนเดียว ไม่เกิน 70 คำ · พูดถึงเรื่องเดียวเป็นประโยคธรรมดา "
+                  "ห้ามทำเป็นรายการหัวข้อ ห้ามใช้ • หรือ - นำหน้าบรรทัด · ห้ามบอกว่าตรวจกี่ข้อ ห้ามโปรยชื่อระบบ · ลิงก์ไม่เกิน 1 ลิงก์ · "
+                  "ห้ามชวนนัดคุยหรือเสนอคุยฟรีกี่นาที ปิดด้วยประโยคชวนตอบกลับอีเมลสั้น ๆ ประโยคเดียว")
+_LISTY = re.compile(r"(?m)^\s*(?:[•\-*▪●]|\d+[.)])\s+")
+_BULKY = re.compile(r"ตรวจ\s*\d+\s*ข้อ|\d+\s*ข้อที่ทำให้|ฟรี\s*\d+\s*นาที|\d+\s*นาที|ทัก LINE", re.I)
+
+
+def llm_writes_outreach() -> bool:
+    return _get("outreach_llm", "0") == "1"
+
+
+def signer() -> str:
+    """ชื่อคนที่ลงท้ายอีเมลทัก/ติดตาม/ตอบลูกค้า (ตั้งที่การ์ดที่อยู่ส่งอีเมลทัก) — ว่าง = ลงแค่ เจอ.AI"""
+    try:
+        return (_get("outreach_signer", "") or "").strip()[:40]
+    except Exception:                                 # ยังไม่มีฐานข้อมูล (เทสต์แม่แบบล้วน) → ลงแค่ เจอ.AI
+        return ""
+
+
+def signature() -> str:
+    s = signer()
+    return f"{s}\nเจอ.AI" if s else "เจอ.AI"
+
+
+def personal_problems(body: str) -> str | None:
+    """อีเมลนี้ดูเป็นอีเมลส่งหมู่ไหม (เหตุผล) · None = ผ่าน"""
+    if _LISTY.search(body or ""):
+        return "เป็นรายการหัวข้อ"
+    if _BULKY.search(body or ""):
+        return "มีคำแบบอีเมลส่งหมู่"
+    if len(re.findall(r"https?://", body or "")) > 1:
+        return "ลิงก์เกิน 1"
+    if len(body or "") > 700:
+        return "ยาวเกิน"
+    return None
+
+
+def sign(body: str) -> str:
+    """ลงชื่อคนท้ายอีเมล (แทนบรรทัด เจอ.AI ท้ายสุดถ้ามี)"""
+    b = re.sub(r"\n+\s*(?:ขอบคุณครับ\s*\n)?\s*เจอ\.?AI\s*$", "", (body or "").rstrip())
+    return b + "\n\n" + signature()
+
+
 def style_for(lead) -> dict:
     """แนวเขียนข้อความทักของลีดรายนี้: แบบที่ชนะแล้วทุกข้อ + แบบ B ของการทดลองปัจจุบัน (ครึ่งหนึ่งของลีด)"""
     keys = list(adopted())
@@ -448,9 +493,9 @@ def _sample() -> tuple[str, str]:
                 pl = {}
             if pl.get("subject") and pl.get("body"):
                 return pl["subject"], pl["body"]
-    return ("ผลตรวจเว็บของคุณ: 3 ข้อที่ขวางไม่ให้ลูกค้าหาเจอ",
-            "สวัสดีครับ\n\nผมตรวจเว็บของคุณด้วยระบบของเจอ.AI พบข้อที่ควรแก้ก่อน 3 ข้อ ดูผลเต็มได้ที่ https://geo.appreview.cloud/audit\n\n"
-            "ถ้าสนใจ ผมอธิบายวิธีแก้ให้ฟรี 15 นาที ตอบอีเมลนี้ได้เลยครับ\n\nเจอ.AI")
+    return ("เรื่องเว็บของคุณ",
+            "สวัสดีครับ\n\nผมลองตรวจเว็บของคุณแล้วเจอว่าบอทของ Google และ AI อ่านเนื้อหาบางหน้าไม่ได้ ทำให้เว็บไม่ขึ้นในคำตอบของ ChatGPT\n\n"
+            "รายงานเต็ม: https://geo.appreview.cloud/audit\n\nถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ\n\n" + signature())
 
 
 def send_placement_test() -> dict:
@@ -568,7 +613,11 @@ def active_from() -> tuple[str, str]:
     return (s["addr"], s["name"]) if s["ok"] else ("", "")
 
 
-def save_outreach_sender(addr: str, name: str) -> str:
+def save_outreach_sender(addr: str, name: str, signer_name: str | None = None, llm_on: bool | None = None) -> str:
+    if signer_name is not None:
+        db.set_setting("outreach_signer", signer_name.strip()[:40])
+    if llm_on is not None:
+        db.set_setting("outreach_llm", "1" if llm_on else "0")
     addr, name = (addr or "").strip().lower(), (name or "").strip()[:60]
     if not addr:
         for k in ("outreach_from", "outreach_from_name", "outreach_from_ok", "outreach_route_token"):

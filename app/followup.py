@@ -104,22 +104,24 @@ def _fact_lines(kind: str, f: dict) -> list[str]:
 
 
 def template(lead, kind: str, f: dict, link: str) -> dict:
+    """แบบคนเขียน (เหมือนอีเมลทัก): เรื่องเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน — ไม่มีรายการหัวข้อ ไม่ชวนนัดกี่นาที"""
+    from . import deliverability as D
     dom = lead["domain"]
     lines = _fact_lines(kind, f)
-    bullets = "\n".join(f"• {x}" for x in lines)
+    first = lines[0] if lines else ""
     if kind == "new_issue":
-        body = (f"สวัสดีครับ ทีม {dom}\n\nต่อจากผลตรวจที่ส่งไปเมื่อไม่กี่วันก่อน ระบบไต่เว็บทั้งเว็บแล้วเจอเพิ่มอีกเรื่องที่ทำให้ Google และ AI ข้ามบางหน้าไป\n"
-                f"{bullets or '• ดูรายละเอียดในรายงาน'}\n\nรายงานพร้อมวิธีแก้ทีละข้อ: {link}\n\nถ้าอยากให้ช่วยดูว่าควรแก้อะไรก่อน ตอบอีเมลนี้ได้เลยครับ\n\nเจอ.AI")
+        body = (f"สวัสดีครับ\n\nต่อจากผลตรวจที่ส่งไปเมื่อไม่กี่วันก่อน ผมไต่เว็บ {dom} ทั้งเว็บแล้วเจอเพิ่มอีกเรื่อง"
+                + (f" คือ{first}" if first else " ที่ทำให้ Google และ AI ข้ามบางหน้าไป") + f"\n\nรายละเอียดกับวิธีแก้อยู่ในรายงาน: {link}\n\nถ้าอยากให้ช่วยดูว่าควรแก้อะไรก่อน ตอบกลับได้เลยครับ")
         subj = f"เจอเพิ่มอีกเรื่องบนเว็บ {dom}"
     elif kind == "competitor":
-        body = (f"สวัสดีครับ ทีม {dom}\n\nอีกมุมจากรายงานที่ทำให้: ตอนลูกค้าค้นหาบริการแบบของคุณ ใครขึ้นมาแทน\n"
-                f"{bullets or '• ดูอันดับและคู่แข่งในรายงาน'}\n\nดูตารางเต็ม: {link}\n\nถ้าสนใจ ผมสรุปให้ฟัง 15 นาทีว่าต้องทำอะไรบ้างถึงจะขึ้นไปแทนได้\n\nเจอ.AI")
+        body = (f"สวัสดีครับ\n\nอีกมุมจากรายงานของเว็บ {dom}: ตอนลูกค้าค้นหาบริการแบบของคุณ "
+                + (f"{first}" if first else "มีเว็บอื่นขึ้นมาแทน") + f"\n\nดูได้ในรายงาน: {link}\n\nถ้าอยากรู้ว่าต้องทำอะไรถึงจะขึ้นไปแทนได้ ตอบกลับได้เลยครับ")
         subj = f"ใครขึ้น Google แทน {dom} ตอนลูกค้าค้นหา"
     else:
-        body = (f"สวัสดีครับ ทีม {dom}\n\nผมส่งผลตรวจเว็บไปสองสามครั้งแล้ว ไม่อยากรบกวนเกินไป ข้อความนี้จะเป็นฉบับสุดท้ายครับ\n\n"
-                f"รายงานยังเปิดดูได้ที่ {link} ถ้าวันไหนพร้อม ตอบกลับมาคำเดียวว่า \"สนใจ\" ผมจะส่งแผนแก้และราคาให้\n\nขอบคุณครับ\nเจอ.AI")
+        body = (f"สวัสดีครับ\n\nผมส่งผลตรวจเว็บ {dom} ไปสองสามครั้งแล้ว ไม่อยากรบกวนเกินไป ฉบับนี้จะเป็นฉบับสุดท้ายครับ\n\n"
+                f"รายงานยังเปิดดูได้ที่ {link} ถ้าวันไหนพร้อม ตอบกลับมาคำเดียวว่า \"สนใจ\" ผมจะส่งแผนแก้และราคาให้\n\nขอบคุณครับ")
         subj = f"ปิดแฟ้มผลตรวจเว็บ {dom}"
-    return {"subject": subj, "body": body, "source": "template"}
+    return {"subject": subj, "body": D.sign(body), "source": "template"}
 
 
 def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
@@ -128,6 +130,7 @@ def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
         out = template(lead, kind, f, link)
         out["source"] = "template (ไม่มีข้อมูลใหม่)"
         return out
+    from . import deliverability as _D
     if llm is None:
         from . import ai_client
         llm = lambda m: ai_client.chat_for("followup", m, max_tokens=700, json_mode=True)
@@ -138,6 +141,7 @@ def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
               + (f"ข้อมูลจริงที่อ้างได้ (ห้ามเพิ่มตัวเลขเอง):\n" + "\n".join(f"- {x}" for x in lines) + "\n" if lines else "")
               + f"ลิงก์รายงาน (ต้องใส่): {link}\n"
               "กติกา: ห้ามขึ้นต้นด้วย 'ติดตาม' หรือทวงว่าทำไมไม่ตอบ · ห้ามคำว่าการันตี/รับประกันผล · ห้ามบอกราคา · ห้ามสร้างความเร่งด่วนปลอม\n"
+              f"รูปแบบ (สำคัญมาก ไม่งั้นตกแท็บโปรโมชัน): {_D.PERSONAL_RULES} · ไม่ต้องลงชื่อ ระบบลงชื่อให้\n"
               'ตอบ JSON เท่านั้น: {"subject": "...", "body": "... ขึ้นบรรทัดใหม่ด้วย \\n"}')
     try:
         raw = llm([{"role": "user", "content": prompt}])
@@ -153,7 +157,10 @@ def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
             raise ValueError("มีตัวเลขที่ไม่ได้มาจากข้อมูลจริง")
         if link not in body:
             body += f"\n\nรายงาน: {link}"
-        return {"subject": subject[:120], "body": body[:1500], "source": "llm"}
+        why = _D.personal_problems(body)
+        if why:
+            raise ValueError(f"ไม่ใช่แบบคนเขียน ({why})")
+        return {"subject": subject[:120], "body": _D.sign(body)[:1500], "source": "llm"}
     except Exception as e:
         out = template(lead, kind, f, link)
         out["source"] = f"template ({type(e).__name__})"

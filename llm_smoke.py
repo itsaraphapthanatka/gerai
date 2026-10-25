@@ -49,7 +49,7 @@ print("router: เลือก Gemini แต่ไม่มีคีย์ → �
 # 5) แปลง messages → body และอ่านคำตอบ
 body = ai.gemini_body([{"role": "system", "content": "เป็นคนไทย"}, {"role": "user", "content": "ถาม A"}, {"role": "user", "content": "ถาม B"}], 500, True)
 assert body["systemInstruction"]["parts"][0]["text"] == "เป็นคนไทย" and body["contents"][0]["parts"][0]["text"] == "ถาม A\n\nถาม B"
-assert body["generationConfig"] == {"maxOutputTokens": 500, "responseMimeType": "application/json"}
+assert body["generationConfig"] == {"maxOutputTokens": 500 + ai.GEMINI_THINK_HEADROOM, "responseMimeType": "application/json"}   # เผื่อ token คิดของ Gemini
 assert "systemInstruction" not in ai.gemini_body([{"role": "user", "content": "x"}], 10, False) and "responseMimeType" not in ai.gemini_body([{"role": "user", "content": "x"}], 10, False)["generationConfig"]
 assert ai.gemini_text({"candidates": [{"content": {"parts": [{"text": "ก"}, {"text": "ข"}]}}]}) == "กข" and ai.gemini_text({}) == ""
 print("gemini: แปลง body (system/json mode) + อ่านคำตอบ OK")

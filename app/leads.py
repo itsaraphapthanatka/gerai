@@ -45,6 +45,7 @@ EXPLAIN = {
     "indexed": "หน้าส่วนใหญ่ยังไม่อยู่ใน Google ค้นชื่อเรื่องแล้วไม่เจอ",
     "robots": "ไฟล์ robots.txt กันบอทไว้ Google และ AI เข้าอ่านไม่ได้",
     "ai_bots": "บอทของ ChatGPT Claude และ Perplexity ถูกกันไว้ AI จึงไม่รู้จักเว็บนี้",
+    "llms": "ไม่มีไฟล์ llms.txt ที่ช่วยให้ ChatGPT และ AI อื่นอ่านสรุปธุรกิจจากเว็บได้ง่าย",
     "sitemap": "ไม่มี sitemap หรือ sitemap เสีย Google ไม่รู้ว่ามีหน้าไหนบ้าง",
     "robots_sitemap": "robots.txt ไม่ได้บอกที่อยู่ sitemap",
     "canonical": "canonical ชี้ผิด ทุกหน้าบอก Google ว่าเป็นหน้าซ้ำ",

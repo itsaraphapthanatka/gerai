@@ -23,6 +23,9 @@
   <form method="post" action="/admin/deliverability/sender" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
     <input type="email" name="addr" value="{{ sender.addr }}" placeholder="เช่น hello@{{ domain or 'appreview.cloud' }}" style="{{ inp }}">
     <input type="text" name="name" value="{{ sender.name }}" maxlength="60" placeholder="ชื่อผู้ส่งที่ลีดเห็น เช่น ชื่อคุณ · เจอ.AI" style="{{ inp }}">
+    <input type="text" name="signer" value="{{ signer }}" maxlength="40" placeholder="ชื่อลงท้ายอีเมล เช่น สมชาย" title="ลงท้ายอีเมลทัก/ติดตาม/ตอบลูกค้าด้วยชื่อคน — อีเมลที่ลงชื่อคนเข้ากล่องหลักมากกว่า" style="{{ inp }}">
+    <label style="font-size:12.5px;font-weight:400;grid-column:1/-1"><input type="checkbox" name="llm_write" value="1" {% if llm_write %}checked{% endif %}> ให้โมเดลเขียนอีเมลทักฉบับแรกเอง
+      <span class="muted">(ค่าเริ่มต้นใช้แม่แบบแบบคนเขียน: ทดสอบกล่องจริง 25 ต.ค. แม่แบบเข้ากล่องหลัก 6/6 · โมเดลเขียน 2/4)</span></label>
     <div><button class="btn ghost sm" type="submit">บันทึก</button></div>
   </form>
   {% if sender.addr and not sender.ok %}

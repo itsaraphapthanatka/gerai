@@ -39,7 +39,7 @@ print("leads: normalize/score/summary/import OK")
 
 # ---- ผู้บริหารเอเจนต์ ----
 lead = {"domain": "example.co.th", "site_url": "https://example.co.th"}
-good = lambda msgs: json.dumps({"subject": "เว็บ example.co.th ยังไม่โผล่ใน AI", "body": "สวัสดีครับ " + "ผมตรวจเว็บของคุณแล้วพบว่า " * 6 + "คุยฟรี 15 นาทีได้ครับ"})
+good = lambda msgs: json.dumps({"subject": "เว็บ example.co.th ยังไม่โผล่ใน AI", "body": "สวัสดีครับ " + "ผมตรวจเว็บของคุณแล้วพบว่า " * 6 + "ถ้าอยากรู้วิธีแก้ ตอบกลับได้เลยครับ"})   # แบบคนเขียน (ชวนนัดกี่นาที = แบบส่งหมู่ ถอยแม่แบบ)
 pl = X.ceo_review_lead(lead, rep("csr", "indexed"), "https://geo.appreview.cloud/audit/t1", llm=good)
 assert pl["action"] == "accept" and pl["package"] == "pro" and pl["price"] == 9900 and pl["source"] == "llm" and "https://geo.appreview.cloud/audit/t1" in pl["body"]
 bad = lambda msgs: json.dumps({"subject": "การันตีอันดับ 1", "body": "รับประกันผล " * 20})
