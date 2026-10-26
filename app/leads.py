@@ -84,6 +84,35 @@ def domain_of(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+def customer_map() -> dict:
+    """โดเมน → แบรนด์ ของลูกค้าที่จ่ายเงินแล้ว: บัญชีไม่ใช่แอดมิน (แบรนด์ของเจอ.AI เอง) และอยู่แผนเสียเงิน
+    บัญชีแผนฟรีไม่นับ — มีลีดที่เปิดบัญชีให้ก่อนจ่าย (ยังอยู่ในสายขาย ต้องตามปิดต่อ)"""
+    from . import db, billing
+    paid = {k for k, p in billing.PLANS.items() if k != "free"}
+    tenants, out = {}, {}
+    for b in db.list_all_brands():
+        tid = b["tenant_id"]
+        if tid not in tenants:
+            tenants[tid] = db.get_tenant(tid)
+        t = tenants[tid]
+        if not t or t["is_admin"] or (t["plan"] or "free") not in paid:
+            continue
+        d = domain_of(b["domain"] or "")
+        if d:
+            out.setdefault(d, b)
+    return out
+
+
+def customer_brand(domain: str, cmap: dict | None = None):
+    """แบรนด์ของลูกค้าที่จ่ายเงินแล้วที่ใช้โดเมนนี้ · ไม่ใช่ลูกค้า = None
+    ลูกค้าเดิมที่มาลองตรวจเว็บฟรีกลายเป็นลีดได้ — ห้ามคัด/เสนอขายซ้ำ และหน้าลีดต้องบอกว่าเป็นลูกค้าแล้ว
+    cmap = ผลของ customer_map() ที่ดึงไว้แล้ว (หน้าลีดเรียกทีละหลายร้อยแถว)"""
+    d = domain_of(domain or "")
+    if not d:
+        return None
+    return (cmap if cmap is not None else customer_map()).get(d)
+
+
 def score_audit(report: dict) -> dict:
     """คะแนนโอกาสขาย 0–100 จากข้อที่ตก + เหตุผล 3 ข้อแรก · เข้าเว็บไม่ได้ = 0 (ขายไม่ได้จนกว่าเว็บจะกลับมา)"""
     checks = [c for c in (report.get("checks") or []) if c.get("key") not in PUBLIC_IGNORE]

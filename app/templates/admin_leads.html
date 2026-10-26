@@ -25,11 +25,11 @@
     <thead><tr><th>เว็บ</th><th>ที่มา</th><th>โอกาส</th><th>ติดต่อ</th><th>สถานะ</th><th>เมื่อ</th><th></th></tr></thead>
     <tbody>
     {% for l in leads %}
-    <tr style="{% if l['status']=='new' %}background:var(--purple-tint){% endif %}">
+    <tr style="{% if l['status']=='new' and not l['customer'] %}background:var(--purple-tint){% endif %}">
       <td><a class="link" href="/admin/leads/{{ l['id'] }}"><b>{{ l['domain'] }}</b></a>{% if l['token'] and l['audit_json'] %} <a class="link" href="/audit/{{ l['token'] }}" target="_blank" style="font-size:12px">ผลตรวจ ↗</a>{% endif %}
         {% if l['sc'] %}<div class="muted" style="font-size:11.5px">{{ l['sc'].n_fail }} ข้อตก · {{ l['sc'].reasons[0] if l['sc'].reasons else 'ผ่านทุกข้อ' }}</div>{% endif %}</td>
       <td class="muted">{{ sources.get(l['source'], l['source']) }}</td>
-      <td>{% if l['sc'] %}<span class="pill {{ 'no' if l['sc'].score >= 50 else ('admin' if l['sc'].score >= 25 else 'ok') }}">{{ l['sc'].level }} {{ l['sc'].score }}</span>{% else %}<span class="muted">ยังไม่ตรวจ</span>{% endif %}</td>
+      <td>{% if l['customer'] %}<a class="pill ok" href="/brands/{{ l['customer'].id }}" title="{{ l['customer'].name }}" style="text-decoration:none">ลูกค้าแล้ว</a>{% elif l['sc'] %}<span class="pill {{ 'no' if l['sc'].score >= 50 else ('admin' if l['sc'].score >= 25 else 'ok') }}">{{ l['sc'].level }} {{ l['sc'].score }}</span>{% else %}<span class="muted">ยังไม่ตรวจ</span>{% endif %}</td>
       <td style="font-size:12.5px">{{ l['name'] or '' }}{% if l['email'] %}<div>{{ l['email'] }}</div>{% endif %}{% if l['contact'] %}<div class="muted">{{ l['contact'] }}</div>{% endif %}{% if not l['email'] and not l['contact'] %}<span class="muted">—</span>{% endif %}{% if l['consent'] %}<div class="muted" style="font-size:11px">ยินยอมติดต่อ ✓</div>{% endif %}</td>
       <td>
         <form method="post" action="/admin/leads/{{ l['id'] }}/status" style="display:flex;gap:4px">

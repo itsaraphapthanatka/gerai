@@ -150,6 +150,8 @@ def ceo_propose(lead) -> int | None:
     """CEO คัด + ร่างข้อความทัก · CFO ตรวจราคากับกรอบ → แถวใน decisions (รอคน หรือทำเองถ้าเรื่องนั้นเป็น auto)"""
     if lead["status"] in leads.NO_CONTACT:
         return None                                  # ไม่ทักซ้ำคนที่ขอไม่รับ/ปิดไปแล้ว
+    if leads.customer_brand(lead["domain"]):
+        return None                                  # เป็นลูกค้าอยู่แล้ว (มาลองตรวจเว็บฟรีเอง) — ไม่คัด ไม่เสนอขายซ้ำ
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
     if not report:
         return None

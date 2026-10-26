@@ -659,8 +659,13 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
     db.update_lead(lead["id"], name=name.strip()[:120] or None, email=email.strip().lower()[:160] or None,
                    contact=contact.strip()[:160] or None, consent=1)
     _remember_lead_lang(request, lead["id"])
-    pipeline.alert_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""),
-                          f"/admin/leads/{lead['id']}", "lead", subject=f"🎯 ลูกค้าเป้าหมายใหม่: {lead['domain']}")
+    cust = leads.customer_brand(lead["domain"])
+    if cust:                                              # ลูกค้าเดิมทิ้งช่องทางติดต่อ = อาจต้องการความช่วยเหลือ ไม่ใช่ลีดใหม่
+        pipeline.alert_admins(f"👤 ลูกค้าเดิม {cust['name']} ({lead['domain']}) ทิ้งช่องทางติดต่อจากหน้าตรวจเว็บฟรี" + (f" · {name.strip()}" if name.strip() else ""),
+                              f"/admin/leads/{lead['id']}", "lead", subject=f"👤 ลูกค้าเดิมติดต่อมา: {lead['domain']}")
+    else:
+        pipeline.alert_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""),
+                              f"/admin/leads/{lead['id']}", "lead", subject=f"🎯 ลูกค้าเป้าหมายใหม่: {lead['domain']}")
     try:
         _ceo_propose(db.get_lead(lead["id"]))
     except Exception:
@@ -674,11 +679,14 @@ def admin_leads(request: Request, status: str = "", notice: str = ""):
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
     all_rows = db.list_leads(None, 5000)
+    cmap = leads.customer_map()
     rows = []
     for l in all_rows:
         if status and l["status"] != status:
             continue
         d = dict(l)
+        cb = leads.customer_brand(d["domain"], cmap)
+        d["customer"] = {"id": cb["id"], "name": cb["name"]} if cb else None
         rep = json.loads(d["audit_json"]) if d.get("audit_json") else None
         d["sc"] = leads.score_audit(rep) if rep else None
         d["pending"] = db.count_decisions_for_lead(d["id"], "proposed")
@@ -1048,7 +1056,9 @@ def _lead_ctx(lead, notice: str = "") -> dict:
     from . import accounting as _ac
     _qs = db.list_quotes(lead["id"])
     _bq = next((x for x in _qs if x["status"] in ("paid", "accepted", "claimed")), None)
-    return {"acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
+    _cb = leads.customer_brand(lead["domain"])
+    return {"customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+            "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
             "fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},

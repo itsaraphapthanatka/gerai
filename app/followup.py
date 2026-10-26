@@ -50,6 +50,8 @@ def eligible(lead) -> str:
         return "ลีดกรอกหน้าตรวจฟรีเอง — สัญญาไว้ว่าไม่ส่งซ้ำถ้าไม่ตอบ"
     if lead["unsub_at"]:
         return "ขอไม่รับการติดต่อ"
+    if L.customer_brand(lead["domain"]):
+        return "เป็นลูกค้าที่จ่ายเงินแล้ว — ดูแลโดยทีมหลังการขาย ไม่ส่งชุดติดตามขาย"
     if not pipeline.send_channel(lead):
         return "ไม่มีอีเมล/LINE ที่ส่งได้"
     return ""

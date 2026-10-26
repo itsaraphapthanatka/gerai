@@ -4,7 +4,8 @@
 <p class="muted" style="margin-bottom:6px"><a class="link" href="/admin/leads">← ลูกค้าเป้าหมาย</a></p>
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
   <h1 style="margin:0">{{ lead['domain'] }}</h1>
-  {% if sc %}<span class="pill {{ 'no' if sc.score >= 50 else ('admin' if sc.score >= 25 else 'ok') }}">โอกาส {{ sc.level }} {{ sc.score }}</span>{% endif %}
+  {% if customer %}<a class="pill ok" href="/brands/{{ customer.id }}" style="text-decoration:none">ลูกค้าแล้ว · {{ customer.name }}</a>
+  {% elif sc %}<span class="pill {{ 'no' if sc.score >= 50 else ('admin' if sc.score >= 25 else 'ok') }}">โอกาส {{ sc.level }} {{ sc.score }}</span>{% endif %}
   <span class="pill">{{ sources.get(lead['source'], lead['source']) }}</span>
   <form method="post" action="/admin/leads/{{ lead['id'] }}/status" style="margin-left:auto">
     <select name="status" onchange="this.form.submit()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
