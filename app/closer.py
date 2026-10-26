@@ -269,8 +269,11 @@ def log_call(lead, outcome: str, note: str = "", who: str = "owner") -> str:
         qs = [x for x in db.list_quotes(lead["id"]) if x["status"] in Q.OPEN]
         if qs and lead["email"] and pipeline.send_channel(lead):
             try:
-                pipeline._send_text(lead, f"ลิงก์ชำระเงิน {qs[0]['number']}",
-                                    f"สวัสดีครับ ตามที่คุยทางโทรศัพท์ ลิงก์ใบเสนอราคาและชำระเงินอยู่ที่นี่ครับ\n{pipeline.quote_url(qs[0])}\n\nจ่ายแล้วระบบเปิดบัญชีและเริ่มงานวันเดียวกัน\nเจอ.AI"
+                from . import i18n
+                lg = pipeline.lead_lang(lead)                          # ภาษาที่ลีดเลือกบนเว็บ (ไทย = ข้อความเดิม)
+                pipeline._send_text(lead, i18n.tr("ลิงก์ชำระเงิน {number}", lg, number=qs[0]["number"]),
+                                    i18n.tr("สวัสดีครับ ตามที่คุยทางโทรศัพท์ ลิงก์ใบเสนอราคาและชำระเงินอยู่ที่นี่ครับ", lg) + f"\n{pipeline.quote_url(qs[0])}\n\n"
+                                    + i18n.tr("จ่ายแล้วระบบเปิดบัญชีและเริ่มงานวันเดียวกัน", lg) + "\nเจอ.AI"
                                     + pipeline.outreach_footer(lead))
                 return "บันทึกแล้ว · ส่งลิงก์ชำระเงินทางอีเมลให้แล้ว"
             except Exception:

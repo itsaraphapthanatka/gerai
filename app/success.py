@@ -92,80 +92,105 @@ def content_counts(brand_id: int) -> dict:
 
 
 # ---------- ข้อความ ----------
+# ทุกประโยคเป็นภาษาไทยต้นฉบับ (msgid) แปลด้วย i18n.tr ตามภาษาของลูกค้า (คำแปลอยู่ที่ app/i18n/email.json) · lang="th" = ข้อความเดิมทุกตัวอักษร
+def lang_of(c: dict) -> str:
+    """ภาษาของอีเมลถึงลูกค้ารายนี้: ภาษาของบัญชี (คัดลอกจากลีดตอนเปิดบัญชี / เปลี่ยนตาม ?lang= ตอนล็อกอิน)"""
+    return db.customer_lang(c.get("lead"), c.get("tenant"))
+
+
+def _t(c: dict):
+    from . import i18n
+    lang = lang_of(c)
+    return lambda s, **kw: i18n.tr(s, lang, **kw)
+
+
 def _send(c: dict, subject: str, body_html: str, text: str, link: str) -> str:
     t = c["tenant"]
     db.add_notification(t["id"], subject, link, "info")              # กระดิ่งในแอปเสมอ
     if not (mailer.config() and mailer.is_deliverable(t["email"])):
         return "แจ้งในแอป (ไม่มีอีเมลที่ส่งได้)"
-    mailer.send(t["email"], subject, mailer.wrap_html(subject, body_html, "ข้อความนี้ส่งจากทีมดูแลลูกค้าของเจอ.AI"), text=text)
+    mailer.send(t["email"], subject, mailer.wrap_html(subject, body_html, "ข้อความนี้ส่งจากทีมดูแลลูกค้าของเจอ.AI", lang=lang_of(c)), text=text)
     return f"อีเมลถึง {t['email']} + แจ้งในแอป"
 
 
+def _sign(c: dict) -> str:
+    return _t(c)("ทีมดูแลลูกค้า เจอ.AI")
+
+
 def kickoff_message(c: dict) -> tuple[str, str, str, str]:
-    b, base = c["brand"], _base()
+    b, base, t = c["brand"], _base(), _t(c)
+    dom = c['lead']['domain']
     kit, link = f"{base}/brands/{b['id']}/assets", f"{base}/brands/{b['id']}"
-    subject = f"แผน 30 วันแรกของ {c['lead']['domain']} กับเจอ.AI"
-    steps = [("วันนี้", "ระบบตรวจเว็บ วัดว่า AI เอ่ยถึงแบรนด์คุณหรือยัง และเริ่มร่างคอนเทนต์ชิ้นแรกให้แล้ว"),
-             ("ภายใน 3 วัน", f"ติดตั้งตัวเชื่อม /geo · llms.txt · sitemap บนเว็บของคุณ (ทำครั้งเดียว ใช้เวลาราว 15 นาที) ตามชุดติดตั้ง: {kit}"),
-             ("ภายใน 7 วัน", "คอนเทนต์ชิ้นแรกพร้อมให้ตรวจในหน้า คอนเทนต์ — ตรวจแล้วกดเผยแพร่ได้เลย"),
-             ("วันที่ 25", "รายงานผลจริงเดือนแรก: สุขภาพเว็บ งานที่ทำ และการมองเห็นใน AI ก่อนรอบบิลถัดไป")]
-    text = (f"สวัสดีครับ\n\nขอบคุณที่เลือกเจอ.AI ดูแล {c['lead']['domain']} ครับ นี่คือสิ่งที่จะเกิดขึ้นใน 30 วันแรก\n\n"
+    subject = t("แผน 30 วันแรกของ {dom} กับเจอ.AI", dom=dom)
+    steps = [(t("วันนี้"), t("ระบบตรวจเว็บ วัดว่า AI เอ่ยถึงแบรนด์คุณหรือยัง และเริ่มร่างคอนเทนต์ชิ้นแรกให้แล้ว")),
+             (t("ภายใน 3 วัน"), t("ติดตั้งตัวเชื่อม /geo · llms.txt · sitemap บนเว็บของคุณ (ทำครั้งเดียว ใช้เวลาราว 15 นาที) ตามชุดติดตั้ง: {kit}", kit=kit)),
+             (t("ภายใน 7 วัน"), t("คอนเทนต์ชิ้นแรกพร้อมให้ตรวจในหน้า คอนเทนต์ — ตรวจแล้วกดเผยแพร่ได้เลย")),
+             (t("วันที่ 25"), t("รายงานผลจริงเดือนแรก: สุขภาพเว็บ งานที่ทำ และการมองเห็นใน AI ก่อนรอบบิลถัดไป"))]
+    text = (t("สวัสดีครับ") + "\n\n" + t("ขอบคุณที่เลือกเจอ.AI ดูแล {dom} ครับ นี่คือสิ่งที่จะเกิดขึ้นใน 30 วันแรก", dom=dom) + "\n\n"
             + "\n".join(f"• {w}: {d}" for w, d in steps)
-            + f"\n\nเข้าแบรนด์ของคุณ: {link}\nติดขัดตรงไหน ตอบอีเมลนี้ได้เลยครับ\n\nทีมดูแลลูกค้า เจอ.AI")
-    html = ("<p>ขอบคุณที่เลือกเจอ.AI ดูแล <b>" + _html.escape(c['lead']['domain']) + "</b> ครับ นี่คือสิ่งที่จะเกิดขึ้นใน 30 วันแรก</p><ul>"
+            + "\n\n" + t("เข้าแบรนด์ของคุณ:") + f" {link}\n" + t("ติดขัดตรงไหน ตอบอีเมลนี้ได้เลยครับ") + "\n\n" + _sign(c))
+    html = ("<p>" + t("ขอบคุณที่เลือกเจอ.AI ดูแล {dom} ครับ นี่คือสิ่งที่จะเกิดขึ้นใน 30 วันแรก", dom="<b>" + _html.escape(dom) + "</b>") + "</p><ul>"
             + "".join(f"<li><b>{_html.escape(w)}</b> — {_html.escape(d)}</li>" for w, d in steps)
-            + f"</ul><p><a href='{link}'>เข้าแบรนด์ของคุณ</a> · <a href='{kit}'>ชุดติดตั้ง</a></p><p>ติดขัดตรงไหน ตอบอีเมลนี้ได้เลยครับ</p>")
+            + f"</ul><p><a href='{link}'>" + t("เข้าแบรนด์ของคุณ") + f"</a> · <a href='{kit}'>" + t("ชุดติดตั้ง") + "</a></p><p>" + t("ติดขัดตรงไหน ตอบอีเมลนี้ได้เลยครับ") + "</p>")
     return subject, html, text, f"/brands/{b['id']}"
 
 
 def install_message(c: dict, detail: str) -> tuple[str, str, str, str]:
-    b, base = c["brand"], _base()
+    b, base, t = c["brand"], _base(), _t(c)
+    dom = c['lead']['domain']
     kit = f"{base}/brands/{b['id']}/assets"
-    subject = f"ขั้นเดียวที่เหลือ: ติดตั้งตัวเชื่อมบน {c['lead']['domain']}"
-    text = (f"สวัสดีครับ\n\nระบบเช็กเว็บ {c['lead']['domain']} แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI ({detail})\n\n"
-            "ขั้นนี้ทำครั้งเดียว ถ้ายังไม่ติดตั้ง คอนเทนต์ที่เราเขียนจะยังไม่ขึ้นบนโดเมนของคุณ และ AI จะยังอ่านไม่เจอ\n\n"
-            f"• ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า WordPress ในระบบ\n• เว็บอื่น: ส่งชุดติดตั้งนี้ให้ทีมเว็บ {kit}\n\n"
-            "ถ้าอยากให้เราคุยกับทีมเว็บของคุณโดยตรง ตอบอีเมลนี้พร้อมช่องทางติดต่อได้เลยครับ\n\nทีมดูแลลูกค้า เจอ.AI")
-    html = (f"<p>ระบบเช็กเว็บ <b>{_html.escape(c['lead']['domain'])}</b> แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI</p>"
-            "<p>ขั้นนี้ทำครั้งเดียว ถ้ายังไม่ติดตั้ง คอนเทนต์ที่เราเขียนจะยังไม่ขึ้นบนโดเมนของคุณ และ AI จะยังอ่านไม่เจอ</p>"
-            f"<ul><li>ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า <a href='{base}/brands/{b['id']}/wp'>WordPress</a></li><li>เว็บอื่น: ส่ง <a href='{kit}'>ชุดติดตั้ง</a> ให้ทีมเว็บ</li></ul>"
-            "<p>ถ้าอยากให้เราคุยกับทีมเว็บของคุณโดยตรง ตอบอีเมลนี้พร้อมช่องทางติดต่อได้เลยครับ</p>")
+    subject = t("ขั้นเดียวที่เหลือ: ติดตั้งตัวเชื่อมบน {dom}", dom=dom)
+    once = t("ขั้นนี้ทำครั้งเดียว ถ้ายังไม่ติดตั้ง คอนเทนต์ที่เราเขียนจะยังไม่ขึ้นบนโดเมนของคุณ และ AI จะยังอ่านไม่เจอ")
+    talk = t("ถ้าอยากให้เราคุยกับทีมเว็บของคุณโดยตรง ตอบอีเมลนี้พร้อมช่องทางติดต่อได้เลยครับ")
+    text = (t("สวัสดีครับ") + "\n\n" + t("ระบบเช็กเว็บ {dom} แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI ({detail})", dom=dom, detail=t(detail)) + "\n\n"
+            + once + "\n\n"
+            + "• " + t("ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า WordPress ในระบบ") + "\n• " + t("เว็บอื่น: ส่งชุดติดตั้งนี้ให้ทีมเว็บ {kit}", kit=kit) + "\n\n"
+            + talk + "\n\n" + _sign(c))
+    html = ("<p>" + t("ระบบเช็กเว็บ {dom} แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI", dom="<b>" + _html.escape(dom) + "</b>") + "</p>"
+            + "<p>" + once + "</p>"
+            + "<ul><li>" + t("ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า <a href='{url}'>WordPress</a>", url=f"{base}/brands/{b['id']}/wp") + "</li><li>"
+            + t("เว็บอื่น: ส่ง <a href='{kit}'>ชุดติดตั้ง</a> ให้ทีมเว็บ", kit=kit) + "</li></ul>"
+            + "<p>" + talk + "</p>")
     return subject, html, text, f"/brands/{b['id']}/assets"
 
 
 def review_message(c: dict, n_draft: int) -> tuple[str, str, str, str]:
-    b, base = c["brand"], _base()
+    b, base, t = c["brand"], _base(), _t(c)
+    dom = c['lead']['domain']
     link = f"{base}/brands/{b['id']}/content"
-    subject = f"คอนเทนต์ {n_draft} ชิ้นของ {c['lead']['domain']} รอคุณตรวจ"
-    text = (f"สวัสดีครับ\n\nระบบร่างคอนเทนต์ที่ตอบคำถามจริงของลูกค้าให้ {c['lead']['domain']} แล้ว {n_draft} ชิ้น ตั้งไว้เป็นโหมดร่างเพื่อให้คุณตรวจก่อน\n\n"
-            f"ตรวจและกดเผยแพร่ได้ที่ {link}\nถ้าอยากให้เผยแพร่เองโดยไม่ต้องตรวจ เปลี่ยนได้ที่หน้า Autopilot\n\nทีมดูแลลูกค้า เจอ.AI")
-    html = (f"<p>ระบบร่างคอนเทนต์ที่ตอบคำถามจริงของลูกค้าให้ <b>{_html.escape(c['lead']['domain'])}</b> แล้ว {n_draft} ชิ้น ตั้งไว้เป็นโหมดร่างเพื่อให้คุณตรวจก่อน</p>"
-            f"<p><a href='{link}'>ตรวจและกดเผยแพร่</a> · ถ้าอยากให้เผยแพร่เองโดยไม่ต้องตรวจ เปลี่ยนได้ที่หน้า Autopilot</p>")
+    subject = t("คอนเทนต์ {n} ชิ้นของ {dom} รอคุณตรวจ", n=n_draft, dom=dom)
+    auto = t("ถ้าอยากให้เผยแพร่เองโดยไม่ต้องตรวจ เปลี่ยนได้ที่หน้า Autopilot")
+    text = (t("สวัสดีครับ") + "\n\n" + t("ระบบร่างคอนเทนต์ที่ตอบคำถามจริงของลูกค้าให้ {dom} แล้ว {n} ชิ้น ตั้งไว้เป็นโหมดร่างเพื่อให้คุณตรวจก่อน", dom=dom, n=n_draft) + "\n\n"
+            + t("ตรวจและกดเผยแพร่ได้ที่ {url}", url=link) + "\n" + auto + "\n\n" + _sign(c))
+    html = ("<p>" + t("ระบบร่างคอนเทนต์ที่ตอบคำถามจริงของลูกค้าให้ {dom} แล้ว {n} ชิ้น ตั้งไว้เป็นโหมดร่างเพื่อให้คุณตรวจก่อน", dom="<b>" + _html.escape(dom) + "</b>", n=n_draft) + "</p>"
+            + f"<p><a href='{link}'>" + t("ตรวจและกดเผยแพร่") + "</a> · " + auto + "</p>")
     return subject, html, text, f"/brands/{b['id']}/content"
 
 
 def report_message(c: dict, month: int) -> tuple[str, str, str, str]:
-    b, base = c["brand"], _base()
+    b, base, t = c["brand"], _base(), _t(c)
+    dom = c['lead']['domain']
     cc = content_counts(b["id"])
     ok, det = installed(b)
     hc = db.last_health_check(b["id"])
     av = db.last_ai_visibility(b["id"])
-    lines = [f"ติดตั้งตัวเชื่อม: {'เรียบร้อย' if ok else 'ยังไม่เรียบร้อย — ' + det}",
-             f"คอนเทนต์: เผยแพร่แล้ว {cc['published']} ชิ้น · รอตรวจ {cc['draft']} ชิ้น"]
+    lines = [t("ติดตั้งตัวเชื่อม: {state}", state=t("เรียบร้อย") if ok else t("ยังไม่เรียบร้อย") + " — " + t(det)),
+             t("คอนเทนต์: เผยแพร่แล้ว {a} ชิ้น · รอตรวจ {b} ชิ้น", a=cc['published'], b=cc['draft'])]
     if hc:
-        lines.append(f"สุขภาพเว็บล่าสุด: ต้องแก้ {hc['n_fail']} ข้อ · ควรดู {hc['n_warn']} ข้อ")
+        lines.append(t("สุขภาพเว็บล่าสุด: ต้องแก้ {a} ข้อ · ควรดู {b} ข้อ", a=hc['n_fail'], b=hc['n_warn']))
     if av:
         try:
-            lines.append(f"AI เอ่ยถึงแบรนด์: {av['named']} จาก {av['asked']} คำถาม · อ้างอิงเว็บคุณ {av['cited']} ครั้ง")
+            lines.append(t("AI เอ่ยถึงแบรนด์: {named} จาก {asked} คำถาม · อ้างอิงเว็บคุณ {cited} ครั้ง", named=av['named'], asked=av['asked'], cited=av['cited']))
         except Exception:
             pass
     link = f"{base}/brands/{b['id']}/report"
     yearly = _yearly(c)
-    subject = f"รายงานเดือนที่ {month} ของ {c['lead']['domain']}" + ("" if yearly else " — ก่อนรอบบิลถัดไป")
-    text = (f"สวัสดีครับ\n\nสรุปสิ่งที่เกิดขึ้นกับ {c['lead']['domain']} ในเดือนที่ {month}\n\n" + "\n".join(f"• {x}" for x in lines)
-            + f"\n\nรายงานเต็มพร้อม PDF: {link}\nอยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ\n\nทีมดูแลลูกค้า เจอ.AI")
-    html = (f"<p>สรุปสิ่งที่เกิดขึ้นกับ <b>{_html.escape(c['lead']['domain'])}</b> ในเดือนที่ {month}</p><ul>" + "".join(f"<li>{_html.escape(x)}</li>" for x in lines)
-            + f"</ul><p><a href='{link}'>รายงานเต็มพร้อม PDF</a> · อยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ</p>")
+    subject = t("รายงานเดือนที่ {month} ของ {dom}", month=month, dom=dom) + ("" if yearly else t(" — ก่อนรอบบิลถัดไป"))
+    talk = t("อยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ")
+    text = (t("สวัสดีครับ") + "\n\n" + t("สรุปสิ่งที่เกิดขึ้นกับ {dom} ในเดือนที่ {month}", dom=dom, month=month) + "\n\n" + "\n".join(f"• {x}" for x in lines)
+            + "\n\n" + t("รายงานเต็มพร้อม PDF:") + f" {link}\n" + talk + "\n\n" + _sign(c))
+    html = ("<p>" + t("สรุปสิ่งที่เกิดขึ้นกับ {dom} ในเดือนที่ {month}", dom="<b>" + _html.escape(dom) + "</b>", month=month) + "</p><ul>" + "".join(f"<li>{_html.escape(x)}</li>" for x in lines)
+            + f"</ul><p><a href='{link}'>" + t("รายงานเต็มพร้อม PDF") + "</a> · " + talk + "</p>")
     return subject, html, text, f"/brands/{b['id']}/report"
 
 
@@ -177,15 +202,19 @@ def _yearly(c: dict) -> bool:
 def renewal_message(c: dict, year: int, renew_on: dt.date) -> tuple[str, str, str, str]:
     """แจ้งต่ออายุรายปีล่วงหน้า — บอกยอด วันตัด และวิธียกเลิกให้ชัด (ไม่ให้ลูกค้าโดนตัดเงินแบบไม่รู้ตัว)"""
     from . import quotes as Q
-    q, dom, base = c["quote"], c["lead"]["domain"], _base()
+    q, dom, base, t = c["quote"], c["lead"]["domain"], _base(), _t(c)
     amt = Q.payable_period(q)
-    when = renew_on.strftime("%d/%m/") + str(renew_on.year + 543)
-    subject = f"แจ้งล่วงหน้า: บริการรายปีของ {dom} จะต่ออายุวันที่ {when}"
-    text = (f"สวัสดีครับ\n\nบริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะครบกำหนดและต่ออายุอัตโนมัติวันที่ {when} "
-            f"ยอด {Q.baht(amt)} บาทต่อปี" + (" (รวม VAT)" if Q.vat_pct(q) else "") + "\n\nถ้าต้องการต่อ ไม่ต้องทำอะไร · ถ้าไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ "
-            f"และคุณยังใช้บริการได้จนครบปีปัจจุบัน\n\nสรุปผลทั้งปี: {base}/brands/{c['brand']['id']}/report\n\nทีมดูแลลูกค้า เจอ.AI")
-    html = (f"<p>บริการเจอ.AI รายปีของ <b>{_html.escape(dom)}</b> (ปีที่ {year}) จะต่ออายุอัตโนมัติวันที่ <b>{when}</b> ยอด <b>{Q.baht(amt)} บาทต่อปี</b>{' (รวม VAT)' if Q.vat_pct(q) else ''}</p>"
-            "<p>ต้องการต่อ ไม่ต้องทำอะไร · ไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน</p>")
+    # ไทยใช้ปี พ.ศ. · ภาษาอื่นใช้ปี ค.ศ. แบบ ISO (อ่านได้ทุกภาษา ไม่สับสนวัน/เดือน)
+    when = renew_on.strftime("%d/%m/") + str(renew_on.year + 543) if lang_of(c) == "th" else renew_on.isoformat()
+    vat = " " + t("(รวม VAT)") if Q.vat_pct(q) else ""
+    subject = t("แจ้งล่วงหน้า: บริการรายปีของ {dom} จะต่ออายุวันที่ {when}", dom=dom, when=when)
+    text = (t("สวัสดีครับ") + "\n\n" + t("บริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะครบกำหนดและต่ออายุอัตโนมัติวันที่ {when} ยอด {amount} บาทต่อปี",
+                                           dom=dom, year=year, when=when, amount=Q.baht(amt)) + vat + "\n\n"
+            + t("ถ้าต้องการต่อ ไม่ต้องทำอะไร · ถ้าไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน") + "\n\n"
+            + t("สรุปผลทั้งปี:") + f" {base}/brands/{c['brand']['id']}/report\n\n" + _sign(c))
+    html = ("<p>" + t("บริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะต่ออายุอัตโนมัติวันที่ {when} ยอด {amount}",
+                      dom="<b>" + _html.escape(dom) + "</b>", year=year, when=f"<b>{when}</b>", amount="<b>" + t("{amount} บาทต่อปี", amount=Q.baht(amt)) + "</b>") + vat + "</p>"
+            "<p>" + t("ต้องการต่อ ไม่ต้องทำอะไร · ไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน") + "</p>")
     return subject, html, text, f"/brands/{c['brand']['id']}/report"
 
 

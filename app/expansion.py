@@ -77,39 +77,45 @@ def opportunities(c: dict, now: dt.datetime | None = None) -> list[str]:
 
 
 def draft(c: dict, opp: str, s: dict) -> dict:
-    """ข้อความถึงลูกค้า — ตัวเลขจากระบบจริงเท่านั้น สุภาพ หนึ่งข้อเสนอต่อฉบับ"""
-    from . import billing, quotes as Q, partners
+    """ข้อความถึงลูกค้า — ตัวเลขจากระบบจริงเท่านั้น สุภาพ หนึ่งข้อเสนอต่อฉบับ · ภาษาตามบัญชีของลูกค้า (ไทย = ข้อความเดิมทุกตัวอักษร)"""
+    from . import billing, quotes as Q, partners, success, i18n
     dom, base = c["lead"]["domain"], _base()
+    lang = success.lang_of(c)
+    t = lambda x, **kw: i18n.tr(x, lang, **kw)
+    hi, sign = t("สวัสดีครับ"), t("ทีมดูแลลูกค้า เจอ.AI")
     vat = Q.vat_rate_now()
-    vt = f" (ยังไม่รวม VAT {vat:g}%)" if vat else ""
+    vt = t(" (ยังไม่รวม VAT {vat}%)", vat=f"{vat:g}") if vat else ""
     if opp == "yearly":
         y = Q.price_for(s["package"], s["discount_pct"], False, "year")
         save = s["net"] * 12 - y["period_total"]
-        subj = f"{dom}: เปลี่ยนเป็นรายปีประหยัด {save:,} บาท"
-        body = (f"สวัสดีครับ\n\nใช้เจอ.AI ดูแล {dom} มา {s['days']} วันแล้ว ขอบคุณครับ รอบบิลถัดไปคือ {s['next_bill']}\n\n"
-                f"ถ้าเปลี่ยนเป็นรายปีตอนนี้ จ่าย {y['period_total']:,} บาทต่อปี{vt} แทน {s['net']:,} บาท × 12 = {s['net'] * 12:,} บาท ประหยัด {save:,} บาท "
-                f"(ลด {Q.yearly_discount():g}%)" + (f" และคืนเงินได้เต็มจำนวนภายใน {Q.refund_days()} วันแรก" if Q.refund_days() else "") + "\n\n"
-                "ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินรายเดือนเดิมให้ทันที\n\nทีมดูแลลูกค้า เจอ.AI")
+        subj = t("{dom}: เปลี่ยนเป็นรายปีประหยัด {saving} บาท", dom=dom, saving=f"{save:,}")
+        body = (hi + "\n\n" + t("ใช้เจอ.AI ดูแล {dom} มา {days} วันแล้ว ขอบคุณครับ รอบบิลถัดไปคือ {date}", dom=dom, days=s['days'], date=s['next_bill']) + "\n\n"
+                + t("ถ้าเปลี่ยนเป็นรายปีตอนนี้ จ่าย {total} บาทต่อปี", total=f"{y['period_total']:,}") + vt
+                + t(" แทน {net} บาท × 12 = {year_total} บาท ประหยัด {saving} บาท ", net=f"{s['net']:,}", year_total=f"{s['net'] * 12:,}", saving=f"{save:,}")
+                + t("(ลด {pct}%)", pct=f"{Q.yearly_discount():g}") + (t(" และคืนเงินได้เต็มจำนวนภายใน {days} วันแรก", days=Q.refund_days()) if Q.refund_days() else "") + "\n\n"
+                + t("ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินรายเดือนเดิมให้ทันที") + "\n\n" + sign)
     elif opp == "agency":
         a = billing.PLANS["agency"]
-        used = [f"แบรนด์ {s['brands']}/{s['brands_cap']}", f"คอนเทนต์เดือนนี้ {s['content_month']}/{s['content_cap']}", f"มอนิเตอร์เดือนนี้ {s['runs_month']}/{s['runs_cap']}"]
-        subj = f"{dom}: ใช้แพ็กเกจ Pro ใกล้เต็มแล้ว"
-        body = (f"สวัสดีครับ\n\nเดือนนี้ {dom} ใช้งานใกล้เพดานแพ็กเกจ Pro แล้ว: {' · '.join(used)}\n\n"
-                f"แพ็กเกจ Agency {a['price']:,} บาท/เดือน{vt} ดูแลได้ {a['brands']} แบรนด์ คอนเทนต์ {a['content_month']} ชิ้น และมอนิเตอร์ {a['runs_month']} ครั้งต่อเดือน "
-                "เหมาะถ้าคุณดูแลหลายเว็บหรืออยากเพิ่มคอนเทนต์ให้ทันคำถามของลูกค้า\n\n"
-                "ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินแพ็กเกจเดิมให้ทันที ไม่จ่ายซ้อน\n\nทีมดูแลลูกค้า เจอ.AI")
+        used = [t("แบรนด์ {a}/{b}", a=s['brands'], b=s['brands_cap']), t("คอนเทนต์เดือนนี้ {a}/{b}", a=s['content_month'], b=s['content_cap']),
+                t("มอนิเตอร์เดือนนี้ {a}/{b}", a=s['runs_month'], b=s['runs_cap'])]
+        subj = t("{dom}: ใช้แพ็กเกจ Pro ใกล้เต็มแล้ว", dom=dom)
+        body = (hi + "\n\n" + t("เดือนนี้ {dom} ใช้งานใกล้เพดานแพ็กเกจ Pro แล้ว: {used}", dom=dom, used=' · '.join(used)) + "\n\n"
+                + t("แพ็กเกจ Agency {price} บาท/เดือน", price=f"{a['price']:,}") + vt
+                + t(" ดูแลได้ {brands} แบรนด์ คอนเทนต์ {content} ชิ้น และมอนิเตอร์ {runs} ครั้งต่อเดือน ", brands=a['brands'], content=a['content_month'], runs=a['runs_month'])
+                + t("เหมาะถ้าคุณดูแลหลายเว็บหรืออยากเพิ่มคอนเทนต์ให้ทันคำถามของลูกค้า") + "\n\n"
+                + t("ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินแพ็กเกจเดิมให้ทันที ไม่จ่ายซ้อน") + "\n\n" + sign)
     elif opp == "content":
         ad = next(x for x in billing.ADDONS if x["key"] == "content20")
-        subj = f"{dom}: คอนเทนต์เดือนนี้ครบโควตาแล้ว"
-        body = (f"สวัสดีครับ\n\nเดือนนี้ {dom} สร้างคอนเทนต์ครบ {s['content_cap']} ชิ้นตามแพ็กเกจแล้ว ระบบจะเริ่มสร้างต่อเมื่อขึ้นเดือนใหม่\n\n"
-                f"ถ้าอยากได้ต่อเลย มีแพ็กคอนเทนต์เพิ่ม 20 ชิ้น {ad['price']:,} บาท{vt} ครั้งเดียว ซื้อได้ที่ {base}/upgrade\n\nทีมดูแลลูกค้า เจอ.AI")
+        subj = t("{dom}: คอนเทนต์เดือนนี้ครบโควตาแล้ว", dom=dom)
+        body = (hi + "\n\n" + t("เดือนนี้ {dom} สร้างคอนเทนต์ครบ {cap} ชิ้นตามแพ็กเกจแล้ว ระบบจะเริ่มสร้างต่อเมื่อขึ้นเดือนใหม่", dom=dom, cap=s['content_cap']) + "\n\n"
+                + t("ถ้าอยากได้ต่อเลย มีแพ็กคอนเทนต์เพิ่ม 20 ชิ้น {price} บาท", price=f"{ad['price']:,}") + vt + t(" ครั้งเดียว ซื้อได้ที่ {url}", url=f"{base}/upgrade") + "\n\n" + sign)
     else:
-        subj = f"{dom}: ขอเล่าผลงานของคุณเป็นเคสศึกษาได้ไหม"
-        body = (f"สวัสดีครับ\n\nตอนนี้ {dom} เผยแพร่คอนเทนต์ที่ตอบคำถามลูกค้าแล้ว {s['published']} ชิ้น ขอบคุณที่ไว้ใจเจอ.AI ครับ\n\n"
-                "ถ้ายินดี เราขออนุญาตเล่าผลงานของคุณเป็นเคสศึกษา (ใช้ชื่อแบรนด์ได้หรือไม่ใช้ก็ได้) ตอบอีเมลนี้ว่า \"ยินดี\" หรือ \"ไม่ใช้ชื่อ\" ได้เลย\n\n"
-                f"และถ้ามีเพื่อนธุรกิจที่อยากให้ลูกค้าหาเจอใน Google และ AI แนะนำผ่านโปรแกรมพันธมิตรของเราได้ รับค่าแนะนำ {partners.pct():g}% "
-                f"ของค่าบริการ {partners.months()} เดือนแรก: {base}/partners?src=customer\n\nทีมดูแลลูกค้า เจอ.AI")
-    return {"subject": subj, "body": body}
+        subj = t("{dom}: ขอเล่าผลงานของคุณเป็นเคสศึกษาได้ไหม", dom=dom)
+        body = (hi + "\n\n" + t("ตอนนี้ {dom} เผยแพร่คอนเทนต์ที่ตอบคำถามลูกค้าแล้ว {n} ชิ้น ขอบคุณที่ไว้ใจเจอ.AI ครับ", dom=dom, n=s['published']) + "\n\n"
+                + t("ถ้ายินดี เราขออนุญาตเล่าผลงานของคุณเป็นเคสศึกษา (ใช้ชื่อแบรนด์ได้หรือไม่ใช้ก็ได้) ตอบอีเมลนี้ว่า \"ยินดี\" หรือ \"ไม่ใช้ชื่อ\" ได้เลย") + "\n\n"
+                + t("และถ้ามีเพื่อนธุรกิจที่อยากให้ลูกค้าหาเจอใน Google และ AI แนะนำผ่านโปรแกรมพันธมิตรของเราได้ รับค่าแนะนำ {pct}% ของค่าบริการ {months} เดือนแรก: {url}",
+                    pct=f"{partners.pct():g}", months=partners.months(), url=f"{base}/partners?src=customer") + "\n\n" + sign)
+    return {"subject": subj, "body": body, "lang": lang}
 
 
 def propose(c: dict, opp: str, s: dict, key: str | None = None) -> int:
@@ -160,6 +166,9 @@ def execute(d, who: str) -> str:
     if not (lead and t and old):
         return "ไม่พบลูกค้า"
     to = t["email"]
+    from . import i18n
+    lang = i18n.valid(pl.get("lang")) or db.customer_lang(lead, t)    # ภาษาเดียวกับข้อความที่ร่างไว้
+    tenant, t = t, (lambda x, **kw: i18n.tr(x, lang, **kw))
     if not (mailer.is_deliverable(to) and mailer.config()):
         return f"ส่งไม่ได้ — อีเมลบัญชี {to} ใช้ส่งไม่ได้"
     body, note = pl.get("body", ""), ""
@@ -170,11 +179,12 @@ def execute(d, who: str) -> str:
                                   notes=f"ขยายบัญชีจาก {old['number']}")
         db.update_quote(q["id"], status="sent", sent_at=db.now())
         db.update_lead(lead["id"], status="won", package=old["package"], monthly_thb=old["net"])       # ยังเป็นลูกค้าแผนเดิมจนกว่าจะจ่ายใบใหม่
-        body += f"\n\nใบเสนอราคา {q['number']}: {Q.summary_text(q, lead['domain'])}\nยืนยันและชำระ: {pipeline.quote_url(q)}"
+        body += ("\n\n" + t("ใบเสนอราคา {number}:", number=q['number']) + f" {Q.summary_text(q, lead['domain'], lang)}\n"
+                 + t("ยืนยันและชำระ:") + f" {pipeline.quote_url(q)}")
         note = f" · ใบเสนอราคา {q['number']}"
     fa, fn = deliverability.active_from()
-    mailer.send_plain(to, pl.get("subject") or "ข้อเสนอจากเจอ.AI", body, "", fa, fn)
-    db.add_notification(t["id"], pl.get("subject") or "ข้อเสนอจากเจอ.AI", "/upgrade", "info")
+    mailer.send_plain(to, pl.get("subject") or t("ข้อเสนอจากเจอ.AI"), body, "", fa, fn, **mailer.lang_kw(lang))
+    db.add_notification(tenant["id"], pl.get("subject") or t("ข้อเสนอจากเจอ.AI"), "/upgrade", "info")
     db.add_lead_event(lead["id"], "exp_sent", f"{pl.get('opp')} ส่งถึง {to}{note}", who)
     return f"ส่ง{OPPS.get(pl.get('opp'), 'ข้อเสนอ')}ถึง {to} แล้ว{note}"
 

@@ -248,25 +248,49 @@ def pdf_bytes(doc) -> bytes | None:
         return None
 
 
+def doc_lang(doc) -> str:
+    """ภาษาของอีเมลส่งเอกสาร (บัญชีของลูกค้า > ลีด) — ตัวเอกสาร/PDF ภาษาไทยเสมอ (กฎสรรพากร)"""
+    try:
+        q = db.get_quote(doc["quote_id"]) if doc["quote_id"] else None
+        tenant = db.get_tenant(q["tenant_id"]) if q and q["tenant_id"] else None
+        return db.customer_lang(db.get_lead(doc["lead_id"]) if doc["lead_id"] else None, tenant)
+    except Exception:
+        return "th"
+
+
+def _date_for(s, lang: str) -> str:
+    """วันที่ในอีเมล: ไทย = วันที่แบบไทย (พ.ศ.) · ภาษาอื่น = ปี ค.ศ. แบบ ISO"""
+    if lang == "th":
+        return th_date(s)
+    d = _date(s)
+    return d.isoformat() if d else ""
+
+
 def send(doc, subject: str | None = None, intro: str = "") -> str:
-    """ส่งเอกสารทางอีเมล (แนบ PDF ถ้าสร้างได้) · คืนผลเป็นข้อความ"""
+    """ส่งเอกสารทางอีเมล (แนบ PDF ถ้าสร้างได้) · คืนผลเป็นข้อความ
+    · หัวข้อ/เนื้ออีเมลตามภาษาของลูกค้า · เอกสารที่แนบ (ใบเสร็จ/ใบกำกับภาษี/ใบแจ้งหนี้) เป็นภาษาไทยเสมอ — กฎสรรพากร"""
     to = (doc["buyer_email"] or "").strip()
     if not (to and mailer.is_deliverable(to) and mailer.config()):
         return "ไม่มีอีเมลที่ส่งได้ — ส่งลิงก์ให้ลูกค้าเอง"
+    from . import i18n
+    lang = doc_lang(doc)
+    tr = lambda x, **kw: i18n.tr(x, lang, **kw)
     link = doc_url(doc)
-    t = title(doc)
-    lines = [f"• {t} เลขที่ {doc['number']}", f"• ยอด {doc['total']:,.2f} บาท"]
+    t = tr(title(doc))
+    lines = ["• " + tr("{title} เลขที่ {number}", title=t, number=doc['number']), "• " + tr("ยอด {amount} บาท", amount=f"{doc['total']:,.2f}")]
     if doc["kind"] == "invoice":
-        lines.append(f"• ครบกำหนดชำระ {th_date(doc['due_date'])}")
+        lines.append("• " + tr("ครบกำหนดชำระ {date}", date=_date_for(doc['due_date'], lang)))
     if doc["period_start"]:
-        lines.append(f"• รอบบริการ {th_date(doc['period_start'])} – {th_date(doc['period_end'])}")
-    body = (intro or (f"ขอบคุณที่ชำระค่าบริการครับ แนบ{t}มาให้" if doc["kind"] == "receipt" else "แจ้งค่าบริการรอบถัดไปครับ ชำระผ่าน PromptPay แล้วแนบสลิปในลิงก์ด้านล่าง"))
-    text = f"สวัสดีครับ\n\n{body}\n\n" + "\n".join(lines) + f"\n\nดู/ดาวน์โหลด: {link}\n\nฝ่ายบัญชี เจอ.AI"
-    html = mailer.wrap_html(t, f"<p>{_html.escape(body)}</p><p>" + "<br>".join(_html.escape(x) for x in lines) + f"</p><p><a href='{link}'>{'ชำระและแนบสลิป' if doc['kind'] == 'invoice' else 'ดู/ดาวน์โหลดเอกสาร'}</a></p>",
-                            "ข้อความนี้ส่งจากฝ่ายบัญชีของเจอ.AI")
+        lines.append("• " + tr("รอบบริการ {start} – {end}", start=_date_for(doc['period_start'], lang), end=_date_for(doc['period_end'], lang)))
+    if lang != "th":                                      # ลูกค้าต่างชาติ: บอกว่าเอกสารที่แนบเป็นภาษาไทยเพราะอะไร
+        lines.append("• " + tr("เอกสารที่แนบเป็นภาษาไทย ซึ่งเป็นฉบับที่ใช้อ้างอิงทางภาษี"))
+    body = (intro or (tr("ขอบคุณที่ชำระค่าบริการครับ แนบ{title}มาให้", title=t) if doc["kind"] == "receipt" else tr("แจ้งค่าบริการรอบถัดไปครับ ชำระผ่าน PromptPay แล้วแนบสลิปในลิงก์ด้านล่าง")))
+    text = tr("สวัสดีครับ") + f"\n\n{body}\n\n" + "\n".join(lines) + "\n\n" + tr("ดู/ดาวน์โหลด:") + f" {link}\n\n" + tr("ฝ่ายบัญชี เจอ.AI")
+    html = mailer.wrap_html(t, f"<p>{_html.escape(body)}</p><p>" + "<br>".join(_html.escape(x) for x in lines) + f"</p><p><a href='{link}'>{tr('ชำระและแนบสลิป') if doc['kind'] == 'invoice' else tr('ดู/ดาวน์โหลดเอกสาร')}</a></p>",
+                            "ข้อความนี้ส่งจากฝ่ายบัญชีของเจอ.AI", lang=lang)
     pdf = pdf_bytes(doc)
     try:
-        mailer.send(to, subject or f"{t} {doc['number']} จากเจอ.AI", html, text=text,
+        mailer.send(to, subject or tr("{title} {number} จากเจอ.AI", title=t, number=doc['number']), html, text=text,
                     attachments=[(f"{doc['number']}.pdf", pdf, "application/pdf")] if pdf else ())
     except Exception as e:
         return f"ส่งอีเมลไม่สำเร็จ ({type(e).__name__})"
@@ -393,9 +417,12 @@ def _overdue_steps(inv, today: dt.date) -> list[str]:
     sent = int(inv["reminders"] or 0)
     for i, d in enumerate(REMIND_AFTER):
         if over >= d and sent <= i:
-            intro = ("วันนี้ครบกำหนดชำระค่าบริการรอบถัดไปครับ" if d == 0 else
-                     f"ค่าบริการรอบนี้เลยกำหนดมา {over} วันแล้วครับ ถ้าชำระแล้วแนบสลิปในลิงก์ได้เลย ถ้ามีปัญหาตอบอีเมลนี้ได้ครับ")
-            res = send(inv, subject=f"{'ครบกำหนด' if d == 0 else 'เตือน'}ชำระ {inv['number']} · เจอ.AI", intro=intro)
+            from . import i18n
+            lg = doc_lang(inv)
+            intro = (i18n.tr("วันนี้ครบกำหนดชำระค่าบริการรอบถัดไปครับ", lg) if d == 0 else
+                     i18n.tr("ค่าบริการรอบนี้เลยกำหนดมา {days} วันแล้วครับ ถ้าชำระแล้วแนบสลิปในลิงก์ได้เลย ถ้ามีปัญหาตอบอีเมลนี้ได้ครับ", lg, days=over))
+            res = send(inv, subject=(i18n.tr("ครบกำหนดชำระ {number} · เจอ.AI", lg, number=inv["number"]) if d == 0
+                                     else i18n.tr("เตือนชำระ {number} · เจอ.AI", lg, number=inv["number"])), intro=intro)
             db.update_acct_doc(inv["id"], reminders=i + 1)
             _record(inv["lead_id"], "acct_reminder", f"{inv['number']} เตือนครั้งที่ {i + 1} (เลยกำหนด {max(over, 0)} วัน) · {res}")
             out.append(f"remind:{i + 1}")
@@ -513,7 +540,8 @@ def reissue(doc, who: str = "admin") -> str:
                   doc["source"], "issued", stripe_ref=None, invoice_id=inv["id"] if inv else None, wht=doc["wht"], total=doc["total"])
     new = db.get_acct_doc(did)
     partners.accrue(new)
-    res = send(new, intro=f"แนบใบเสร็จฉบับแก้ไขแทนเลขที่ {doc['number']} ครับ")
+    from . import i18n
+    res = send(new, intro=i18n.tr("แนบใบเสร็จฉบับแก้ไขแทนเลขที่ {number} ครับ", doc_lang(new), number=doc["number"]))
     _record(q["lead_id"], "acct_receipt", f"{new['number']} ออกแทน {doc['number']} · {res}")
     return f"ออก {new['number']} แทน {doc['number']} แล้ว · {res}"
 

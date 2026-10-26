@@ -1,0 +1,1238 @@
+{
+ "เจอ.AI — ให้ลูกค้าหาคุณเจอใน Google และ AI": {
+  "en": "เจอ.AI — help customers find you on Google and in AI answers",
+  "zh": "เจอ.AI — 让客户在 Google 和 AI 中找到你",
+  "ja": "เจอ.AI — お客様が Google や AI であなたを見つけられるように",
+  "ko": "เจอ.AI — 고객이 Google과 AI에서 귀사를 찾을 수 있도록"
+ },
+ "<br>ไม่ต้องการรับอีเมลจากเรา <a href='{unsub}' style='color:#8a8a99'>กดที่นี่</a> เราจะไม่ติดต่ออีก": {
+  "en": "<br>Don't want emails from us? <a href='{unsub}' style='color:#8a8a99'>Click here</a> and we won't contact you again.",
+  "zh": "<br>不想再收到我们的邮件？<a href='{unsub}' style='color:#8a8a99'>点击这里</a>，我们将不再联系你。",
+  "ja": "<br>今後のメールが不要な場合は<a href='{unsub}' style='color:#8a8a99'>こちら</a>をクリックしてください。以後ご連絡いたしません。",
+  "ko": "<br>이메일 수신을 원하지 않으시면 <a href='{unsub}' style='color:#8a8a99'>여기</a>를 누르십시오. 다시 연락드리지 않겠습니다."
+ },
+ "ขอบคุณที่ใช้บริการ": {
+  "en": "Thank you for choosing us",
+  "zh": "感谢你的信任",
+  "ja": "ご利用いただきありがとうございます",
+  "ko": "이용해 주셔서 감사합니다"
+ },
+ "จาก ทีมงาน เจอ.AI": {
+  "en": "The เจอ.AI team",
+  "zh": "เจอ.AI 团队",
+  "ja": "เจอ.AI チーム",
+  "ko": "เจอ.AI 팀 드림"
+ },
+ "เลขประจำตัวผู้เสียภาษี": {
+  "en": "Tax ID",
+  "zh": "税号",
+  "ja": "納税者番号",
+  "ko": "납세자 번호"
+ },
+ "โทร": {
+  "en": "Tel.",
+  "zh": "电话",
+  "ja": "電話",
+  "ko": "전화"
+ },
+ "ดูใบเสนอราคาและยืนยัน": {
+  "en": "View and confirm the quote",
+  "zh": "查看并确认报价单",
+  "ja": "見積書を確認して承認する",
+  "ko": "견적서 확인 및 승인"
+ },
+ "ดูผลตรวจเว็บของคุณ": {
+  "en": "See your site check",
+  "zh": "查看你的网站检测结果",
+  "ja": "サイト診断結果を見る",
+  "ko": "사이트 진단 결과 보기"
+ },
+ "เปิดชุดติดตั้ง": {
+  "en": "Open the install kit",
+  "zh": "打开安装包",
+  "ja": "導入キットを開く",
+  "ko": "설치 키트 열기"
+ },
+ "ตรวจคอนเทนต์": {
+  "en": "Review content",
+  "zh": "审核内容",
+  "ja": "コンテンツを確認する",
+  "ko": "콘텐츠 검토"
+ },
+ "เปิดแบรนด์ของคุณ": {
+  "en": "Open your brand",
+  "zh": "打开你的品牌",
+  "ja": "ブランドを開く",
+  "ko": "내 브랜드 열기"
+ },
+ "เปิดในระบบ": {
+  "en": "Open in the app",
+  "zh": "在系统中打开",
+  "ja": "システムで開く",
+  "ko": "시스템에서 열기"
+ },
+ "ข้อความนี้ส่งจากระบบของเจอ.AI": {
+  "en": "This message was sent by the เจอ.AI system",
+  "zh": "此邮件由 เจอ.AI 系统发送",
+  "ja": "このメールは เจอ.AI のシステムから送信されています",
+  "ko": "이 메일은 เจอ.AI 시스템에서 발송되었습니다"
+ },
+ "ข้อความนี้ส่งจากทีมดูแลลูกค้าของเจอ.AI": {
+  "en": "This message was sent by the เจอ.AI customer success team",
+  "zh": "此邮件由 เจอ.AI 客户成功团队发送",
+  "ja": "このメールは เจอ.AI カスタマーサクセスチームから送信されています",
+  "ko": "이 메일은 เจอ.AI 고객 지원팀에서 발송되었습니다"
+ },
+ "ข้อความนี้ส่งจากฝ่ายบัญชีของเจอ.AI": {
+  "en": "This message was sent by the เจอ.AI accounting team",
+  "zh": "此邮件由 เจอ.AI 财务部发送",
+  "ja": "このメールは เจอ.AI 経理部から送信されています",
+  "ko": "이 메일은 เจอ.AI 회계팀에서 발송되었습니다"
+ },
+ "ใบเสร็จรับเงิน/ใบกำกับภาษี": {
+  "en": "Receipt / tax invoice",
+  "zh": "收据/税务发票",
+  "ja": "領収書／税務インボイス",
+  "ko": "영수증/세금계산서"
+ },
+ "ใบเสร็จรับเงิน": {
+  "en": "Receipt",
+  "zh": "收据",
+  "ja": "領収書",
+  "ko": "영수증"
+ },
+ "ใบแจ้งหนี้": {
+  "en": "Invoice",
+  "zh": "账单",
+  "ja": "請求書",
+  "ko": "청구서"
+ },
+ "ยังไม่มีผลตรวจ": {
+  "en": "No check results yet",
+  "zh": "暂无检测结果",
+  "ja": "まだ診断結果がありません",
+  "ko": "아직 점검 결과가 없습니다"
+ },
+ "เชื่อม WordPress แล้ว": {
+  "en": "WordPress connected",
+  "zh": "已连接 WordPress",
+  "ja": "WordPress 連携済み",
+  "ko": "WordPress 연결됨"
+ },
+ "— เจอ.AI (ข้อความนี้ส่งจากระบบอัตโนมัติ) · ไม่อยากรับการติดต่อจากเรา กดที่ {url} เราจะไม่ติดต่ออีก": {
+  "en": "— เจอ.AI (sent automatically) · If you'd rather not hear from us, click {url} and we won't contact you again.",
+  "zh": "— เจอ.AI (系统自动发送) · 如不想再收到我们的消息，请点击 {url} ，我们将不再联系你。",
+  "ja": "— เจอ.AI (自動送信) · 今後のご連絡が不要な場合は {url} をクリックしてください。以後ご連絡いたしません。",
+  "ko": "— เจอ.AI (자동 발송) · 연락을 원하지 않으시면 {url} 을 누르십시오. 다시 연락드리지 않겠습니다."
+ },
+ "ทีม {dom}": {
+  "en": "{dom} team",
+  "zh": "{dom} 团队",
+  "ja": "{dom} ご担当者",
+  "ko": "{dom} 담당자"
+ },
+ "สวัสดีครับ คุณ{greet}": {
+  "en": "Hi {greet},",
+  "zh": "{greet}，您好：",
+  "ja": "{greet} 様",
+  "ko": "{greet}님, 안녕하십니까."
+ },
+ "ผมปรับใบเสนอราคา {number} สำหรับเว็บ {dom} ให้ใหม่ครับ (ลิงก์เดิม) ช่วยเปิดดูและยืนยันอีกครั้ง": {
+  "en": "I've updated quote {number} for {dom} (same link). Please take a look and confirm it again.",
+  "zh": "我已为 {dom} 更新了报价单 {number}（链接不变），请再次查看并确认。",
+  "ja": "{dom} 向けの見積書 {number} を更新しました（リンクは同じです）。お手数ですが、もう一度ご確認のうえ承認をお願いいたします。",
+  "ko": "{dom} 견적서 {number}를 새로 수정했습니다(링크는 동일합니다). 다시 확인하시고 승인해 주시기 바랍니다."
+ },
+ "ตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {dom} มาให้ครับ": {
+  "en": "Thanks for your interest — here is the quote for {dom}.",
+  "zh": "感谢关注，这是为 {dom} 准备的报价单。",
+  "ja": "ご関心をお寄せいただきありがとうございます。{dom} 向けの見積書をお送りします。",
+  "ko": "관심 가져 주셔서 감사합니다. {dom} 견적서를 보내 드립니다."
+ },
+ "เรื่องเว็บ {dom}": {
+  "en": "About {dom}",
+  "zh": "关于 {dom} 网站",
+  "ja": "{dom} のサイトについて",
+  "ko": "{dom} 사이트 관련"
+ },
+ "มีคำถามตอบอีเมลนี้ได้เลยครับ": {
+  "en": "If you have any questions, just reply to this email.",
+  "zh": "如有任何问题，直接回复这封邮件即可。",
+  "ja": "ご不明な点があれば、このメールにそのままご返信ください。",
+  "ko": "궁금한 점이 있으시면 이 메일에 바로 회신해 주십시오."
+ },
+ "ปรับใบเสนอราคา {number} สำหรับ {dom}": {
+  "en": "Updated quote {number} for {dom}",
+  "zh": "{dom} 的报价单 {number}（已更新）",
+  "ja": "{dom} 向け見積書 {number}（改訂版）",
+  "ko": "{dom} 견적서 {number} (수정본)"
+ },
+ "ใบเสนอราคา {number} สำหรับ {dom}": {
+  "en": "Quote {number} for {dom}",
+  "zh": "{dom} 的报价单 {number}",
+  "ja": "{dom} 向け見積書 {number}",
+  "ko": "{dom} 견적서 {number}"
+ },
+ "ผลตรวจเว็บ {dom}": {
+  "en": "Site check for {dom}",
+  "zh": "{dom} 网站检测结果",
+  "ja": "{dom} のサイト診断結果",
+  "ko": "{dom} 사이트 진단 결과"
+ },
+ "บัญชีของ {dom} พร้อมแล้ว": {
+  "en": "Your account for {dom} is ready",
+  "zh": "{dom} 的账户已就绪",
+  "ja": "{dom} のアカウントの準備ができました",
+  "ko": "{dom} 계정이 준비되었습니다"
+ },
+ "เปิดดูรายละเอียด เงื่อนไข และยืนยันรับข้อเสนอได้ที่ {url}": {
+  "en": "You can see the details and terms, and accept the offer, here: {url}",
+  "zh": "查看详情、条款并确认接受报价：{url}",
+  "ja": "詳細・条件のご確認とお申し込みはこちらから：{url}",
+  "ko": "세부 내용과 조건 확인 및 제안 수락은 여기에서 하실 수 있습니다: {url}"
+ },
+ "อัปเกรด {dom} เรียบร้อยแล้ว": {
+  "en": "{dom} has been upgraded",
+  "zh": "{dom} 已完成升级",
+  "ja": "{dom} のアップグレードが完了しました",
+  "ko": "{dom} 업그레이드가 완료되었습니다"
+ },
+ "บัญชีเจอ.AI ของ {dom} พร้อมแล้ว": {
+  "en": "Your เจอ.AI account for {dom} is ready",
+  "zh": "{dom} 的 เจอ.AI 账户已就绪",
+  "ja": "{dom} の เจอ.AI アカウントの準備ができました",
+  "ko": "{dom}의 เจอ.AI 계정이 준비되었습니다"
+ },
+ "อัปเกรดเรียบร้อยแล้ว": {
+  "en": "Upgrade complete",
+  "zh": "升级完成",
+  "ja": "アップグレードが完了しました",
+  "ko": "업그레이드가 완료되었습니다"
+ },
+ "ยืนยันยอด {number} แล้ว {dom} เปลี่ยนเป็น {package} ทันที และหยุดเก็บเงินแผนเดิมแล้ว": {
+  "en": "Payment for {number} confirmed. {dom} is now on {package}, effective immediately, and we've stopped billing your previous plan.",
+  "zh": "已确认 {number} 的付款。{dom} 已立即切换为 {package}，原方案已停止扣费。",
+  "ja": "{number} のお支払いを確認しました。{dom} は即時 {package} に切り替わり、以前のプランの請求は停止しました。",
+  "ko": "{number} 결제를 확인했습니다. {dom}은(는) 즉시 {package}(으)로 변경되었으며 기존 플랜 청구는 중지되었습니다."
+ },
+ "เรายืนยันยอดชำระตามใบเสนอราคา {number} แล้ว บัญชีของ {dom} เปลี่ยนเป็นแพ็กเกจ {package} {cycle} ทันที และเราหยุดเก็บเงินแผนเดิมให้แล้ว": {
+  "en": "We've confirmed your payment for quote {number}. The {dom} account is now on the {package} plan ({cycle}), effective immediately, and we've stopped billing your previous plan.",
+  "zh": "我们已确认报价单 {number} 的付款。{dom} 的账户已立即切换为 {package} 方案（{cycle}），原方案已停止扣费。",
+  "ja": "見積書 {number} のお支払いを確認しました。{dom} のアカウントは即時 {package} プラン（{cycle}）に切り替わり、以前のプランの請求は停止しました。",
+  "ko": "견적서 {number}의 결제를 확인했습니다. {dom} 계정은 즉시 {package} 플랜({cycle})으로 변경되었으며 기존 플랜 청구는 중지되었습니다."
+ },
+ "รหัสผ่านชั่วคราว: <code>{pw}</code> — เข้าแล้วเปลี่ยนได้ที่เมนู <b>บัญชี → เปลี่ยนรหัสผ่าน</b>": {
+  "en": "Temporary password: <code>{pw}</code> — after signing in, change it under <b>Account → Change password</b>",
+  "zh": "临时密码：<code>{pw}</code> — 登录后可在 <b>账户 → 修改密码</b> 中更改",
+  "ja": "仮パスワード：<code>{pw}</code> — ログイン後、<b>アカウント → パスワードの変更</b> から変更できます",
+  "ko": "임시 비밀번호: <code>{pw}</code> — 로그인 후 <b>계정 → 비밀번호 변경</b>에서 바꾸실 수 있습니다"
+ },
+ "ใช้บัญชีเดิมที่มีอยู่เข้าสู่ระบบได้เลย": {
+  "en": "You can sign in with your existing account.",
+  "zh": "使用你现有的账户登录即可。",
+  "ja": "既存のアカウントでそのままログインいただけます。",
+  "ko": "기존 계정으로 바로 로그인하실 수 있습니다."
+ },
+ "สัญญาบริการ:": {
+  "en": "Service agreement:",
+  "zh": "服务合同：",
+  "ja": "サービス契約：",
+  "ko": "서비스 계약:"
+ },
+ "ยืนยันยอดชำระ {number} แล้ว เข้าสู่ระบบที่ {url} ด้วยอีเมล {email}": {
+  "en": "Payment for {number} confirmed. Sign in at {url} with {email}.",
+  "zh": "已确认 {number} 的付款。请用 {email} 在 {url} 登录。",
+  "ja": "{number} のお支払いを確認しました。{url} から {email} でログインしてください。",
+  "ko": "{number} 결제를 확인했습니다. {url}에서 {email}(으)로 로그인하십시오."
+ },
+ "เข้าใช้งาน:": {
+  "en": "Sign in:",
+  "zh": "登录：",
+  "ja": "ログイン：",
+  "ko": "로그인:"
+ },
+ "เข้าสู่ระบบ:": {
+  "en": "Sign in:",
+  "zh": "登录：",
+  "ja": "ログイン：",
+  "ko": "로그인:"
+ },
+ "อีเมล:": {
+  "en": "Email:",
+  "zh": "邮箱：",
+  "ja": "メール：",
+  "ko": "이메일:"
+ },
+ "ขั้นต่อไป: เปิดแบรนด์ของคุณในระบบ → หน้า \"ติดตั้ง\" เพื่อเชื่อม /geo, llms.txt และ sitemap เข้ากับเว็บ จากนั้นระบบจะคิดคำถาม วัดผล และร่างคอนเทนต์ให้ทุกสัปดาห์ (เริ่มเป็นโหมดร่าง คุณตรวจก่อนเผยแพร่ได้)": {
+  "en": "Next step: open your brand in the app → the \"Install\" page to connect /geo, llms.txt and the sitemap to your site. After that, the system comes up with questions, measures results and drafts content for you every week (it starts in draft mode, so you can review everything before it is published).",
+  "zh": "下一步：在系统中打开你的品牌 → “安装”页面，把 /geo、llms.txt 和 sitemap 连接到你的网站。之后系统每周会为你整理问题、衡量效果并起草内容（默认为草稿模式，你可以先审核再发布）。",
+  "ja": "次のステップ：システムでブランドを開き →「導入」ページで /geo・llms.txt・sitemap をサイトに接続してください。その後は毎週、システムが質問の洗い出し・効果測定・コンテンツの下書きを行います（最初は下書きモードなので、公開前に内容をご確認いただけます）。",
+  "ko": "다음 단계: 시스템에서 브랜드를 열고 → \"설치\" 페이지에서 /geo, llms.txt, sitemap을 사이트에 연결하십시오. 이후 시스템이 매주 질문을 정리하고 성과를 측정하며 콘텐츠 초안을 작성합니다(처음에는 초안 모드로 시작하므로 게시 전에 검토하실 수 있습니다)."
+ },
+ "ขอบคุณที่ใช้บริการเจอ.AI ครับ เรายืนยันยอดชำระตามใบเสนอราคา {number} แล้ว": {
+  "en": "Thank you for choosing เจอ.AI. We've confirmed your payment for quote {number}.",
+  "zh": "感谢选择 เจอ.AI。我们已确认报价单 {number} 的付款。",
+  "ja": "เจอ.AI をご利用いただきありがとうございます。見積書 {number} のお支払いを確認しました。",
+  "ko": "เจอ.AI를 이용해 주셔서 감사합니다. 견적서 {number}의 결제를 확인했습니다."
+ },
+ "ใบเสนอราคา {number} สำหรับ {dom} (รายปี)": {
+  "en": "Quote {number} for {dom} (yearly)",
+  "zh": "{dom} 的报价单 {number}（年付）",
+  "ja": "{dom} 向け見積書 {number}（年払い）",
+  "ko": "{dom} 견적서 {number} (연간)"
+ },
+ "• แพ็กเกจ {label} {price} บาท/เดือน": {
+  "en": "• {label} plan: {price} THB/month",
+  "zh": "• {label} 方案：每月 {price} 泰铢",
+  "ja": "• {label} プラン：月額 {price} バーツ",
+  "ko": "• {label} 플랜: 월 {price} 바트"
+ },
+ " ลด {pct}% เหลือ {net} บาท/เดือน": {
+  "en": " — {pct}% off, {net} THB/month",
+  "zh": "，优惠 {pct}%，每月 {net} 泰铢",
+  "ja": "（{pct}% 割引で月額 {net} バーツ）",
+  "ko": ", {pct}% 할인되어 월 {net} 바트"
+ },
+ "• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว {price} บาท": {
+  "en": "• GEO Setup (fixing your site's structure so bots can read it), one-time {price} THB",
+  "zh": "• GEO Setup（调整网站结构，让爬虫能读取），一次性 {price} 泰铢",
+  "ja": "• GEO Setup（ボットが読めるようにサイト構造を修正）、初回のみ {price} バーツ",
+  "ko": "• GEO Setup(봇이 읽을 수 있도록 사이트 구조 수정), 1회 {price} 바트"
+ },
+ "• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ฟรีเมื่อจ่ายรายปี (ปกติ {price} บาท)": {
+  "en": "• GEO Setup (fixing your site's structure so bots can read it): free with yearly billing (normally {price} THB)",
+  "zh": "• GEO Setup（调整网站结构，让爬虫能读取）：年付免费（原价 {price} 泰铢）",
+  "ja": "• GEO Setup（ボットが読めるようにサイト構造を修正）：年払いなら無料（通常 {price} バーツ）",
+  "ko": "• GEO Setup(봇이 읽을 수 있도록 사이트 구조 수정): 연간 결제 시 무료(정상가 {price} 바트)"
+ },
+ " · ใบเสนอราคาใช้ได้ถึง {date}": {
+  "en": " · quote valid until {date}",
+  "zh": " · 报价有效期至 {date}",
+  "ja": " · 見積有効期限 {date}",
+  "ko": " · 견적 유효기간 {date}까지"
+ },
+ ") — เปลี่ยนได้ในหน้าใบเสนอราคา": {
+  "en": ") — you can switch on the quote page",
+  "zh": ") — 可在报价单页面切换",
+  "ja": ") — 見積書ページで切り替えられます",
+  "ko": ") — 견적서 페이지에서 변경하실 수 있습니다"
+ },
+ " (รายปีประหยัดกว่า {saving} บาท) — เปลี่ยนได้ในหน้าใบเสนอราคา": {
+  "en": " (yearly saves you {saving} THB) — you can switch on the quote page",
+  "zh": " (年付可节省 {saving} 泰铢) — 可在报价单页面切换",
+  "ja": " (年払いのほうが {saving} バーツお得) — 見積書ページで切り替えられます",
+  "ko": " (연간 결제가 {saving} 바트 더 저렴합니다) — 견적서 페이지에서 변경하실 수 있습니다"
+ },
+ "• ยอดชำระงวดแรก {total} บาท": {
+  "en": "• First payment: {total} THB",
+  "zh": "• 首期付款：{total} 泰铢",
+  "ja": "• 初回お支払い額：{total} バーツ",
+  "ko": "• 첫 결제 금액: {total} 바트"
+ },
+ "• หรือจ่ายรายปี {total} บาท (ประหยัด {saving} บาท": {
+  "en": "• Or pay yearly: {total} THB (save {saving} THB",
+  "zh": "• 或选择年付 {total} 泰铢 (节省 {saving} 泰铢",
+  "ja": "• または年払い {total} バーツ ({saving} バーツお得",
+  "ko": "• 또는 연간 결제 {total} 바트 ({saving} 바트 절약"
+ },
+ "• ยอดชำระครั้งเดียวทั้งปี {total} บาท": {
+  "en": "• One payment for the full year: {total} THB",
+  "zh": "• 全年一次性付款：{total} 泰铢",
+  "ja": "• 1年分を一括でお支払い：{total} バーツ",
+  "ko": "• 1년치 일시 결제: {total} 바트"
+ },
+ "• หรือเลือกจ่ายรายเดือน {net} บาท/เดือน": {
+  "en": "• Or choose monthly billing: {net} THB/month",
+  "zh": "• 或选择月付：每月 {net} 泰铢",
+  "ja": "• または月払い：月額 {net} バーツ",
+  "ko": "• 또는 월간 결제: 월 {net} 바트"
+ },
+ " + VAT {vat}% = {payable} บาท": {
+  "en": " + VAT {vat}% = {payable} THB",
+  "zh": " + VAT {vat}% = {payable} 泰铢",
+  "ja": " + VAT {vat}% = {payable} バーツ",
+  "ko": " + VAT {vat}% = {payable} 바트"
+ },
+ " · GEO Setup ฟรี": {
+  "en": " · GEO Setup free",
+  "zh": " · GEO Setup 免费",
+  "ja": " · GEO Setup 無料",
+  "ko": " · GEO Setup 무료"
+ },
+ "• แพ็กเกจ {label} รายปี {total} บาท/ปี (เทียบ {net} บาท/เดือน จากปกติ {price}": {
+  "en": "• {label} plan, yearly: {total} THB/year (works out to {net} THB/month, normally {price}",
+  "zh": "• {label} 方案年付：每年 {total} 泰铢 (折合每月 {net} 泰铢，原价 {price}",
+  "ja": "• {label} プラン年払い：年額 {total} バーツ (月あたり {net} バーツ、通常 {price}",
+  "ko": "• {label} 플랜 연간: 연 {total} 바트 (월 {net} 바트 꼴, 정상가 {price}"
+ },
+ " · ลด {pct}%": {
+  "en": " · {pct}% off",
+  "zh": " · 优惠 {pct}%",
+  "ja": " · {pct}% 割引",
+  "ko": " · {pct}% 할인"
+ },
+ " และส่วนลดพิเศษอีก {pct}%": {
+  "en": " plus an extra {pct}% off",
+  "zh": "，另享 {pct}% 特别折扣",
+  "ja": "、さらに特別割引 {pct}%",
+  "ko": ", 추가 특별 할인 {pct}%"
+ },
+ " + GEO Setup {price} บาท": {
+  "en": " + GEO Setup {price} THB",
+  "zh": " + GEO Setup {price} 泰铢",
+  "ja": " + GEO Setup {price} バーツ",
+  "ko": " + GEO Setup {price} 바트"
+ },
+ "ทีมดูแลลูกค้า เจอ.AI": {
+  "en": "The เจอ.AI customer success team",
+  "zh": "เจอ.AI 客户成功团队",
+  "ja": "เจอ.AI カスタマーサクセスチーム",
+  "ko": "เจอ.AI 고객 지원팀"
+ },
+ "สวัสดีครับ": {
+  "en": "Hi,",
+  "zh": "你好，",
+  "ja": "こんにちは。",
+  "ko": "안녕하십니까."
+ },
+ "แผน 30 วันแรกของ {dom} กับเจอ.AI": {
+  "en": "Your first 30 days with เจอ.AI for {dom}",
+  "zh": "{dom} 与 เจอ.AI 的前 30 天计划",
+  "ja": "{dom} の เจอ.AI 最初の30日プラン",
+  "ko": "{dom}의 เจอ.AI 첫 30일 계획"
+ },
+ "ขอบคุณที่เลือกเจอ.AI ดูแล {dom} ครับ นี่คือสิ่งที่จะเกิดขึ้นใน 30 วันแรก": {
+  "en": "Thanks for choosing เจอ.AI to look after {dom}. Here's what happens in your first 30 days.",
+  "zh": "感谢选择 เจอ.AI 为 {dom} 服务。以下是前 30 天会发生的事情。",
+  "ja": "{dom} の運用に เจอ.AI をお選びいただきありがとうございます。最初の30日間の流れは次のとおりです。",
+  "ko": "{dom} 관리를 위해 เจอ.AI를 선택해 주셔서 감사합니다. 첫 30일 동안 진행되는 내용은 다음과 같습니다."
+ },
+ "วันนี้": {
+  "en": "Today",
+  "zh": "今天",
+  "ja": "本日",
+  "ko": "오늘"
+ },
+ "ระบบตรวจเว็บ วัดว่า AI เอ่ยถึงแบรนด์คุณหรือยัง และเริ่มร่างคอนเทนต์ชิ้นแรกให้แล้ว": {
+  "en": "We're checking your site, measuring whether AI mentions your brand yet, and have started drafting your first piece of content.",
+  "zh": "系统已开始检测你的网站、衡量 AI 是否已提到你的品牌，并开始起草第一篇内容。",
+  "ja": "サイト診断、AI がブランドに言及しているかの測定、最初のコンテンツの下書きを開始しました。",
+  "ko": "시스템이 사이트를 점검하고, AI가 브랜드를 언급하는지 측정하며, 첫 콘텐츠 초안 작성을 시작했습니다."
+ },
+ "ภายใน 3 วัน": {
+  "en": "Within 3 days",
+  "zh": "3 天内",
+  "ja": "3日以内",
+  "ko": "3일 이내"
+ },
+ "ติดตั้งตัวเชื่อม /geo · llms.txt · sitemap บนเว็บของคุณ (ทำครั้งเดียว ใช้เวลาราว 15 นาที) ตามชุดติดตั้ง: {kit}": {
+  "en": "Install the /geo connector, llms.txt and sitemap on your site (one-time, about 15 minutes) using the install kit: {kit}",
+  "zh": "按照安装包在你的网站上安装 /geo 连接器、llms.txt 和 sitemap（只需一次，约 15 分钟）：{kit}",
+  "ja": "導入キットに沿って、/geo コネクタ・llms.txt・sitemap をサイトに設置してください（一度だけ、所要約15分）：{kit}",
+  "ko": "설치 키트에 따라 사이트에 /geo 커넥터, llms.txt, sitemap을 설치하십시오(1회, 약 15분 소요): {kit}"
+ },
+ "ภายใน 7 วัน": {
+  "en": "Within 7 days",
+  "zh": "7 天内",
+  "ja": "7日以内",
+  "ko": "7일 이내"
+ },
+ "คอนเทนต์ชิ้นแรกพร้อมให้ตรวจในหน้า คอนเทนต์ — ตรวจแล้วกดเผยแพร่ได้เลย": {
+  "en": "Your first piece of content is ready to review on the Content page — once you've checked it, just hit publish.",
+  "zh": "第一篇内容可在“内容”页面审核——审核后直接点击发布即可。",
+  "ja": "最初のコンテンツが「コンテンツ」ページで確認できるようになります。確認後、そのまま公開できます。",
+  "ko": "첫 콘텐츠를 '콘텐츠' 페이지에서 검토하실 수 있습니다. 확인 후 바로 게시하시면 됩니다."
+ },
+ "วันที่ 25": {
+  "en": "Day 25",
+  "zh": "第 25 天",
+  "ja": "25日目",
+  "ko": "25일 차"
+ },
+ "รายงานผลจริงเดือนแรก: สุขภาพเว็บ งานที่ทำ และการมองเห็นใน AI ก่อนรอบบิลถัดไป": {
+  "en": "Your first monthly report with real numbers: site health, work done and AI visibility, before your next billing date.",
+  "zh": "首月真实成果报告：网站健康度、已完成的工作以及在 AI 中的可见度，在下个账单周期之前发送。",
+  "ja": "初月の実績レポート：サイトの健全性、実施した作業、AI での露出状況を次回請求日の前にお届けします。",
+  "ko": "첫 달 실제 성과 보고서: 사이트 상태, 수행한 작업, AI 노출 현황을 다음 결제일 전에 보내 드립니다."
+ },
+ "เข้าแบรนด์ของคุณ:": {
+  "en": "Open your brand:",
+  "zh": "进入你的品牌：",
+  "ja": "ブランドページ：",
+  "ko": "내 브랜드 열기:"
+ },
+ "เข้าแบรนด์ของคุณ": {
+  "en": "Open your brand",
+  "zh": "进入你的品牌",
+  "ja": "ブランドページを開く",
+  "ko": "내 브랜드 열기"
+ },
+ "ติดขัดตรงไหน ตอบอีเมลนี้ได้เลยครับ": {
+  "en": "If you get stuck anywhere, just reply to this email.",
+  "zh": "遇到任何问题，直接回复这封邮件即可。",
+  "ja": "お困りの点があれば、このメールにご返信ください。",
+  "ko": "막히는 부분이 있으면 이 메일에 회신해 주십시오."
+ },
+ "ขั้นเดียวที่เหลือ: ติดตั้งตัวเชื่อมบน {dom}": {
+  "en": "One step left: install the connector on {dom}",
+  "zh": "只差一步：在 {dom} 上安装连接器",
+  "ja": "残りはあと1ステップ：{dom} にコネクタを導入",
+  "ko": "마지막 한 단계: {dom}에 커넥터 설치"
+ },
+ "ระบบเช็กเว็บ {dom} แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI ({detail})": {
+  "en": "We checked {dom} and couldn't find the /geo connector, llms.txt or sitemap for AI yet ({detail})",
+  "zh": "系统检查了 {dom}，尚未发现面向 AI 的 /geo 连接器、llms.txt 和 sitemap（{detail}）",
+  "ja": "{dom} を確認しましたが、AI 向けの /geo コネクタ・llms.txt・sitemap がまだ見つかりません（{detail}）",
+  "ko": "{dom}을(를) 확인했지만 AI용 /geo 커넥터, llms.txt, sitemap을 아직 찾지 못했습니다({detail})"
+ },
+ "ระบบเช็กเว็บ {dom} แล้ว ยังไม่พบตัวเชื่อม /geo · llms.txt · sitemap สำหรับ AI": {
+  "en": "We checked {dom} and couldn't find the /geo connector, llms.txt or sitemap for AI yet",
+  "zh": "系统检查了 {dom}，尚未发现面向 AI 的 /geo 连接器、llms.txt 和 sitemap",
+  "ja": "{dom} を確認しましたが、AI 向けの /geo コネクタ・llms.txt・sitemap がまだ見つかりません",
+  "ko": "{dom}을(를) 확인했지만 AI용 /geo 커넥터, llms.txt, sitemap을 아직 찾지 못했습니다"
+ },
+ "ขั้นนี้ทำครั้งเดียว ถ้ายังไม่ติดตั้ง คอนเทนต์ที่เราเขียนจะยังไม่ขึ้นบนโดเมนของคุณ และ AI จะยังอ่านไม่เจอ": {
+  "en": "You only need to do this once. Until it's installed, the content we write won't appear on your domain, and AI won't be able to find it.",
+  "zh": "这一步只需做一次。安装之前，我们写的内容不会出现在你的域名上，AI 也读不到。",
+  "ja": "この作業は一度だけです。導入されるまでは、私たちが作成したコンテンツがお客様のドメインに表示されず、AI にも読み取られません。",
+  "ko": "이 작업은 한 번만 하시면 됩니다. 설치 전까지는 저희가 작성한 콘텐츠가 귀사의 도메인에 표시되지 않으며 AI도 읽을 수 없습니다."
+ },
+ "ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า WordPress ในระบบ": {
+  "en": "On WordPress: install the plugin following the WordPress page in the app",
+  "zh": "使用 WordPress：按照系统中的 WordPress 页面安装插件",
+  "ja": "WordPress の場合：システムの WordPress ページに沿ってプラグインを導入",
+  "ko": "WordPress 사용 시: 시스템의 WordPress 페이지에 따라 플러그인을 설치하십시오"
+ },
+ "ใช้ WordPress: ติดตั้งปลั๊กอินตามหน้า <a href='{url}'>WordPress</a>": {
+  "en": "On WordPress: install the plugin following the <a href='{url}'>WordPress</a> page",
+  "zh": "使用 WordPress：按照 <a href='{url}'>WordPress</a> 页面安装插件",
+  "ja": "WordPress の場合：<a href='{url}'>WordPress</a> ページに沿ってプラグインを導入",
+  "ko": "WordPress 사용 시: <a href='{url}'>WordPress</a> 페이지에 따라 플러그인을 설치하십시오"
+ },
+ "เว็บอื่น: ส่งชุดติดตั้งนี้ให้ทีมเว็บ {kit}": {
+  "en": "Other sites: send this install kit to your web team: {kit}",
+  "zh": "其他网站：把这个安装包发给你的网站团队 {kit}",
+  "ja": "その他のサイト：この導入キットを Web 担当者にお送りください {kit}",
+  "ko": "기타 사이트: 이 설치 키트를 웹 담당 팀에 전달하십시오 {kit}"
+ },
+ "เว็บอื่น: ส่ง <a href='{kit}'>ชุดติดตั้ง</a> ให้ทีมเว็บ": {
+  "en": "Other sites: send the <a href='{kit}'>install kit</a> to your web team",
+  "zh": "其他网站：把<a href='{kit}'>安装包</a>发给你的网站团队",
+  "ja": "その他のサイト：<a href='{kit}'>導入キット</a>を Web 担当者にお送りください",
+  "ko": "기타 사이트: <a href='{kit}'>설치 키트</a>를 웹 담당 팀에 전달하십시오"
+ },
+ "ถ้าอยากให้เราคุยกับทีมเว็บของคุณโดยตรง ตอบอีเมลนี้พร้อมช่องทางติดต่อได้เลยครับ": {
+  "en": "If you'd like us to talk to your web team directly, just reply with their contact details.",
+  "zh": "如果希望我们直接和你的网站团队沟通，回复这封邮件并附上联系方式即可。",
+  "ja": "Web 担当者と直接やり取りをご希望の場合は、連絡先を添えてこのメールにご返信ください。",
+  "ko": "저희가 웹 담당 팀과 직접 이야기하기를 원하시면 연락처를 적어 이 메일에 회신해 주십시오."
+ },
+ "คอนเทนต์ {n} ชิ้นของ {dom} รอคุณตรวจ": {
+  "en": "{dom}: {n} content draft(s) waiting for your review",
+  "zh": "{dom} 有 {n} 篇内容等待你审核",
+  "ja": "{dom} のコンテンツ {n} 件がご確認待ちです",
+  "ko": "{dom} 콘텐츠 {n}건이 검토를 기다리고 있습니다"
+ },
+ "ระบบร่างคอนเทนต์ที่ตอบคำถามจริงของลูกค้าให้ {dom} แล้ว {n} ชิ้น ตั้งไว้เป็นโหมดร่างเพื่อให้คุณตรวจก่อน": {
+  "en": "We've drafted {n} piece(s) of content for {dom} that answer real customer questions. They're in draft mode so you can review them first.",
+  "zh": "系统已为 {dom} 起草了 {n} 篇回答真实客户问题的内容，目前为草稿模式，方便你先审核。",
+  "ja": "{dom} 向けに、実際のお客様の質問に答えるコンテンツを {n} 件下書きしました。まずご確認いただけるよう下書きモードにしています。",
+  "ko": "{dom}을(를) 위해 실제 고객 질문에 답하는 콘텐츠 {n}건의 초안을 작성했습니다. 먼저 검토하실 수 있도록 초안 모드로 두었습니다."
+ },
+ "ตรวจและกดเผยแพร่ได้ที่ {url}": {
+  "en": "Review and publish here: {url}",
+  "zh": "在这里审核并发布：{url}",
+  "ja": "確認・公開はこちら：{url}",
+  "ko": "검토 및 게시: {url}"
+ },
+ "ตรวจและกดเผยแพร่": {
+  "en": "Review and publish",
+  "zh": "审核并发布",
+  "ja": "確認して公開する",
+  "ko": "검토 후 게시"
+ },
+ "ถ้าอยากให้เผยแพร่เองโดยไม่ต้องตรวจ เปลี่ยนได้ที่หน้า Autopilot": {
+  "en": "If you'd rather publish automatically without reviewing, you can change that on the Autopilot page.",
+  "zh": "如果希望无需审核自动发布，可以在 Autopilot 页面更改。",
+  "ja": "確認なしで自動公開したい場合は、Autopilot ページで変更できます。",
+  "ko": "검토 없이 자동 게시를 원하시면 Autopilot 페이지에서 변경하실 수 있습니다."
+ },
+ "ติดตั้งตัวเชื่อม: {state}": {
+  "en": "Connector installation: {state}",
+  "zh": "连接器安装：{state}",
+  "ja": "コネクタ導入：{state}",
+  "ko": "커넥터 설치: {state}"
+ },
+ "ยังไม่เรียบร้อย": {
+  "en": "Not yet",
+  "zh": "尚未完成",
+  "ja": "未完了",
+  "ko": "아직 완료되지 않음"
+ },
+ "คอนเทนต์: เผยแพร่แล้ว {a} ชิ้น · รอตรวจ {b} ชิ้น": {
+  "en": "Content: {a} published · {b} awaiting review",
+  "zh": "内容：已发布 {a} 篇 · 待审核 {b} 篇",
+  "ja": "コンテンツ：公開済み {a} 件 · 確認待ち {b} 件",
+  "ko": "콘텐츠: 게시 {a}건 · 검토 대기 {b}건"
+ },
+ "สุขภาพเว็บล่าสุด: ต้องแก้ {a} ข้อ · ควรดู {b} ข้อ": {
+  "en": "Latest site health: {a} to fix · {b} worth a look",
+  "zh": "最新网站健康度：需修复 {a} 项 · 建议查看 {b} 项",
+  "ja": "最新のサイト健全性：要修正 {a} 件 · 要確認 {b} 件",
+  "ko": "최신 사이트 상태: 수정 필요 {a}건 · 확인 권장 {b}건"
+ },
+ "AI เอ่ยถึงแบรนด์: {named} จาก {asked} คำถาม · อ้างอิงเว็บคุณ {cited} ครั้ง": {
+  "en": "AI mentioned your brand: {named} of {asked} questions · cited your site {cited} times",
+  "zh": "AI 提到你的品牌：{asked} 个问题中有 {named} 个 · 引用你的网站 {cited} 次",
+  "ja": "AI によるブランド言及：{asked} 問中 {named} 問 · サイトの引用 {cited} 回",
+  "ko": "AI 브랜드 언급: {asked}개 질문 중 {named}개 · 사이트 인용 {cited}회"
+ },
+ "รายงานเดือนที่ {month} ของ {dom}": {
+  "en": "Month {month} report for {dom}",
+  "zh": "{dom} 第 {month} 个月报告",
+  "ja": "{dom} の {month} か月目レポート",
+  "ko": "{dom} {month}개월 차 보고서"
+ },
+ " — ก่อนรอบบิลถัดไป": {
+  "en": " — before your next billing date",
+  "zh": " — 下个账单周期之前",
+  "ja": " — 次回請求日の前に",
+  "ko": " — 다음 결제일 전"
+ },
+ "สรุปสิ่งที่เกิดขึ้นกับ {dom} ในเดือนที่ {month}": {
+  "en": "Here's what happened with {dom} in month {month}",
+  "zh": "{dom} 第 {month} 个月的情况总结",
+  "ja": "{dom} の {month} か月目のまとめです",
+  "ko": "{dom}의 {month}개월 차 요약입니다"
+ },
+ "รายงานเต็มพร้อม PDF:": {
+  "en": "Full report with PDF:",
+  "zh": "完整报告（含 PDF）：",
+  "ja": "PDF 付きの詳細レポート：",
+  "ko": "PDF 포함 전체 보고서:"
+ },
+ "รายงานเต็มพร้อม PDF": {
+  "en": "Full report with PDF",
+  "zh": "完整报告（含 PDF）",
+  "ja": "PDF 付きの詳細レポート",
+  "ko": "PDF 포함 전체 보고서"
+ },
+ "อยากคุยแผนเดือนหน้า ตอบอีเมลนี้ได้เลยครับ": {
+  "en": "Want to talk about next month's plan? Just reply to this email.",
+  "zh": "想聊聊下个月的计划，直接回复这封邮件即可。",
+  "ja": "来月のプランについてご相談があれば、このメールにご返信ください。",
+  "ko": "다음 달 계획을 이야기하고 싶으시면 이 메일에 회신해 주십시오."
+ },
+ "แจ้งล่วงหน้า: บริการรายปีของ {dom} จะต่ออายุวันที่ {when}": {
+  "en": "Heads-up: the yearly plan for {dom} renews on {when}",
+  "zh": "提前通知：{dom} 的年度服务将于 {when} 续订",
+  "ja": "事前のお知らせ：{dom} の年間プランは {when} に更新されます",
+  "ko": "사전 안내: {dom} 연간 서비스가 {when}에 갱신됩니다"
+ },
+ "บริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะครบกำหนดและต่ออายุอัตโนมัติวันที่ {when} ยอด {amount} บาทต่อปี": {
+  "en": "The yearly เจอ.AI plan for {dom} (year {year}) ends and renews automatically on {when} at {amount} THB per year",
+  "zh": "{dom} 的 เจอ.AI 年度服务（第 {year} 年）将于 {when} 到期并自动续订，金额为每年 {amount} 泰铢",
+  "ja": "{dom} の เจอ.AI 年間プラン（{year} 年目）は {when} に満了し、自動更新されます。金額は年額 {amount} バーツです",
+  "ko": "{dom}의 เจอ.AI 연간 서비스({year}년 차)는 {when}에 만료되어 자동 갱신됩니다. 금액: 연 {amount} 바트"
+ },
+ "บริการเจอ.AI รายปีของ {dom} (ปีที่ {year}) จะต่ออายุอัตโนมัติวันที่ {when} ยอด {amount}": {
+  "en": "The yearly เจอ.AI plan for {dom} (year {year}) renews automatically on {when} for {amount}",
+  "zh": "{dom} 的 เจอ.AI 年度服务（第 {year} 年）将于 {when} 自动续订，金额 {amount}",
+  "ja": "{dom} の เจอ.AI 年間プラン（{year} 年目）は {when} に自動更新されます。金額 {amount}",
+  "ko": "{dom}의 เจอ.AI 연간 서비스({year}년 차)는 {when}에 자동 갱신됩니다. 금액: {amount}"
+ },
+ "{amount} บาทต่อปี": {
+  "en": "{amount} THB per year",
+  "zh": "每年 {amount} 泰铢",
+  "ja": "年額 {amount} バーツ",
+  "ko": "연 {amount} 바트"
+ },
+ "ถ้าต้องการต่อ ไม่ต้องทำอะไร · ถ้าไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน": {
+  "en": "If you'd like to renew, there's nothing to do · If not, reply to this email before that date and we'll cancel the renewal — you can keep using the service until the end of the current year.",
+  "zh": "需要续订：无需任何操作 · 不需要续订：请在该日期前回复这封邮件，我们会为你取消续订，你仍可使用服务至本年度结束。",
+  "ja": "更新をご希望の場合：お手続きは不要です · 更新しない場合：期日までにこのメールにご返信いただければ更新をキャンセルいたします。現在の契約年度の終了まではそのままご利用いただけます。",
+  "ko": "갱신을 원하시면 별도 조치가 필요 없습니다 · 갱신을 원하지 않으시면 해당 날짜 전에 이 메일에 회신해 주십시오. 갱신을 취소해 드리며, 현재 계약 연도가 끝날 때까지 서비스를 계속 이용하실 수 있습니다."
+ },
+ "ต้องการต่อ ไม่ต้องทำอะไร · ไม่ต้องการต่อ ตอบอีเมลนี้ก่อนวันดังกล่าว เราจะยกเลิกการต่ออายุให้ และคุณยังใช้บริการได้จนครบปีปัจจุบัน": {
+  "en": "To renew, there's nothing to do · Not renewing? Reply to this email before that date and we'll cancel the renewal — you can keep using the service until the end of the current year.",
+  "zh": "续订：无需任何操作 · 不续订：请在该日期前回复这封邮件，我们会为你取消续订，你仍可使用服务至本年度结束。",
+  "ja": "更新する場合：お手続きは不要です · 更新しない場合：期日までにこのメールにご返信ください。更新をキャンセルいたします。現在の契約年度の終了まではそのままご利用いただけます。",
+  "ko": "갱신: 별도 조치가 필요 없습니다 · 갱신하지 않음: 해당 날짜 전에 이 메일에 회신해 주십시오. 갱신을 취소해 드리며, 현재 계약 연도가 끝날 때까지 서비스를 계속 이용하실 수 있습니다."
+ },
+ "สรุปผลทั้งปี:": {
+  "en": "Full-year summary:",
+  "zh": "全年成果总结：",
+  "ja": "年間のまとめ：",
+  "ko": "연간 성과 요약:"
+ },
+ "รายงาน GEO ประจำเดือน — {brand}": {
+  "en": "Monthly GEO report — {brand}",
+  "zh": "GEO 月度报告 — {brand}",
+  "ja": "GEO 月次レポート — {brand}",
+  "ko": "월간 GEO 보고서 — {brand}"
+ },
+ "สวัสดีคุณ{name}\n\nสรุปผล GEO ของ **{brand}** ({domain}) ช่วง {period}\n\n- Share of Voice: **{sov}%** ({sov_delta} จุดจากรอบก่อน)\n- ติดอันดับ Google: {rank}\n- ถูกพูดถึงบนผู้ช่วย AI: {ai_rate}%\n- คลิกจาก Google 28 วัน: {clicks} (impressions {impressions})\n- หน้าคอนเทนต์อยู่ใน index: {indexed}\n- คอนเทนต์เผยแพร่ใหม่: {published} ชิ้น\n\n**สิ่งที่ควรทำต่อ**\n{next_steps}\n\nรายละเอียดทั้งหมด: {report_url}\n": {
+  "en": "Hi {name},\n\nHere's the GEO summary for **{brand}** ({domain}) for {period}\n\n- Share of Voice: **{sov}%** ({sov_delta} pts vs. last period)\n- Google rankings: {rank}\n- Mentioned by AI assistants: {ai_rate}%\n- Clicks from Google (28 days): {clicks} (impressions {impressions})\n- Content pages in the index: {indexed}\n- New content published: {published}\n\n**What to do next**\n{next_steps}\n\nFull details: {report_url}\n",
+  "zh": "{name}，您好：\n\n以下是 **{brand}**（{domain}）在 {period} 期间的 GEO 成果总结\n\n- Share of Voice：**{sov}%**（较上期 {sov_delta} 个百分点）\n- Google 排名：{rank}\n- 在 AI 助手中被提及：{ai_rate}%\n- 28 天内来自 Google 的点击：{clicks}（展示次数 {impressions}）\n- 已被收录的内容页面：{indexed}\n- 新发布内容：{published} 篇\n\n**下一步建议**\n{next_steps}\n\n完整详情：{report_url}\n",
+  "ja": "{name} 様\n\n**{brand}**（{domain}）の {period} の GEO 成果をまとめました。\n\n- Share of Voice：**{sov}%**（前回比 {sov_delta} ポイント）\n- Google 掲載順位：{rank}\n- AI アシスタントでの言及率：{ai_rate}%\n- Google からのクリック（28日間）：{clicks}（表示回数 {impressions}）\n- インデックス済みのコンテンツページ：{indexed}\n- 新規公開コンテンツ：{published} 件\n\n**次に取り組むこと**\n{next_steps}\n\n詳細はこちら：{report_url}\n",
+  "ko": "{name}님, 안녕하십니까.\n\n**{brand}**({domain})의 {period} GEO 성과 요약입니다.\n\n- Share of Voice: **{sov}%** (지난 기간 대비 {sov_delta}포인트)\n- Google 순위: {rank}\n- AI 어시스턴트 언급률: {ai_rate}%\n- Google 클릭(28일): {clicks} (노출 {impressions})\n- 색인된 콘텐츠 페이지: {indexed}\n- 새로 게시한 콘텐츠: {published}건\n\n**다음에 할 일**\n{next_steps}\n\n전체 내용: {report_url}\n"
+ },
+ "ไม่มีข้อเร่งด่วน ทำต่อเนื่องตามแผน": {
+  "en": "Nothing urgent — keep going with the plan",
+  "zh": "没有紧急事项，按计划继续推进",
+  "ja": "急ぎの対応はありません。計画どおり継続します",
+  "ko": "긴급한 사항은 없습니다. 계획대로 계속 진행합니다"
+ },
+ "ส่งจาก เจอ.AI ถึง {email} · ดูรายงานฉบับเต็มได้ที่ {url}": {
+  "en": "Sent by เจอ.AI to {email} · See the full report at {url}",
+  "zh": "由 เจอ.AI 发送至 {email} · 完整报告见 {url}",
+  "ja": "เจอ.AI から {email} 宛てに送信 · 詳細レポートは {url}",
+  "ko": "เจอ.AI에서 {email}(으)로 발송 · 전체 보고서: {url}"
+ },
+ "Autopilot รายสัปดาห์ — {brand}": {
+  "en": "Weekly Autopilot — {brand}",
+  "zh": "每周 Autopilot — {brand}",
+  "ja": "週次 Autopilot — {brand}",
+  "ko": "주간 Autopilot — {brand}"
+ },
+ "Autopilot ของ เจอ.AI · {url}": {
+  "en": "เจอ.AI Autopilot · {url}",
+  "zh": "เจอ.AI 的 Autopilot · {url}",
+  "ja": "เจอ.AI の Autopilot · {url}",
+  "ko": "เจอ.AI Autopilot · {url}"
+ },
+ "Autopilot รอบนี้ทำ": {
+  "en": "What Autopilot did this round",
+  "zh": "本轮 Autopilot 完成的工作",
+  "ja": "今回の Autopilot の実施内容",
+  "ko": "이번 Autopilot 실행 내용"
+ },
+ "ยินดีต้อนรับสู่พันธมิตรเจอ.AI": {
+  "en": "Welcome to the เจอ.AI partner program",
+  "zh": "欢迎加入 เจอ.AI 合作伙伴计划",
+  "ja": "เจอ.AI パートナープログラムへようこそ",
+  "ko": "เจอ.AI 파트너 프로그램에 오신 것을 환영합니다"
+ },
+ "ยินดีต้อนรับสู่พันธมิตรเจอ.AI ครับ": {
+  "en": "Welcome to the เจอ.AI partner program.",
+  "zh": "欢迎加入 เจอ.AI 合作伙伴计划。",
+  "ja": "เจอ.AI パートナープログラムへようこそ。",
+  "ko": "เจอ.AI 파트너 프로그램에 오신 것을 환영합니다."
+ },
+ "ลิงก์แนะนำของคุณ: {url} (ลูกค้าที่ตรวจเว็บฟรีผ่านลิงก์นี้ภายใน {days} วัน นับเป็นของคุณ)": {
+  "en": "Your referral link: {url} (anyone who runs a free site check through this link within {days} days counts as your referral)",
+  "zh": "你的推荐链接：{url}（通过此链接在 {days} 天内进行免费网站检测的客户都算你的推荐）",
+  "ja": "あなたの紹介リンク：{url}（このリンクから {days} 日以内に無料サイト診断を行ったお客様は、あなたのご紹介になります）",
+  "ko": "추천 링크: {url} (이 링크로 {days}일 이내에 무료 사이트 진단을 받은 고객은 귀하의 추천으로 집계됩니다)"
+ },
+ "แดชบอร์ด (ดูลีด ลูกค้า ค่าแนะนำ และส่งชื่อลูกค้าให้เราโดยตรง): {url}": {
+  "en": "Dashboard (see your leads, clients and referral fees, and send us clients directly): {url}",
+  "zh": "控制台（查看线索、客户、推荐费，并直接向我们提交客户）：{url}",
+  "ja": "ダッシュボード（リード・顧客・紹介料の確認、お客様の直接のご紹介）：{url}",
+  "ko": "대시보드(리드, 고객, 추천 수수료 확인 및 고객 직접 추천): {url}"
+ },
+ "กติกาสั้น ๆ: ไม่การันตีอันดับหรือผลลัพธ์กับลูกค้า · ส่งชื่อลูกค้าเฉพาะคนที่ยินยอมแล้ว · ไม่ส่งอีเมลเหมารวม": {
+  "en": "A few ground rules: don't promise clients any rankings or results · only refer clients who have agreed to be contacted · no bulk emailing",
+  "zh": "简单规则：不向客户承诺排名或效果 · 只提交已同意被联系的客户 · 不群发邮件",
+  "ja": "簡単なルール：お客様に順位や成果を約束しないこと · 連絡に同意済みのお客様のみご紹介いただくこと · 一斉メールを送らないこと",
+  "ko": "간단한 규칙: 고객에게 순위나 결과를 약속하지 않기 · 연락에 동의한 고객만 추천하기 · 대량 메일 발송 금지"
+ },
+ "ทีมพันธมิตร เจอ.AI": {
+  "en": "The เจอ.AI partner team",
+  "zh": "เจอ.AI 合作伙伴团队",
+  "ja": "เจอ.AI パートナーチーム",
+  "ko": "เจอ.AI 파트너팀"
+ },
+ " (ยังไม่รวม VAT {vat}%)": {
+  "en": " (excl. {vat}% VAT)",
+  "zh": "（不含 {vat}% VAT）",
+  "ja": "（VAT {vat}% 別）",
+  "ko": " (VAT {vat}% 별도)"
+ },
+ "{dom}: เปลี่ยนเป็นรายปีประหยัด {saving} บาท": {
+  "en": "{dom}: save {saving} THB by switching to yearly",
+  "zh": "{dom}：改为年付可节省 {saving} 泰铢",
+  "ja": "{dom}：年払いに切り替えると {saving} バーツお得です",
+  "ko": "{dom}: 연간 결제로 바꾸시면 {saving} 바트를 절약하실 수 있습니다"
+ },
+ "ใช้เจอ.AI ดูแล {dom} มา {days} วันแล้ว ขอบคุณครับ รอบบิลถัดไปคือ {date}": {
+  "en": "You've had เจอ.AI looking after {dom} for {days} days now — thank you. Your next billing date is {date}.",
+  "zh": "你使用 เจอ.AI 管理 {dom} 已经 {days} 天了，谢谢支持。下一个账单日是 {date}。",
+  "ja": "{dom} の運用に เจอ.AI をご利用いただいて {days} 日になりました。ありがとうございます。次回の請求日は {date} です。",
+  "ko": "{dom} 관리에 เจอ.AI를 이용하신 지 {days}일이 되었습니다. 감사합니다. 다음 결제일은 {date}입니다."
+ },
+ "ถ้าเปลี่ยนเป็นรายปีตอนนี้ จ่าย {total} บาทต่อปี": {
+  "en": "If you switch to yearly now, you'd pay {total} THB per year",
+  "zh": "如果现在改为年付，每年支付 {total} 泰铢",
+  "ja": "いま年払いに切り替えると、年額 {total} バーツ",
+  "ko": "지금 연간 결제로 바꾸시면 연 {total} 바트"
+ },
+ " แทน {net} บาท × 12 = {year_total} บาท ประหยัด {saving} บาท ": {
+  "en": " instead of {net} THB × 12 = {year_total} THB, saving you {saving} THB ",
+  "zh": "，而不是 {net} 泰铢 × 12 = {year_total} 泰铢，节省 {saving} 泰铢 ",
+  "ja": "で、{net} バーツ × 12 = {year_total} バーツと比べて {saving} バーツお得です",
+  "ko": "로, {net} 바트 × 12 = {year_total} 바트 대신이므로 {saving} 바트를 절약하실 수 있습니다 "
+ },
+ "(ลด {pct}%)": {
+  "en": "({pct}% off)",
+  "zh": "（优惠 {pct}%）",
+  "ja": "（{pct}% 割引）",
+  "ko": "({pct}% 할인)"
+ },
+ " และคืนเงินได้เต็มจำนวนภายใน {days} วันแรก": {
+  "en": " and a full refund is available within the first {days} days",
+  "zh": "，且前 {days} 天内可全额退款",
+  "ja": "。最初の {days} 日以内であれば全額返金が可能です",
+  "ko": ", 처음 {days}일 이내에는 전액 환불이 가능합니다"
+ },
+ "ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินรายเดือนเดิมให้ทันที": {
+  "en": "If you're interested, confirm the quote linked below. Once it's paid, we'll cancel your current monthly billing right away.",
+  "zh": "如果感兴趣，请在下方链接的报价单中确认。付款后我们会立即取消原有的月付扣费。",
+  "ja": "ご興味があれば、下記リンクの見積書で承認してください。お支払い後、現在の月額請求はすぐに停止いたします。",
+  "ko": "관심이 있으시면 아래 링크의 견적서에서 승인해 주십시오. 결제가 완료되면 기존 월 결제를 즉시 해지해 드립니다."
+ },
+ "ถ้าสนใจ กดยืนยันในใบเสนอราคาที่แนบลิงก์ไว้ด้านล่าง เมื่อชำระแล้วเราจะยกเลิกการเก็บเงินแพ็กเกจเดิมให้ทันที ไม่จ่ายซ้อน": {
+  "en": "If you're interested, confirm the quote linked below. Once it's paid, we'll stop billing your current plan right away, so you never pay twice.",
+  "zh": "如果感兴趣，请在下方链接的报价单中确认。付款后我们会立即停止原方案的扣费，不会重复收费。",
+  "ja": "ご興味があれば、下記リンクの見積書で承認してください。お支払い後、現在のプランの請求はすぐに停止しますので、二重にお支払いいただくことはありません。",
+  "ko": "관심이 있으시면 아래 링크의 견적서에서 승인해 주십시오. 결제가 완료되면 기존 플랜 청구를 즉시 중지하므로 이중으로 결제하실 일은 없습니다."
+ },
+ "แบรนด์ {a}/{b}": {
+  "en": "brands {a}/{b}",
+  "zh": "品牌 {a}/{b}",
+  "ja": "ブランド {a}/{b}",
+  "ko": "브랜드 {a}/{b}"
+ },
+ "คอนเทนต์เดือนนี้ {a}/{b}": {
+  "en": "content this month {a}/{b}",
+  "zh": "本月内容 {a}/{b}",
+  "ja": "今月のコンテンツ {a}/{b}",
+  "ko": "이번 달 콘텐츠 {a}/{b}"
+ },
+ "มอนิเตอร์เดือนนี้ {a}/{b}": {
+  "en": "monitoring runs this month {a}/{b}",
+  "zh": "本月监测 {a}/{b}",
+  "ja": "今月のモニタリング {a}/{b}",
+  "ko": "이번 달 모니터링 {a}/{b}"
+ },
+ "{dom}: ใช้แพ็กเกจ Pro ใกล้เต็มแล้ว": {
+  "en": "{dom}: you're close to your Pro plan limits",
+  "zh": "{dom}：Pro 方案用量即将用满",
+  "ja": "{dom}：Pro プランの上限に近づいています",
+  "ko": "{dom}: Pro 플랜 한도에 거의 도달했습니다"
+ },
+ "เดือนนี้ {dom} ใช้งานใกล้เพดานแพ็กเกจ Pro แล้ว: {used}": {
+  "en": "This month {dom} is close to the Pro plan limits: {used}",
+  "zh": "本月 {dom} 的用量已接近 Pro 方案上限：{used}",
+  "ja": "今月、{dom} は Pro プランの上限に近づいています：{used}",
+  "ko": "이번 달 {dom}은(는) Pro 플랜 한도에 거의 도달했습니다: {used}"
+ },
+ "แพ็กเกจ Agency {price} บาท/เดือน": {
+  "en": "The Agency plan is {price} THB/month",
+  "zh": "Agency 方案每月 {price} 泰铢",
+  "ja": "Agency プランは月額 {price} バーツ",
+  "ko": "Agency 플랜은 월 {price} 바트"
+ },
+ " ดูแลได้ {brands} แบรนด์ คอนเทนต์ {content} ชิ้น และมอนิเตอร์ {runs} ครั้งต่อเดือน ": {
+  "en": ": it covers {brands} brands, {content} pieces of content and {runs} monitoring runs per month ",
+  "zh": "：可管理 {brands} 个品牌，每月 {content} 篇内容和 {runs} 次监测。",
+  "ja": "：{brands} ブランド、毎月コンテンツ {content} 件・モニタリング {runs} 回まで対応します。",
+  "ko": ": 브랜드 {brands}개, 월 콘텐츠 {content}건, 모니터링 {runs}회를 이용하실 수 있습니다. "
+ },
+ "เหมาะถ้าคุณดูแลหลายเว็บหรืออยากเพิ่มคอนเทนต์ให้ทันคำถามของลูกค้า": {
+  "en": "— a good fit if you manage several sites or want more content to keep up with customer questions.",
+  "zh": "适合管理多个网站，或想增加内容以跟上客户提问的你。",
+  "ja": "複数のサイトを運営している場合や、お客様の質問に追いつくためにコンテンツを増やしたい場合に最適です。",
+  "ko": "여러 사이트를 관리하시거나 고객 질문에 맞춰 콘텐츠를 늘리고 싶으신 경우에 적합합니다."
+ },
+ "{dom}: คอนเทนต์เดือนนี้ครบโควตาแล้ว": {
+  "en": "{dom}: this month's content quota is used up",
+  "zh": "{dom}：本月内容配额已用完",
+  "ja": "{dom}：今月のコンテンツ枠を使い切りました",
+  "ko": "{dom}: 이번 달 콘텐츠 할당량을 모두 사용했습니다"
+ },
+ "เดือนนี้ {dom} สร้างคอนเทนต์ครบ {cap} ชิ้นตามแพ็กเกจแล้ว ระบบจะเริ่มสร้างต่อเมื่อขึ้นเดือนใหม่": {
+  "en": "{dom} has created all {cap} pieces of content included in your plan this month. The system will start creating again when the new month begins.",
+  "zh": "{dom} 本月已按方案生成全部 {cap} 篇内容，系统将在下个月开始后继续生成。",
+  "ja": "{dom} は今月、プランに含まれる {cap} 件のコンテンツをすべて作成しました。新しい月になると作成を再開します。",
+  "ko": "{dom}은(는) 이번 달 플랜에 포함된 콘텐츠 {cap}건을 모두 생성했습니다. 새 달이 시작되면 다시 생성합니다."
+ },
+ "ถ้าอยากได้ต่อเลย มีแพ็กคอนเทนต์เพิ่ม 20 ชิ้น {price} บาท": {
+  "en": "If you'd like more right away, there's an extra 20-piece content pack for {price} THB",
+  "zh": "如果想马上继续，可以购买额外 20 篇内容包，价格 {price} 泰铢",
+  "ja": "すぐに追加したい場合は、追加コンテンツ20件パックを {price} バーツでご用意しています",
+  "ko": "바로 더 필요하시면 콘텐츠 20건 추가 팩을 {price} 바트에 이용하실 수 있습니다"
+ },
+ " ครั้งเดียว ซื้อได้ที่ {url}": {
+  "en": ", one-time — you can buy it at {url}",
+  "zh": "，一次性付费，可在 {url} 购买",
+  "ja": "。1回限りのお支払いで、{url} からご購入いただけます",
+  "ko": ". 1회 결제이며 {url}에서 구매하실 수 있습니다"
+ },
+ "{dom}: ขอเล่าผลงานของคุณเป็นเคสศึกษาได้ไหม": {
+  "en": "{dom}: could we feature your results as a case study?",
+  "zh": "{dom}：可以把你的成果作为案例分享吗？",
+  "ja": "{dom}：成果を事例としてご紹介してもよろしいですか",
+  "ko": "{dom}: 성과를 사례로 소개해도 되겠습니까?"
+ },
+ "ตอนนี้ {dom} เผยแพร่คอนเทนต์ที่ตอบคำถามลูกค้าแล้ว {n} ชิ้น ขอบคุณที่ไว้ใจเจอ.AI ครับ": {
+  "en": "{dom} has now published {n} piece(s) of content answering customer questions. Thank you for trusting เจอ.AI.",
+  "zh": "{dom} 目前已发布 {n} 篇回答客户问题的内容，感谢你对 เจอ.AI 的信任。",
+  "ja": "{dom} では、お客様の質問に答えるコンテンツをこれまでに {n} 件公開しました。เจอ.AI を信頼していただきありがとうございます。",
+  "ko": "{dom}은(는) 지금까지 고객 질문에 답하는 콘텐츠 {n}건을 게시했습니다. เจอ.AI를 믿어 주셔서 감사합니다."
+ },
+ "ถ้ายินดี เราขออนุญาตเล่าผลงานของคุณเป็นเคสศึกษา (ใช้ชื่อแบรนด์ได้หรือไม่ใช้ก็ได้) ตอบอีเมลนี้ว่า \"ยินดี\" หรือ \"ไม่ใช้ชื่อ\" ได้เลย": {
+  "en": "If you're happy to, we'd love to share your results as a case study (with or without your brand name). Just reply \"Yes\" or \"No name\".",
+  "zh": "如果你愿意，我们希望把你的成果作为案例分享（可以署品牌名，也可以匿名）。回复“愿意”或“不署名”即可。",
+  "ja": "よろしければ、成果を事例としてご紹介させてください（ブランド名の掲載有無はお選びいただけます）。「承諾」または「匿名で」とご返信いただくだけで結構です。",
+  "ko": "괜찮으시다면 귀사의 성과를 사례로 소개하고 싶습니다(브랜드명 공개 여부는 선택 가능). \"동의\" 또는 \"이름 비공개\"로 회신해 주십시오."
+ },
+ "และถ้ามีเพื่อนธุรกิจที่อยากให้ลูกค้าหาเจอใน Google และ AI แนะนำผ่านโปรแกรมพันธมิตรของเราได้ รับค่าแนะนำ {pct}% ของค่าบริการ {months} เดือนแรก: {url}": {
+  "en": "And if you know other business owners who want customers to find them on Google and in AI, you can refer them through our partner program and earn {pct}% of their service fees for the first {months} months: {url}",
+  "zh": "如果你身边有也想让客户在 Google 和 AI 中找到自己的企业朋友，可以通过我们的合作伙伴计划推荐，获得其前 {months} 个月服务费的 {pct}% 作为推荐费：{url}",
+  "ja": "また、Google や AI でお客様に見つけてもらいたいビジネス仲間がいらっしゃれば、パートナープログラムからご紹介いただけます。最初の {months} か月分のサービス料金の {pct}% を紹介料としてお支払いします：{url}",
+  "ko": "또한 Google과 AI에서 고객에게 발견되기를 원하는 지인 사업자가 있으시면 파트너 프로그램으로 추천하실 수 있으며, 첫 {months}개월 서비스 요금의 {pct}%를 추천 수수료로 받으십니다: {url}"
+ },
+ "ใบเสนอราคา {number}:": {
+  "en": "Quote {number}:",
+  "zh": "报价单 {number}：",
+  "ja": "見積書 {number}：",
+  "ko": "견적서 {number}:"
+ },
+ "ยืนยันและชำระ:": {
+  "en": "Confirm and pay:",
+  "zh": "确认并付款：",
+  "ja": "承認とお支払い：",
+  "ko": "승인 및 결제:"
+ },
+ "ฝ่ายบัญชี เจอ.AI": {
+  "en": "เจอ.AI Accounting",
+  "zh": "เจอ.AI 财务部",
+  "ja": "เจอ.AI 経理部",
+  "ko": "เจอ.AI 회계팀"
+ },
+ "{title} เลขที่ {number}": {
+  "en": "{title} no. {number}",
+  "zh": "{title} 编号 {number}",
+  "ja": "{title} 番号 {number}",
+  "ko": "{title} 번호 {number}"
+ },
+ "ยอด {amount} บาท": {
+  "en": "Amount: {amount} THB",
+  "zh": "金额：{amount} 泰铢",
+  "ja": "金額：{amount} バーツ",
+  "ko": "금액: {amount} 바트"
+ },
+ "ครบกำหนดชำระ {date}": {
+  "en": "Due date: {date}",
+  "zh": "付款截止日：{date}",
+  "ja": "お支払期限：{date}",
+  "ko": "결제 기한: {date}"
+ },
+ "รอบบริการ {start} – {end}": {
+  "en": "Service period: {start} – {end}",
+  "zh": "服务期间：{start} – {end}",
+  "ja": "サービス期間：{start} – {end}",
+  "ko": "서비스 기간: {start} – {end}"
+ },
+ "เอกสารที่แนบเป็นภาษาไทย ซึ่งเป็นฉบับที่ใช้อ้างอิงทางภาษี": {
+  "en": "The attached document is in Thai, which is the official version for tax purposes.",
+  "zh": "所附文件为泰文版本，即用于税务用途的正式版本。",
+  "ja": "添付書類はタイ語版で、税務上の正式な書類となります。",
+  "ko": "첨부 문서는 태국어로 되어 있으며 세무상 공식 문서입니다."
+ },
+ "ขอบคุณที่ชำระค่าบริการครับ แนบ{title}มาให้": {
+  "en": "Thank you for your payment. Your {title} is attached.",
+  "zh": "感谢付款，附上你的{title}。",
+  "ja": "お支払いいただきありがとうございます。{title}を添付いたします。",
+  "ko": "결제해 주셔서 감사합니다. {title}을(를) 첨부해 드립니다."
+ },
+ "แจ้งค่าบริการรอบถัดไปครับ ชำระผ่าน PromptPay แล้วแนบสลิปในลิงก์ด้านล่าง": {
+  "en": "Here's the invoice for your next billing period. Please pay via PromptPay and attach the payment slip using the link below.",
+  "zh": "这是下一期的服务费账单。请通过 PromptPay 付款，并在下方链接中上传付款凭证。",
+  "ja": "次回分のご請求です。PromptPay でお支払いのうえ、下記リンクから振込明細をアップロードしてください。",
+  "ko": "다음 기간 서비스 요금 안내입니다. PromptPay로 결제하신 후 아래 링크에서 입금 영수증을 첨부해 주십시오."
+ },
+ "แนบใบเสร็จฉบับแก้ไขแทนเลขที่ {number} ครับ": {
+  "en": "Attached is the corrected receipt replacing no. {number}.",
+  "zh": "附上更正后的收据，替代编号 {number}。",
+  "ja": "番号 {number} に代わる訂正版の領収書を添付いたします。",
+  "ko": "번호 {number}을(를) 대체하는 수정 영수증을 첨부해 드립니다."
+ },
+ "ดู/ดาวน์โหลด:": {
+  "en": "View/download:",
+  "zh": "查看/下载：",
+  "ja": "表示・ダウンロード：",
+  "ko": "보기/다운로드:"
+ },
+ "ชำระและแนบสลิป": {
+  "en": "Pay and attach the slip",
+  "zh": "付款并上传凭证",
+  "ja": "支払って明細を添付する",
+  "ko": "결제 및 영수증 첨부"
+ },
+ "ดู/ดาวน์โหลดเอกสาร": {
+  "en": "View/download the document",
+  "zh": "查看/下载文件",
+  "ja": "書類を表示・ダウンロード",
+  "ko": "문서 보기/다운로드"
+ },
+ "{title} {number} จากเจอ.AI": {
+  "en": "{title} {number} from เจอ.AI",
+  "zh": "来自 เจอ.AI 的{title} {number}",
+  "ja": "เจอ.AI からの{title} {number}",
+  "ko": "เจอ.AI {title} {number}"
+ },
+ "วันนี้ครบกำหนดชำระค่าบริการรอบถัดไปครับ": {
+  "en": "Your payment for the next billing period is due today.",
+  "zh": "下一期服务费今天到期。",
+  "ja": "本日が次回分サービス料金のお支払期限です。",
+  "ko": "오늘이 다음 기간 서비스 요금 결제 기한입니다."
+ },
+ "ค่าบริการรอบนี้เลยกำหนดมา {days} วันแล้วครับ ถ้าชำระแล้วแนบสลิปในลิงก์ได้เลย ถ้ามีปัญหาตอบอีเมลนี้ได้ครับ": {
+  "en": "This period's payment is now {days} days overdue. If you've already paid, just attach the slip at the link. If something's wrong, reply to this email.",
+  "zh": "本期服务费已逾期 {days} 天。如已付款，请在链接中上传付款凭证；如有问题，请回复这封邮件。",
+  "ja": "今回分のお支払いが期限を {days} 日過ぎています。お支払い済みの場合はリンクから振込明細をアップロードしてください。ご不明な点があればこのメールにご返信ください。",
+  "ko": "이번 기간 요금이 결제 기한을 {days}일 지났습니다. 이미 결제하셨다면 링크에서 영수증을 첨부해 주시고, 문제가 있으시면 이 메일에 회신해 주십시오."
+ },
+ "ครบกำหนดชำระ {number} · เจอ.AI": {
+  "en": "Payment due: {number} · เจอ.AI",
+  "zh": "付款到期：{number} · เจอ.AI",
+  "ja": "お支払期限：{number} · เจอ.AI",
+  "ko": "결제 기한: {number} · เจอ.AI"
+ },
+ "เตือนชำระ {number} · เจอ.AI": {
+  "en": "Payment reminder: {number} · เจอ.AI",
+  "zh": "付款提醒：{number} · เจอ.AI",
+  "ja": "お支払いのお願い：{number} · เจอ.AI",
+  "ko": "결제 알림: {number} · เจอ.AI"
+ },
+ "พื้นฐานของเว็บผ่านแล้ว ขั้นต่อไปคือทำให้ ChatGPT และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม": {
+  "en": "the basics of the site are fine; the next step is getting ChatGPT and Google AI to mention your business when customers ask",
+  "zh": "网站的基础没问题，下一步是让 ChatGPT 和 Google AI 在客户提问时提到你的商家",
+  "ja": "サイトの基本はクリアしています。次は、お客様が質問したときに ChatGPT や Google AI が御社の名前を挙げるようにすることです",
+  "ko": "사이트 기본은 갖춰져 있습니다. 다음 단계는 고객이 질문할 때 ChatGPT와 Google AI가 귀사의 이름을 언급하게 만드는 것입니다"
+ },
+ "ผมลองตรวจเว็บ {dom} แล้วเจอว่า{finding}": {
+  "en": "I took a look at {dom} and found this: {finding}",
+  "zh": "我看了一下 {dom}，发现：{finding}",
+  "ja": "{dom} を拝見したところ、次の点が見つかりました：{finding}",
+  "ko": "{dom}을(를) 살펴보니 다음과 같은 점이 있었습니다: {finding}"
+ },
+ "เว็บ {dom} ตอนนี้{finding}": {
+  "en": "Right now on {dom}: {finding}",
+  "zh": "{dom} 目前的情况：{finding}",
+  "ja": "{dom} の現状：{finding}",
+  "ko": "{dom}의 현재 상황: {finding}"
+ },
+ "ผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {url}": {
+  "en": "I ran a check for you — the full report is here: {url}",
+  "zh": "我帮你做了检测，完整报告在这里：{url}",
+  "ja": "診断してみました。詳細レポートはこちらです：{url}",
+  "ko": "제가 직접 점검해 보았습니다. 전체 보고서는 여기 있습니다: {url}"
+ },
+ "รายงานเต็ม:": {
+  "en": "Full report:",
+  "zh": "完整报告：",
+  "ja": "詳細レポート：",
+  "ko": "전체 보고서:"
+ },
+ "ถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ": {
+  "en": "If you'd like to know how to fix it, just reply to this email.",
+  "zh": "想知道怎么修复，直接回复这封邮件就行。",
+  "ja": "改善方法を知りたい場合は、このメールにご返信ください。",
+  "ko": "해결 방법이 궁금하시면 이 메일에 회신해 주십시오."
+ },
+ "{dom}: ลูกค้าหาคุณใน Google และ AI เจอไหม?": {
+  "en": "{dom}: can customers find you on Google and AI?",
+  "zh": "{dom}：客户能在 Google 和 AI 上找到你吗？",
+  "ja": "{dom}：お客様は Google や AI であなたを見つけられていますか？",
+  "ko": "{dom}: 고객이 Google과 AI에서 귀사를 찾을 수 있습니까?"
+ },
+ "{label} ({count} จุด)": {
+  "en": "{label} ({count} places)",
+  "zh": "{label}（{count} 处）",
+  "ja": "{label}（{count} か所）",
+  "ko": "{label} ({count}곳)"
+ },
+ "คะแนนสุขภาพเว็บ {score}/100 จาก {pages} หน้าที่ไต่": {
+  "en": "a site health score of {score}/100 across the {pages} pages crawled",
+  "zh": "网站健康分 {score}/100（共抓取 {pages} 个页面）",
+  "ja": "サイト健全性スコア {score}/100（クロールした {pages} ページ）",
+  "ko": "사이트 상태 점수 {score}/100 (크롤링한 {pages}개 페이지 기준)"
+ },
+ "{competitor} ติด 10 อันดับแรกของ Google ใน {hits} จาก {total} คำค้นที่ลูกค้าใช้หา ส่วนเว็บนี้ติดหน้าแรก {n} คำ": {
+  "en": "{competitor} is in Google's top 10 for {hits} of the {total} searches customers use, while this site is on page one for {n}",
+  "zh": "{competitor} 在客户常用的 {total} 个搜索词中有 {hits} 个进入 Google 前 10 名，而这个网站只有 {n} 个在首页",
+  "ja": "{competitor} はお客様がよく使う検索語 {total} 件のうち {hits} 件で Google の上位10位に入っていますが、このサイトが1ページ目に出るのは {n} 件です",
+  "ko": "{competitor}은(는) 고객이 사용하는 검색어 {total}개 중 {hits}개에서 Google 상위 10위 안에 들지만, 이 사이트는 첫 페이지에 {n}개만 나옵니다"
+ },
+ "คำค้นที่ตรวจ เช่น \"{keyword}\"": {
+  "en": "searches checked include \"{keyword}\"",
+  "zh": "检测的搜索词例如“{keyword}”",
+  "ja": "確認した検索語の例：「{keyword}」",
+  "ko": "점검한 검색어 예: \"{keyword}\""
+ },
+ "ถาม ChatGPT {asked} คำถามที่ลูกค้าถาม เว็บนี้ถูกเอ่ยถึง {mentioned} ครั้ง": {
+  "en": "when we asked ChatGPT {asked} questions customers ask, this site was mentioned {mentioned} times",
+  "zh": "我们向 ChatGPT 提了 {asked} 个客户常问的问题，这个网站被提到 {mentioned} 次",
+  "ja": "お客様がよくする質問を ChatGPT に {asked} 問たずねたところ、このサイトへの言及は {mentioned} 回でした",
+  "ko": "고객이 묻는 질문 {asked}개를 ChatGPT에 물었더니 이 사이트는 {mentioned}번 언급되었습니다"
+ },
+ "ต่อจากผลตรวจที่ส่งไปเมื่อไม่กี่วันก่อน ผมไต่เว็บ {dom} ทั้งเว็บแล้วเจอเพิ่มอีกเรื่อง": {
+  "en": "Following up on the site check I sent a few days ago: I crawled all of {dom} and found one more thing",
+  "zh": "接着几天前发给你的检测结果，我抓取了整个 {dom}，又发现了一个问题",
+  "ja": "数日前にお送りした診断結果の続きです。{dom} 全体をクロールしたところ、もう1点見つかりました",
+  "ko": "며칠 전 보내 드린 진단 결과에 이어, {dom} 전체를 크롤링해 보니 한 가지가 더 있었습니다"
+ },
+ " คือ{fact}": {
+  "en": ": {fact}",
+  "zh": "：{fact}",
+  "ja": "：{fact}",
+  "ko": ": {fact}"
+ },
+ " ที่ทำให้ Google และ AI ข้ามบางหน้าไป": {
+  "en": " that makes Google and AI skip some pages.",
+  "zh": "，导致 Google 和 AI 跳过了部分页面。",
+  "ja": "。Google や AI が一部のページを読み飛ばしてしまう問題です。",
+  "ko": ". Google과 AI가 일부 페이지를 건너뛰게 만드는 문제입니다."
+ },
+ "รายละเอียดกับวิธีแก้อยู่ในรายงาน: {url}": {
+  "en": "Details and how to fix it are in the report: {url}",
+  "zh": "详情和修复方法见报告：{url}",
+  "ja": "詳細と改善方法はレポートにあります：{url}",
+  "ko": "자세한 내용과 해결 방법은 보고서에 있습니다: {url}"
+ },
+ "ถ้าอยากให้ช่วยดูว่าควรแก้อะไรก่อน ตอบกลับได้เลยครับ": {
+  "en": "If you'd like help figuring out what to fix first, just reply.",
+  "zh": "如果需要帮忙看看先修哪个，直接回复就行。",
+  "ja": "何から直すべきか一緒に確認したい場合は、お気軽にご返信ください。",
+  "ko": "무엇부터 고쳐야 할지 도움이 필요하시면 회신해 주십시오."
+ },
+ "เจอเพิ่มอีกเรื่องบนเว็บ {dom}": {
+  "en": "One more thing I found on {dom}",
+  "zh": "在 {dom} 上又发现一个问题",
+  "ja": "{dom} でもう1点見つかりました",
+  "ko": "{dom}에서 한 가지 더 발견했습니다"
+ },
+ "อีกมุมจากรายงานของเว็บ {dom}: ตอนลูกค้าค้นหาบริการแบบของคุณ ": {
+  "en": "Another angle from the {dom} report: when customers search for a service like yours, ",
+  "zh": "{dom} 报告里的另一个角度：当客户搜索你这类服务时，",
+  "ja": "{dom} のレポートから別の視点です。お客様があなたのようなサービスを検索すると、",
+  "ko": "{dom} 보고서의 또 다른 측면입니다. 고객이 귀사와 같은 서비스를 검색할 때, "
+ },
+ "มีเว็บอื่นขึ้นมาแทน": {
+  "en": "other sites show up instead",
+  "zh": "出现的是其他网站",
+  "ja": "他のサイトが表示されます",
+  "ko": "다른 사이트가 대신 나옵니다"
+ },
+ "ดูได้ในรายงาน: {url}": {
+  "en": "You can see it in the report: {url}",
+  "zh": "可在报告中查看：{url}",
+  "ja": "レポートでご覧いただけます：{url}",
+  "ko": "보고서에서 확인하실 수 있습니다: {url}"
+ },
+ "ถ้าอยากรู้ว่าต้องทำอะไรถึงจะขึ้นไปแทนได้ ตอบกลับได้เลยครับ": {
+  "en": "If you'd like to know what it would take to show up there instead, just reply.",
+  "zh": "如果想知道怎么做才能取而代之，直接回复就行。",
+  "ja": "代わりに上位に出るには何が必要か知りたい場合は、お気軽にご返信ください。",
+  "ko": "대신 상위에 오르려면 무엇이 필요한지 궁금하시면 회신해 주십시오."
+ },
+ "ใครขึ้น Google แทน {dom} ตอนลูกค้าค้นหา": {
+  "en": "Who shows up on Google instead of {dom}",
+  "zh": "客户搜索时，谁在 Google 上取代了 {dom}",
+  "ja": "お客様の検索で {dom} の代わりに出ているサイト",
+  "ko": "고객 검색 시 {dom} 대신 Google에 나오는 곳"
+ },
+ "ผมส่งผลตรวจเว็บ {dom} ไปสองสามครั้งแล้ว ไม่อยากรบกวนเกินไป ฉบับนี้จะเป็นฉบับสุดท้ายครับ": {
+  "en": "I've sent the {dom} site check a couple of times now and don't want to bother you, so this will be my last email.",
+  "zh": "关于 {dom} 的检测结果我已经发过两三次了，不想过多打扰，这将是最后一封。",
+  "ja": "{dom} の診断結果を何度かお送りしましたが、ご迷惑をおかけしたくないので、今回が最後のご連絡です。",
+  "ko": "{dom} 진단 결과를 두세 번 보내 드렸는데, 너무 번거롭게 해 드리고 싶지 않아 이번이 마지막 메일입니다."
+ },
+ "รายงานยังเปิดดูได้ที่ {url} ถ้าวันไหนพร้อม ตอบกลับมาคำเดียวว่า \"สนใจ\" ผมจะส่งแผนแก้และราคาให้": {
+  "en": "The report is still available at {url}. Whenever you're ready, just reply with one word, \"interested\", and I'll send over a fix plan and pricing.",
+  "zh": "报告仍可在 {url} 查看。哪天准备好了，只需回复“感兴趣”，我会把修复方案和报价发给你。",
+  "ja": "レポートは引き続き {url} でご覧いただけます。ご準備ができましたら「興味あり」とひと言ご返信いただければ、改善プランと料金をお送りします。",
+  "ko": "보고서는 계속 {url}에서 보실 수 있습니다. 준비되시면 \"관심 있음\" 한마디만 회신해 주십시오. 개선 계획과 가격을 보내 드리겠습니다."
+ },
+ "ขอบคุณครับ": {
+  "en": "Thank you.",
+  "zh": "谢谢。",
+  "ja": "ありがとうございました。",
+  "ko": "감사합니다."
+ },
+ "ปิดแฟ้มผลตรวจเว็บ {dom}": {
+  "en": "Closing the file on the {dom} site check",
+  "zh": "{dom} 网站检测结案",
+  "ja": "{dom} のサイト診断の件（最後のご連絡）",
+  "ko": "{dom} 사이트 진단 건 마무리"
+ },
+ "รายงาน:": {
+  "en": "Report:",
+  "zh": "报告：",
+  "ja": "レポート：",
+  "ko": "보고서:"
+ },
+ "สวัสดีครับ ขอบคุณที่ตอบกลับมาครับ": {
+  "en": "Hi, thanks for getting back to me.",
+  "zh": "你好，谢谢你的回复。",
+  "ja": "ご返信いただきありがとうございます。",
+  "ko": "안녕하십니까. 회신해 주셔서 감사합니다."
+ },
+ "เรื่องที่ถามมา ผมขอเช็กให้ชัดแล้วตอบกลับภายในวันนี้ครับ ระหว่างนี้ดูรายละเอียดของเว็บคุณได้ที่ {url}": {
+  "en": "Let me double-check your question and get back to you today. In the meantime, you can see the details for your site here: {url}",
+  "zh": "你问的问题我先确认清楚，今天内回复你。在此期间，可以在这里查看你网站的详情：{url}",
+  "ja": "ご質問の件は確認のうえ、本日中にご回答いたします。それまでの間、サイトの詳細はこちらでご覧いただけます：{url}",
+  "ko": "문의하신 내용은 확인 후 오늘 안에 답변드리겠습니다. 그동안 사이트 세부 내용은 여기에서 보실 수 있습니다: {url}"
+ },
+ "รับเรื่องแล้วครับ เรื่องนี้ขอให้ผู้ดูแลตอบเองเพื่อความถูกต้อง จะติดต่อกลับภายในวันทำการนี้": {
+  "en": "Got it. To make sure you get an accurate answer, a member of our team will reply to this personally within this business day.",
+  "zh": "收到。为确保准确，这个问题会由我们的负责人亲自回复，将在本工作日内联系你。",
+  "ja": "承知しました。正確にお答えするため、この件は担当者から直接、本営業日中にご回答いたします。",
+  "ko": "접수했습니다. 정확한 답변을 위해 이 건은 담당자가 직접 오늘 영업일 안에 답변드리겠습니다."
+ },
+ "เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้": {
+  "en": "A member of our team will follow up on this within this business day.",
+  "zh": "这个问题会请负责人补充回复，将在本工作日内联系你。",
+  "ja": "この件は担当者から補足して、本営業日中にご連絡いたします。",
+  "ko": "이 건은 담당자가 오늘 영업일 안에 추가로 답변드리겠습니다."
+ },
+ "วันนี้ถามได้ครบแล้วครับ ทิ้งคำถามไว้ทางอีเมลได้ ทีมงานจะตอบให้": {
+  "en": "You've reached today's question limit. Feel free to send your question by email and our team will reply.",
+  "zh": "今天的提问次数已用完。可以通过邮件留下问题，团队会回复你。",
+  "ja": "本日の質問回数の上限に達しました。メールでご質問いただければ、担当者がお答えします。",
+  "ko": "오늘 질문 가능 횟수를 모두 사용하셨습니다. 이메일로 질문을 남겨 주시면 담당자가 답변드리겠습니다."
+ },
+ "ลิงก์ชำระเงิน {number}": {
+  "en": "Payment link for {number}",
+  "zh": "{number} 付款链接",
+  "ja": "{number} のお支払いリンク",
+  "ko": "{number} 결제 링크"
+ },
+ "สวัสดีครับ ตามที่คุยทางโทรศัพท์ ลิงก์ใบเสนอราคาและชำระเงินอยู่ที่นี่ครับ": {
+  "en": "Hi, as we discussed on the phone, here's the link to your quote and payment:",
+  "zh": "你好，按电话中沟通的，报价单和付款链接在这里：",
+  "ja": "お電話でお話ししたとおり、見積書とお支払いのリンクはこちらです：",
+  "ko": "안녕하십니까. 통화에서 말씀드린 대로 견적서 및 결제 링크는 다음과 같습니다:"
+ },
+ "จ่ายแล้วระบบเปิดบัญชีและเริ่มงานวันเดียวกัน": {
+  "en": "Once it's paid, your account is opened and work starts the same day.",
+  "zh": "付款后，系统会在当天开通账户并开始工作。",
+  "ja": "お支払い後、当日中にアカウントを開設し作業を開始します。",
+  "ko": "결제하시면 당일에 계정이 개설되고 작업이 시작됩니다."
+ },
+ "ค่าแนะนำ {pct}% ของค่าบริการ (ก่อน VAT) {months} เดือนแรกของลูกค้าแต่ละราย จ่ายทุกเดือน": {
+  "en": "Referral fee: {pct}% of each client's service fees (before VAT) for their first {months} months, paid monthly",
+  "zh": "推荐费：每位客户前 {months} 个月服务费（不含 VAT）的 {pct}%，按月支付",
+  "ja": "紹介料：各お客様の最初の {months} か月分のサービス料金（VAT 抜き）の {pct}%。毎月お支払いします",
+  "ko": "추천 수수료: 고객별 첫 {months}개월 서비스 요금(VAT 제외)의 {pct}%, 매월 지급"
+ },
+ "หลังพ้นช่วงคืนเงิน {days} วัน": {
+  "en": " once the {days}-day refund window has passed",
+  "zh": "，在 {days} 天退款期过后支付",
+  "ja": "（{days}日間の返金期間の経過後）",
+  "ko": " ({days}일 환불 기간이 지난 후)"
+ }
+}

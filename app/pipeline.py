@@ -51,9 +51,20 @@ def quote_url(q) -> str:
     return f"{public_base()}/q/{q['token']}"
 
 
-def outreach_footer(lead) -> str:
-    return (f"\n\n— เจอ.AI (ข้อความนี้ส่งจากระบบอัตโนมัติ) · ไม่อยากรับการติดต่อจากเรา กดที่ {unsubscribe_url(lead)} "
-            "เราจะไม่ติดต่ออีก")
+def lead_lang(lead) -> str:
+    """ภาษาที่ลีดเลือกบนเว็บ (ลีดที่เราหาเอง/นำเข้า = ไทย)"""
+    return db.row_lang(lead)
+
+
+def _tl(lang: str):
+    from . import i18n
+    return lambda s, **kw: i18n.tr(s, lang, **kw)
+
+
+def outreach_footer(lead, lang: str | None = None) -> str:
+    lang = lang or lead_lang(lead)
+    return "\n\n" + _tl(lang)("— เจอ.AI (ข้อความนี้ส่งจากระบบอัตโนมัติ) · ไม่อยากรับการติดต่อจากเรา กดที่ {url} เราจะไม่ติดต่ออีก",
+                              url=unsubscribe_url(lead))
 
 
 def alert_admins(message: str, link: str, type_: str = "lead", subject: str | None = None) -> None:
@@ -173,7 +184,9 @@ def send_channel(lead) -> str:
 
 def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
     """ส่งถึงลูกค้าทางที่มี: อีเมลที่ส่งได้ก่อน → LINE → ไม่มี (คืน '' ให้คนส่งเอง)
-    plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)"""
+    plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)
+    ข้อความมาเป็นภาษาของลีดแล้ว (lead.lang) — กรอบอีเมลแปลตามภาษาเดียวกัน"""
+    lang = lead_lang(lead)
     if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
         from . import deliverability
         if not deliverability.mx_ok(lead["email"]):          # โดเมนผู้รับไม่มีเซิร์ฟเวอร์รับอีเมล → ส่งไปเด้งแน่ ไม่ส่ง และล้างอีเมลทิ้ง
@@ -183,9 +196,9 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
         if plain:
             from . import deliverability
             fa, fn = deliverability.active_from()
-            mailer.send_plain(lead["email"], subject, body, unsubscribe_url(lead), fa, fn)
+            mailer.send_plain(lead["email"], subject, body, unsubscribe_url(lead), fa, fn, **mailer.lang_kw(lang))
         else:
-            mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>"), text=body)
+            mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>", lang=lang), text=body)
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
     if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
         return "ส่งทาง LINE แล้ว"
@@ -212,7 +225,7 @@ def execute_decision(d, who: str) -> str:
             record(lead["id"], "note", "อนุมัติข้อความทักแล้วแต่ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ (เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่)", who)
             return "ส่งไม่ได้ — ไม่มีอีเมล/LINE ที่ส่งได้ สถานะยังเป็นเดิม เติมอีเมลที่หน้าลูกค้าแล้วกดให้ CEO เสนอใหม่"
         body = pl.get("body", "") + outreach_footer(lead)
-        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", body, plain=True)
+        sent = _send_text(lead, pl.get("subject") or _tl(lead_lang(lead))("ผลตรวจเว็บ {dom}", dom=lead["domain"]), body, plain=True)
         if not sent:
             record(lead["id"], "note", "ส่งข้อความทักไม่สำเร็จ (ช่องทางไม่ตอบ) — ลองใหม่ได้จากหน้าลูกค้า", who)
             return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ สถานะยังเป็นเดิม"
@@ -248,10 +261,10 @@ def execute_decision(d, who: str) -> str:
         if not (to and mailer.is_deliverable(to) and mailer.config()):
             return "ส่งไม่ได้ — ไม่มีอีเมลที่ส่งได้"
         body = pl.get("body", "") + outreach_footer(lead)
-        subj = pl.get("subject") or f"เรื่องเว็บ {lead['domain']}"
+        subj = pl.get("subject") or _tl(lead_lang(lead))("เรื่องเว็บ {dom}", dom=lead["domain"])
         from . import deliverability
         fa, fn = deliverability.active_from()
-        mailer.send_plain(to, subj, body, unsubscribe_url(lead), fa, fn)        # ตอบในรูปแบบและจากที่อยู่เดียวกับอีเมลทัก
+        mailer.send_plain(to, subj, body, unsubscribe_url(lead), fa, fn, **mailer.lang_kw(lead_lang(lead)))        # ตอบในรูปแบบและจากที่อยู่เดียวกับอีเมลทัก
         record(lead["id"], "note", f"ตอบอีเมลลูกค้าแล้ว: {pl.get('body', '')[:200]}", who)
         return f"ตอบอีเมลถึง {to} แล้ว"
     if d["kind"] == "followup" and lead:
@@ -259,7 +272,7 @@ def execute_decision(d, who: str) -> str:
         why = followup.eligible(lead)
         if why or followup.history(lead["id"])["replied"]:
             return f"ไม่ส่ง — {why or 'ลูกค้าตอบกลับแล้ว'}"
-        sent = _send_text(lead, pl.get("subject") or f"ผลตรวจเว็บ {lead['domain']}", pl.get("body", "") + outreach_footer(lead), plain=True)
+        sent = _send_text(lead, pl.get("subject") or _tl(lead_lang(lead))("ผลตรวจเว็บ {dom}", dom=lead["domain"]), pl.get("body", "") + outreach_footer(lead), plain=True)
         if not sent:
             return "ส่งไม่สำเร็จ — ช่องทางไม่ตอบ"
         db.update_lead(lead["id"], last_contacted_at=db.now())
@@ -388,12 +401,16 @@ def send_quote(q, who: str = "admin", revised: bool = False) -> str:
     if lead["status"] == "unsubscribed":
         return "ไม่ส่ง — ลูกค้าขอไม่รับการติดต่อ"
     url = quote_url(q)
-    greet = lead["name"] or f"ทีม {lead['domain']}"
-    intro = (f"ผมปรับใบเสนอราคา {q['number']} สำหรับเว็บ {lead['domain']} ให้ใหม่ครับ (ลิงก์เดิม) ช่วยเปิดดูและยืนยันอีกครั้ง" if revised
-             else f"ตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {lead['domain']} มาให้ครับ")
-    body = (f"สวัสดีครับ คุณ{greet}\n\n{intro}\n\n{Q.summary_text(q, lead['domain'])}\n\n"
-            f"เปิดดูรายละเอียด เงื่อนไข และยืนยันรับข้อเสนอได้ที่ {url}\nมีคำถามตอบอีเมลนี้ได้เลยครับ" + outreach_footer(lead))
-    sent = _send_text(lead, f"{'ปรับ' if revised else ''}ใบเสนอราคา {q['number']} สำหรับ {lead['domain']}", body)
+    lang = lead_lang(lead)
+    t = _tl(lang)
+    dom, num = lead["domain"], q["number"]
+    greet = lead["name"] or t("ทีม {dom}", dom=dom)
+    intro = (t("ผมปรับใบเสนอราคา {number} สำหรับเว็บ {dom} ให้ใหม่ครับ (ลิงก์เดิม) ช่วยเปิดดูและยืนยันอีกครั้ง", number=num, dom=dom) if revised
+             else t("ตามที่สนใจ ผมส่งใบเสนอราคาสำหรับเว็บ {dom} มาให้ครับ", dom=dom))
+    body = (t("สวัสดีครับ คุณ{greet}", greet=greet) + f"\n\n{intro}\n\n{Q.summary_text(q, dom, lang)}\n\n"
+            + t("เปิดดูรายละเอียด เงื่อนไข และยืนยันรับข้อเสนอได้ที่ {url}", url=url) + "\n" + t("มีคำถามตอบอีเมลนี้ได้เลยครับ") + outreach_footer(lead, lang))
+    sent = _send_text(lead, (t("ปรับใบเสนอราคา {number} สำหรับ {dom}", number=num, dom=dom) if revised
+                             else t("ใบเสนอราคา {number} สำหรับ {dom}", number=num, dom=dom)), body)
     db.update_quote(q["id"], status="sent", sent_at=db.now())
     db.update_lead(lead["id"], status="quoted", last_contacted_at=db.now())
     _cancel_pending(lead["id"], {"outreach", "lead_review"}, f"ส่งใบเสนอราคา {q['number']} แล้ว")
@@ -450,6 +467,7 @@ def provision_customer(q) -> dict:
     else:
         temp_pw = secrets.token_urlsafe(9)
         tid = db.create_tenant(email, _hash_pw(temp_pw), lead["name"] or lead["domain"], is_admin=False)
+        db.set_tenant_lang(tid, lead_lang(lead))          # อีเมลถึงลูกค้าหลังเปิดบัญชีใช้ภาษาที่เขาเลือกบนเว็บ
         created = True
     db.set_plan(tid, q["package"])
     existing = [b for b in db.list_all_brands() if leads.domain_of(b["domain"]) == lead["domain"]]
@@ -480,6 +498,10 @@ def confirm_payment(q, who: str = "admin") -> str:
     record(lead["id"], "provisioned", f"บัญชี #{prov['tenant_id']} ({'ใหม่' if prov['created'] else 'เดิม'}) · แบรนด์ #{prov['brand_id']}", who)
     record(lead["id"], "won", f"แพ็กเกจ {q['package']} " + (f"รายปี {Q.period_total(q):,} บาท/ปี (เทียบ {q['net']:,}/เดือน)" if Q.cycle_of(q) == "year" else f"{q['net']:,} บาท/เดือน"), who)
     base = public_base()
+    lang = db.customer_lang(lead, db.get_tenant(prov["tenant_id"]))
+    t = _tl(lang)
+    dom, num = lead["domain"], q["number"]
+    cyc = t("รายปี") if Q.cycle_of(q) == "year" else t("รายเดือน")
     note = ""
     if prev:
         from . import expansion
@@ -487,24 +509,25 @@ def confirm_payment(q, who: str = "admin") -> str:
         note = f" · อัปเกรดจาก {prev[0]['number']}" + (f" · {stop}" if stop else "")
         if mailer.is_deliverable(prov["email"]) and mailer.config():
             try:
-                mailer.send(prov["email"], f"อัปเกรด {lead['domain']} เรียบร้อยแล้ว",
-                            mailer.wrap_html("อัปเกรดเรียบร้อยแล้ว", f"<p>เรายืนยันยอดชำระตามใบเสนอราคา {q['number']} แล้ว บัญชีของ {_html.escape(lead['domain'])} เปลี่ยนเป็นแพ็กเกจ "
-                                             f"{_html.escape(q['package'])} {'รายปี' if Q.cycle_of(q) == 'year' else 'รายเดือน'} ทันที และเราหยุดเก็บเงินแผนเดิมให้แล้ว</p>"
-                                             f"<p>เข้าใช้งาน: <a href='{base}/login'>{base}/login</a></p>", "ข้อความนี้ส่งจากระบบของเจอ.AI"),
-                            text=f"ยืนยันยอด {q['number']} แล้ว {lead['domain']} เปลี่ยนเป็น {q['package']} ทันที และหยุดเก็บเงินแผนเดิมแล้ว")
+                mailer.send(prov["email"], t("อัปเกรด {dom} เรียบร้อยแล้ว", dom=dom),
+                            mailer.wrap_html(t("อัปเกรดเรียบร้อยแล้ว"), "<p>" + t("เรายืนยันยอดชำระตามใบเสนอราคา {number} แล้ว บัญชีของ {dom} เปลี่ยนเป็นแพ็กเกจ {package} {cycle} ทันที และเราหยุดเก็บเงินแผนเดิมให้แล้ว",
+                                                                                   number=num, dom=_html.escape(dom), package=_html.escape(q["package"]), cycle=cyc) + "</p>"
+                                             + "<p>" + t("เข้าใช้งาน:") + f" <a href='{base}/login'>{base}/login</a></p>", "ข้อความนี้ส่งจากระบบของเจอ.AI", lang=lang),
+                            text=t("ยืนยันยอด {number} แล้ว {dom} เปลี่ยนเป็น {package} ทันที และหยุดเก็บเงินแผนเดิมแล้ว", number=num, dom=dom, package=q["package"]))
             except Exception:
                 pass
     elif mailer.is_deliverable(prov["email"]) and mailer.config():
-        pw_line = f"<p>รหัสผ่านชั่วคราว: <code>{_html.escape(prov['temp_password'])}</code> — เข้าแล้วเปลี่ยนได้ที่เมนู <b>บัญชี → เปลี่ยนรหัสผ่าน</b></p>" if prov["temp_password"] else "<p>ใช้บัญชีเดิมที่มีอยู่เข้าสู่ระบบได้เลย</p>"
-        html = mailer.wrap_html(f"บัญชีของ {lead['domain']} พร้อมแล้ว",
-                                f"<p>ขอบคุณที่ใช้บริการเจอ.AI ครับ เรายืนยันยอดชำระตามใบเสนอราคา {q['number']} แล้ว</p>"
-                                f"<p>เข้าสู่ระบบ: <a href='{base}/login'>{base}/login</a><br>อีเมล: {_html.escape(prov['email'])}</p>{pw_line}"
-                                f"<p>ขั้นต่อไป: เปิดแบรนด์ของคุณในระบบ → หน้า \"ติดตั้ง\" เพื่อเชื่อม /geo, llms.txt และ sitemap เข้ากับเว็บ จากนั้นระบบจะคิดคำถาม วัดผล และร่างคอนเทนต์ให้ทุกสัปดาห์ (เริ่มเป็นโหมดร่าง คุณตรวจก่อนเผยแพร่ได้)</p>"
-                                f"<p>สัญญาบริการ: <a href='{base}/q/{q['token']}/contract'>{base}/q/{q['token']}/contract</a></p>",
-                                "ข้อความนี้ส่งจากระบบของเจอ.AI")
+        pw_line = ("<p>" + t("รหัสผ่านชั่วคราว: <code>{pw}</code> — เข้าแล้วเปลี่ยนได้ที่เมนู <b>บัญชี → เปลี่ยนรหัสผ่าน</b>", pw=_html.escape(prov["temp_password"])) + "</p>"
+                   if prov["temp_password"] else "<p>" + t("ใช้บัญชีเดิมที่มีอยู่เข้าสู่ระบบได้เลย") + "</p>")
+        html = mailer.wrap_html(t("บัญชีของ {dom} พร้อมแล้ว", dom=dom),
+                                "<p>" + t("ขอบคุณที่ใช้บริการเจอ.AI ครับ เรายืนยันยอดชำระตามใบเสนอราคา {number} แล้ว", number=num) + "</p>"
+                                + "<p>" + t("เข้าสู่ระบบ:") + f" <a href='{base}/login'>{base}/login</a><br>" + t("อีเมล:") + f" {_html.escape(prov['email'])}</p>{pw_line}"
+                                + "<p>" + t("ขั้นต่อไป: เปิดแบรนด์ของคุณในระบบ → หน้า \"ติดตั้ง\" เพื่อเชื่อม /geo, llms.txt และ sitemap เข้ากับเว็บ จากนั้นระบบจะคิดคำถาม วัดผล และร่างคอนเทนต์ให้ทุกสัปดาห์ (เริ่มเป็นโหมดร่าง คุณตรวจก่อนเผยแพร่ได้)") + "</p>"
+                                + "<p>" + t("สัญญาบริการ:") + f" <a href='{base}/q/{q['token']}/contract'>{base}/q/{q['token']}/contract</a></p>",
+                                "ข้อความนี้ส่งจากระบบของเจอ.AI", lang=lang)
         try:
-            mailer.send(prov["email"], f"บัญชีเจอ.AI ของ {lead['domain']} พร้อมแล้ว", html,
-                        text=f"ยืนยันยอดชำระ {q['number']} แล้ว เข้าสู่ระบบที่ {base}/login ด้วยอีเมล {prov['email']}")
+            mailer.send(prov["email"], t("บัญชีเจอ.AI ของ {dom} พร้อมแล้ว", dom=dom), html,
+                        text=t("ยืนยันยอดชำระ {number} แล้ว เข้าสู่ระบบที่ {url} ด้วยอีเมล {email}", number=num, url=f"{base}/login", email=prov["email"]))
             note = f" · ส่งอีเมลต้อนรับถึง {prov['email']}"
         except Exception as e:
             note = f" · ส่งอีเมลต้อนรับไม่สำเร็จ ({type(e).__name__})"

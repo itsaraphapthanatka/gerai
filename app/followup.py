@@ -83,49 +83,63 @@ def facts(lead) -> dict:
             "ai": {"mentioned": t2.get("mentioned"), "asked": t2.get("asked")} if t2.get("state") == "done" else None}
 
 
-def _fact_lines(kind: str, f: dict) -> list[str]:
+def _tl(lang: str):
+    from . import i18n
+    return lambda x, **kw: i18n.tr(x, lang, **kw)
+
+
+def _fact_lines(kind: str, f: dict, lang: str = "th") -> list[str]:
+    t = _tl(lang)
     if kind == "new_issue":
-        out = [f"{i['label']} ({i['count']} จุด)" for i in f["issues"]]
-        out += [f"{s['label']}: {s['why']}" for s in f["summary_new"]]
+        out = [t("{label} ({count} จุด)", label=t(i['label']), count=i['count']) for i in f["issues"]]
+        out += [f"{t(s['label'])}: {t(s['why'])}" for s in f["summary_new"]]
         if f["health"] is not None:
-            out.append(f"คะแนนสุขภาพเว็บ {f['health']}/100 จาก {f['pages']} หน้าที่ไต่")
+            out.append(t("คะแนนสุขภาพเว็บ {score}/100 จาก {pages} หน้าที่ไต่", score=f['health'], pages=f['pages']))
         return out[:3]
     if kind == "competitor":
         out = []
         if f["competitors"] and f["n_kw"]:
             c = f["competitors"][0]
-            out.append(f"{c['domain']} ติด 10 อันดับแรกของ Google ใน {c['hits']} จาก {f['n_kw']} คำค้นที่ลูกค้าใช้หา ส่วนเว็บนี้ติดหน้าแรก {f['page1']} คำ")
+            out.append(t("{competitor} ติด 10 อันดับแรกของ Google ใน {hits} จาก {total} คำค้นที่ลูกค้าใช้หา ส่วนเว็บนี้ติดหน้าแรก {n} คำ",
+                         competitor=c['domain'], hits=c['hits'], total=f['n_kw'], n=f['page1']))
         if f["keywords"]:
-            out.append(f"คำค้นที่ตรวจ เช่น \"{f['keywords'][0]}\"")
+            out.append(t("คำค้นที่ตรวจ เช่น \"{keyword}\"", keyword=f['keywords'][0]))
         if f["ai"]:
-            out.append(f"ถาม ChatGPT {f['ai']['asked']} คำถามที่ลูกค้าถาม เว็บนี้ถูกเอ่ยถึง {f['ai']['mentioned']} ครั้ง")
+            out.append(t("ถาม ChatGPT {asked} คำถามที่ลูกค้าถาม เว็บนี้ถูกเอ่ยถึง {mentioned} ครั้ง", asked=f['ai']['asked'], mentioned=f['ai']['mentioned']))
         return out[:3]
     return []
 
 
 def template(lead, kind: str, f: dict, link: str) -> dict:
-    """แบบคนเขียน (เหมือนอีเมลทัก): เรื่องเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน — ไม่มีรายการหัวข้อ ไม่ชวนนัดกี่นาที"""
+    """แบบคนเขียน (เหมือนอีเมลทัก): เรื่องเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน — ไม่มีรายการหัวข้อ ไม่ชวนนัดกี่นาที
+    · ภาษาตามที่ลีดเลือกบนเว็บ (ไทย = ข้อความเดิมทุกตัวอักษร)"""
     from . import deliverability as D
+    lang = db.row_lang(lead)
+    t = _tl(lang)
     dom = lead["domain"]
-    lines = _fact_lines(kind, f)
+    lines = _fact_lines(kind, f, lang)
     first = lines[0] if lines else ""
+    hi = t("สวัสดีครับ")
     if kind == "new_issue":
-        body = (f"สวัสดีครับ\n\nต่อจากผลตรวจที่ส่งไปเมื่อไม่กี่วันก่อน ผมไต่เว็บ {dom} ทั้งเว็บแล้วเจอเพิ่มอีกเรื่อง"
-                + (f" คือ{first}" if first else " ที่ทำให้ Google และ AI ข้ามบางหน้าไป") + f"\n\nรายละเอียดกับวิธีแก้อยู่ในรายงาน: {link}\n\nถ้าอยากให้ช่วยดูว่าควรแก้อะไรก่อน ตอบกลับได้เลยครับ")
-        subj = f"เจอเพิ่มอีกเรื่องบนเว็บ {dom}"
+        body = (hi + "\n\n" + t("ต่อจากผลตรวจที่ส่งไปเมื่อไม่กี่วันก่อน ผมไต่เว็บ {dom} ทั้งเว็บแล้วเจอเพิ่มอีกเรื่อง", dom=dom)
+                + (t(" คือ{fact}", fact=first) if first else t(" ที่ทำให้ Google และ AI ข้ามบางหน้าไป")) + "\n\n"
+                + t("รายละเอียดกับวิธีแก้อยู่ในรายงาน: {url}", url=link) + "\n\n" + t("ถ้าอยากให้ช่วยดูว่าควรแก้อะไรก่อน ตอบกลับได้เลยครับ"))
+        subj = t("เจอเพิ่มอีกเรื่องบนเว็บ {dom}", dom=dom)
     elif kind == "competitor":
-        body = (f"สวัสดีครับ\n\nอีกมุมจากรายงานของเว็บ {dom}: ตอนลูกค้าค้นหาบริการแบบของคุณ "
-                + (f"{first}" if first else "มีเว็บอื่นขึ้นมาแทน") + f"\n\nดูได้ในรายงาน: {link}\n\nถ้าอยากรู้ว่าต้องทำอะไรถึงจะขึ้นไปแทนได้ ตอบกลับได้เลยครับ")
-        subj = f"ใครขึ้น Google แทน {dom} ตอนลูกค้าค้นหา"
+        body = (hi + "\n\n" + t("อีกมุมจากรายงานของเว็บ {dom}: ตอนลูกค้าค้นหาบริการแบบของคุณ ", dom=dom)
+                + (f"{first}" if first else t("มีเว็บอื่นขึ้นมาแทน")) + "\n\n" + t("ดูได้ในรายงาน: {url}", url=link) + "\n\n"
+                + t("ถ้าอยากรู้ว่าต้องทำอะไรถึงจะขึ้นไปแทนได้ ตอบกลับได้เลยครับ"))
+        subj = t("ใครขึ้น Google แทน {dom} ตอนลูกค้าค้นหา", dom=dom)
     else:
-        body = (f"สวัสดีครับ\n\nผมส่งผลตรวจเว็บ {dom} ไปสองสามครั้งแล้ว ไม่อยากรบกวนเกินไป ฉบับนี้จะเป็นฉบับสุดท้ายครับ\n\n"
-                f"รายงานยังเปิดดูได้ที่ {link} ถ้าวันไหนพร้อม ตอบกลับมาคำเดียวว่า \"สนใจ\" ผมจะส่งแผนแก้และราคาให้\n\nขอบคุณครับ")
-        subj = f"ปิดแฟ้มผลตรวจเว็บ {dom}"
+        body = (hi + "\n\n" + t("ผมส่งผลตรวจเว็บ {dom} ไปสองสามครั้งแล้ว ไม่อยากรบกวนเกินไป ฉบับนี้จะเป็นฉบับสุดท้ายครับ", dom=dom) + "\n\n"
+                + t("รายงานยังเปิดดูได้ที่ {url} ถ้าวันไหนพร้อม ตอบกลับมาคำเดียวว่า \"สนใจ\" ผมจะส่งแผนแก้และราคาให้", url=link) + "\n\n" + t("ขอบคุณครับ"))
+        subj = t("ปิดแฟ้มผลตรวจเว็บ {dom}", dom=dom)
     return {"subject": subj, "body": D.sign(body), "source": "template"}
 
 
 def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
-    lines = _fact_lines(kind, f)
+    lang = db.row_lang(lead)
+    lines = _fact_lines(kind, f, lang)
     if kind != "breakup" and not lines:
         out = template(lead, kind, f, link)
         out["source"] = "template (ไม่มีข้อมูลใหม่)"
@@ -142,7 +156,7 @@ def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
               + f"ลิงก์รายงาน (ต้องใส่): {link}\n"
               "กติกา: ห้ามขึ้นต้นด้วย 'ติดตาม' หรือทวงว่าทำไมไม่ตอบ · ห้ามคำว่าการันตี/รับประกันผล · ห้ามบอกราคา · ห้ามสร้างความเร่งด่วนปลอม\n"
               f"รูปแบบ (สำคัญมาก ไม่งั้นตกแท็บโปรโมชัน): {_D.PERSONAL_RULES} · ไม่ต้องลงชื่อ ระบบลงชื่อให้\n"
-              'ตอบ JSON เท่านั้น: {"subject": "...", "body": "... ขึ้นบรรทัดใหม่ด้วย \\n"}')
+              'ตอบ JSON เท่านั้น: {"subject": "...", "body": "... ขึ้นบรรทัดใหม่ด้วย \\n"}') + _D.write_in(lang)
     try:
         raw = llm([{"role": "user", "content": prompt}])
         m = re.search(r"\{[\s\S]*\}", raw or "")
@@ -155,8 +169,10 @@ def draft(lead, kind: str, f: dict, link: str, llm=None) -> dict:
         nums = set(re.findall(r"\d+", body)) - set(re.findall(r"\d+", " ".join(lines) + " " + link + " " + lead["domain"]))
         if nums - {"15", "1", "2", "3"}:
             raise ValueError("มีตัวเลขที่ไม่ได้มาจากข้อมูลจริง")
+        if _D.wrong_language(subject + " " + body, lang):
+            raise ValueError("ไม่ได้เขียนเป็นภาษาของลีด")
         if link not in body:
-            body += f"\n\nรายงาน: {link}"
+            body += "\n\n" + _tl(lang)("รายงาน:") + f" {link}"
         why = _D.personal_problems(body)
         if why:
             raise ValueError(f"ไม่ใช่แบบคนเขียน ({why})")

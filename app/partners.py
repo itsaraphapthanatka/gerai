@@ -207,7 +207,9 @@ def send_invite(d, who: str) -> str:
 
 
 # ---------- สมัคร / อนุมัติ ----------
-def apply(name: str, company: str, email: str, phone: str, website: str, clients: str, payout: str = "", src: str = "") -> tuple[str, int | None]:
+def apply(name: str, company: str, email: str, phone: str, website: str, clients: str, payout: str = "", src: str = "",
+          lang: str | None = None) -> tuple[str, int | None]:
+    """lang = ภาษาของหน้าที่สมัคร (อีเมลต้อนรับ/แจ้งพันธมิตรใช้ภาษานี้) · None = ไม่เปลี่ยน (ผู้ดูแลเพิ่มเอง)"""
     from . import leads
     email = (email or "").strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}", email):
@@ -219,6 +221,9 @@ def apply(name: str, company: str, email: str, phone: str, website: str, clients
     p = db.find_partner(email=email) or (db.find_partner(domain=dom) if dom else None)
     fields = dict(name=name.strip()[:120], company=(company or "").strip()[:160] or None, email=email, phone=(phone or "").strip()[:40] or None,
                   website=site or None, domain=dom or None, clients=(clients or "").strip()[:200] or None, payout=(payout or "").strip()[:300] or None)
+    from . import i18n
+    if i18n.valid(lang):
+        fields["lang"] = i18n.valid(lang)
     if p and p["status"] == "active":
         return "อีเมลนี้เป็นพันธมิตรอยู่แล้ว — ลิงก์แดชบอร์ดส่งไปในอีเมลต้อนรับ", p["id"]
     if p:
@@ -248,13 +253,19 @@ def activate(p, who: str = "admin") -> str:
     _record(p["id"], f"อนุมัติเป็นพันธมิตร ({who}) รหัส {code}")
     note = ""
     if p["email"] and mailer.is_deliverable(p["email"]) and mailer.config():
-        text = (f"สวัสดีครับ คุณ{p['name'] or p['company'] or ''}\n\nยินดีต้อนรับสู่พันธมิตรเจอ.AI ครับ\n\n"
-                f"• ลิงก์แนะนำของคุณ: {ref_url(p)} (ลูกค้าที่ตรวจเว็บฟรีผ่านลิงก์นี้ภายใน {COOKIE_DAYS} วัน นับเป็นของคุณ)\n"
-                f"• แดชบอร์ด (ดูลีด ลูกค้า ค่าแนะนำ และส่งชื่อลูกค้าให้เราโดยตรง): {dash_url(p)}\n"
-                f"• ค่าแนะนำ {pct():g}% ของค่าบริการ (ก่อน VAT) {months()} เดือนแรกของลูกค้าแต่ละราย จ่ายทุกเดือนหลังพ้นช่วงคืนเงิน 7 วัน\n\n"
-                "กติกาสั้น ๆ: ไม่การันตีอันดับหรือผลลัพธ์กับลูกค้า · ส่งชื่อลูกค้าเฉพาะคนที่ยินยอมแล้ว · ไม่ส่งอีเมลเหมารวม\n\nทีมพันธมิตร เจอ.AI")
+        from . import i18n
+        lang = db.row_lang(p)                               # ภาษาของหน้าที่พันธมิตรสมัคร
+        from . import execs
+        t = lambda x, **kw: i18n.tr(x, lang, **kw)
+        text = (t("สวัสดีครับ คุณ{greet}", greet=p['name'] or p['company'] or '') + "\n\n" + t("ยินดีต้อนรับสู่พันธมิตรเจอ.AI ครับ") + "\n\n"
+                + "• " + t("ลิงก์แนะนำของคุณ: {url} (ลูกค้าที่ตรวจเว็บฟรีผ่านลิงก์นี้ภายใน {days} วัน นับเป็นของคุณ)", url=ref_url(p), days=COOKIE_DAYS) + "\n"
+                + "• " + t("แดชบอร์ด (ดูลีด ลูกค้า ค่าแนะนำ และส่งชื่อลูกค้าให้เราโดยตรง): {url}", url=dash_url(p)) + "\n"
+                + "• " + t("ค่าแนะนำ {pct}% ของค่าบริการ (ก่อน VAT) {months} เดือนแรกของลูกค้าแต่ละราย จ่ายทุกเดือน", pct=f"{pct():g}", months=months())
+                + (t("หลังพ้นช่วงคืนเงิน {days} วัน", days=int(execs.MANDATE["refund_days"])) if int(execs.MANDATE["refund_days"] or 0) else "") + "\n\n"
+                + t("กติกาสั้น ๆ: ไม่การันตีอันดับหรือผลลัพธ์กับลูกค้า · ส่งชื่อลูกค้าเฉพาะคนที่ยินยอมแล้ว · ไม่ส่งอีเมลเหมารวม") + "\n\n" + t("ทีมพันธมิตร เจอ.AI"))
         try:
-            mailer.send(p["email"], "ยินดีต้อนรับสู่พันธมิตรเจอ.AI", mailer.wrap_html("ยินดีต้อนรับสู่พันธมิตรเจอ.AI", "<p>" + _html.escape(text).replace("\n", "<br>") + "</p>"), text=text)
+            title = t("ยินดีต้อนรับสู่พันธมิตรเจอ.AI")
+            mailer.send(p["email"], title, mailer.wrap_html(title, "<p>" + _html.escape(text).replace("\n", "<br>") + "</p>", lang=lang), text=text)
             note = f" · ส่งอีเมลต้อนรับถึง {p['email']}"
         except Exception as e:
             note = f" · ส่งอีเมลต้อนรับไม่สำเร็จ ({type(e).__name__})"
@@ -313,8 +324,9 @@ def attribute(lead_id: int, code: str, how: str = "ลิงก์") -> bool:
     return True
 
 
-def submit_client(p, website: str, email: str, name: str, consent: bool) -> str:
-    """พันธมิตรส่งชื่อลูกค้าให้เรา → ลีด + ตรวจเว็บ + CEO เสนอทัก (ระบุว่าแนะนำโดยพันธมิตร)"""
+def submit_client(p, website: str, email: str, name: str, consent: bool, lang: str | None = None) -> str:
+    """พันธมิตรส่งชื่อลูกค้าให้เรา → ลีด + ตรวจเว็บ + CEO เสนอทัก (ระบุว่าแนะนำโดยพันธมิตร)
+    · lang = ภาษาของหน้าแดชบอร์ดที่พันธมิตรเลือกเอง (None = ไม่ได้เลือก → ลีดใหม่เป็นไทย ลีดเดิมคงภาษาเดิม)"""
     from . import leads, pipeline
     if p["status"] != "active":
         return "บัญชีพันธมิตรยังไม่เปิดใช้งาน"
@@ -330,8 +342,9 @@ def submit_client(p, website: str, email: str, name: str, consent: bool) -> str:
     if old and old["status"] not in ("new", "lost"):
         return "เว็บนี้อยู่ในสายขายของเราอยู่แล้ว จึงนับเป็นการแนะนำไม่ได้"
     lid = old["id"] if old else db.add_lead(site, dom, source="partner", email=(email or "").strip().lower() or None)
+    from . import i18n
     db.update_lead(lid, src="partner", consent=1, name=(name or "").strip()[:120] or None,
-                   **({"email": email.strip().lower()} if email and "@" in email else {}))
+                   **({"email": email.strip().lower()} if email and "@" in email else {}), **({"lang": i18n.valid(lang)} if i18n.valid(lang) else {}))
     attribute(lid, p["code"], "ส่งผ่านแดชบอร์ด")
     try:
         pipeline.run_lead_audit(lid, site)

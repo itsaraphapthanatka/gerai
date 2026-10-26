@@ -128,23 +128,36 @@ import threading as _th
 _UNSUB_CTX = _th.local()
 
 
-def send_plain(to: str, subject: str, text: str, unsub_url: str = "", from_addr: str = "", from_name: str = "") -> None:
-    """อีเมลทัก/ติดตามผล: ข้อความแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียวไปที่ลิงก์ของลีด · from_addr = ที่อยู่ส่งอีเมลทักที่แยกไว้"""
+def send_plain(to: str, subject: str, text: str, unsub_url: str = "", from_addr: str = "", from_name: str = "", lang: str = "th") -> None:
+    """อีเมลทัก/ติดตามผล: ข้อความแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียวไปที่ลิงก์ของลีด · from_addr = ที่อยู่ส่งอีเมลทักที่แยกไว้
+    · lang = ภาษาของข้อความ (ใส่ lang ให้ HTML) — ผู้เรียกส่งเฉพาะเมื่อไม่ใช่ไทย (lang_kw) ข้อความไทยเรียกแบบเดิมทุกตัวอักษร"""
     _UNSUB_CTX.url, _UNSUB_CTX.from_addr, _UNSUB_CTX.from_name = unsub_url, from_addr, from_name
     try:
-        send(to, subject, plain_html(text), text=text)
+        send(to, subject, plain_html(text, lang), text=text)
     finally:
         _UNSUB_CTX.url = _UNSUB_CTX.from_addr = _UNSUB_CTX.from_name = ""
 
 
-def plain_html(text: str) -> str:
+def lang_kw(lang: str) -> dict:
+    """{"lang": xx} เฉพาะภาษาอื่นนอกจากไทย — ส่งต่อให้ send_plain โดยการเรียกแบบไทยเหมือนเดิมทุกอย่าง"""
+    return {"lang": lang} if lang and lang != "th" else {}
+
+
+def _t(lang: str):
+    from . import i18n
+    return lambda s, **kw: i18n.tr(s, lang, **kw)
+
+
+def plain_html(text: str, lang: str = "th") -> str:
     """HTML ขั้นต่ำเหมือนอีเมลที่คนพิมพ์ใน Gmail: ไม่มีแบนเนอร์ รูป ตาราง หรือปุ่ม — ตัวกรองไม่จัดเป็นอีเมลการตลาด
     (อีเมลทักแบบมีแบนเนอร์+ปุ่มตกแท็บโปรโมชันในการทดสอบกล่องจริง 23 ต.ค.)"""
     import html as _hh
     import re as _rr
     esc = _hh.escape(text or "")
     esc = _rr.sub(r"(https?://[^\s<]+)", lambda m: f'<a href="{m.group(1)}">{m.group(1)}</a>', esc)
-    return '<div dir="auto">' + esc.replace("\n", "<br>") + "</div>"
+    from . import i18n
+    attr = f' lang="{i18n.HTML_LANG[lang]}"' if lang in i18n.LANGS and lang != "th" else ""
+    return f'<div dir="auto"{attr}>' + esc.replace("\n", "<br>") + "</div>"
 
 
 # ---------- หน้าตาอีเมล (แบบเดียวกับอีเมลแจ้งเตือนของผู้ให้บริการใหญ่: แบนเนอร์ · หัวเรื่องกลาง · ปุ่มหลัก · ท้ายจดหมายบริษัท) ----------
@@ -157,6 +170,8 @@ _CTA_RULES = [("/q/", "ดูใบเสนอราคาและยืนย
               ("/assets", "เปิดชุดติดตั้ง"), ("/content", "ตรวจคอนเทนต์"), ("/report", "ดูรายงาน"), ("/brands/", "เปิดแบรนด์ของคุณ"),
               ("/admin/", "เปิดในระบบ")]
 _UNSUB = _re.compile(r"(?:<br>\s*)*—\s*เจอ\.AI \(ข้อความนี้ส่งจากระบบอัตโนมัติ\).*?(https?://\S+?/u/[\w\-]+).*?เราจะไม่ติดต่ออีก", _re.S)
+# ท้ายจดหมายเดียวกันที่แปลแล้ว (pipeline.outreach_footer ตามภาษาลูกค้า): "— เจอ.AI (…) · … <ลิงก์ /u/…> …" จนจบย่อหน้า
+_UNSUB_ANY = _re.compile(r"(?:<br>\s*)*—\s*เจอ\.AI \([^)<]*\)[^<]*?(https?://[^\s<]+?/u/[\w\-]+)[^<]*", _re.S)
 
 
 def _base_url() -> str:
@@ -194,52 +209,61 @@ def _boxes(body_html: str) -> str:
     return _re.sub(r"(?:•[^<]*(?:<a\b[^>]*>.*?</a>[^<]*)*(?:<br>\s*)?){2,}", rep, body_html)
 
 
-def auto_cta(body_html: str):
-    """ปุ่มหลักจากลิงก์แรกที่สำคัญในเนื้อหา (ใบเสนอราคา/ผลตรวจ/เข้าสู่ระบบ ...) — ไม่ใช้ลิงก์ไม่รับ"""
+def auto_cta(body_html: str, lang: str = "th"):
+    """ปุ่มหลักจากลิงก์แรกที่สำคัญในเนื้อหา (ใบเสนอราคา/ผลตรวจ/เข้าสู่ระบบ ...) — ไม่ใช้ลิงก์ไม่รับ · ชื่อปุ่มตามภาษา lang"""
     for u in _re.findall(r"https?://[^\s<>'\"]+", body_html or ""):
         u = u.rstrip(".,)")
         if "/u/" in u:
             continue
         for key, label in _CTA_RULES:
             if key in u:
-                return label, u
+                return _t(lang)(label), u
     return None
 
 
-def button(label: str, url: str) -> str:
-    """ปุ่มแบบตาราง (bulletproof) — Outlook/Gmail แสดงเหมือนกัน"""
+def button(label: str, url: str, lang: str = "th") -> str:
+    """ปุ่มแบบตาราง (bulletproof) — Outlook/Gmail แสดงเหมือนกัน · ชื่อปุ่มภาษาไทยแปลตาม lang"""
+    label = _t(lang)(label)
     return (f"<table role='presentation' cellspacing='0' cellpadding='0' border='0' align='center' style='margin:26px auto 6px'><tr>"
             f"<td bgcolor='#0a0a0a' style='border-radius:9999px'><a href='{url}' style='display:inline-block;padding:14px 32px;font-size:16px;font-weight:700;"
             f"color:#ffffff;text-decoration:none;border-radius:9999px;font-family:Sarabun,Tahoma,sans-serif'>{_h.escape(label)}</a></td></tr></table>")
 
 
-def wrap_html(title: str, body_html: str, footer: str = "", cta=None, preheader: str = "") -> str:
+def wrap_html(title: str, body_html: str, footer: str = "", cta=None, preheader: str = "", lang: str = "th") -> str:
     """กรอบอีเมลของเจอ.AI — แบนเนอร์แบรนด์ · หัวเรื่องกลาง · เนื้อหา · ปุ่มหลัก (เดาจากลิงก์ถ้าไม่ระบุ · cta=False = ไม่ใส่)
-    · ท้ายจดหมาย "ขอบคุณที่ใช้บริการ" + ข้อมูลบริษัท · ลิงก์ไม่รับย้ายไปท้ายสุดตัวเล็ก · inline style ทั้งหมด (client อีเมลไม่โหลด CSS ภายนอก)"""
+    · ท้ายจดหมาย "ขอบคุณที่ใช้บริการ" + ข้อมูลบริษัท · ลิงก์ไม่รับย้ายไปท้ายสุดตัวเล็ก · inline style ทั้งหมด (client อีเมลไม่โหลด CSS ภายนอก)
+    · lang = ภาษาของลูกค้า: ข้อความคงที่ของกรอบ (ท้ายจดหมาย ลิงก์ไม่รับ ปุ่ม ป้ายข้อมูลบริษัท) แปลตามนั้น · title/เนื้อหา ผู้เรียกแปลมาเอง
+      (footer/preheader ที่เป็นไทยแปลให้ถ้ามีในคลัง) · ชื่อ ที่อยู่ เลขภาษีของบริษัทเป็นข้อมูล ไม่แปล · lang="th" = ผลเหมือนเดิมทุกตัวอักษร"""
+    from . import i18n
+    t = _t(lang)
+    footer, preheader = t(footer) if footer else footer, t(preheader) if preheader else preheader
     base, co = _base_url(), _company()
     unsub = ""
-    m = _UNSUB.search(body_html or "")
+    m = _UNSUB.search(body_html or "") or (_UNSUB_ANY.search(body_html or "") if lang != "th" else None)
     if m:
         unsub = m.group(1)
         body_html = (body_html[:m.start()] + body_html[m.end():]).rstrip()
         body_html = _re.sub(r"(<br>\s*)+(</p>)?\s*$", r"\2", body_html)
     if cta is None:
-        cta = auto_cta(body_html)
+        cta = auto_cta(body_html, lang)
     body = _boxes(_linkify(body_html))
-    btn = button(*cta) if cta else ""
-    info = " · ".join(x for x in [co["address"], ("โทร " + co["phone"]) if co["phone"] else "", co["email"]] if x)
-    tax = f"<br>เลขประจำตัวผู้เสียภาษี {_h.escape(co['tax_id'])}" if co["tax_id"] else ""
+    btn = button(*cta, lang=lang) if cta else ""
+    info = " · ".join(x for x in [co["address"], (t("โทร") + " " + co["phone"]) if co["phone"] else "", co["email"]] if x)
+    tax = f"<br>{t('เลขประจำตัวผู้เสียภาษี')} {_h.escape(co['tax_id'])}" if co["tax_id"] else ""
     pre = f"<div style='display:none;max-height:0;overflow:hidden;opacity:0'>{_h.escape(preheader)}</div>" if preheader else ""
-    unsub_html = (f"<br>ไม่ต้องการรับอีเมลจากเรา <a href='{unsub}' style='color:#8a8a99'>กดที่นี่</a> เราจะไม่ติดต่ออีก") if unsub else ""
-    return f"""<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{_h.escape(title)}</title></head>
+    unsub_html = (t("<br>ไม่ต้องการรับอีเมลจากเรา <a href='{unsub}' style='color:#8a8a99'>กดที่นี่</a> เราจะไม่ติดต่ออีก", unsub=unsub)) if unsub else ""
+    hl = i18n.HTML_LANG.get(lang, "th")
+    alt = t("เจอ.AI — ให้ลูกค้าหาคุณเจอใน Google และ AI")
+    thanks, sig = t("ขอบคุณที่ใช้บริการ"), t("จาก ทีมงาน เจอ.AI")
+    return f"""<!doctype html><html lang="{hl}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{_h.escape(title)}</title></head>
 <body style="margin:0;padding:0;background:#f3f1fb;font-family:Sarabun,'Segoe UI',Tahoma,sans-serif;color:#1c1c2b">{pre}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f1fb"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden">
-  <tr><td bgcolor="#2a1670" style="background:#2a1670"><a href="{base}" style="text-decoration:none"><img src="{base}{BANNER_PATH}" width="600" alt="เจอ.AI — ให้ลูกค้าหาคุณเจอใน Google และ AI"
+  <tr><td bgcolor="#2a1670" style="background:#2a1670"><a href="{base}" style="text-decoration:none"><img src="{base}{BANNER_PATH}" width="600" alt="{alt}"
       style="display:block;width:100%;max-width:600px;height:auto;border:0;color:#ffffff;font-size:22px;font-weight:700;line-height:60px;text-align:center"></a></td></tr>
   <tr><td style="padding:34px 40px 8px;text-align:center"><h1 style="margin:0;font-size:23px;line-height:1.4;color:#1c1c2b;font-weight:700">{title}</h1></td></tr>
   <tr><td style="padding:18px 40px 6px;font-size:16px;line-height:1.75;color:#2d2d3d">{body}{btn}</td></tr>
-  <tr><td style="padding:22px 40px 30px;text-align:right;font-size:15px;line-height:1.6;color:#2d2d3d"><b>ขอบคุณที่ใช้บริการ</b><br>จาก ทีมงาน เจอ.AI</td></tr>
+  <tr><td style="padding:22px 40px 30px;text-align:right;font-size:15px;line-height:1.6;color:#2d2d3d"><b>{thanks}</b><br>{sig}</td></tr>
   <tr><td bgcolor="#efeaff" style="background:#efeaff;padding:22px 30px;text-align:center;font-size:13px;line-height:1.7;color:#4b4b63">
       <div style="font-size:16px;font-weight:700;color:#4a23b8">{_h.escape(co['name'])}</div>{_h.escape(info)}{tax}
       <div style="margin-top:8px"><a href="{base}" style="color:#5b2bd9;text-decoration:none;font-weight:600">geo.appreview.cloud</a></div></td></tr>

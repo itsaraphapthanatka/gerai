@@ -11,11 +11,12 @@ from . import db, office
 
 DAILY_PER_USER = 30
 ESCALATE = [
-    ("ต่อรองราคา/ขอส่วนลด", re.compile(r"ส่วนลด|ลดได้|ลดให้|ลดราคา|ต่อรอง|ถูกกว่านี้|discount|cheaper|ขอราคาพิเศษ", re.I)),
-    ("คืนเงิน/ยกเลิก", re.compile(r"คืนเงิน|refund|ยกเลิกบริการ|ยกเลิกสัญญา|เลิกใช้|unsubscribe me", re.I)),
-    ("สัญญา/กฎหมาย", re.compile(r"แก้สัญญา|เปลี่ยนสัญญา|ข้อสัญญา|ทนาย|ฟ้อง|กฎหมาย|legal|nda|pdpa", re.I)),
-    ("ร้องเรียน/ไม่พอใจ", re.compile(r"ร้องเรียน|ไม่พอใจ|ผิดหวัง|แย่มาก|โกง|หลอก|spam|สแปม|รำคาญ|complain", re.I)),
-    ("ขอคุยกับคน", re.compile(r"ขอคุยกับ|คุยกับคน|เจ้าหน้าที่|แอดมิน|โทรหา|โทรกลับ|ขอเบอร์|นัดคุย|นัดประชุม|call me|human", re.I)),
+    # คำภาษาอื่นต่อท้าย (ลีดที่เลือกภาษาอื่นบนเว็บ) — เรื่องนอกกรอบแบบเดียวกัน
+    ("ต่อรองราคา/ขอส่วนลด", re.compile(r"ส่วนลด|ลดได้|ลดให้|ลดราคา|ต่อรอง|ถูกกว่านี้|discount|cheaper|ขอราคาพิเศษ|折扣|打折|优惠|便宜|割引|値引|할인|깎", re.I)),
+    ("คืนเงิน/ยกเลิก", re.compile(r"คืนเงิน|refund|ยกเลิกบริการ|ยกเลิกสัญญา|เลิกใช้|unsubscribe me|cancel (?:my|the) (?:service|subscription|contract)|退款|退钱|返金|払い戻し|解約|환불|해지", re.I)),
+    ("สัญญา/กฎหมาย", re.compile(r"แก้สัญญา|เปลี่ยนสัญญา|ข้อสัญญา|ทนาย|ฟ้อง|กฎหมาย|legal|nda|pdpa|lawyer|合同|律师|契約書|弁護士|계약서|변호사", re.I)),
+    ("ร้องเรียน/ไม่พอใจ", re.compile(r"ร้องเรียน|ไม่พอใจ|ผิดหวัง|แย่มาก|โกง|หลอก|spam|สแปม|รำคาญ|complain|scam|投诉|骗|苦情|詐欺|불만|사기", re.I)),
+    ("ขอคุยกับคน", re.compile(r"ขอคุยกับ|คุยกับคน|เจ้าหน้าที่|แอดมิน|โทรหา|โทรกลับ|ขอเบอร์|นัดคุย|นัดประชุม|call me|human|real person|人工|客服|担当者|電話|담당자|상담원|전화", re.I)),
     ("งานองค์กร/งานพิเศษ", re.compile(r"องค์กร|enterprise|หลายสาขา|หลายเว็บ|white ?label|custom|ทำเว็บใหม่|ทำเว็บให้|ออกแบบเว็บ|รับทำเว็บ", re.I)),
     ("ชำระเงินมีปัญหา", re.compile(r"จ่ายไม่ได้|ตัดบัตรไม่ผ่าน|โอนแล้ว|ชำระแล้ว|ใบกำกับ.*ผิด|ใบเสร็จ.*ผิด|เงินเข้า", re.I)),
 ]
@@ -97,14 +98,18 @@ def escalation(text: str) -> str | None:
     return None
 
 
-def answer(question: str, lead=None, channel: str = "line", llm=None) -> dict:
-    """คืน {answer, escalate (เหตุผล|None), source} — เรื่องนอกกรอบ = HOLD + escalate · ตัวเลขนอกคลัง = ไม่ใช้คำตอบโมเดล"""
-    from . import execs
+def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str | None = None) -> dict:
+    """คืน {answer, escalate (เหตุผล|None), source} — เรื่องนอกกรอบ = HOLD + escalate · ตัวเลขนอกคลัง = ไม่ใช้คำตอบโมเดล
+    · lang = ภาษาที่ตอบ (None = ภาษาที่ลีดเลือกบนเว็บ · ไม่มีลีด = ไทย) · ไทย = prompt/ข้อความเดิมทุกตัวอักษร"""
+    from . import execs, i18n
+    if not i18n.valid(lang):
+        lang = db.row_lang(lead) if lead is not None else "th"
+    t = lambda x: i18n.tr(x, lang)
     q = (question or "").strip()[:1500]
     why = escalation(q)
     facts = knowledge(lead)
     if why and why != "ต่อรองราคา/ขอส่วนลด":
-        return {"answer": HOLD, "escalate": why, "source": "rule"}
+        return {"answer": t(HOLD), "escalate": why, "source": "rule"}
     llm = llm or LLM
     if llm is None:
         from . import ai_client
@@ -117,7 +122,7 @@ def answer(question: str, lead=None, channel: str = "line", llm=None) -> dict:
               "ข้อเท็จจริง:\n- " + "\n- ".join(facts)
               + ("\nลูกค้าขอส่วนลด: บอกส่วนลดรายปีตามข้อเท็จจริง และบอกว่าส่วนลดอื่นต้องให้ผู้ดูแลพิจารณา" if why else "")
               + f"\n\nคำถามลูกค้า: {q}\n"
-              'ตอบ JSON {"answer": "...", "needs_human": false}')
+              'ตอบ JSON {"answer": "...", "needs_human": false}') + D.write_in(lang).replace("หัวข้อและเนื้อหา", "คำตอบ").replace("the subject and body", "the answer")
     try:
         raw = llm([{"role": "user", "content": prompt}])
         m = re.search(r"\{[\s\S]*\}", raw or "")
@@ -127,25 +132,29 @@ def answer(question: str, lead=None, channel: str = "line", llm=None) -> dict:
         bad_nums = _nums(ans) - _nums(" ".join(facts) + " " + q)
         if len(ans) < 10 or execs.FORBIDDEN.search(ans) or bad_nums:
             raise ValueError(f"ไม่ผ่านกติกา{' ตัวเลขนอกคลัง ' + ','.join(sorted(bad_nums))[:60] if bad_nums else ''}")
+        if D.wrong_language(ans, lang):
+            raise ValueError("ไม่ได้ตอบเป็นภาษาของลูกค้า")
         if need:
-            return {"answer": ans + ("\n\n" if ans else "") + "เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้", "escalate": "ข้อมูลไม่พอตอบ", "source": "llm"}
+            return {"answer": ans + ("\n\n" if ans else "") + t("เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้"), "escalate": "ข้อมูลไม่พอตอบ", "source": "llm"}
         if channel == "email":
             ans = D.sign(ans)
         return {"answer": ans[:1500], "escalate": why, "source": "llm"}
     except Exception as e:
-        return {"answer": HOLD, "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback"}
+        return {"answer": t(HOLD), "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback"}
 
 
 LLM = None   # เทสต์ฉีดได้
 
 
 # ---------- บันทึก + ช่องทาง ----------
-def _log(channel: str, user_ref: str, lead, q: str, res: dict, contact: str = "") -> int:
+def _log(channel: str, user_ref: str, lead, q: str, res: dict, contact: str = "", lang: str | None = None) -> int:
+    from . import i18n
+    lg = i18n.valid(lang) or (db.row_lang(lead) if lead is not None else "th")
     with db.get_conn() as c:
-        cur = c.execute(db.q("INSERT INTO sales_chats(created_at,channel,user_ref,lead_id,question,answer,escalated,reason,source,contact) "
-                             "VALUES(?,?,?,?,?,?,?,?,?,?) RETURNING id"),
+        cur = c.execute(db.q("INSERT INTO sales_chats(created_at,channel,user_ref,lead_id,question,answer,escalated,reason,source,contact,lang) "
+                             "VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING id"),
                         (db.now(), channel, (user_ref or "")[:120], lead["id"] if lead else None, q[:2000], res["answer"][:2000],
-                         1 if res.get("escalate") else 0, (res.get("escalate") or "")[:200], res.get("source") or "", contact[:200] or None))
+                         1 if res.get("escalate") else 0, (res.get("escalate") or "")[:200], res.get("source") or "", contact[:200] or None, lg))
         return cur.fetchone()["id"]
 
 
@@ -164,13 +173,15 @@ def _escalate(channel: str, lead, q: str, res: dict, contact: str = "") -> None:
 
 
 @office.track("salesbot", "ตอบแชตลูกค้า")
-def handle(channel: str, user_ref: str, text: str, lead=None, contact: str = "", llm=None) -> dict:
-    """คำถามหนึ่งข้อ → คำตอบ + บันทึก + แจ้งเจ้าของเมื่อต้องส่งต่อ · คืน {answer, escalate, id}"""
+def handle(channel: str, user_ref: str, text: str, lead=None, contact: str = "", llm=None, lang: str | None = None) -> dict:
+    """คำถามหนึ่งข้อ → คำตอบ + บันทึก + แจ้งเจ้าของเมื่อต้องส่งต่อ · คืน {answer, escalate, id} · lang = ภาษาของหน้าที่ถาม (แชตบนเว็บ)"""
+    from . import i18n
     q = (text or "").strip()
     if _count_today(channel, user_ref) >= DAILY_PER_USER:
-        return {"answer": "วันนี้ถามได้ครบแล้วครับ ทิ้งคำถามไว้ทางอีเมลได้ ทีมงานจะตอบให้", "escalate": None, "id": None, "limited": True}
-    res = answer(q, lead, channel, llm)
-    cid = _log(channel, user_ref, lead, q, res, contact)
+        lg = i18n.valid(lang) or (db.row_lang(lead) if lead is not None else "th")
+        return {"answer": i18n.tr("วันนี้ถามได้ครบแล้วครับ ทิ้งคำถามไว้ทางอีเมลได้ ทีมงานจะตอบให้", lg), "escalate": None, "id": None, "limited": True}
+    res = answer(q, lead, channel, llm, **({"lang": lang} if i18n.valid(lang) else {}))
+    cid = _log(channel, user_ref, lead, q, res, contact, lang)
     if lead:
         from . import pipeline
         pipeline.record(lead["id"], "chat", f"ถามทาง{ {'line': 'LINE', 'web': 'แชตบนเว็บ', 'email': 'อีเมล'}.get(channel, channel)}: {q[:150]}"
@@ -183,13 +194,19 @@ def handle(channel: str, user_ref: str, text: str, lead=None, contact: str = "",
     return {**res, "id": cid}
 
 
-def add_contact(chat_id: int, contact: str) -> bool:
-    """ผู้เยี่ยมชมเว็บทิ้งช่องทางติดต่อหลังคำถามที่ส่งต่อเจ้าของ (ยินยอมแล้ว)"""
+def add_contact(chat_id: int, contact: str, lang: str | None = None) -> bool:
+    """ผู้เยี่ยมชมเว็บทิ้งช่องทางติดต่อหลังคำถามที่ส่งต่อเจ้าของ (ยินยอมแล้ว) · lang = ภาษาที่เขาเลือกบนเว็บ (บันทึกที่แชต และที่ลีดถ้ามี)"""
+    from . import i18n
+    lg = i18n.valid(lang)
     with db.get_conn() as c:
         row = c.execute(db.q("SELECT * FROM sales_chats WHERE id=?"), (chat_id,)).fetchone()
         if not row or row["channel"] != "web":
             return False
         c.execute(db.q("UPDATE sales_chats SET contact=? WHERE id=?"), (contact[:200], chat_id))
+        if lg:
+            c.execute(db.q("UPDATE sales_chats SET lang=? WHERE id=?"), (lg, chat_id))
+    if lg and row["lead_id"]:
+        db.update_lead(row["lead_id"], lang=lg)
     from . import pipeline
     pipeline.alert_admins(f"💬 ผู้เยี่ยมชมเว็บทิ้งช่องทางติดต่อ: {contact[:120]} · คำถาม: {row['question'][:160]}", "/admin/salesbot", "lead")
     return True

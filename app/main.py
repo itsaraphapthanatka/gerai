@@ -62,7 +62,26 @@ async def _remember_lang(request: Request, call_next):
     resp = await call_next(request)
     if want and request.cookies.get(i18n.COOKIE) != want:
         resp.set_cookie(i18n.COOKIE, want, max_age=365 * 86400, samesite="lax", secure=request.url.scheme == "https")
+    if want:                                              # ลูกค้าที่ล็อกอินเลือกภาษา → อีเมลถึงเขาใช้ภาษานี้ด้วย
+        try:
+            tid = (request.scope.get("session") or {}).get("tenant_id")
+            if tid:
+                db.set_tenant_lang(int(tid), want)
+        except Exception:
+            pass
     return resp
+
+
+def _explicit_lang(request: Request):
+    """ภาษาที่ผู้เยี่ยมชมเลือกเองจริง ๆ (?lang= หรือคุกกี้) · None = ไม่ได้เลือก (ไม่เขียนทับภาษาที่บันทึกไว้ของลีดด้วยไทยค่าเริ่มต้น)"""
+    from . import i18n
+    return i18n.valid(request.query_params.get("lang")) or i18n.valid(request.cookies.get(i18n.COOKIE))
+
+
+def _remember_lead_lang(request: Request, lead_id) -> None:
+    lg = _explicit_lang(request)
+    if lg and lead_id:
+        db.update_lead(lead_id, lang=lg)
 
 
 # Jinja2 globals ของ base.html — ลงทะเบียนตอน import ไม่ใช่ตอน startup: เป็น lambda ที่ค่อยอ่าน DB ตอน render
@@ -510,7 +529,7 @@ async def api_contact(request: Request):
     message = (body.get("message") or "").strip()[:1000]
     if not name or not contact:
         return JSONResponse({"error": "กรุณากรอกชื่อและช่องทางติดต่อ"}, status_code=400)
-    db.add_contact(name, contact, plan, message)
+    db.add_contact(name, contact, plan, message, _i18n.lang_of(request))
     db.notify_admins(f"📩 ผู้ติดต่อใหม่: {name} ({contact})" + (f" · สนใจ {plan}" if plan else ""),
                      "/admin/contacts", "contact")
     return JSONResponse({"ok": True})
@@ -575,8 +594,10 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
+        _remember_lead_lang(request, recent["id"])
         return _redirect(f"/audit/{recent['token']}")   # โดเมนเดิมภายใน 24 ชม. ใช้ผลเดิม
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
+    _remember_lead_lang(request, lid)                     # ภาษาของหน้า = ภาษาอีเมลที่ลีดจะได้รับ
     if src and not (recent and recent["src"]):
         db.update_lead(lid, src=src)                      # ช่องทางที่ลีดมา (รหัสในลิงก์ที่ CMO โพสต์)
     if ref:
@@ -637,6 +658,7 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
         return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, error="ติ๊กยินยอมให้ติดต่อกลับก่อน เราถึงจะส่งแผนให้ได้"))
     db.update_lead(lead["id"], name=name.strip()[:120] or None, email=email.strip().lower()[:160] or None,
                    contact=contact.strip()[:160] or None, consent=1)
+    _remember_lead_lang(request, lead["id"])
     pipeline.alert_admins(f"🎯 ลูกค้าเป้าหมายใหม่จากตรวจเว็บฟรี: {lead['domain']}" + (f" · {name.strip()}" if name.strip() else ""),
                           f"/admin/leads/{lead['id']}", "lead", subject=f"🎯 ลูกค้าเป้าหมายใหม่: {lead['domain']}")
     try:
@@ -2461,18 +2483,20 @@ def _autopilot_report(brand, log) -> str:
         return "ไม่มี SMTP — ดูรายงานได้ที่หน้า รายงาน & ส่งออก"
     if not (tenant and mailer.is_deliverable(tenant["email"])):
         return f"ไม่ได้ส่งอีเมล — อีเมลเจ้าของแบรนด์ ({tenant['email'] if tenant else '-'}) ยังเป็นที่อยู่สมมติ แก้ที่แผงผู้ดูแล → ลูกค้า"
-    vals = campaigns.values_for(rep, tenant["name"] or "", BASE_URL)
-    subject = campaigns.render_body("Autopilot รายสัปดาห์ — {brand}", vals)
-    body_md = campaigns.render_body(campaigns.DEFAULT_BODY, vals)
+    lang = db.row_lang(tenant)                            # ภาษาของลูกค้า (อีเมล + PDF)
+    t = lambda x, **kw: _i18n.tr(x, lang, **kw)
+    vals = campaigns.values_for(rep, tenant["name"] or "", BASE_URL, lang)
+    subject = campaigns.render_body(t("Autopilot รายสัปดาห์ — {brand}"), vals)
+    body_md = campaigns.render_body(t(campaigns.DEFAULT_BODY), vals)
     done = [s for s in log["steps"] if s["status"] == "ok" and s["step"] not in ("report", "notify")]
-    body_md += "\n\n**Autopilot รอบนี้ทำ**\n" + "\n".join(f"- {s['label']}: {s['detail']}" for s in done)
+    body_md += "\n\n**" + t("Autopilot รอบนี้ทำ") + "**\n" + "\n".join(f"- {t(s['label'])}: {t(s['detail'])}" for s in done)
     attachments = []
     try:
         attachments.append((f"geo-report-{brand['name'][:30].replace(' ', '_')}-{rep['period']['to']}.pdf",
-                            report.to_pdf(report.render_html(rep, pdf=True)), "application/pdf"))
+                            report.to_pdf(report.render_html(rep, pdf=True, lang=lang)), "application/pdf"))
     except Exception:
         pass
-    mailer.send(tenant["email"], subject, mailer.wrap_html(subject, wp_client.md_to_html(body_md), f"Autopilot ของ เจอ.AI · {BASE_URL}/brands/{brand['id']}/autopilot"),
+    mailer.send(tenant["email"], subject, mailer.wrap_html(subject, wp_client.md_to_html(body_md), t("Autopilot ของ เจอ.AI · {url}", url=f"{BASE_URL}/brands/{brand['id']}/autopilot"), lang=lang),
                 body_md, attachments)
     db.add_email_log(None, tenant["id"], tenant["email"], brand["id"], True, "")
     return f"ส่งอีเมลรายงานถึง {tenant['email']}" + (" พร้อม PDF" if attachments else "")
@@ -3775,7 +3799,7 @@ def partners_apply(request: Request, name: str = Form(""), company: str = Form("
         return _redirect("/partners")
     if not agree:
         return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(error="ติ๊กยอมรับกติกาพันธมิตรก่อน", form=form))
-    err, _ = partners.apply(name, company, email, phone, website, clients, src=_src(src))
+    err, _ = partners.apply(name, company, email, phone, website, clients, src=_src(src), lang=_i18n.lang_of(request))
     if err:
         return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(error=err, form=form))
     return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(done=True))
@@ -3803,7 +3827,7 @@ def partner_client(request: Request, token: str, website: str = Form(""), email:
     p = db.find_partner(token=token)
     if not p or p["status"] != "active":
         return _redirect("/partners")
-    err = partners.submit_client(p, website, email, name, bool(consent))
+    err = partners.submit_client(p, website, email, name, bool(consent), lang=_explicit_lang(request))
     if err:
         return _partner_dash(request, p, error=err)
     return _redirect(f"/partner/{token}?notice=รับชื่อลูกค้าแล้ว — ตรวจเว็บและทีมขายจะติดต่อพร้อมบอกว่าคุณแนะนำมา")
@@ -3846,7 +3870,9 @@ async def chat_ask(request: Request):
     tok = str(data.get("token") or "")[:64]
     lead = db.get_lead_by_token(tok) if tok else None
     ip = _client_ip(request)
-    res = salesbot.handle("web", f"ip:{ip}", q, lead)
+    if lead:
+        _remember_lead_lang(request, lead["id"])
+    res = salesbot.handle("web", f"ip:{ip}", q, lead)               # ตอบตามภาษาที่ลีดเลือกไว้ (ไม่มีลีด = แบบเดิม)
     return JSONResponse({"answer": res["answer"], "escalate": bool(res.get("escalate")), "id": res.get("id")})
 
 
@@ -3863,7 +3889,7 @@ async def chat_contact(request: Request):
         return JSONResponse({"ok": False, "message": "ติ๊กยินยอมก่อน เราถึงจะติดต่อกลับได้"})
     if not (_re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", c, _re.I) or _re.search(r"\d{9,}", _re.sub(r"\D", "", c)) or _re.fullmatch(r"@?[\w.\-]{3,40}", c)):
         return JSONResponse({"ok": False, "message": "ขออีเมล เบอร์โทร หรือ LINE ID ที่ติดต่อได้"})
-    ok = salesbot.add_contact(int(data.get("id") or 0), c)
+    ok = salesbot.add_contact(int(data.get("id") or 0), c, _explicit_lang(request))
     return JSONResponse({"ok": ok, "message": "ได้รับแล้วครับ ผู้ดูแลจะติดต่อกลับภายในวันทำการนี้" if ok else "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง"})
 
 

@@ -44,7 +44,9 @@ EXPERIMENTS = [
      "tpl": {"short": True}},
 ]
 EXP = {e["key"]: e for e in EXPERIMENTS}
-SPAM_WORDS = re.compile(r"(ด่วนที่สุด|รวยเร็ว|คลิกเลย|โปรโมชั่น|ลดราคา|ฟรี\s*!|100\s*%|!!|\$\$|รับประกัน|การันตี|winner|act now|click here)", re.I)
+SPAM_WORDS = re.compile(r"(ด่วนที่สุด|รวยเร็ว|คลิกเลย|โปรโมชั่น|ลดราคา|ฟรี\s*!|100\s*%|!!|\$\$|รับประกัน|การันตี|winner|act now|click here"
+                        # ภาษาอื่น (อีเมลถึงลีดที่เลือกภาษาอื่นบนเว็บ): คำสัญญาผล / เร่งขาย แบบเดียวกัน
+                        r"|guarantee|risk[- ]free|limited time|buy now|保证|保證|立即购买|限时|保証|今すぐ購入|期間限定|보장|지금 구매|한정 특가)", re.I)
 
 
 def _get(key, default=None):
@@ -224,7 +226,31 @@ PERSONAL_RULES = ("เขียนเหมือนคนพิมพ์อี�
                   "ห้ามทำเป็นรายการหัวข้อ ห้ามใช้ • หรือ - นำหน้าบรรทัด · ห้ามบอกว่าตรวจกี่ข้อ ห้ามโปรยชื่อระบบ · ลิงก์ไม่เกิน 1 ลิงก์ · "
                   "ห้ามชวนนัดคุยหรือเสนอคุยฟรีกี่นาที ปิดด้วยประโยคชวนตอบกลับอีเมลสั้น ๆ ประโยคเดียว")
 _LISTY = re.compile(r"(?m)^\s*(?:[•\-*▪●]|\d+[.)])\s+")
-_BULKY = re.compile(r"ตรวจ\s*\d+\s*ข้อ|\d+\s*ข้อที่ทำให้|ฟรี\s*\d+\s*นาที|\d+\s*นาที|ทัก LINE", re.I)
+_BULKY = re.compile(r"ตรวจ\s*\d+\s*ข้อ|\d+\s*ข้อที่ทำให้|ฟรี\s*\d+\s*นาที|\d+\s*นาที|ทัก LINE"
+                    # แบบเดียวกันในภาษาอื่น: "16-point check" · "15 minutes" · 检测16项/15分钟 · 16項目/15分 · 16가지 항목/15분
+                    r"|\d+\s*-?\s*(?:point|item)s?\b|\d+\s*-?\s*min(?:ute)?s?\b|\d+\s*项|\d+\s*分钟|\d+\s*項目|\d+\s*分(?:間|ほど|程度)?(?![の\d])"
+                    r"|\d+\s*가지\s*항목|\d+\s*개\s*항목|\d+\s*분(?![석야기의])|LINE\s*(?:me|us)\b", re.I)
+
+
+# ---------- ภาษาของข้อความที่โมเดลเขียน (ลีดที่เลือกภาษาอื่นบนเว็บ) ----------
+LANG_NAME_TH = {"th": "ภาษาไทย", "en": "ภาษาอังกฤษ", "zh": "ภาษาจีนตัวย่อ", "ja": "ภาษาญี่ปุ่นแบบสุภาพ", "ko": "ภาษาเกาหลีแบบสุภาพ (합니다체)"}
+LANG_NAME_EN = {"th": "Thai", "en": "English", "zh": "Simplified Chinese", "ja": "polite Japanese", "ko": "formal Korean (합니다체)"}
+_THAI = re.compile(r"[\u0E00-\u0E7F]")
+
+
+def write_in(lang: str) -> str:
+    """คำสั่งเพิ่มท้าย prompt ให้เขียนเป็นภาษาของลีด · ไทย = '' (prompt เดิมทุกตัวอักษร)"""
+    if not lang or lang == "th" or lang not in LANG_NAME_EN:
+        return ""
+    return (f"\nสำคัญ: เขียนหัวข้อและเนื้อหาเป็น{LANG_NAME_TH[lang]}ทั้งหมด ห้ามมีภาษาไทย (ยกเว้นชื่อแบรนด์ เจอ.AI) แม้ข้อมูลด้านบนเป็นภาษาไทย"
+            f" · IMPORTANT: write the subject and body entirely in {LANG_NAME_EN[lang]} — no Thai at all except the brand name เจอ.AI.")
+
+
+def wrong_language(text: str, lang: str) -> bool:
+    """ข้อความถึงลีดภาษาอื่นแต่ยังมีภาษาไทย (นอกจากชื่อแบรนด์ เจอ.AI) = โมเดลไม่ทำตาม → ใช้แม่แบบที่แปลแล้วแทน"""
+    if not lang or lang == "th":
+        return False
+    return bool(_THAI.search(re.sub(r"เจอ\.?AI", "", text or "")))
 
 
 def llm_writes_outreach() -> bool:

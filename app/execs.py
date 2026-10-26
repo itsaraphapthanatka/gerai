@@ -85,7 +85,12 @@ GATE_LABEL = {"audits_week": "เว็บที่ตรวจฟรีต่�
 # คำสัญญาผลลัพธ์ที่ห้ามใช้ · ปฏิเสธได้ ("ไม่การันตีอันดับ" เป็นข้อเท็จจริงที่เราบอกลูกค้า) — ดักแค่ที่ไม่มี "ไม่" นำหน้า
 _NOT = r"(?<!ไม่)(?<!ไม่ )(?<!ไม่ได้)(?<!ไม่ได้ )"
 FORBIDDEN = re.compile(_NOT + r"(?:การันตี|รับประกัน\s*(?:ว่า\s*)?(?:จะ\s*)?(?:ติด\s*|ขึ้น\s*)?(?:อันดับ|ผล|หน้าแรก))"
-                       r"|(?:ติด|ขึ้น)\s*(?:อันดับ|หน้าแรก)\S{0,8}\s*แน่นอน|อันดับ\s*1\s*แน่นอน|100\s*%", re.I)
+                       r"|(?:ติด|ขึ้น)\s*(?:อันดับ|หน้าแรก)\S{0,8}\s*แน่นอน|อันดับ\s*1\s*แน่นอน|100\s*%"
+                       # ภาษาอื่น (ข้อความถึงลีดที่เลือกภาษาอื่น) — ปฏิเสธได้เหมือนกัน: "we don't guarantee" / 不保证 / 保証しません / 보장하지 않습니다
+                       r"|(?<!not )(?<!n't )(?<!no )(?<!never )(?<!without )(?<!cannot )\bguarantee(?:d|s)?\b|\b(?:rank|ranking)\s*#?\s*1\s*(?:guaranteed|for sure)"
+                       r"|(?<!不)(?<!无法)(?<!不能)(?<!无)(?<!無法)(?<!不會)保[证證](?!不)"
+                       r"|保証(?!(?:は|を|も)?(?:し(?:ませ|かね|ない|てい(?:ませ|ない))|でき(?:ませ|ない|かね)|いたし(?:ませ|かね)|致し(?:ませ|かね)|するものでは|されませ|されない))"
+                       r"|보장(?!(?:은|을|는|이)?\s*(?:하지|할 수 없|해 드릴 수 없|해드릴 수 없|드리지|되지|하진|안|못))", re.I)
 MIN_SCORE_TO_PURSUE = 15
 
 
@@ -99,19 +104,29 @@ def _plan(name: str) -> dict:
     return billing.PLANS[name]
 
 
+def _lead_lang(lead) -> str:
+    from . import db
+    return db.row_lang(lead)
+
+
 def outreach_template(lead, summary: list[dict], result_url: str, style: dict | None = None) -> dict:
-    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — แบบคนเขียน: ปัญหาข้อเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน (ผ่านกล่องหลักในการทดสอบจริง)"""
-    from . import deliverability as D
+    """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — แบบคนเขียน: ปัญหาข้อเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน (ผ่านกล่องหลักในการทดสอบจริง)
+    · ภาษาตามที่ลีดเลือกบนเว็บ (ลีดที่หาเอง/นำเข้า = ไทย ข้อความเดิมทุกตัวอักษร)"""
+    from . import deliverability as D, i18n
+    lang = _lead_lang(lead)
+    t = lambda x, **kw: i18n.tr(x, lang, **kw)
     dom = lead["domain"] if "domain" in lead.keys() else lead.get("domain", "")
     tpl = (style or {}).get("tpl") or {}
     top = summary[0] if summary else None
-    finding = (f"{top['why'] or top['label']}" if top else
-               "พื้นฐานของเว็บผ่านแล้ว ขั้นต่อไปคือทำให้ ChatGPT และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม")
+    finding = (t(top['why'] or top['label']) if top else
+               t("พื้นฐานของเว็บผ่านแล้ว ขั้นต่อไปคือทำให้ ChatGPT และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม"))
     if tpl.get("opener"):
-        body = f"สวัสดีครับ\n\nเว็บ {dom} ตอนนี้{finding}\n\nผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {result_url}\n\nถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"
+        body = (t("สวัสดีครับ") + "\n\n" + t("เว็บ {dom} ตอนนี้{finding}", dom=dom, finding=finding) + "\n\n"
+                + t("ผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {url}", url=result_url) + "\n\n" + t("ถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"))
     else:
-        body = f"สวัสดีครับ\n\nผมลองตรวจเว็บ {dom} แล้วเจอว่า{finding}\n\nรายงานเต็ม: {result_url}\n\nถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"
-    subject = tpl["subject"].format(dom=dom) if tpl.get("subject") else f"เรื่องเว็บ {dom}"
+        body = (t("สวัสดีครับ") + "\n\n" + t("ผมลองตรวจเว็บ {dom} แล้วเจอว่า{finding}", dom=dom, finding=finding) + "\n\n"
+                + t("รายงานเต็ม:") + f" {result_url}\n\n" + t("ถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"))
+    subject = t(tpl["subject"], dom=dom) if tpl.get("subject") else t("เรื่องเว็บ {dom}", dom=dom)
     return {"subject": subject, "body": D.sign(body), "source": "template"}
 
 
@@ -127,8 +142,10 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
     if llm is None:
         from . import ai_client
         llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=900, json_mode=True)
-    from . import deliverability as D
-    bullets = "\n".join(f"- {s['label']}: {s['why']}" for s in summary[:3])
+    from . import deliverability as D, i18n
+    lang = _lead_lang(lead)
+    t = lambda x: i18n.tr(x, lang)                                   # ผลตรวจในภาษาของลีด (ไทย = เดิม)
+    bullets = "\n".join(f"- {t(s['label'])}: {t(s['why'])}" for s in summary[:3])
     prompt = f"""คุณคือทีมขายของ เจอ.AI บริการช่วยให้เว็บธุรกิจไทยโผล่ใน Google และในคำตอบของ AI (ChatGPT, Gemini, Perplexity)
 เขียนอีเมลทักครั้งแรกถึงเจ้าของเว็บ {dom} เป็นภาษาไทย สุภาพ เป็นกันเอง ไม่เกิน 70 คำ
 
@@ -139,6 +156,7 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
 กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน
 รูปแบบ (สำคัญมาก ไม่งั้นตกแท็บโปรโมชัน): {D.PERSONAL_RULES} · ไม่ต้องลงชื่อ ระบบลงชื่อให้ · หัวข้ออีเมลสั้นแบบคนเขียน ไม่มีตัวเลข
 {("แนวเขียนเพิ่ม (ทำตามทุกข้อ):" + chr(10) + style["prompt"] + chr(10)) if style and style.get("prompt") else ""}ตอบเป็น JSON เท่านั้น: {{"subject": "หัวข้ออีเมลสั้น ๆ", "body": "เนื้ออีเมล ขึ้นบรรทัดใหม่ด้วย \\n"}}"""
+    prompt += D.write_in(lang)                                       # ลีดภาษาอื่น: เขียนเป็นภาษานั้นทั้งฉบับ (ไทย = prompt เดิม)
     try:
         raw = llm([{"role": "user", "content": prompt}])
         m = re.search(r"\{[\s\S]*\}", raw or "")
@@ -152,6 +170,8 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
         from . import deliverability
         if deliverability.spam_flags(subject, body):
             raise ValueError("เนื้อหาเสี่ยงตกสแปม")
+        if D.wrong_language(subject + " " + body, lang):
+            raise ValueError("ไม่ได้เขียนเป็นภาษาของลีด")
         if result_url not in body:
             body += f"\n\nรายงานเต็ม: {result_url}"
         why = D.personal_problems(body)

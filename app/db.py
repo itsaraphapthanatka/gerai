@@ -537,6 +537,8 @@ def init_db() -> None:
         _ensure_column(c, "target_questions", "source", "TEXT DEFAULT 'manual'")   # manual | auto (ระบบคิดเพิ่มเองเมื่อปิดครบทุกข้อ)
         _ensure_column(c, "target_questions", "created_at", "TEXT")                # ของเดิมก่อนมีคอลัมน์นี้ = NULL
         _ensure_column(c, "content_items", "image_note", "TEXT")                   # ผลการหารูป: ได้จากไหน / ไม่ได้เพราะอะไร (ไม่เงียบ)
+        for t in ("leads", "tenants", "partners", "contacts", "sales_chats"):
+            _ensure_column(c, t, "lang", "TEXT DEFAULT 'th'")                     # ภาษาที่ลูกค้าเลือกบนเว็บ (th en zh ja ko) — อีเมลถึงเขาใช้ภาษานี้
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -596,6 +598,29 @@ def set_plan(tenant_id: int, plan: str) -> None:
         c.execute(q("UPDATE tenants SET plan=?, requested_plan=NULL WHERE id=?"), (plan, tenant_id))
 
 
+def set_tenant_lang(tenant_id: int, lang: str) -> None:
+    """ภาษาของบัญชี (อีเมลถึงลูกค้าใช้ภาษานี้) · ภาษาที่ไม่รู้จักไม่บันทึก"""
+    from . import i18n
+    if i18n.valid(lang):
+        with get_conn() as c:
+            c.execute(q("UPDATE tenants SET lang=? WHERE id=?"), (i18n.valid(lang), tenant_id))
+
+
+def row_lang(row) -> str:
+    """ภาษาที่บันทึกไว้ในแถว (ลีด/บัญชี/พันธมิตร) · ไม่มี/ไม่รู้จัก = th"""
+    from . import i18n
+    try:
+        v = row["lang"] if row is not None else None
+    except (KeyError, IndexError, TypeError):
+        v = None
+    return i18n.valid(v) or "th"
+
+
+def customer_lang(lead=None, tenant=None) -> str:
+    """ภาษาของอีเมลถึงลูกค้า: บัญชี (ถ้ามี — คัดลอกจากลีดตอนเปิดบัญชี และเปลี่ยนตาม ?lang= ตอนล็อกอิน) > ลีด > ไทย"""
+    return row_lang(tenant) if tenant is not None else row_lang(lead)
+
+
 def set_requested_plan(tenant_id: int, plan) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE tenants SET requested_plan=? WHERE id=?"), (plan, tenant_id))
@@ -618,12 +643,12 @@ def set_setting(key: str, val: str) -> None:
 
 
 # ---- contacts (leads จากหน้า landing) ----
-def add_contact(name: str, contact: str, plan: str = "", message: str = "") -> int:
+def add_contact(name: str, contact: str, plan: str = "", message: str = "", lang: str = "th") -> int:
     with get_conn() as c:
         row = c.execute(
-            q("INSERT INTO contacts(name,contact,plan,message,status,created_at) "
-              "VALUES(?,?,?,?,'new',?) RETURNING id"),
-            (name, contact, plan, message, now()),
+            q("INSERT INTO contacts(name,contact,plan,message,status,created_at,lang) "
+              "VALUES(?,?,?,?,'new',?,?) RETURNING id"),
+            (name, contact, plan, message, now(), lang or "th"),
         ).fetchone()
         return row["id"]
 
@@ -1319,7 +1344,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1780,7 +1805,7 @@ def leads_with_arm(prefix: str):
 
 # ---------- ฝ่ายพันธมิตร ----------
 PARTNER_FIELDS = {"status", "kind", "name", "company", "email", "phone", "website", "domain", "clients", "code", "touches",
-                  "last_contacted_at", "replied_at", "applied_at", "activated_at", "payout", "notes", "source"}
+                  "last_contacted_at", "replied_at", "applied_at", "activated_at", "payout", "notes", "source", "lang"}
 
 
 def add_partner(**f) -> int:
