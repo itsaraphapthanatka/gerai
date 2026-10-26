@@ -44,11 +44,13 @@ def compose(brand: dict, today: datetime.date, runs: list, rank: list, ai, gsc, 
     done = [r for r in runs if (r.get("status") or "done") == "done" and r.get("share_of_voice") is not None]
     latest = done[0] if done else None
     prev = next((r for r in done if _d(r.get("started_at")) < since.isoformat()), None)
+    # share_of_voice เก็บเป็นสัดส่วน 0–1 (0.105 = 10.5%) — เคยปัดตรง ๆ จนรายงานขึ้น 0% ทุกรอบ
+    pct = lambda r: round(float(r["share_of_voice"]) * 100)
     out["sov"] = {
-        "latest": {"sov": round(latest["share_of_voice"]), "hits": latest.get("brand_hits"), "total": latest.get("questions_total"), "at": _d(latest.get("started_at"))} if latest else None,
-        "previous": {"sov": round(prev["share_of_voice"]), "at": _d(prev.get("started_at"))} if prev else None,
-        "delta": (round(latest["share_of_voice"]) - round(prev["share_of_voice"])) if (latest and prev) else None,
-        "series": [(_d(r.get("started_at")), round(r["share_of_voice"])) for r in reversed(done[:8])],
+        "latest": {"sov": pct(latest), "hits": latest.get("brand_hits"), "total": latest.get("questions_total"), "at": _d(latest.get("started_at"))} if latest else None,
+        "previous": {"sov": pct(prev), "at": _d(prev.get("started_at"))} if prev else None,
+        "delta": (pct(latest) - pct(prev)) if (latest and prev) else None,
+        "series": [(_d(r.get("started_at")), pct(r)) for r in reversed(done[:8])],
     }
     # อันดับ Google — รอบล่าสุด vs รอบก่อน
     rk = rank[0] if rank else None

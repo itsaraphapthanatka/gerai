@@ -1,85 +1,250 @@
 {% extends "base.html" %}
 {% block title %}การตลาด (CMO) — เจอ.AI{% endblock %}
 {% block content %}
-<h1>การตลาด <span class="pill {{ 'ok' if cfg.enabled else '' }}" style="font-size:11px;vertical-align:middle">{{ 'เปิด' if cfg.enabled else 'ปิด' }}</span></h1>
-<p class="muted">CMO เอเจนต์ทำปากกรวยให้เต็ม: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA เอง · โพสต์บทความ/ชวนตรวจเว็บฟรี/เคสศึกษาทาง LINE OA และ Facebook Page · ทุกลิงก์ติดรหัสช่องทางให้รู้ว่าลีดมาจากไหน · โพสต์ไปรอที่<a class="link" href="/admin/decisions">หน้าการตัดสินใจ</a>ก่อน (สถานะตอนนี้: {% if gate.on %}ตัดสินเอง{% else %}โหมดเสนอ{% endif %})</p>
+<style>
+  .mk{max-width:1120px}
+  .mk-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:6px}
+  .mk-head h1{margin:0;display:flex;align-items:center;gap:10px}
+  .mk-sub{color:var(--cool);font-size:14.5px;line-height:1.6;margin:8px 0 0;max-width:70ch}
+  .mk-run{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .mk-run .muted{font-size:12px}
+  .mk-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0 4px}
+  .mk-kpi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;text-decoration:none;color:inherit;display:block}
+  a.mk-kpi:hover{border-color:var(--ink)}
+  .mk-kpi .lb{font-size:12.5px;color:var(--cool)}
+  .mk-kpi .n{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin-top:6px}
+  .mk-kpi .n small{font-size:13px;font-weight:500;color:var(--silver);letter-spacing:0;margin-left:4px}
+  .mk-kpi.warn .n{color:var(--danger-text)}
+  .mk-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
+  .mk-grid > .card,.mk-side > .card{margin:0}
+  .mk-side{display:grid;gap:14px}
+  .mk-card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px}
+  .mk-card-h h2{margin:0;font-size:15.5px}
+  .mk-bars{display:grid;gap:12px}
+  .mk-bar{display:grid;grid-template-columns:110px minmax(0,1fr) 92px;gap:12px;align-items:center;font-size:13.5px}
+  .mk-bar .track{height:10px;border-radius:9999px;background:var(--canvas);overflow:hidden;position:relative}
+  .mk-bar .fill28{position:absolute;inset:0 auto 0 0;background:rgba(255,85,48,.22);border-radius:9999px}
+  .mk-bar .fill7{position:absolute;inset:0 auto 0 0;background:var(--coral);border-radius:9999px}
+  .mk-bar .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--cool)}
+  .mk-bar .num b{color:var(--ink)}
+  .mk-legend{display:flex;gap:16px;font-size:12px;color:var(--cool);margin-top:14px;flex-wrap:wrap}
+  .mk-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .mk-note{font-size:12.5px;color:var(--cool);line-height:1.65;margin-top:12px}
+  .mk-note summary{cursor:pointer;color:var(--ink);font-weight:500}
+  .mk-note code{font-size:12px;background:var(--canvas);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+  .mk-big{font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1}
+  .mk-big small{font-size:13px;font-weight:500;color:var(--cool);letter-spacing:0;margin-left:6px}
+  .mk-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px}
+  .mk-kv dt{color:var(--cool)}
+  .mk-kv dd{margin:0}
+  .mk-chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:9999px;background:var(--canvas);white-space:nowrap}
+  .mk-chip::before{content:"";width:7px;height:7px;border-radius:9999px;background:var(--silver)}
+  .mk-chip.line::before{background:#06c755}.mk-chip.facebook::before{background:#1877f2}
+  .mk-section{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:34px 0 10px}
+  .mk-section h2{margin:0}
+  .mk-posts table{width:100%;border-collapse:collapse}
+  .mk-posts th{font-size:12px;color:var(--silver);font-weight:600;text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--canvas)}
+  .mk-posts td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:top;font-size:13.5px}
+  .mk-posts tr:last-child td{border-bottom:0}
+  .mk-posts details summary{cursor:pointer;font-weight:500;line-height:1.5}
+  .mk-posts pre{white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.65;color:var(--charcoal);background:var(--canvas);border-radius:10px;padding:12px 14px;margin:10px 0 0}
+  .mk-posts .when{white-space:nowrap;color:var(--cool);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .mk-posts .res{font-size:11.5px;color:var(--silver);margin-top:4px}
+  .mk-filter{display:flex;gap:6px;flex-wrap:wrap}
+  .mk-filter button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:9999px;border:1px solid var(--border);background:#fff;color:var(--cool);cursor:pointer}
+  .mk-filter button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .mk-cases{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .mk-case{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .mk-case .nm{flex:1;min-width:0}
+  .mk-case .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mk-case .nm span{font-size:12px;color:var(--silver);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+  details.mk-set{padding:0}
+  details.mk-set > summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap}
+  details.mk-set > summary::-webkit-details-marker{display:none}
+  details.mk-set > summary h2{margin:0;font-size:15.5px}
+  details.mk-set > summary .chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  details.mk-set > summary .chev{font-size:12px;color:var(--cool)}
+  details.mk-set[open] > summary{border-bottom:1px solid var(--border)}
+  .mk-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;padding:20px}
+  .mk-form fieldset{border:0;margin:0;padding:0;display:grid;gap:14px;min-width:0}
+  .mk-form legend{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;padding:0}
+  .mk-field{display:grid;gap:6px;font-size:13px;min-width:0}
+  .mk-field .lbl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:500}
+  .mk-field input[type=text],.mk-field input[type=password],.mk-field input[type=number]{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);font:inherit;font-size:14px;background:#fff}
+  .mk-field input[type=number]{width:96px}
+  .mk-field .hint{font-size:12px;color:var(--silver);line-height:1.55;overflow-wrap:anywhere}
+  .mk-check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.5}
+  .mk-check input{margin-top:3px}
+  .mk-actions{grid-column:1 / -1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--border);margin-top:4px;padding-top:16px}
+  .mk-help{grid-column:1 / -1;font-size:12.5px;color:var(--cool);line-height:1.65;background:var(--canvas);border-radius:10px;padding:12px 14px}
+  @media (max-width:980px){.mk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.mk-grid{grid-template-columns:minmax(0,1fr)}.mk-cases{grid-template-columns:minmax(0,1fr)}}
+  @media (max-width:720px){.mk-form{grid-template-columns:minmax(0,1fr)}.mk-run{align-items:flex-start}.mk-bar{grid-template-columns:84px minmax(0,1fr) 80px}
+    .mk-posts thead{display:none}.mk-posts tr{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:14px 16px;border-bottom:1px solid var(--border)}
+    .mk-posts td{padding:0;border:0}.mk-posts td.t{grid-column:1 / -1;order:3}}
+</style>
+
+{% set n_pub = posts|selectattr('status','equalto','published')|list|length %}
+{% set n_prop = posts|selectattr('status','equalto','proposed')|list|length %}
+{% set n_fail = posts|selectattr('status','equalto','failed')|list|length %}
+{% set keys = (attr28.keys()|list + attr7.keys()|list)|unique|list %}
+{% set sum7 = attr7.values()|sum %}{% set sum28 = attr28.values()|sum %}
+{% set top = (attr28.values()|list + [1])|max %}
+
+<div class="mk">
+<div class="mk-head">
+  <div>
+    <h1>การตลาด <span class="pill {{ 'ok' if cfg.enabled else '' }}">{{ 'เปิดอยู่' if cfg.enabled else 'ปิดอยู่' }}</span>
+      <span class="pill {{ 'admin' if gate.on else '' }}">{{ 'โพสต์เอง' if gate.on else 'เสนอก่อนโพสต์' }}</span></h1>
+    <p class="mk-sub">CMO เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA และโพสต์ทาง LINE OA กับ Facebook Page ทุกลิงก์ติดรหัสช่องทาง จึงรู้ว่าลีดมาจากไหน{% if not gate.on %} · โพสต์ไปรออนุมัติที่<a class="link" href="/admin/decisions">หน้าการตัดสินใจ</a>{% endif %}</p>
+  </div>
+  <form class="mk-run" method="post" action="/admin/marketing/run">
+    <button class="btn" type="submit">รันรอบการตลาดตอนนี้</button>
+    <span class="muted">ปกติรันเองทุกวัน 09:00</span>
+  </form>
+</div>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if error %}<div class="err-banner">{{ error }}</div>{% endif %}
 
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+<div class="mk-kpis">
+  <div class="mk-kpi"><div class="lb">ลีด · 7 วัน</div><div class="n">{{ sum7 }}</div></div>
+  <div class="mk-kpi"><div class="lb">ลีด · 28 วัน</div><div class="n">{{ sum28 }}</div></div>
+  <div class="mk-kpi"><div class="lb">โพสต์แล้ว</div><div class="n">{{ n_pub }}<small>จาก {{ posts|length }} ล่าสุด</small></div></div>
+  {% if n_fail %}<div class="mk-kpi warn"><div class="lb">โพสต์ไม่สำเร็จ</div><div class="n">{{ n_fail }}</div></div>
+  {% else %}<a class="mk-kpi" href="/admin/decisions"><div class="lb">รออนุมัติ</div><div class="n">{{ n_prop }}</div></a>{% endif %}
+</div>
+
+<div class="mk-grid" style="margin-top:14px">
   <div class="card">
-    <h2 style="margin-top:0;font-size:15px">ลีดจากช่องทาง (ตรวจเว็บฟรี)</h2>
-    <table style="font-size:13px">
-      <thead><tr><th>ช่องทาง</th><th>7 วัน</th><th>28 วัน</th></tr></thead>
-      <tbody>
-      {% set keys = (attr7.keys()|list + attr28.keys()|list)|unique|list %}
-      {% for k in keys %}<tr><td>{{ k }}</td><td>{{ attr7.get(k, 0) }}</td><td>{{ attr28.get(k, 0) }}</td></tr>{% endfor %}
-      {% if not keys %}<tr><td colspan="3" class="muted">ยังไม่มีลีดในช่วงนี้</td></tr>{% endif %}
-      </tbody>
-    </table>
-    <div class="muted" style="font-size:11.5px;margin-top:8px">line/fb = จากโพสต์ของ CMO · line_chat = ทักมาตรวจในแชต · prospect = ระบบหาเอง (ค้นเว็บ) · maps = ระบบหาเองจาก Google Maps · direct = เข้าลิงก์ตรง · ลิงก์สำหรับโพสต์เอง: <code>{{ base }}/audit?src=&lt;ช่องทาง&gt;</code></div>
+    <div class="mk-card-h"><h2>ลีดจากช่องทาง</h2><span class="muted">จากตรวจเว็บฟรี</span></div>
+    {% if keys %}
+    <div class="mk-bars">
+      {% set rows = [] %}{% for k in keys %}{% set _x = rows.append({'k': k, 'v28': attr28.get(k, 0), 'v7': attr7.get(k, 0)}) %}{% endfor %}
+      {% for r in rows|sort(attribute='v28', reverse=true) %}{% set k, v28, v7 = r.k, r.v28, r.v7 %}
+      <div class="mk-bar">
+        <span>{{ k }}</span>
+        <span class="track"><span class="fill28" style="width:{{ (v28 / top * 100)|round(1) }}%"></span><span class="fill7" style="width:{{ (v7 / top * 100)|round(1) }}%"></span></span>
+        <span class="num"><b>{{ v7 }}</b> · {{ v28 }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mk-legend"><span><i style="background:var(--coral)"></i>7 วัน</span><span><i style="background:rgba(255,85,48,.22)"></i>28 วัน</span></div>
+    {% else %}<div class="muted">ยังไม่มีลีดในช่วงนี้</div>{% endif %}
+    <details class="mk-note"><summary>ชื่อช่องทางหมายถึงอะไร</summary>
+      line / fb = จากโพสต์ของ CMO · line_chat = ทักมาตรวจในแชต · prospect = ระบบหาเองจากการค้นเว็บ · maps = ระบบหาเองจาก Google Maps · direct = เข้าลิงก์ตรง · home / home-xx = หน้าแรก (ตามภาษา)<br>
+      ลิงก์สำหรับโพสต์เอง: <code>{{ base }}/audit?src=&lt;ช่องทาง&gt;</code>
+    </details>
   </div>
 
-  <div class="card">
-    <h2 style="margin-top:0;font-size:15px">คอนเทนต์ของเจอ.AI</h2>
-    {% if self_brand %}
-    <div style="font-size:13px">แบรนด์ <b>{{ self_brand.name }}</b> · ร่างรอ QA {{ self_drafts }} ชิ้น — CMO เผยแพร่ให้เองวันละไม่เกิน 2 ชิ้นที่ผ่าน QA (AEO ขาดได้ไม่เกิน 1 ข้อ ไม่มีคำโฆษณาต้องห้าม) · <a class="link" href="/brands/{{ self_brand.id }}/content">ดูคอนเทนต์</a></div>
-    {% else %}<div class="muted" style="font-size:13px">ยังไม่ตั้งแบรนด์ของตัวเอง (settings self_brand_id)</div>{% endif %}
-    <form method="post" action="/admin/marketing/run" style="margin-top:12px"><button class="btn sm" type="submit">รันรอบการตลาดตอนนี้</button> <span class="muted" style="font-size:12px">ปกติรันเองทุกวัน 09:00</span></form>
-    {% if cfg.last %}<div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.7">รอบล่าสุด {{ (cfg.last.at or '')[:16].replace('T',' ') }}: {% if cfg.last.skipped %}{{ cfg.last.skipped }}{% else %}เผยแพร่ {{ cfg.last.published|length }} · เสนอโพสต์ {{ cfg.last.proposed }} · ช่องทาง {{ cfg.last.channels|join(', ') or 'ยังไม่มี' }}{% endif %}</div>{% endif %}
-  </div>
-
-  <div class="card">
-    <h2 style="margin-top:0;font-size:15px">ตั้งค่า</h2>
-    <form method="post" action="/admin/marketing/settings" style="display:grid;gap:8px;font-size:13px">
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="enabled" value="1" {% if cfg.enabled %}checked{% endif %}> เปิดฝ่ายการตลาด (รันทุกเช้า 09:00)</label>
-      <label>โพสต์ต่อช่องทางต่อสัปดาห์ (1–14) <input type="number" name="weekly" min="1" max="14" value="{{ cfg.weekly }}" style="width:80px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="line" value="1" {% if cfg.line %}checked{% endif %}> โพสต์ทาง LINE OA (broadcast ถึงผู้ติดตาม) {% if not cfg.line_ready %}<span class="pill" style="font-size:10px">ยังไม่มีคีย์ LINE</span>{% else %}<span class="pill ok" style="font-size:10px">พร้อม</span>{% endif %}</label>
-      <label>Facebook Page ID {% if cfg.fb_page_name %}<span class="pill ok" style="font-size:10px">{{ cfg.fb_page_name }}</span>{% endif %}<input type="text" name="fb_page_id" value="{{ cfg.fb_page_id }}" placeholder="ตัวเลข Page ID (ระบบตรวจกับ token แล้วแก้ให้เอง)" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
-      <label>Page access token {% if cfg.fb_token_set %}<span class="pill ok" style="font-size:10px">ตั้งแล้ว</span>{% endif %}{% if cfg.fb_valid == '0' %}<span class="pill no" style="font-size:10px">ใช้ไม่ได้ — วางใหม่</span>{% endif %}{% if cfg.fb_expires %}<span class="pill {{ 'ok' if cfg.fb_expires == '0' else '' }}" style="font-size:10px">{{ 'ไม่หมดอายุ' if cfg.fb_expires == '0' else 'หมดอายุ ' ~ cfg.fb_expires }}</span>{% endif %}<input type="password" name="fb_token" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_token_set else 'วาง token จาก Graph API Explorer (เพจ เจอ.AI · pages_manage_posts + pages_read_engagement)' }}" autocomplete="off" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
-      {% if cfg.fb_scopes %}<div class="muted" style="font-size:11px">สิทธิ์ของ token: {{ cfg.fb_scopes }}</div>{% endif %}
-      {% if cfg.fb_missing %}<div class="err-banner" style="font-size:12px">token นี้ขาดสิทธิ์ {{ cfg.fb_missing|join(', ') }} — โพสต์ไม่ได้ ให้ไปที่ Graph API Explorer เพิ่มสิทธิ์เหล่านี้ที่ "เพิ่มสิทธิ์การอนุญาต" ก่อนกด Generate แล้วติ๊กอนุญาตเพจในหน้าต่าง Facebook จากนั้นวางโทเค็นใหม่</div>{% endif %}
-      <label>Meta App ID {% if cfg.fb_app_set %}<span class="pill ok" style="font-size:10px">ตั้งแล้ว</span>{% endif %}<input type="text" name="fb_app_id" placeholder="จากแอป Meta (ตั้งค่าแอป → ข้อมูลพื้นฐาน) — ใช้แปลง token ให้ไม่หมดอายุ" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
-      <label>Meta App secret<input type="password" name="fb_app_secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_app_set else 'App secret ของแอปเดียวกัน' }}" autocomplete="off" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit"></label>
-      <div><button class="btn sm" type="submit">บันทึก</button></div>
-    </form>
-    {% if cfg.fb_ready %}<form method="post" action="/admin/marketing/fb-test" style="margin-top:8px"><button class="btn ghost sm" type="submit">ทดสอบสิทธิ์โพสต์ Facebook (ไม่เผยแพร่)</button></form>{% endif %}
-    <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.7">Facebook: token จาก Graph API Explorer หมดอายุใน ~1 ชั่วโมง — ใส่ App ID + App secret ของแอปที่ใช้ออก token ด้วย ระบบจะแปลงเป็น token ถาวรของเพจให้เองตอนบันทึก และบอกว่าสิทธิ์ครบไหม · โควตา LINE broadcast นับต่อผู้รับ (ฟรี 200/เดือน)</div>
+  <div class="mk-side">
+    <div class="card">
+      <div class="mk-card-h"><h2>รอบล่าสุด</h2>{% if cfg.last %}<span class="muted">{{ (cfg.last.at or '')[:16].replace('T',' ') }}</span>{% endif %}</div>
+      {% if cfg.last %}
+        {% if cfg.last.skipped %}<div style="font-size:13.5px">{{ cfg.last.skipped }}</div>
+        {% else %}
+        <dl class="mk-kv">
+          <dt>เผยแพร่บทความ</dt><dd>{{ cfg.last.published|length }} ชิ้น</dd>
+          <dt>เสนอโพสต์</dt><dd>{{ cfg.last.proposed }} โพสต์</dd>
+          <dt>ช่องทาง</dt><dd>{% for c in cfg.last.channels %}<span class="mk-chip {{ c }}">{{ {"line": "LINE OA", "facebook": "Facebook Page"}.get(c, c) }}</span> {% else %}<span class="muted">ยังไม่มี</span>{% endfor %}</dd>
+        </dl>
+        {% endif %}
+      {% else %}<div class="muted">ยังไม่เคยรัน</div>{% endif %}
+    </div>
+    <div class="card">
+      <div class="mk-card-h"><h2>คอนเทนต์ของเจอ.AI</h2>{% if self_brand %}<a class="link" href="/brands/{{ self_brand.id }}/content" style="font-size:13px">ดูคอนเทนต์ →</a>{% endif %}</div>
+      {% if self_brand %}
+        <div class="mk-big">{{ self_drafts }}<small>ร่างรอ QA</small></div>
+        <div class="mk-note" style="margin-top:12px">CMO เผยแพร่ให้เองวันละไม่เกิน 2 ชิ้นที่ผ่าน QA (AEO ขาดได้ไม่เกิน 1 ข้อ และไม่มีคำโฆษณาต้องห้าม)</div>
+      {% else %}<div class="muted">ยังไม่ตั้งแบรนด์ของตัวเอง (settings self_brand_id)</div>{% endif %}
+    </div>
   </div>
 </div>
 
-<h2>โพสต์</h2>
-<div class="card" style="padding:0;overflow:hidden">
+<div class="mk-section"><h2>โพสต์</h2>
+  {% if posts %}<div class="mk-filter" role="group" aria-label="กรองสถานะ">
+    <button type="button" class="on" data-f="">ทั้งหมด {{ posts|length }}</button>
+    <button type="button" data-f="published">โพสต์แล้ว {{ n_pub }}</button>
+    <button type="button" data-f="proposed">รออนุมัติ {{ n_prop }}</button>
+    {% if n_fail %}<button type="button" data-f="failed">ไม่สำเร็จ {{ n_fail }}</button>{% endif %}
+  </div>{% endif %}
+</div>
+<div class="card mk-posts" style="padding:0;overflow:hidden;margin:0">
   {% if posts %}
   <table>
-    <thead><tr><th>เมื่อ</th><th>ช่องทาง</th><th>ประเภท</th><th>หัวข้อ</th><th>สถานะ</th></tr></thead>
+    <thead><tr><th>ช่องทาง</th><th>หัวข้อ</th><th>ประเภท</th><th>สถานะ</th><th>เมื่อ</th></tr></thead>
     <tbody>
     {% for p in posts %}
-    <tr>
-      <td class="muted" style="white-space:nowrap;font-size:12px">{{ (p.published_at or p.created_at or '')[:16].replace('T',' ') }}</td>
-      <td>{{ p.channel_label }}</td>
-      <td>{{ p.kind_label }}</td>
-      <td><details><summary style="cursor:pointer">{{ p.title }}</summary><pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;margin-top:6px">{{ p.text }}</pre></details></td>
-      <td>{% if p.status == 'published' %}<span class="pill ok">โพสต์แล้ว</span>{% elif p.status == 'proposed' %}<span class="pill">รออนุมัติ</span>{% elif p.status == 'failed' %}<span class="pill no">ล้ม</span>{% else %}<span class="pill">{{ p.status }}</span>{% endif %}<div class="muted" style="font-size:11px">{{ p.result or '' }}</div></td>
+    <tr data-s="{{ p.status }}">
+      <td><span class="mk-chip {{ p.channel }}">{{ p.channel_label }}</span></td>
+      <td class="t"><details><summary>{{ p.title }}</summary><pre>{{ p.text }}</pre></details></td>
+      <td style="color:var(--cool);white-space:nowrap">{{ p.kind_label }}</td>
+      <td>{% if p.status == 'published' %}<span class="pill ok">โพสต์แล้ว</span>{% elif p.status == 'proposed' %}<span class="pill">รออนุมัติ</span>{% elif p.status == 'failed' %}<span class="pill no">ไม่สำเร็จ</span>{% else %}<span class="pill">{{ p.status }}</span>{% endif %}{% if p.result and p.status != 'published' %}<div class="res">{{ p.result }}</div>{% endif %}</td>
+      <td class="when">{{ (p.published_at or p.created_at or '')[:16].replace('T',' ') }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
-  {% else %}<div style="padding:18px" class="muted">ยังไม่มีโพสต์ — เกิดเมื่อมีบทความใหม่ของเจอ.AI หรือกด "รันรอบการตลาดตอนนี้"</div>{% endif %}
+  {% else %}<div style="padding:22px" class="muted">ยังไม่มีโพสต์ — เกิดเมื่อมีบทความใหม่ของเจอ.AI หรือกด "รันรอบการตลาดตอนนี้"</div>{% endif %}
 </div>
 
-<h2>เคสศึกษา — อนุญาตให้ใช้ชื่อแบรนด์</h2>
-<div class="card">
-  <p class="muted" style="font-size:12.5px">CMO เขียนเคสศึกษาเดือนละเรื่องจากตัวเลขจริงของลูกค้าที่ใช้บริการ ≥ 28 วัน · ไม่ติ๊ก = เล่าแบบไม่ระบุชื่อ ("ธุรกิจ…") · ติ๊ก = ใช้ชื่อแบรนด์ได้ (ขอความยินยอมลูกค้าก่อน)</p>
-  <div style="display:grid;gap:6px;font-size:13px">
+<div class="mk-section"><h2>เคสศึกษา — ใช้ชื่อแบรนด์ได้ไหม</h2></div>
+<p class="mk-sub" style="margin:0 0 12px">CMO เขียนเคสศึกษาจากตัวเลขจริงของลูกค้าที่ใช้บริการ ≥ 28 วัน · ไม่อนุญาต = เล่าแบบไม่ระบุชื่อ ("ธุรกิจ…") · อนุญาต = ใช้ชื่อแบรนด์ได้ (ขอความยินยอมลูกค้าก่อน) · เคสศึกษารอคุณอนุมัติก่อนโพสต์เสมอ</p>
+<div class="mk-cases">
   {% for b in brands %}
-    <form method="post" action="/admin/marketing/brand/{{ b.id }}/case-study" style="display:flex;gap:8px;align-items:center">
-      <input type="hidden" name="ok" value="{{ 0 if b.case_study_ok else 1 }}">
-      <span style="min-width:220px"><b>{{ b.name }}</b> <span class="muted">{{ b.domain }}</span></span>
-      <span class="pill {{ 'ok' if b.case_study_ok else '' }}" style="font-size:10px">{{ 'ใช้ชื่อได้' if b.case_study_ok else 'ไม่ระบุชื่อ' }}</span>
-      <button class="btn ghost sm" type="submit">{{ 'ยกเลิก' if b.case_study_ok else 'อนุญาต' }}</button>
-    </form>
-  {% endfor %}
-  </div>
+  <form class="mk-case" method="post" action="/admin/marketing/brand/{{ b.id }}/case-study">
+    <input type="hidden" name="ok" value="{{ 0 if b.case_study_ok else 1 }}">
+    <div class="nm"><b>{{ b.name }}</b><span>{{ b.domain }}</span></div>
+    <span class="pill {{ 'ok' if b.case_study_ok else '' }}">{{ 'ใช้ชื่อได้' if b.case_study_ok else 'ไม่ระบุชื่อ' }}</span>
+    <button class="btn ghost sm" type="submit">{{ 'ยกเลิก' if b.case_study_ok else 'อนุญาต' }}</button>
+  </form>
+  {% else %}<div class="muted">ยังไม่มีแบรนด์ลูกค้า</div>{% endfor %}
 </div>
+
+<details class="card mk-set" style="margin-top:34px" {% if error or cfg.fb_missing or cfg.fb_valid == '0' or not cfg.enabled %}open{% endif %}>
+  <summary>
+    <h2>ตั้งค่าช่องทาง</h2>
+    <span class="chips">
+      <span class="pill {{ 'ok' if cfg.line and cfg.line_ready else '' }}">LINE {{ 'พร้อม' if cfg.line and cfg.line_ready else ('ยังไม่มีคีย์' if not cfg.line_ready else 'ปิด') }}</span>
+      <span class="pill {{ 'ok' if cfg.fb_ready and cfg.fb_valid != '0' and not cfg.fb_missing else 'no' if cfg.fb_valid == '0' or cfg.fb_missing else '' }}">Facebook {{ 'เชื่อมแล้ว' if cfg.fb_ready and cfg.fb_valid != '0' and not cfg.fb_missing else ('ต้องแก้' if cfg.fb_valid == '0' or cfg.fb_missing else 'ยังไม่เชื่อม') }}</span>
+      <span class="chev">แก้ไข ▾</span>
+    </span>
+  </summary>
+  <form class="mk-form" method="post" action="/admin/marketing/settings">
+    <fieldset>
+      <legend>ทั่วไป</legend>
+      <label class="mk-check"><input type="checkbox" name="enabled" value="1" {% if cfg.enabled %}checked{% endif %}><span>เปิดฝ่ายการตลาด<br><span class="muted" style="font-size:12px">รันทุกเช้า 09:00</span></span></label>
+      <label class="mk-field"><span class="lbl">โพสต์ต่อช่องทางต่อสัปดาห์</span><input type="number" name="weekly" min="1" max="14" value="{{ cfg.weekly }}"><span class="hint">1–14 โพสต์</span></label>
+      <label class="mk-check"><input type="checkbox" name="line" value="1" {% if cfg.line %}checked{% endif %}><span>โพสต์ทาง LINE OA {% if not cfg.line_ready %}<span class="pill" style="font-size:11.5px">ยังไม่มีคีย์ LINE</span>{% else %}<span class="pill ok" style="font-size:11.5px">พร้อม</span>{% endif %}<br><span class="muted" style="font-size:12px">broadcast ถึงผู้ติดตาม · ฟรี 200 ข้อความ/เดือน นับต่อผู้รับ</span></span></label>
+    </fieldset>
+    <fieldset>
+      <legend>Facebook Page</legend>
+      <label class="mk-field"><span class="lbl">Page ID {% if cfg.fb_page_name %}<span class="pill ok" style="font-size:11.5px">{{ cfg.fb_page_name }}</span>{% endif %}</span>
+        <input type="text" name="fb_page_id" value="{{ cfg.fb_page_id }}" placeholder="ตัวเลข Page ID"><span class="hint">ระบบตรวจกับ token แล้วแก้ให้เอง</span></label>
+      <label class="mk-field"><span class="lbl">Page access token
+          {% if cfg.fb_token_set %}<span class="pill ok" style="font-size:11.5px">ตั้งแล้ว</span>{% endif %}
+          {% if cfg.fb_valid == '0' %}<span class="pill no" style="font-size:11.5px">ใช้ไม่ได้ — วางใหม่</span>{% endif %}
+          {% if cfg.fb_expires %}<span class="pill {{ 'ok' if cfg.fb_expires == '0' else '' }}" style="font-size:11.5px">{{ 'ไม่หมดอายุ' if cfg.fb_expires == '0' else 'หมดอายุ ' ~ cfg.fb_expires }}</span>{% endif %}</span>
+        <input type="password" name="fb_token" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_token_set else 'วาง token จาก Graph API Explorer' }}" autocomplete="off">
+        {% if cfg.fb_scopes %}<span class="hint">สิทธิ์: {{ cfg.fb_scopes|replace(',', ', ') }}</span>{% else %}<span class="hint">เพจ เจอ.AI · pages_manage_posts + pages_read_engagement</span>{% endif %}</label>
+      {% if cfg.fb_missing %}<div class="err-banner" style="font-size:12.5px;margin:0">token นี้ขาดสิทธิ์ {{ cfg.fb_missing|join(', ') }} — โพสต์ไม่ได้ ให้ไปที่ Graph API Explorer เพิ่มสิทธิ์เหล่านี้ที่ "เพิ่มสิทธิ์การอนุญาต" ก่อนกด Generate แล้วติ๊กอนุญาตเพจในหน้าต่าง Facebook จากนั้นวางโทเค็นใหม่</div>{% endif %}
+      <label class="mk-field"><span class="lbl">Meta App ID {% if cfg.fb_app_set %}<span class="pill ok" style="font-size:11.5px">ตั้งแล้ว</span>{% endif %}</span>
+        <input type="text" name="fb_app_id" placeholder="ตั้งค่าแอป → ข้อมูลพื้นฐาน"><span class="hint">ใช้แปลง token ให้ไม่หมดอายุ</span></label>
+      <label class="mk-field"><span class="lbl">Meta App secret</span>
+        <input type="password" name="fb_app_secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if cfg.fb_app_set else 'App secret ของแอปเดียวกัน' }}" autocomplete="off"></label>
+    </fieldset>
+    <div class="mk-help">token จาก Graph API Explorer หมดอายุในราว 1 ชั่วโมง — ใส่ App ID และ App secret ของแอปที่ออก token ด้วย ระบบจะแปลงเป็น token ถาวรของเพจให้ตอนบันทึก และบอกว่าสิทธิ์ครบไหม</div>
+    <div class="mk-actions"><button class="btn" type="submit">บันทึก</button>
+      {% if cfg.fb_ready %}<button class="btn ghost" type="submit" formaction="/admin/marketing/fb-test">ทดสอบสิทธิ์โพสต์ Facebook (ไม่เผยแพร่)</button>{% endif %}</div>
+  </form>
+</details>
+</div>
+
+<script>
+document.querySelectorAll('.mk-filter button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.mk-filter button').forEach(function(x){x.classList.toggle('on',x===b);});
+    var f=b.dataset.f;
+    document.querySelectorAll('.mk-posts tbody tr').forEach(function(r){ r.style.display = (!f || r.dataset.s===f) ? '' : 'none'; });
+  });
+});
+</script>
 {% endblock %}

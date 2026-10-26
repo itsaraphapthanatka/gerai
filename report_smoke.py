@@ -5,8 +5,8 @@ import app.analytics_chat as ac
 
 today = datetime.date(2026, 10, 4)
 brand = {"id": 1, "name": "JKP", "domain": "https://jkppropertyagency.com", "market": "โกดังให้เช่า"}
-runs = [{"id": 9, "started_at": "2026-10-01T08:00:00", "status": "done", "share_of_voice": 25.0, "brand_hits": 2, "questions_total": 8},
-        {"id": 8, "started_at": "2026-09-20T08:00:00", "status": "done", "share_of_voice": 12.5, "brand_hits": 1, "questions_total": 8},
+runs = [{"id": 9, "started_at": "2026-10-01T08:00:00", "status": "done", "share_of_voice": 0.25, "brand_hits": 2, "questions_total": 8},
+        {"id": 8, "started_at": "2026-09-20T08:00:00", "status": "done", "share_of_voice": 0.125, "brand_hits": 1, "questions_total": 8},
         {"id": 7, "started_at": "2026-08-30T08:00:00", "status": "done", "share_of_voice": 0.0, "brand_hits": 0, "questions_total": 8},
         {"id": 6, "started_at": "2026-08-01T08:00:00", "status": "running", "share_of_voice": None}]
 rank = [{"checked_at": "2026-10-01T09:00:00", "total": 8, "ranked": 3, "avg_pos": 6.33}, {"checked_at": "2026-09-24T09:00:00", "total": 8, "ranked": 1, "avg_pos": 9.0}]
