@@ -1,50 +1,54 @@
 {% extends "base.html" %}
-{% block title %}อันดับ Google — {{ brand['name'] }}{% endblock %}
+{% block title %}{{ _("อันดับ Google") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
-<h1>อันดับ Google</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — เช็คว่าเว็บติด {{ rank_pages }} หน้าแรกของ Google (~{{ rank_limit }} อันดับ) ของคำถามเป้าหมายหรือยัง</p>
+<h1>{{ _("อันดับ Google") }}</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("เช็คว่าเว็บติด {pages} หน้าแรกของ Google (~{limit} อันดับ) ของคำถามเป้าหมายหรือยัง", pages=rank_pages, limit=rank_limit) }}</p>
 
 {% if not is_google %}
 <div class="card" style="border-color:var(--amber,#e0a800)">
-  <b>⚠️ ยังไม่ได้ตั้งค่า Serper</b>
+  <b>⚠️ {{ _("ยังไม่ได้ตั้งค่า Serper") }}</b>
   <p class="muted" style="margin:6px 0 0">
-    อันดับที่เช็คได้ตอนนี้ <b>ไม่ใช่ของ Google</b> (มาจาก search backend ตัวอื่น) — ต้องใส่ Serper API key
-    {%- if request.session.get('is_admin') %} ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}
-    เพื่อวัดอันดับ Google จริง
+    {{ _("อันดับที่เช็คได้ตอนนี้ <b>ไม่ใช่ของ Google</b> (มาจาก search backend ตัวอื่น)")|safe }} —
+    {%- if request.session.get('is_admin') %}
+    {%- set settings_link %}<a class="link" href="/admin/settings">{{ _("ตั้งค่าระบบ") }}</a>{% endset %}
+    {{ _("ต้องใส่ Serper API key ที่ {link} เพื่อวัดอันดับ Google จริง", link=settings_link)|safe }}
+    {%- else %}
+    {{ _("ต้องใส่ Serper API key (แจ้งผู้ดูแลระบบ) เพื่อวัดอันดับ Google จริง") }}
+    {%- endif %}
   </p>
 </div>
 {% endif %}
 
 <form method="post" action="/brands/{{ brand['id'] }}/rank/run" style="margin:14px 0">
-  <button class="btn" type="submit">เช็คอันดับตอนนี้</button>
-  <span class="muted" style="margin-left:8px;font-size:12px">ใช้โควตาเดียวกับการมอนิเตอร์</span>
+  <button class="btn" type="submit">{{ _("เช็คอันดับตอนนี้") }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ใช้โควตาเดียวกับการมอนิเตอร์") }}</span>
 </form>
 
 {% if not delta %}
-<div class="card"><p class="muted">ยังไม่เคยเช็คอันดับ — กดปุ่มด้านบนเพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+<div class="card"><p class="muted">{{ _("ยังไม่เคยเช็คอันดับ — กดปุ่มด้านบนเพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)") }}</p></div>
 {% else %}
 <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
   <div style="text-align:center">
-    <div class="muted">ติด {{ rank_pages }} หน้าแรก</div>
+    <div class="muted">{{ _("ติด {n} หน้าแรก", n=rank_pages) }}</div>
     <div class="sov {% if delta.ranked == 0 %}no{% else %}pos{% endif %}">{{ delta.ranked }}/{{ delta.total }}</div>
-    <div class="muted">คำถาม</div>
+    <div class="muted">{{ _("คำถาม") }}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">อันดับเฉลี่ย</div>
+    <div class="muted">{{ _("อันดับเฉลี่ย") }}</div>
     <div class="sov {% if delta.avg_pos %}pos{% else %}no{% endif %}">{{ delta.avg_pos or '–' }}</div>
-    <div class="muted">เฉพาะที่ติด</div>
+    <div class="muted">{{ _("เฉพาะที่ติด") }}</div>
   </div>
   <div style="margin-left:auto;text-align:right">
-    <div class="muted">เช็คล่าสุด</div>
+    <div class="muted">{{ _("เช็คล่าสุด") }}</div>
     <div>{{ delta.checked_at[:16].replace('T', ' ') }}</div>
     <div class="muted">engine: {{ delta.engine }}</div>
   </div>
 </div>
 
-<h2>แนวโน้ม — สัดส่วนคำถามที่ติด {{ rank_pages }} หน้าแรก</h2>
+<h2>{{ _("แนวโน้ม — สัดส่วนคำถามที่ติด {n} หน้าแรก", n=rank_pages) }}</h2>
 <div class="card">
-  <svg viewBox="0 0 {{ chart_w }} 180" style="width:100%;max-width:{{ chart_w }}px;height:auto" role="img" aria-label="กราฟแนวโน้มอันดับ Google">
+  <svg viewBox="0 0 {{ chart_w }} 180" style="width:100%;max-width:{{ chart_w }}px;height:auto" role="img" aria-label="{{ _("กราฟแนวโน้มอันดับ Google") }}">
     <line x1="38" y1="{{ base_y }}" x2="{{ chart_w - 6 }}" y2="{{ base_y }}" stroke="#dedee5"/>
     {% for b in bars %}
     <rect x="{{ b.x }}" y="{{ b.y }}" width="38" height="{{ b.h }}" rx="4" fill="#ff5530"></rect>
@@ -54,20 +58,20 @@
   </svg>
 </div>
 
-<h2>รายคำถาม</h2>
+<h2>{{ _("รายคำถาม") }}</h2>
 <div class="card">
   <table>
-    <tr><th>คำถาม</th><th>อันดับ</th><th>เปลี่ยนแปลง</th><th>หน้าที่ติด</th></tr>
+    <tr><th>{{ _("คำถาม") }}</th><th>{{ _("อันดับ") }}</th><th>{{ _("เปลี่ยนแปลง") }}</th><th>{{ _("หน้าที่ติด") }}</th></tr>
     {% for r in rows %}
     <tr>
       <td>{{ r.q }}</td>
-      <td>{% if r.pos %}<b>#{{ r.pos }}</b>{% else %}<span class="pill no">ไม่ติด {{ rank_pages }} หน้าแรก</span>{% endif %}</td>
+      <td>{% if r.pos %}<b>#{{ r.pos }}</b>{% else %}<span class="pill no">{{ _("ไม่ติด {n} หน้าแรก", n=rank_pages) }}</span>{% endif %}</td>
       <td>
-        {%- if r.change == 'up' %}<span class="pill ok">↑ ดีขึ้น {{ r.diff }} อันดับ</span>
-        {%- elif r.change == 'down' %}<span class="pill no">↓ ตก {{ r.diff }} อันดับ</span>
-        {%- elif r.change == 'new' %}<span class="pill ok">✨ เพิ่งติด</span>
-        {%- elif r.change == 'lost' %}<span class="pill no">↓ หลุด</span>
-        {%- else %}<span class="muted">– เท่าเดิม</span>{% endif %}
+        {%- if r.change == 'up' %}<span class="pill ok">↑ {{ _("ดีขึ้น {n} อันดับ", n=r.diff) }}</span>
+        {%- elif r.change == 'down' %}<span class="pill no">↓ {{ _("ตก {n} อันดับ", n=r.diff) }}</span>
+        {%- elif r.change == 'new' %}<span class="pill ok">✨ {{ _("เพิ่งติด") }}</span>
+        {%- elif r.change == 'lost' %}<span class="pill no">↓ {{ _("หลุด") }}</span>
+        {%- else %}<span class="muted">– {{ _("เท่าเดิม") }}</span>{% endif %}
       </td>
       <td>{% if r.url %}<a class="link" href="{{ r.url }}" target="_blank" rel="noopener" style="font-size:12px">{{ r.url[:60] }}{{ '…' if r.url|length > 60 else '' }}</a>{% else %}<span class="muted">–</span>{% endif %}</td>
     </tr>
@@ -75,8 +79,9 @@
   </table>
 </div>
 <p class="muted" style="font-size:12px">
-  อันดับ Google เป็นตัวชี้วัดตั้งต้นของ GEO — หน้าที่ไม่ติด index/อันดับต่ำมาก AI แทบไม่หยิบไปอ้างอิง
-  ดู <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV บน AI</a> ควบคู่กัน
+  {{ _("อันดับ Google เป็นตัวชี้วัดตั้งต้นของ GEO — หน้าที่ไม่ติด index/อันดับต่ำมาก AI แทบไม่หยิบไปอ้างอิง") }}
+  {%- set sov_link %}<a class="link" href="/brands/{{ brand['id'] }}/progress">{{ _("SoV บน AI") }}</a>{% endset %}
+  {{ _("ดู {link} ควบคู่กัน", link=sov_link)|safe }}
 </p>
 {% endif %}
 {% endblock %}

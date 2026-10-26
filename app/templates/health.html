@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}สุขภาพเว็บ — {{ brand['name'] }}{% endblock %}
+{% block title %}{{ _("สุขภาพเว็บ") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
-<h1>สุขภาพเว็บ</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล</p>
+<h1>{{ _("สุขภาพเว็บ") }}</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล") }}</p>
 
 {# สถานะ uptime จากการเช็ครายวัน — ต้องอยู่เหนือผลตรวจ เพราะถ้าเว็บเข้าไม่ได้
    ผลตรวจข้างล่างจะเชื่อไม่ได้ทั้งหมด และเป็นเรื่องที่ต้องแก้ก่อนอย่างอื่น #}
 {% if uptime.up is defined %}
   {% if uptime.up %}
-<div class="ok-banner">🟢 เว็บเปิดได้ปกติ
-  {%- if uptime.checked_at %} <span style="opacity:.7">· เช็คล่าสุด {{ uptime.checked_at[:16].replace('T', ' ') }}</span>{% endif %}
+<div class="ok-banner">🟢 {{ _("เว็บเปิดได้ปกติ") }}
+  {%- if uptime.checked_at %} <span style="opacity:.7">· {{ _("เช็คล่าสุด") }} {{ uptime.checked_at[:16].replace('T', ' ') }}</span>{% endif %}
 </div>
   {% else %}
 <div class="err">
-  <b>🔴 เข้าเว็บไม่ได้</b> — {{ uptime.reason }}
+  <b>🔴 {{ _("เข้าเว็บไม่ได้") }}</b> — {{ uptime.reason|tr }}
   <div style="margin-top:6px;font-size:13px;opacity:.85">
-    ตรวจพบตั้งแต่ {{ uptime.since[:16].replace('T', ' ') }}{% if down_days %} ({{ down_days }} วัน){% endif %}
-    {%- if uptime.checked_at %} · เช็คล่าสุด {{ uptime.checked_at[:16].replace('T', ' ') }}{% endif %}
+    {{ _("ตรวจพบตั้งแต่ {at}", at=uptime.since[:16].replace('T', ' ')) }}{% if down_days %} ({{ _("{n} วัน", n=down_days) }}){% endif %}
+    {%- if uptime.checked_at %} · {{ _("เช็คล่าสุด") }} {{ uptime.checked_at[:16].replace('T', ' ') }}{% endif %}
   </div>
 </div>
   {% endif %}
@@ -26,37 +26,36 @@
 {# รายงานที่ดึงหน้าแรกไม่ได้ ต้องเตือนแยก — แสดงแม้เว็บกลับมาแล้ว เพราะรายงานเก่ายังผิดอยู่ #}
 {% if report_stale %}
 <div class="err">
-  <b>ผลตรวจด้านล่างเชื่อไม่ได้</b> — รอบนั้นดึงหน้าแรกไม่ได้ ข้ออื่นจึงตกตามกันหมด
-  เพราะตัวตรวจเข้าเว็บไม่ได้ ไม่ใช่เพราะเว็บมีปัญหาหลายอย่าง — กด "ตรวจตอนนี้" อีกครั้งเมื่อเว็บกลับมา
+  <b>{{ _("ผลตรวจด้านล่างเชื่อไม่ได้") }}</b> — {{ _('รอบนั้นดึงหน้าแรกไม่ได้ ข้ออื่นจึงตกตามกันหมด เพราะตัวตรวจเข้าเว็บไม่ได้ ไม่ใช่เพราะเว็บมีปัญหาหลายอย่าง — กด "ตรวจตอนนี้" อีกครั้งเมื่อเว็บกลับมา') }}
 </div>
 {% endif %}
 
 <form method="post" action="/brands/{{ brand['id'] }}/health/run" style="margin:14px 0">
-  <button class="btn" type="submit" {{ 'disabled' if running }}>{{ 'กำลังตรวจ…' if running else 'ตรวจตอนนี้' }}</button>
-  <span class="muted" style="margin-left:8px;font-size:12px">ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที</span>
+  <button class="btn" type="submit" {{ 'disabled' if running }}>{{ _('กำลังตรวจ…') if running else _('ตรวจตอนนี้') }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที") }}</span>
 </form>
 
 {% if running and not report %}
-<div class="card"><p class="muted">กำลังตรวจ — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+<div class="card"><p class="muted">{{ _("กำลังตรวจ — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>
 {% elif not report %}
-<div class="card"><p class="muted">ยังไม่เคยตรวจ — กด "ตรวจตอนนี้" เพื่อเริ่ม</p></div>
+<div class="card"><p class="muted">{{ _('ยังไม่เคยตรวจ — กด "ตรวจตอนนี้" เพื่อเริ่ม') }}</p></div>
 {% else %}
 
 <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
   <div style="text-align:center">
-    <div class="muted">สถานะ</div>
-    <div class="sov {{ 'pos' if report.ok else 'no' }}">{{ 'ผ่าน' if report.ok else report.n_fail ~ ' ปัญหา' }}</div>
+    <div class="muted">{{ _("สถานะ") }}</div>
+    <div class="sov {{ 'pos' if report.ok else 'no' }}">{{ _('ผ่าน') if report.ok else _('{n} ปัญหา', n=report.n_fail) }}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">ผ่าน</div><div class="sov pos">{{ report.n_ok }}</div>
+    <div class="muted">{{ _("ผ่าน") }}</div><div class="sov pos">{{ report.n_ok }}</div>
   </div>
   {% if report.n_warn %}
   <div style="text-align:center">
-    <div class="muted">ควรดู</div><div class="sov">{{ report.n_warn }}</div>
+    <div class="muted">{{ _("ควรดู") }}</div><div class="sov">{{ report.n_warn }}</div>
   </div>
   {% endif %}
   <div style="margin-left:auto;text-align:right">
-    <div class="muted">ตรวจล่าสุด</div>
+    <div class="muted">{{ _("ตรวจล่าสุด") }}</div>
     <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
     <div class="muted" style="font-size:12px">{{ report.site }}</div>
   </div>
@@ -64,37 +63,36 @@
 
 {% set fails = report.checks | selectattr('status', 'equalto', 'fail') | list %}
 {% if fails %}
-<h2>ต้องแก้</h2>
+<h2>{{ _("ต้องแก้") }}</h2>
 <div class="card">
   <table>
-    <tr><th style="width:34%">รายการ</th><th>รายละเอียด</th></tr>
+    <tr><th style="width:34%">{{ _("รายการ") }}</th><th>{{ _("รายละเอียด") }}</th></tr>
     {% for c in fails %}
-    <tr><td><span class="pill no">✗</span> {{ c.label }}</td><td>{{ c.detail or '—' }}</td></tr>
+    <tr><td><span class="pill no">✗</span> {{ c.label|tr }}</td><td>{{ c.detail|tr if c.detail else '—' }}</td></tr>
     {% endfor %}
   </table>
 </div>
 {% endif %}
 
-<h2>ผลตรวจทั้งหมด</h2>
+<h2>{{ _("ผลตรวจทั้งหมด") }}</h2>
 <div class="card">
   <table>
     {% for c in report.checks %}
     <tr>
-      <td style="width:34%">{{ c.label }}</td>
+      <td style="width:34%">{{ c.label|tr }}</td>
       <td style="width:8%">
-        {%- if c.status == 'ok' %}<span class="pill ok">ผ่าน</span>
-        {%- elif c.status == 'fail' %}<span class="pill no">ไม่ผ่าน</span>
-        {%- elif c.status == 'warn' %}<span class="pill">ควรดู</span>
-        {%- else %}<span class="muted">ข้าม</span>{% endif %}
+        {%- if c.status == 'ok' %}<span class="pill ok">{{ _("ผ่าน") }}</span>
+        {%- elif c.status == 'fail' %}<span class="pill no">{{ _("ไม่ผ่าน") }}</span>
+        {%- elif c.status == 'warn' %}<span class="pill">{{ _("ควรดู") }}</span>
+        {%- else %}<span class="muted">{{ _("ข้าม") }}</span>{% endif %}
       </td>
-      <td class="muted" style="font-size:12.5px">{{ c.detail }}</td>
+      <td class="muted" style="font-size:12.5px">{{ c.detail|tr }}</td>
     </tr>
     {% endfor %}
   </table>
 </div>
 <p class="muted" style="font-size:12px">
-  ทุกข้อมาจากปัญหาที่เคยเกิดจริงกับเว็บลูกค้า — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex,
-  ส่งเนื้อหาหน้าแรกให้ทุก URL, หรือ sitemap เต็มไปด้วยลิงก์ตาย
+  {{ _("ทุกข้อมาจากปัญหาที่เคยเกิดจริงกับเว็บลูกค้า — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex, ส่งเนื้อหาหน้าแรกให้ทุก URL, หรือ sitemap เต็มไปด้วยลิงก์ตาย") }}
 </p>
 {% endif %}
 {% if running %}

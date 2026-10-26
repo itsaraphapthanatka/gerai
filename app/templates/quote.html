@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="th">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>ใบเสนอราคา {{ q.number }} · เจอ.AI</title>
+<title>{{ _("ใบเสนอราคา {number}", number=q.number) }} · เจอ.AI</title>
 {% if not pdf %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
 <link rel="icon" href="/static/favicon-32.png">
 {% endif %}
 <style>
-  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--font:{% if pdf %}'Sarabun',sans-serif{% else %}'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif{% endif %}}
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--font:{% if pdf %}'Sarabun',sans-serif{% else %}'DM Sans',{% if font_css() %}'{{ font_family() }}',{% endif %}'IBM Plex Sans Thai',system-ui,sans-serif{% endif %}}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.55;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
@@ -57,125 +57,133 @@
   .foot a{color:inherit}
   @media (max-width:600px){.grid{grid-template-columns:1fr}.pay{grid-template-columns:1fr}ul.perks{columns:1}}
   @media print{.cta,.pay form,.noprint{display:none}}
+  .brand .side{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 </style>
 {% include "_ds.html" %}
+{# PDF (Gotenberg ไม่มีเน็ต) — ใช้ฟอนต์ CJK ที่ติดตั้งในเครื่องให้ตัวอักษรตรงภาษา #}
+{% set cjk = {'zh': 'Noto Sans CJK SC', 'ja': 'Noto Sans CJK JP', 'ko': 'Noto Sans CJK KR'} %}
+{% if pdf and ui_lang() in cjk %}<style>:root{--font:'Sarabun','{{ cjk[ui_lang()] }}',sans-serif}</style>{% endif %}
 </head>
 <body>
+{% set lq = '' if ui_lang() == 'th' else '?lang=' ~ ui_lang() %}
+{% set contract_link = '<a href="%s/q/%s/contract%s">%s</a>'|format(base, q.token, lq, _("สัญญาบริการมาตรฐาน")|e) %}
 <div class="wrap">
   <div class="brand"><span>{% include "_logo.html" %}{% if company.name %}<span style="margin-left:8px">· {{ company.name }}</span>{% endif %}</span>
-    {% if not pdf %}<span class="noprint"><a href="/q/{{ q.token }}.pdf">ดาวน์โหลด PDF</a> · <a href="/q/{{ q.token }}/contract">สัญญาบริการ</a></span>{% endif %}</div>
-  <h1>ใบเสนอราคา {{ q.number }} <span class="pill {{ 'ok' if q.status in ('accepted','claimed','paid') else ('warn' if expired else '') }}">{{ status_label }}</span></h1>
-  <p class="sub">ออกเมื่อ {{ (q.created_at or '')[:10] }} · ใช้ได้ถึง {{ q.valid_until }} · สำหรับเว็บ <b>{{ lead.domain }}</b></p>
+    {% if not pdf %}<span class="noprint side"><a href="/q/{{ q.token }}.pdf{{ lq }}">{{ _("ดาวน์โหลด PDF") }}</a> · <a href="/q/{{ q.token }}/contract{{ lq }}">{{ _("สัญญาบริการ") }}</a>{% include "_lang.html" %}</span>{% endif %}</div>
+  <h1>{{ _("ใบเสนอราคา {number}", number=q.number) }} <span class="pill {{ 'ok' if q.status in ('accepted','claimed','paid') else ('warn' if expired else '') }}">{% if ui_lang() == 'th' %}{{ status_label }}{% elif q.status == 'draft' %}{{ _("ใบเสนอราคาฉบับร่าง") }}{% elif q.status == 'cancelled' %}{{ _("ใบเสนอราคาถูกยกเลิก") }}{% else %}{{ status_label|tr }}{% endif %}</span></h1>
+  <p class="sub">{{ _("ออกเมื่อ {date}", date=(q.created_at or '')[:10]) }} · {{ _("ใช้ได้ถึง {date}", date=q.valid_until) }} · {{ _("สำหรับเว็บ") }} <b>{{ lead.domain }}</b></p>
 
   <div class="grid">
-    <div class="box"><b>ผู้เสนอ</b>{{ company.name or 'เจอ.AI' }}{% if company.address %}<br>{{ company.address }}{% endif %}{% if company.tax_id %}<br>เลขประจำตัวผู้เสียภาษี {{ company.tax_id }}{% endif %}</div>
-    <div class="box"><b>ผู้รับ</b>{{ lead.name or 'ทีม ' ~ lead.domain }}<br>{{ lead.domain }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</div>
+    <div class="box"><b>{{ _("ผู้เสนอ") }}</b>{{ company.name or 'เจอ.AI' }}{% if company.address %}<br>{{ company.address }}{% endif %}{% if company.tax_id %}<br>{{ _("เลขประจำตัวผู้เสียภาษี {tax_id}", tax_id=company.tax_id) }}{% endif %}</div>
+    <div class="box"><b>{{ _("ผู้รับ") }}</b>{{ lead.name or _("ทีม {domain}", domain=lead.domain) }}<br>{{ lead.domain }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</div>
   </div>
 
   {% if summary %}
-  <h2>ที่มาของข้อเสนอ — ผลตรวจเว็บเมื่อ {{ (lead.audit_at or '')[:10] }}</h2>
-  {% for s in summary %}<div class="item"><div class="lb">{{ s.label }}</div><div class="why">{{ s.why }}</div></div>{% endfor %}
+  <h2>{{ _("ที่มาของข้อเสนอ — ผลตรวจเว็บเมื่อ {date}", date=(lead.audit_at or '')[:10]) }}</h2>
+  {% for s in summary %}<div class="item"><div class="lb">{{ s.label|tr }}</div><div class="why">{{ s.why|tr }}</div></div>{% endfor %}
   {% endif %}
 
-  <h2>รายการ</h2>
+  <h2>{{ _("รายการ") }}</h2>
   <table>
-    <thead><tr><th>บริการ</th><th>รอบ</th><th class="num">บาท</th></tr></thead>
+    <thead><tr><th>{{ _("บริการ") }}</th><th>{{ _("รอบ") }}</th><th class="num">{{ _("บาท") }}</th></tr></thead>
     <tbody>
       {% if yearly %}
       {% set list_year = q.price * 12 %}{% set after_y = (list_year * (100 - yearly_pct) / 100)|round|int %}
-      <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}<div class="why" style="color:var(--slate);font-size:13px">{{ "{:,}".format(q.price) }} บาท × 12 เดือน</div></td><td>รายปี</td><td class="num">{{ "{:,}".format(list_year) }}</td></tr>
-      <tr><td>ส่วนลดจ่ายรายปี {{ "%g"|format(yearly_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(list_year - after_y) }}</td></tr>
-      {% if q.discount_pct %}<tr><td>ส่วนลดพิเศษ {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(after_y - period_total) }}</td></tr>{% endif %}
-      {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }} · ปกติ {{ "{:,}".format(setup.price) }} บาท</div></td><td>ครั้งเดียว</td><td class="num">ฟรี</td></tr>{% endif %}
-      <tr><td>เทียบเป็นต่อเดือน</td><td>เฉลี่ย</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
-      <tr class="{{ '' if vat else 'total' }}"><td>ยอดชำระครั้งเดียวทั้งปี{{ ' (ก่อน VAT)' if vat }}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
-      {% if vat %}<tr><td>ภาษีมูลค่าเพิ่ม {{ "%g"|format(vat) }}%</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
-      <tr class="total"><td>{{ 'ยอดชำระครั้งเดียวทั้งปี' }} (รวม VAT)</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
+      <tr><td>{{ _("แพ็กเกจ {label}", label=plan.label) }} — {{ plan.tagline|tr }}<div class="why" style="color:var(--slate);font-size:13px">{{ _("{price} บาท × 12 เดือน", price="{:,}".format(q.price)) }}</div></td><td>{{ _("รายปี") }}</td><td class="num">{{ "{:,}".format(list_year) }}</td></tr>
+      <tr><td>{{ _("ส่วนลดจ่ายรายปี {pct}%", pct="%g"|format(yearly_pct)) }}</td><td></td><td class="num">−{{ "{:,}".format(list_year - after_y) }}</td></tr>
+      {% if q.discount_pct %}<tr><td>{{ _("ส่วนลดพิเศษ {pct}%", pct="%g"|format(q.discount_pct)) }}</td><td></td><td class="num">−{{ "{:,}".format(after_y - period_total) }}</td></tr>{% endif %}
+      {% if q.setup %}<tr><td>{{ setup.label|tr }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc|tr }} · {{ _("ปกติ {price} บาท", price="{:,}".format(setup.price)) }}</div></td><td>{{ _("ครั้งเดียว") }}</td><td class="num">{{ _("ฟรี") }}</td></tr>{% endif %}
+      <tr><td>{{ _("เทียบเป็นต่อเดือน") }}</td><td>{{ _("เฉลี่ย") }}</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
+      <tr class="{{ '' if vat else 'total' }}"><td>{{ _("ยอดชำระครั้งเดียวทั้งปี") }}{% if vat %} {{ _("(ก่อน VAT)") }}{% endif %}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% if vat %}<tr><td>{{ _("ภาษีมูลค่าเพิ่ม {v}%", v="%g"|format(vat)) }}</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
+      <tr class="total"><td>{{ _("ยอดชำระครั้งเดียวทั้งปี") }} {{ _("(รวม VAT)") }}</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
       {% else %}
-      <tr><td>แพ็กเกจ {{ plan.label }} — {{ plan.tagline }}</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
-      {% if q.discount_pct %}<tr><td>ส่วนลด {{ "%g"|format(q.discount_pct) }}%</td><td></td><td class="num">−{{ "{:,}".format(q.price - q.net) }}</td></tr>{% endif %}
-      {% if q.setup %}<tr><td>{{ setup.label }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc }}</div></td><td>ครั้งเดียว</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
-      <tr><td>ค่าบริการสุทธิต่อเดือน (รอบถัดไป)</td><td>รายเดือน</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
-      <tr class="{{ '' if vat else 'total' }}"><td>ยอดชำระงวดแรก{{ ' (ก่อน VAT)' if vat }}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
-      {% if vat %}<tr><td>ภาษีมูลค่าเพิ่ม {{ "%g"|format(vat) }}%</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
-      <tr class="total"><td>{{ 'ยอดชำระงวดแรก' }} (รวม VAT)</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
+      <tr><td>{{ _("แพ็กเกจ {label}", label=plan.label) }} — {{ plan.tagline|tr }}</td><td>{{ _("รายเดือน") }}</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
+      {% if q.discount_pct %}<tr><td>{{ _("ส่วนลด {pct}%", pct="%g"|format(q.discount_pct)) }}</td><td></td><td class="num">−{{ "{:,}".format(q.price - q.net) }}</td></tr>{% endif %}
+      {% if q.setup %}<tr><td>{{ setup.label|tr }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc|tr }}</div></td><td>{{ _("ครั้งเดียว") }}</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
+      <tr><td>{{ _("ค่าบริการสุทธิต่อเดือน (รอบถัดไป)") }}</td><td>{{ _("รายเดือน") }}</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
+      <tr class="{{ '' if vat else 'total' }}"><td>{{ _("ยอดชำระงวดแรก") }}{% if vat %} {{ _("(ก่อน VAT)") }}{% endif %}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% if vat %}<tr><td>{{ _("ภาษีมูลค่าเพิ่ม {v}%", v="%g"|format(vat)) }}</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
+      <tr class="total"><td>{{ _("ยอดชำระงวดแรก") }} {{ _("(รวม VAT)") }}</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
       {% endif %}
     </tbody>
   </table>
 
   {% if not pdf and q.status in ('draft','sent','viewed') and alt %}
   <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
-    <div>{% if yearly %}<div class="lb">อยากเริ่มแบบรายเดือนก่อน?</div><div class="why">รายเดือน {{ "{:,}".format(alt.net) }} บาท/เดือน{% if alt.setup_price %} + GEO Setup {{ "{:,}".format(alt.setup_price) }} บาท{% endif %} · ยกเลิกได้ทุกเมื่อ · รายปีที่เสนอไว้ประหยัดกว่า {{ "{:,}".format(alt.saving_year) }} บาท</div>
-      {% else %}<div class="lb">จ่ายรายปีประหยัด {{ "{:,}".format(alt.saving_year) }} บาท</div><div class="why">รายปี {{ "{:,}".format(alt.period_total) }} บาท (เทียบ {{ "{:,}".format(alt.net) }} บาท/เดือน · ลด {{ "%g"|format(yearly_pct) }}%{% if q.setup %} · GEO Setup ฟรี{% endif %}){% if refund_days %} · คืนเงินเต็มได้ภายใน {{ refund_days }} วันแรก{% endif %}</div>{% endif %}</div>
+    <div>{% if yearly %}<div class="lb">{{ _("อยากเริ่มแบบรายเดือนก่อน?") }}</div><div class="why">{{ _("รายเดือน {amount} บาท/เดือน", amount="{:,}".format(alt.net)) }}{% if alt.setup_price %} + {{ _("GEO Setup {amount} บาท", amount="{:,}".format(alt.setup_price)) }}{% endif %} · {{ _("ยกเลิกได้ทุกเมื่อ") }} · {{ _("รายปีที่เสนอไว้ประหยัดกว่า {amount} บาท", amount="{:,}".format(alt.saving_year)) }}</div>
+      {% else %}<div class="lb">{{ _("จ่ายรายปีประหยัด {amount} บาท", amount="{:,}".format(alt.saving_year)) }}</div><div class="why">{{ _("รายปี {amount} บาท", amount="{:,}".format(alt.period_total)) }} ({{ _("เทียบ {amount} บาท/เดือน", amount="{:,}".format(alt.net)) }} · {{ _("ลด {pct}%", pct="%g"|format(yearly_pct)) }}{% if q.setup %} · {{ _("GEO Setup ฟรี") }}{% endif %}){% if refund_days %} · {{ _("คืนเงินเต็มได้ภายใน {d} วันแรก", d=refund_days) }}{% endif %}</div>{% endif %}</div>
     <form method="post" action="/q/{{ q.token }}/cycle"><input type="hidden" name="cycle" value="{{ 'month' if yearly else 'year' }}"><input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
-      <button type="submit" style="background:#fff;color:var(--primary);border:1px solid var(--hairline)">{{ 'เปลี่ยนเป็นรายเดือน' if yearly else 'เปลี่ยนเป็นรายปี' }}</button></form>
+      <button type="submit" style="background:#fff;color:var(--primary);border:1px solid var(--hairline)">{{ _("เปลี่ยนเป็นรายเดือน") if yearly else _("เปลี่ยนเป็นรายปี") }}</button></form>
   </div>
   {% endif %}
 
-  <h2>สิ่งที่รวมอยู่ในแพ็กเกจ {{ plan.label }}</h2>
-  <ul class="perks">{% for p in plan.perks %}<li>{{ p }}</li>{% endfor %}</ul>
+  <h2>{{ _("สิ่งที่รวมอยู่ในแพ็กเกจ {label}", label=plan.label) }}</h2>
+  <ul class="perks">{% for p in plan.perks %}<li>{{ p|tr }}</li>{% endfor %}</ul>
 
-  <h2>เงื่อนไขหลัก</h2>
+  <h2>{{ _("เงื่อนไขหลัก") }}</h2>
   <ol class="terms">{% for t in terms %}<li>{{ t }}</li>{% endfor %}</ol>
-  <p class="sub" style="font-size:13.5px">ฉบับเต็มอยู่ใน<a href="{{ base }}/q/{{ q.token }}/contract">สัญญาบริการมาตรฐาน</a>{% if not company.contract_reviewed %} (ร่างมาตรฐาน อยู่ระหว่างให้ที่ปรึกษากฎหมายตรวจ){% endif %}</p>
+  <p class="sub" style="font-size:13.5px">{{ _("ฉบับเต็มอยู่ใน{link}", link=contract_link)|safe }}{% if not company.contract_reviewed %} {{ _("(ร่างมาตรฐาน อยู่ระหว่างให้ที่ปรึกษากฎหมายตรวจ)") }}{% endif %}</p>
 
   {% if not pdf %}
     {% if q.status == 'paid' %}
-      <div class="ok">ยืนยันยอดชำระแล้ว บัญชีและแบรนด์ของคุณเปิดใช้งานแล้ว เข้าสู่ระบบได้ที่ <a href="/login">{{ base }}/login</a> (รายละเอียดส่งไปทางอีเมล)</div>
+      <div class="ok">{{ _("ยืนยันยอดชำระแล้ว บัญชีและแบรนด์ของคุณเปิดใช้งานแล้ว เข้าสู่ระบบได้ที่") }} <a href="/login">{{ base }}/login</a> {{ _("(รายละเอียดส่งไปทางอีเมล)") }}</div>
     {% elif q.status == 'claimed' %}
-      <div class="ok">ได้รับแจ้งชำระเงินแล้ว ทีมงานกำลังตรวจยอดและจะเปิดบัญชีให้ภายใน 1 วันทำการ</div>
+      <div class="ok">{{ _("ได้รับแจ้งชำระเงินแล้ว ทีมงานกำลังตรวจยอดและจะเปิดบัญชีให้ภายใน 1 วันทำการ") }}</div>
     {% elif q.status == 'accepted' and just_paid %}
-      <div class="ok">ได้รับการชำระจาก Stripe แล้ว ระบบกำลังเปิดบัญชีให้ (ไม่เกิน 1 นาที) — รีเฟรชหน้านี้ หรือรออีเมลต้อนรับ</div>
+      <div class="ok">{{ _("ได้รับการชำระจาก Stripe แล้ว ระบบกำลังเปิดบัญชีให้ (ไม่เกิน 1 นาที) — รีเฟรชหน้านี้ หรือรออีเมลต้อนรับ") }}</div>
     {% elif q.status == 'accepted' %}
-      <div class="ok">ยืนยันรับข้อเสนอแล้วโดย {{ q.accepted_name }} เมื่อ {{ (q.accepted_at or '')[:16].replace('T',' ') }} — ขั้นสุดท้ายคือชำระ{{ 'ค่าบริการรายปี' if yearly else 'งวดแรก' }}</div>
+      {% set acc_at = (q.accepted_at or '')[:16].replace('T',' ') %}
+      <div class="ok">{% if yearly %}{{ _("ยืนยันรับข้อเสนอแล้วโดย {name} เมื่อ {at} — ขั้นสุดท้ายคือชำระค่าบริการรายปี", name=q.accepted_name, at=acc_at) }}{% else %}{{ _("ยืนยันรับข้อเสนอแล้วโดย {name} เมื่อ {at} — ขั้นสุดท้ายคือชำระงวดแรก", name=q.accepted_name, at=acc_at) }}{% endif %}</div>
       {% if stripe_ready %}
       <div class="cta" style="margin-top:14px">
-        <h2>ชำระด้วยบัตรเครดิต/เดบิต</h2>
-        <p>{% if yearly %}ชำระครั้งเดียว {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ{% if refund_days %} · คืนเงินเต็มภายใน {{ refund_days }} วันแรก{% else %} · ชำระแล้วไม่คืนเงิน{% endif %}{% else %}งวดแรก {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} จากนั้น {{ baht(q.net * (1 + vat / 100)) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
-        <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error }}</div>{% endif %}<button type="submit">ชำระผ่าน Stripe</button></form>
+        <h2>{{ _("ชำระด้วยบัตรเครดิต/เดบิต") }}</h2>
+        <p>{% if yearly %}{{ _("ชำระครั้งเดียว {amount} บาท", amount=baht(payable)) }}{% if vat %} {{ _("(รวม VAT)") }}{% endif %} {{ _("ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ") }}{% if refund_days %} · {{ _("คืนเงินเต็มภายใน {d} วันแรก", d=refund_days) }}{% else %} · {{ _("ชำระแล้วไม่คืนเงิน") }}{% endif %}{% else %}{{ _("งวดแรก {amount} บาท", amount=baht(payable)) }}{% if vat %} {{ _("(รวม VAT)") }}{% endif %} {{ _("จากนั้น {amount} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ", amount=baht(q.net * (1 + vat / 100))) }}{% endif %} · {{ _("บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ") }}{% if stripe_mode == 'test' %} {{ _("(โหมดทดสอบ)") }}{% endif %}</p>
+        <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error|tr }}</div>{% endif %}<button type="submit">{{ _("ชำระผ่าน Stripe") }}</button></form>
       </div>
-      <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)</summary>
+      <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">{{ _("หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)") }}</summary>
       {% endif %}
       <div class="pay">
-        <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">ช่องทางชำระจะแจ้งทางอีเมล/LINE</div>{% endif %}</div>
+        <div>{% if qr %}<img src="{{ qr }}" alt="PromptPay QR">{% else %}<div class="box">{{ _("ช่องทางชำระจะแจ้งทางอีเมล/LINE") }}</div>{% endif %}</div>
         <div>
-          <div class="amt">{{ baht(payable) }} บาท</div>{% if vat %}<div class="sub" style="margin:-4px 0 8px">รวม VAT {{ "%g"|format(vat) }}% แล้ว</div>{% endif %}
-          <div class="sub" style="margin-bottom:8px">{% if ppid %}สแกน PromptPay ({{ ppname }}) ยอดตามนี้ แล้วแนบสลิปด้านล่าง{% else %}โอนตามช่องทางที่ทีมงานแจ้ง แล้วแนบสลิปด้านล่าง{% endif %}</div>
+          <div class="amt">{{ baht(payable) }} {{ _("บาท") }}</div>{% if vat %}<div class="sub" style="margin:-4px 0 8px">{{ _("รวม VAT {v}% แล้ว", v="%g"|format(vat)) }}</div>{% endif %}
+          <div class="sub" style="margin-bottom:8px">{% if ppid %}{{ _("สแกน PromptPay ({name}) ยอดตามนี้ แล้วแนบสลิปด้านล่าง", name=ppname) }}{% else %}{{ _("โอนตามช่องทางที่ทีมงานแจ้ง แล้วแนบสลิปด้านล่าง") }}{% endif %}</div>
           <form method="post" action="/q/{{ q.token }}/pay" enctype="multipart/form-data">
-            {% if error %}<div class="err">{{ error }}</div>{% endif %}
+            {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
             <input type="file" name="slip" accept=".jpg,.jpeg,.png,.webp,.pdf">
             <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
-            <div><button type="submit">แจ้งชำระเงินแล้ว</button></div>
+            <div><button type="submit">{{ _("แจ้งชำระเงินแล้ว") }}</button></div>
           </form>
         </div>
       </div>
       {% if stripe_ready %}</details>{% endif %}
     {% elif expired %}
-      <div class="warn">ใบเสนอราคานี้หมดอายุเมื่อ {{ q.valid_until }} — ตอบกลับอีเมลหรือทัก LINE เพื่อขอใบใหม่ได้ครับ</div>
+      <div class="warn">{{ _("ใบเสนอราคานี้หมดอายุเมื่อ {date} — ตอบกลับอีเมลหรือทัก LINE เพื่อขอใบใหม่ได้ครับ", date=q.valid_until) }}</div>
     {% elif q.status in ('sent','viewed') %}
       <div class="cta">
-        <h2>ยืนยันรับข้อเสนอ</h2>
-        <p>กรอกชื่อและยอมรับเงื่อนไข จากนั้นจะได้ช่องทางชำระงวดแรก บริการเริ่มเมื่อเรายืนยันยอด</p>
+        <h2>{{ _("ยืนยันรับข้อเสนอ") }}</h2>
+        <p>{{ _("กรอกชื่อและยอมรับเงื่อนไข จากนั้นจะได้ช่องทางชำระงวดแรก บริการเริ่มเมื่อเรายืนยันยอด") }}</p>
         <form method="post" action="/q/{{ q.token }}/accept">
-          {% if error %}<div class="err">{{ error }}</div>{% endif %}
-          <input type="text" name="name" placeholder="ชื่อ-นามสกุลผู้ยืนยัน" maxlength="120" value="{{ lead.name or '' }}">
-          <details style="margin:8px 0"><summary style="cursor:pointer">ข้อมูลออกใบเสร็จ/ใบกำกับภาษี (บริษัทกรอกได้ ไม่บังคับ)</summary>
-            <input type="text" name="buyer_name" placeholder="ชื่อบริษัท/ผู้ซื้อตามที่จดทะเบียน" maxlength="200" value="{{ q.buyer_name or '' }}">
-            <input type="text" name="buyer_tax_id" placeholder="เลขประจำตัวผู้เสียภาษี 13 หลัก" maxlength="20" value="{{ q.buyer_tax_id or '' }}">
-            <input type="text" name="buyer_branch" placeholder="สำนักงานใหญ่ หรือ สาขาที่ ..." maxlength="60" value="{{ q.buyer_branch or '' }}">
-            <input type="text" name="buyer_address" placeholder="ที่อยู่ออกเอกสาร" maxlength="400" value="{{ q.buyer_address or '' }}">
+          {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
+          <input type="text" name="name" placeholder="{{ _("ชื่อ-นามสกุลผู้ยืนยัน") }}" maxlength="120" value="{{ lead.name or '' }}">
+          <details style="margin:8px 0"><summary style="cursor:pointer">{{ _("ข้อมูลออกใบเสร็จ/ใบกำกับภาษี (บริษัทกรอกได้ ไม่บังคับ)") }}</summary>
+            <input type="text" name="buyer_name" placeholder="{{ _("ชื่อบริษัท/ผู้ซื้อตามที่จดทะเบียน") }}" maxlength="200" value="{{ q.buyer_name or '' }}">
+            <input type="text" name="buyer_tax_id" placeholder="{{ _("เลขประจำตัวผู้เสียภาษี 13 หลัก") }}" maxlength="20" value="{{ q.buyer_tax_id or '' }}">
+            <input type="text" name="buyer_branch" placeholder="{{ _("สำนักงานใหญ่ หรือ สาขาที่ ...") }}" maxlength="60" value="{{ q.buyer_branch or '' }}">
+            <input type="text" name="buyer_address" placeholder="{{ _("ที่อยู่ออกเอกสาร") }}" maxlength="400" value="{{ q.buyer_address or '' }}">
           </details>
           <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
-          <label class="consent"><input type="checkbox" name="agree" value="1"> ข้าพเจ้ายอมรับเงื่อนไขข้างต้นและ<a href="{{ base }}/q/{{ q.token }}/contract" target="_blank">สัญญาบริการมาตรฐาน</a> ในนามของ {{ lead.domain }}</label>
-          <button type="submit">ยืนยันรับข้อเสนอ</button>
+          {% set consent_link = '<a href="%s/q/%s/contract%s" target="_blank">%s</a>'|format(base, q.token, lq, _("สัญญาบริการมาตรฐาน")|e) %}
+          <label class="consent"><input type="checkbox" name="agree" value="1"> <span>{{ _("ข้าพเจ้ายอมรับเงื่อนไขข้างต้นและ{link} ในนามของ {domain}", link=consent_link, domain=lead.domain|e)|safe }}</span></label>
+          <button type="submit">{{ _("ยืนยันรับข้อเสนอ") }}</button>
         </form>
       </div>
     {% elif q.status == 'cancelled' %}
-      <div class="warn">ใบเสนอราคานี้ถูกยกเลิกแล้ว</div>
+      <div class="warn">{{ _("ใบเสนอราคานี้ถูกยกเลิกแล้ว") }}</div>
     {% endif %}
   {% endif %}
 
-  <p class="foot">เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน · ใบเสนอราคานี้สร้างจากระบบอัตโนมัติ ราคาตามตารางแพ็กเกจมาตรฐาน{% if not pdf %} · <a href="{{ base }}/audit/{{ lead.token }}">ดูผลตรวจเว็บ</a>{% endif %}</p>
+  <p class="foot">{{ _("เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน") }} · {{ _("ใบเสนอราคานี้สร้างจากระบบอัตโนมัติ ราคาตามตารางแพ็กเกจมาตรฐาน") }}{% if not pdf %} · <a href="{{ base }}/audit/{{ lead.token }}{{ lq }}">{{ _("ดูผลตรวจเว็บ") }}</a>{% endif %}</p>
 </div>
 </body>
 </html>

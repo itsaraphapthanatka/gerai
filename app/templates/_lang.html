@@ -1,0 +1,5 @@
+{# ตัวเลือกภาษาสำหรับหน้าที่ลูกค้าเห็น — ลิงก์หน้าเดิม + ?lang=xx (middleware จำลงคุกกี้ทั้งเว็บ) · ซ่อนใน PDF #}
+{% if not pdf %}<details class="ds-lang">
+  <summary aria-label="{{ _('เปลี่ยนภาษา') }}">{% for l in lang_links() if l.current %}{{ l.name }}{% endfor %}</summary>
+  <ul>{% for l in lang_links() %}<li><a href="{{ l.href }}" hreflang="{{ l.hreflang }}" lang="{{ l.hreflang }}"{% if l.current %} aria-current="true"{% endif %}>{{ l.name }}</a></li>{% endfor %}</ul>
+</details>{% endif %}

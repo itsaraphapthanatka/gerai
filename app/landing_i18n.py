@@ -1,7 +1,7 @@
 """ข้อความหน้าแรก 5 ภาษา (ไทย อังกฤษ จีน ญี่ปุ่น เกาหลี) — หน้าแรกใช้ template เดียว ต่างกันแค่ชุดข้อความ
 
 กติกาเดียวกับหน้าไทย: ไม่เพิ่มคำสัญญาที่หน้าไทยไม่มี · ตัวเลขทั้งหมดมาจากระบบ (ใส่ผ่าน {ตัวแปร}) ไม่เขียนลงข้อความ
-ภาษาอื่นบอกตรง ๆ ว่ารายงาน/แดชบอร์ดยังเป็นภาษาไทย (report_lang)
+หน้าอื่นทั้งเว็บแปลตามภาษาที่เลือกด้วย (app/i18n.py)
 """
 from __future__ import annotations
 
@@ -139,7 +139,7 @@ T = {
     "sub": "Every week, เจอ.AI asks {ai} the questions your customers actually ask, then fixes your site and publishes answers on it until AI starts recommending you.",
     "ph": "Your website, e.g. yourshop.co.th", "ph_short": "e.g. yourshop.co.th", "url_aria": "Your website address",
     "btn_audit": "Free check →",
-    "note": "No sign-up · Full report in about 2 minutes · Public pages only · Reports are in Thai for now",
+    "note": "No sign-up · Full report in about 2 minutes · Public pages only",
     "engines": "Measured weekly on", "engines_aria": "AI engines we measure",
     "proof_kicker": "Real client results", "proof_h": "We measure by actually asking AI,<br>not by guessing",
     "proof_lede": "We ask {engines} the same {n} questions every round and count how often AI recommends {who}.",
@@ -173,7 +173,7 @@ T = {
         ("Which websites does it work with?", "WordPress: install the plugin and the system publishes for you · Wix, Shopify, Webflow: paste one line of script · Custom sites: point one path to us and the answer pages appear under your domain."),
         ("What do I need to do?", "Install once and the system takes it from there. Content starts as drafts for you to review; publish them yourself or turn on auto-publishing. You get a results report every month before billing."),
         ("Do you guarantee AI will recommend us?", "No one can, because AI decides for itself. What we can do is measure for real every week, fix what keeps AI from seeing you, and report the numbers as they are, every month. Monthly plans can be cancelled anytime."),
-        ("What language are the reports in?", "The free check, reports and dashboard are in Thai for now. If you need content in another language, get in touch and we'll tell you honestly what's possible."),
+        ("What language are the reports in?", "The free check, the report and the dashboard follow the language you choose at the top of the page. If you need the content on your own site in another language, get in touch and we'll tell you honestly what's possible."),
     ],
     "fin_a": "Is your business in ", "fin_em": "AI's answers", "fin_c": " yet?",
     "fin_p": "Enter your website and see results in about 2 minutes. No sign-up.",
@@ -195,7 +195,7 @@ T = {
     "sub": "เจอ.AI 每周用你的顾客真实会问的问题去问 {ai}，然后修复你的网站、在你的网站上发布答案，直到 AI 开始推荐你。",
     "ph": "你的网站，例如 yourshop.co.th", "ph_short": "例如 yourshop.co.th", "url_aria": "你的网站地址",
     "btn_audit": "免费检测 →",
-    "note": "无需注册 · 约 2 分钟出完整报告 · 只读取公开页面 · 报告目前为泰语",
+    "note": "无需注册 · 约 2 分钟出完整报告 · 只读取公开页面",
     "engines": "每周实测", "engines_aria": "实测的 AI",
     "proof_kicker": "客户真实成果", "proof_h": "我们真的去问 AI，<br>而不是靠猜",
     "proof_lede": "每一轮都用同样的 {n} 个问题去问 {engines}，统计 AI 推荐 {who} 的次数。",
@@ -229,7 +229,7 @@ T = {
         ("支持哪些网站？", "WordPress：安装插件后系统自动发布 · Wix、Shopify、Webflow：粘贴一行脚本 · 自建网站：把一个路径指向我们，答案页面就会出现在你的域名下。"),
         ("我需要自己做什么？", "只需安装一次，其余交给系统。内容先以草稿形式供你审核，你可以自己点发布，也可以开启自动发布。每月账单前都会收到成果报告。"),
         ("你们保证 AI 一定会推荐我们吗？", "没有人能保证，因为决定权在 AI。我们能做的是每周真实检测、修复让 AI 看不到你的问题，并每月如实汇报数字。月付方案可随时取消。"),
-        ("报告是什么语言？", "免费检测、报告和控制台目前为泰语。如果你需要其他语言的内容，欢迎联系我们，我们会如实告诉你能做到什么。"),
+        ("报告是什么语言？", "免费检测、报告和控制台会跟随你在页面顶部选择的语言。如果你需要网站上的内容使用其他语言，欢迎联系我们，我们会如实告诉你能做到什么。"),
     ],
     "fin_a": "你的店出现在", "fin_em": "AI 的回答", "fin_c": "里了吗？",
     "fin_p": "输入网址，约 2 分钟出结果，无需注册。",
@@ -251,7 +251,7 @@ T = {
     "sub": "เจอ.AI は毎週、お客様が実際にする質問を {ai} に投げかけ、サイトを改善し、あなたのサイトに答えを掲載します。AI があなたを勧めるようになるまで。",
     "ph": "あなたのサイト 例: yourshop.co.th", "ph_short": "例: yourshop.co.th", "url_aria": "あなたのサイトの URL",
     "btn_audit": "無料で診断 →",
-    "note": "登録不要 · 約2分でレポート完成 · 公開ページのみ取得 · レポートは現在タイ語のみ",
+    "note": "登録不要 · 約2分でレポート完成 · 公開ページのみ取得",
     "engines": "毎週計測", "engines_aria": "計測している AI",
     "proof_kicker": "お客様の実績", "proof_h": "推測ではなく、<br>実際に AI に聞いて測る",
     "proof_lede": "毎回同じ {n} 問を {engines} に聞き、AI が {who} を勧めた回数を数えます。",
@@ -285,7 +285,7 @@ T = {
         ("どんなサイトで使えますか？", "WordPress はプラグインを入れれば自動で公開 · Wix、Shopify、Webflow はスクリプトを1行貼るだけ · 自社開発のサイトは1つのパスを当社に向ければ、回答ページがあなたのドメインの下に表示されます。"),
         ("自分で何をすればいいですか？", "設置は一度だけ。あとはシステムが進めます。コンテンツはまず下書きとして届くので、確認してから公開するか、自動公開をオンにできます。毎月、請求の前に成果レポートをお送りします。"),
         ("AI に勧められることを保証してくれますか？", "AI が自分で判断するため、誰にも保証はできません。私たちにできるのは、毎週実際に計測し、AI に見えていない原因を直し、毎月、数字をありのまま報告することです。月払いプランはいつでも解約できます。"),
-        ("レポートは何語ですか？", "無料診断、レポート、ダッシュボードは現在タイ語のみです。他の言語でのコンテンツが必要な場合はご相談ください。対応できる範囲を正直にお伝えします。"),
+        ("レポートは何語ですか？", "無料診断、レポート、ダッシュボードは、ページ上部で選んだ言語で表示されます。あなたのサイトに掲載するコンテンツを他の言語にしたい場合はご相談ください。対応できる範囲を正直にお伝えします。"),
     ],
     "fin_a": "あなたのお店は", "fin_em": "AI の答え", "fin_c": "に入っていますか？",
     "fin_p": "サイトの URL を入れるだけ。約2分で結果、登録不要。",
@@ -307,7 +307,7 @@ T = {
     "sub": "เจอ.AI는 매주 고객이 실제로 묻는 질문을 {ai}에게 던지고, 웹사이트를 고치고 당신의 사이트에 답변을 게시합니다. AI가 당신을 추천할 때까지.",
     "ph": "웹사이트 주소 예: yourshop.co.th", "ph_short": "예: yourshop.co.th", "url_aria": "웹사이트 주소",
     "btn_audit": "무료 진단 →",
-    "note": "가입 불필요 · 약 2분 만에 전체 리포트 · 공개 페이지만 수집 · 리포트는 현재 태국어로 제공",
+    "note": "가입 불필요 · 약 2분 만에 전체 리포트 · 공개 페이지만 수집",
     "engines": "매주 측정", "engines_aria": "측정하는 AI",
     "proof_kicker": "실제 고객 결과", "proof_h": "추측이 아니라<br>AI에게 직접 물어서 측정합니다",
     "proof_lede": "매 회차 같은 {n}개 질문을 {engines}에게 묻고, AI의 {who} 추천 횟수를 셉니다.",
@@ -341,7 +341,7 @@ T = {
         ("어떤 웹사이트에서 쓸 수 있나요?", "WordPress는 플러그인을 설치하면 자동 게시 · Wix, Shopify, Webflow는 스크립트 한 줄만 붙여 넣기 · 직접 만든 사이트는 경로 하나만 저희 쪽으로 연결하면 답변 페이지가 당신의 도메인 아래에 올라갑니다."),
         ("제가 직접 해야 할 일은요?", "한 번만 설치하면 나머지는 시스템이 합니다. 콘텐츠는 먼저 초안으로 와서 검토 후 직접 게시하거나 자동 게시를 켤 수 있습니다. 매달 결제 전에 성과 리포트를 받습니다."),
         ("AI가 저희를 추천한다고 보장하나요?", "AI가 스스로 판단하기 때문에 누구도 보장할 수 없습니다. 저희가 할 수 있는 것은 매주 실제로 측정하고, AI가 당신을 보지 못하게 하는 원인을 고치고, 매달 숫자를 있는 그대로 보고하는 것입니다. 월간 요금제는 언제든 해지할 수 있습니다."),
-        ("리포트는 어떤 언어인가요?", "무료 진단, 리포트, 대시보드는 현재 태국어로만 제공됩니다. 다른 언어 콘텐츠가 필요하시면 문의해 주세요. 가능한 범위를 솔직하게 알려드립니다."),
+        ("리포트는 어떤 언어인가요?", "무료 진단, 리포트, 대시보드는 페이지 상단에서 선택한 언어로 표시됩니다. 내 사이트에 올릴 콘텐츠를 다른 언어로 원하시면 문의해 주세요. 가능한 범위를 솔직하게 알려드립니다."),
     ],
     "fin_a": "당신의 가게는 ", "fin_em": "AI의 답변", "fin_c": "에 있나요?",
     "fin_p": "웹사이트 주소만 입력하면 약 2분 안에 결과. 가입 불필요.",

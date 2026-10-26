@@ -7,7 +7,7 @@
 <meta name="description" content="{{ T.sub.format(ai=ai_text) }}">
 {% if preview %}<meta name="robots" content="noindex, nofollow">{% endif %}
 <link rel="canonical" href="{{ canonical }}">
-{% for l in langs %}<link rel="alternate" hreflang="{{ l.hreflang }}" href="{{ base }}{{ l.href }}">
+{% for l in langs %}<link rel="alternate" hreflang="{{ l.hreflang }}" href="{{ base }}{{ l.path }}">
 {% endfor %}<link rel="alternate" hreflang="x-default" href="{{ base }}/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

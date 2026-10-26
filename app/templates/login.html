@@ -1,12 +1,9 @@
 <!doctype html>
-<html lang="th">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>เข้าสู่ระบบ — เจอ.AI</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>{{ _("เข้าสู่ระบบ") }} — เจอ.AI</title>
 <meta name="theme-color" content="#0a0a0a">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/favicon-32.png">
@@ -14,7 +11,7 @@
 <style>
   :root{--primary:#0a0a0a;--coral:#ff5530;--canvas:#fff;--surface:#f7f8fa;--hairline:#e5e7eb;
     --ink:#0a0a0a;--steel:#5f5f5f;--stone:#8e8e93;--muted:#a8aab2;
-    --font:'DM Sans','IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;}
+    --font:'DM Sans',{% if font_css() %}'{{ font_family() }}',{% endif %}'IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--ink);background:var(--surface);min-height:100vh;
     display:grid;grid-template-columns:1.05fr 1fr;-webkit-font-smoothing:antialiased}
@@ -38,7 +35,8 @@
   .bs-foot{position:relative;font-size:13px;color:var(--muted);margin-top:40px}
 
   /* right form panel */
-  .form-side{display:flex;align-items:center;justify-content:center;padding:40px 24px}
+  .form-side{display:flex;align-items:center;justify-content:center;padding:40px 24px;position:relative}
+  .lang-top{position:absolute;top:18px;right:22px}
   .form-box{width:100%;max-width:380px}
   .fb-logo{display:none;align-items:center;gap:8px;font-size:20px;font-weight:700;letter-spacing:-.5px;margin-bottom:28px;justify-content:center}
   .fb-logo .dot{width:10px;height:10px;border-radius:9999px;background:var(--coral)}
@@ -64,45 +62,48 @@
     .form-side{min-height:100vh}
   }
 </style>
+{% include "_ds.html" %}
 </head>
 <body>
 
 <div class="brand-side">
-  <a href="/" class="bs-logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
+  <a href="{{ home_href() }}" class="bs-logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
   <div class="bs-mid">
-    <h1>ให้แบรนด์คุณ<br>โผล่ใน<span class="ac">คำตอบ AI</span></h1>
-    <p>แพลตฟอร์ม GEO ที่วัด Share of Voice แล้วสร้างคอนเทนต์ปิดช่องว่างให้อัตโนมัติ</p>
+    {% set ac %}<span class="ac">{{ _("คำตอบ AI") }}</span>{% endset %}
+    <h1>{{ _("ให้แบรนด์คุณ{br}โผล่ใน{ai}")|e|replace("{br}", "<br>"|safe)|replace("{ai}", ac) }}</h1>
+    <p>{{ _("แพลตฟอร์ม GEO ที่วัด Share of Voice แล้วสร้างคอนเทนต์ปิดช่องว่างให้อัตโนมัติ") }}</p>
     <ul class="bs-feats">
-      <li><span class="ck">✓</span> วัดว่าแบรนด์ถูก AI พูดถึงแค่ไหน</li>
-      <li><span class="ck">✓</span> หา gap แล้วสร้างคอนเทนต์ + schema</li>
-      <li><span class="ck">✓</span> ติดตั้งได้ทุกเว็บ ทำงานอัตโนมัติ</li>
+      <li><span class="ck">✓</span> {{ _("วัดว่าแบรนด์ถูก AI พูดถึงแค่ไหน") }}</li>
+      <li><span class="ck">✓</span> {{ _("หา gap แล้วสร้างคอนเทนต์ + schema") }}</li>
+      <li><span class="ck">✓</span> {{ _("ติดตั้งได้ทุกเว็บ ทำงานอัตโนมัติ") }}</li>
     </ul>
   </div>
   <div class="bs-foot">© 2026 เจอ.AI · Generative Engine Optimization</div>
 </div>
 
 <div class="form-side">
+  <div class="lang-top">{% include "_lang.html" %}</div>
   <div class="form-box">
-    <a href="/" class="fb-logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
-    <h2>เข้าสู่ระบบ</h2>
-    <div class="sub">เข้าจัดการแบรนด์และคอนเทนต์ GEO ของคุณ</div>
+    <a href="{{ home_href() }}" class="fb-logo"><span class="dot"></span>เจอ<span style="color:var(--coral)">.AI</span></a>
+    <h2>{{ _("เข้าสู่ระบบ") }}</h2>
+    <div class="sub">{{ _("เข้าจัดการแบรนด์และคอนเทนต์ GEO ของคุณ") }}</div>
 
-    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
 
     <form method="post" action="/login">
       <div class="field">
-        <label for="email">อีเมล</label>
+        <label for="email">{{ _("อีเมล") }}</label>
         <input id="email" type="email" name="email" required autofocus placeholder="you@example.com" autocomplete="username">
       </div>
       <div class="field">
-        <label for="password">รหัสผ่าน</label>
+        <label for="password">{{ _("รหัสผ่าน") }}</label>
         <input id="password" type="password" name="password" required placeholder="••••••••" autocomplete="current-password">
       </div>
-      <button class="btn-login" type="submit">เข้าสู่ระบบ →</button>
+      <button class="btn-login" type="submit">{{ _("เข้าสู่ระบบ") }} →</button>
     </form>
 
     <div class="form-foot">
-      บัญชีสร้างโดยผู้ดูแลระบบ — ยังไม่มีบัญชี? <a href="/">ดูรายละเอียด</a>
+      {{ _("บัญชีสร้างโดยผู้ดูแลระบบ — ยังไม่มีบัญชี?") }} <a href="{{ home_href() }}">{{ _("ดูรายละเอียด") }}</a>
     </div>
   </div>
 </div>

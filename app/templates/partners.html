@@ -1,50 +1,51 @@
 <!doctype html>
-<html lang="th">
+<html lang="{{ html_lang() }}">
 <head>
-<title>พันธมิตรเจอ.AI — แนะนำลูกค้า รับค่าแนะนำ {{ "%g"|format(pct) }}%</title>
-<meta name="description" content="สำหรับเอเจนซี่เว็บ การตลาด และฟรีแลนซ์ ช่วยลูกค้าให้โผล่ในคำตอบของ ChatGPT, Gemini และ Google AI รับค่าแนะนำ {{ '%g'|format(pct) }}% ของค่าบริการ {{ months }} เดือนแรก">
+{% set pc = "%g"|format(pct) %}
+<title>{{ _("พันธมิตรเจอ.AI — แนะนำลูกค้า รับค่าแนะนำ {pct}%", pct=pc) }}</title>
+<meta name="description" content="{{ _("สำหรับเอเจนซี่เว็บ การตลาด และฟรีแลนซ์ ช่วยลูกค้าให้โผล่ในคำตอบของ ChatGPT, Gemini และ Google AI รับค่าแนะนำ {pct}% ของค่าบริการ {months} เดือนแรก", pct=pc, months=months) }}">
 {% include "_public_head.html" %}
 </head>
 <body><div class="wrap">
-  <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub">พันธมิตร</span></div>
-  <h1>แนะนำลูกค้าให้เจอ.AI<br>รับค่าแนะนำ {{ "%g"|format(pct) }}% ทุกเดือน</h1>
-  <p class="sub">สำหรับเอเจนซี่รับทำเว็บ เอเจนซี่การตลาดออนไลน์ ผู้รับทำ SEO และฟรีแลนซ์ ที่ดูแลเว็บให้ลูกค้าธุรกิจอยู่แล้ว ลูกค้าของคุณได้โผล่ในคำตอบของ ChatGPT, Gemini และ Google AI ส่วนคุณได้ค่าแนะนำโดยไม่ต้องทำงานเพิ่ม</p>
+  <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub">{{ _("พันธมิตร") }}</span>{% include "_lang.html" %}</div>
+  <h1>{{ _("แนะนำลูกค้าให้เจอ.AI") }}<br>{{ _("รับค่าแนะนำ {pct}% ทุกเดือน", pct=pc) }}</h1>
+  <p class="sub">{{ _("สำหรับเอเจนซี่รับทำเว็บ เอเจนซี่การตลาดออนไลน์ ผู้รับทำ SEO และฟรีแลนซ์ ที่ดูแลเว็บให้ลูกค้าธุรกิจอยู่แล้ว ลูกค้าของคุณได้โผล่ในคำตอบของ ChatGPT, Gemini และ Google AI ส่วนคุณได้ค่าแนะนำโดยไม่ต้องทำงานเพิ่ม") }}</p>
 
   <div class="grid">
-    <div class="card"><b>{{ "%g"|format(pct) }}%</b><span>ของค่าบริการ (ก่อน VAT) ทุกรอบที่ลูกค้าจ่าย</span></div>
-    <div class="card"><b>{{ months }} เดือน</b><span>แรกของลูกค้าแต่ละราย</span></div>
-    <div class="card"><b>{{ cookie_days }} วัน</b><span>ลูกค้าที่มาทางลิงก์คุณนับเป็นของคุณ</span></div>
+    <div class="card"><b>{{ pc }}%</b><span>{{ _("ของค่าบริการ (ก่อน VAT) ทุกรอบที่ลูกค้าจ่าย") }}</span></div>
+    <div class="card"><b>{{ _("{months} เดือน", months=months) }}</b><span>{{ _("แรกของลูกค้าแต่ละราย") }}</span></div>
+    <div class="card"><b>{{ _("{days} วัน", days=cookie_days) }}</b><span>{{ _("ลูกค้าที่มาทางลิงก์คุณนับเป็นของคุณ") }}</span></div>
   </div>
 
-  <h2>คุณได้อะไร</h2>
-  <div class="item"><div class="lb">ลิงก์ตรวจเว็บฟรีของคุณ</div><div class="why">ส่งให้ลูกค้าดูว่าเว็บเขาโผล่ใน Google และ AI ไหม รายงานเต็ม 3 แท็บ (อันดับ · AI · Site Audit) ใช้เปิดคุยงานได้ทันที</div></div>
-  <div class="item"><div class="lb">ส่งชื่อลูกค้าให้เราโดยตรง</div><div class="why">กรอกเว็บและอีเมลลูกค้าที่ยินยอมแล้วในแดชบอร์ด ทีมขายของเราตรวจเว็บ ทำใบเสนอราคา และติดต่อให้ พร้อมบอกว่าคุณแนะนำมา</div></div>
-  <div class="item"><div class="lb">แดชบอร์ดของคุณ</div><div class="why">เห็นลีด ลูกค้าที่จ่ายแล้ว และค่าแนะนำทุกรายการ — รอถึงกำหนด · ถึงกำหนดจ่าย · จ่ายแล้ว</div></div>
-  <div class="item"><div class="lb">แพ็กเกจ Agency สำหรับดูแลเองหลายเว็บ</div><div class="why">ถ้าอยากใช้ระบบกับลูกค้าหลายรายในบัญชีเดียว แพ็กเกจ Agency {{ "{:,}".format(plans.agency.price) }} บาท/เดือน</div></div>
+  <h2>{{ _("คุณได้อะไร") }}</h2>
+  <div class="item"><div class="lb">{{ _("ลิงก์ตรวจเว็บฟรีของคุณ") }}</div><div class="why">{{ _("ส่งให้ลูกค้าดูว่าเว็บเขาโผล่ใน Google และ AI ไหม รายงานเต็ม 3 แท็บ (อันดับ · AI · Site Audit) ใช้เปิดคุยงานได้ทันที") }}</div></div>
+  <div class="item"><div class="lb">{{ _("ส่งชื่อลูกค้าให้เราโดยตรง") }}</div><div class="why">{{ _("กรอกเว็บและอีเมลลูกค้าที่ยินยอมแล้วในแดชบอร์ด ทีมขายของเราตรวจเว็บ ทำใบเสนอราคา และติดต่อให้ พร้อมบอกว่าคุณแนะนำมา") }}</div></div>
+  <div class="item"><div class="lb">{{ _("แดชบอร์ดของคุณ") }}</div><div class="why">{{ _("เห็นลีด ลูกค้าที่จ่ายแล้ว และค่าแนะนำทุกรายการ — รอถึงกำหนด · ถึงกำหนดจ่าย · จ่ายแล้ว") }}</div></div>
+  <div class="item"><div class="lb">{{ _("แพ็กเกจ Agency สำหรับดูแลเองหลายเว็บ") }}</div><div class="why">{{ _("ถ้าอยากใช้ระบบกับลูกค้าหลายรายในบัญชีเดียว แพ็กเกจ Agency {price} บาท/เดือน", price="{:,}".format(plans.agency.price)) }}</div></div>
 
-  <h2>กติกา</h2>
+  <h2>{{ _("กติกา") }}</h2>
   <ol class="rules">
-    <li>ค่าแนะนำคิดจากใบเสร็จจริงของลูกค้าที่คุณแนะนำ จ่ายทุกเดือน{% if refund_days() %}หลังพ้นช่วงคืนเงิน {{ refund_days() }} วัน{% endif %} ใบเสร็จถูกยกเลิกหรือคืนเงิน ค่าแนะนำรายการนั้นยกเลิก</li>
-    <li>ลูกค้านับเป็นของพันธมิตรรายแรกที่พาเข้ามา และต้องเป็นเว็บที่ยังไม่อยู่ในสายขายของเรา</li>
-    <li>ห้ามการันตีอันดับหรือผลลัพธ์กับลูกค้า ห้ามส่งอีเมลเหมารวม และส่งชื่อลูกค้าเฉพาะคนที่ยินยอมให้เราติดต่อแล้ว</li>
-    <li>เจอ.AI พักหรือยกเลิกการเป็นพันธมิตรได้ถ้าผิดกติกา ค่าแนะนำที่ถึงกำหนดก่อนหน้านั้นยังจ่ายตามปกติ</li>
+    <li>{% if refund_days() %}{{ _("ค่าแนะนำคิดจากใบเสร็จจริงของลูกค้าที่คุณแนะนำ จ่ายทุกเดือนหลังพ้นช่วงคืนเงิน {days} วัน ใบเสร็จถูกยกเลิกหรือคืนเงิน ค่าแนะนำรายการนั้นยกเลิก", days=refund_days()) }}{% else %}{{ _("ค่าแนะนำคิดจากใบเสร็จจริงของลูกค้าที่คุณแนะนำ จ่ายทุกเดือน ใบเสร็จถูกยกเลิกหรือคืนเงิน ค่าแนะนำรายการนั้นยกเลิก") }}{% endif %}</li>
+    <li>{{ _("ลูกค้านับเป็นของพันธมิตรรายแรกที่พาเข้ามา และต้องเป็นเว็บที่ยังไม่อยู่ในสายขายของเรา") }}</li>
+    <li>{{ _("ห้ามการันตีอันดับหรือผลลัพธ์กับลูกค้า ห้ามส่งอีเมลเหมารวม และส่งชื่อลูกค้าเฉพาะคนที่ยินยอมให้เราติดต่อแล้ว") }}</li>
+    <li>{{ _("เจอ.AI พักหรือยกเลิกการเป็นพันธมิตรได้ถ้าผิดกติกา ค่าแนะนำที่ถึงกำหนดก่อนหน้านั้นยังจ่ายตามปกติ") }}</li>
   </ol>
 
-  <h2>สมัครเป็นพันธมิตร</h2>
-  {% if done %}<div class="ok">ได้รับใบสมัครแล้ว ทีมงานตรวจภายใน 1 วันทำการ และส่งลิงก์แนะนำกับแดชบอร์ดให้ทางอีเมลครับ</div>
+  <h2>{{ _("สมัครเป็นพันธมิตร") }}</h2>
+  {% if done %}<div class="ok">{{ _("ได้รับใบสมัครแล้ว ทีมงานตรวจภายใน 1 วันทำการ และส่งลิงก์แนะนำกับแดชบอร์ดให้ทางอีเมลครับ") }}</div>
   {% else %}
-  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
   <form class="f" method="post" action="/partners">
-    <input type="text" name="name" placeholder="ชื่อผู้ติดต่อ" value="{{ form.name or '' }}" maxlength="120" required>
-    <input type="text" name="company" placeholder="ชื่อบริษัท/ทีม (ถ้ามี)" value="{{ form.company or '' }}" maxlength="160">
-    <input type="email" name="email" placeholder="อีเมล" value="{{ form.email or '' }}" required>
-    <input type="text" name="phone" placeholder="เบอร์โทร (ไม่บังคับ)" value="{{ form.phone or '' }}" maxlength="40">
-    <input class="full" type="text" name="website" placeholder="เว็บไซต์หรือผลงานของคุณ" value="{{ form.website or '' }}" maxlength="200">
-    <input class="full" type="text" name="clients" placeholder="ดูแลลูกค้าประเภทไหน ประมาณกี่ราย (ไม่บังคับ)" value="{{ form.clients or '' }}" maxlength="200">
+    <input type="text" name="name" placeholder="{{ _("ชื่อผู้ติดต่อ") }}" value="{{ form.name or '' }}" maxlength="120" required>
+    <input type="text" name="company" placeholder="{{ _("ชื่อบริษัท/ทีม (ถ้ามี)") }}" value="{{ form.company or '' }}" maxlength="160">
+    <input type="email" name="email" placeholder="{{ _("อีเมล") }}" value="{{ form.email or '' }}" required>
+    <input type="text" name="phone" placeholder="{{ _("เบอร์โทร (ไม่บังคับ)") }}" value="{{ form.phone or '' }}" maxlength="40">
+    <input class="full" type="text" name="website" placeholder="{{ _("เว็บไซต์หรือผลงานของคุณ") }}" value="{{ form.website or '' }}" maxlength="200">
+    <input class="full" type="text" name="clients" placeholder="{{ _("ดูแลลูกค้าประเภทไหน ประมาณกี่ราย (ไม่บังคับ)") }}" value="{{ form.clients or '' }}" maxlength="200">
     <input class="hp" type="text" name="hp" tabindex="-1" autocomplete="off"><input type="hidden" name="src" value="{{ src or '' }}">
-    <label class="consent full"><input type="checkbox" name="agree" value="1"> ยอมรับกติกาพันธมิตรข้างต้น และยินยอมให้เจอ.AI ติดต่อเรื่องการเป็นพันธมิตร</label>
-    <div class="full"><button type="submit">สมัครเป็นพันธมิตร</button></div>
+    <label class="consent full"><input type="checkbox" name="agree" value="1"> {{ _("ยอมรับกติกาพันธมิตรข้างต้น และยินยอมให้เจอ.AI ติดต่อเรื่องการเป็นพันธมิตร") }}</label>
+    <div class="full"><button type="submit">{{ _("สมัครเป็นพันธมิตร") }}</button></div>
   </form>
   {% endif %}
-  <p class="foot">เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน · <a href="/audit">ตรวจเว็บฟรี</a></p>
+  <p class="foot">{{ _("เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน") }} · <a href="/audit">{{ _("ตรวจเว็บฟรี") }}</a></p>
 </div></body></html>

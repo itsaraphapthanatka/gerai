@@ -1,51 +1,51 @@
 {% extends "base.html" %}
-{% block title %}การมองเห็นบน AI — {{ brand['name'] }}{% endblock %}
+{% block title %}{{ _("การมองเห็นบน AI") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
-<h1>การมองเห็นบน AI</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — ถาม{{ " " if ai_live.n }}{{ ai_live.text }} ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม</p>
+<h1>{{ _("การมองเห็นบน AI") }}</h1>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {% if ai_live.n %}{{ _("ถาม {engines} ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม", engines=ai_live.text) }}{% else %}{{ _("ถามผู้ช่วย AI ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม") }}{% endif %}</p>
 
 {# ต่างจาก SoV: ตัวนั้นถาม search engine ว่าโดเมนโผล่ไหม ตัวนี้ถามผู้ช่วย AI ตรง ๆ
    ซึ่งคือสิ่งที่ลูกค้าเข้าใจว่าซื้อ — ต้องบอกให้ชัดว่าเป็นคนละตัวเลขกัน #}
 {% if not available %}
 <div class="card" style="border-color:var(--amber,#e0a800)">
-  <b>⚠️ ยังไม่ได้ตั้งคีย์ของ AI เจ้าไหนเลย</b>
+  <b>⚠️ {{ _("ยังไม่ได้ตั้งคีย์ของ AI เจ้าไหนเลย") }}</b>
   <p class="muted" style="margin:6px 0 0">
-    ทุกเจ้าจะถูก "ข้าม" จนกว่าจะใส่คีย์ — ง่ายสุดคือคีย์ OpenRouter ตัวเดียวถึงทั้ง 4 เจ้า หรือจะใส่คีย์ตรงทีละเจ้าก็ได้
-    {%- if request.session.get('is_admin') %} ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}
+    {{ _('ทุกเจ้าจะถูก "ข้าม" จนกว่าจะใส่คีย์ — ง่ายสุดคือคีย์ OpenRouter ตัวเดียวถึงทั้ง 4 เจ้า หรือจะใส่คีย์ตรงทีละเจ้าก็ได้') }}
+    {%- if request.session.get('is_admin') %} {{ _("ใส่ได้ที่") }} <a class="link" href="/admin/settings">{{ _("ตั้งค่าระบบ") }}</a>{% else %} ({{ _("แจ้งผู้ดูแลระบบ") }}){% endif %}
   </p>
 </div>
 {% else %}
-<p class="muted" style="font-size:12.5px">เจ้าที่พร้อม:
-  {% for e in available %}<span class="pill ok">{{ engines[e].label }}{% if routes.get(e) == 'openrouter' %} · ผ่าน OpenRouter{% endif %}</span> {% endfor %}
-  {% for e, spec in engines.items() if e not in available %}<span class="pill" style="opacity:.55">{{ spec.label }} — ยังไม่มีคีย์</span> {% endfor %}
-  {% if hidden %}<span style="opacity:.6">· ไม่ได้ถาม {{ hidden | join(', ') }} (ยังไม่มีคีย์ — ใส่ได้ที่ตั้งค่าระบบ แล้วจะกลับมาอยู่ในตาราง)</span>{% endif %}
+<p class="muted" style="font-size:12.5px">{{ _("เจ้าที่พร้อม:") }}
+  {% for e in available %}<span class="pill ok">{{ engines[e].label }}{% if routes.get(e) == 'openrouter' %} · {{ _("ผ่าน OpenRouter") }}{% endif %}</span> {% endfor %}
+  {% for e, spec in engines.items() if e not in available %}<span class="pill" style="opacity:.55">{{ spec.label }} — {{ _("ยังไม่มีคีย์") }}</span> {% endfor %}
+  {% if hidden %}<span style="opacity:.6">· {{ _("ไม่ได้ถาม {engines} (ยังไม่มีคีย์ — ใส่ได้ที่ตั้งค่าระบบ แล้วจะกลับมาอยู่ในตาราง)", engines=hidden | join(', ')) }}</span>{% endif %}
 </p>
 {% endif %}
 
 <form method="post" action="/brands/{{ brand['id'] }}/ai/run" style="margin:14px 0">
-  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ 'กำลังถาม…' if running else 'ถาม AI ตอนนี้' }}</button>
-  <span class="muted" style="margin-left:8px;font-size:12px">ถามทุกเจ้าที่มีคีย์ × ทุกคำถามเป้าหมาย · มีค่าใช้จ่ายต่อคำถาม · ใช้เวลาหลายนาที</span>
+  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ _('กำลังถาม…') if running else _('ถาม AI ตอนนี้') }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ถามทุกเจ้าที่มีคีย์ × ทุกคำถามเป้าหมาย · มีค่าใช้จ่ายต่อคำถาม · ใช้เวลาหลายนาที") }}</span>
 </form>
 
 {% if running and not report %}
-<div class="card"><p class="muted">กำลังถาม — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+<div class="card"><p class="muted">{{ _("กำลังถาม — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>
 {% elif not report %}
-<div class="card"><p class="muted">ยังไม่เคยถาม — กด "ถาม AI ตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+<div class="card"><p class="muted">{{ _('ยังไม่เคยถาม — กด "ถาม AI ตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)') }}</p></div>
 {% elif not report.asked %}
 {# แยก "ไม่มีคีย์" กับ "มีคีย์แต่พัง" — error ต้องขึ้นก่อน ไม่งั้นคนจะไปใส่คีย์ซ้ำทั้งที่คีย์ผิด #}
 {% set errs = report.rows | selectattr('status', 'equalto', 'error') | list %}
 <div class="card">
-  <p class="muted" style="margin:0">รอบล่าสุด {{ report.checked_at[:16].replace('T', ' ') }} ถามไม่ได้สักเจ้า</p>
+  <p class="muted" style="margin:0">{{ _("รอบล่าสุด {at} ถามไม่ได้สักเจ้า", at=report.checked_at[:16].replace('T', ' ')) }}</p>
   {% if errs %}
-  <div class="err" style="margin-top:10px"><b>มีคีย์แต่เรียกไม่สำเร็จ</b> —
-    {% for e, v in report.by_engine.items() if v.errors %}{{ v.label }} ผิดพลาด {{ v.errors }}/{{ v.errors + v.asked }}{{ ', ' if not loop.last }}{% endfor %}
-    <div style="margin-top:6px;font-size:12.5px;opacity:.85">{{ errs[0].reason[:160] }}</div>
+  <div class="err" style="margin-top:10px"><b>{{ _("มีคีย์แต่เรียกไม่สำเร็จ") }}</b> —
+    {% for e, v in report.by_engine.items() if v.errors %}{{ v.label }} {{ _("ผิดพลาด") }} {{ v.errors }}/{{ v.errors + v.asked }}{{ ', ' if not loop.last }}{% endfor %}
+    <div style="margin-top:6px;font-size:12.5px;opacity:.85">{{ errs[0].reason[:160]|tr }}</div>
   </div>
   {% else %}
   {# เหตุผลต่างกันได้ต่อเจ้า (ไม่ได้ตั้ง / placeholder ค้าง) — โชว์แค่แถวแรกจะกลบคำเตือนของเจ้าอื่น #}
   <ul class="muted" style="margin:8px 0 0;padding-left:18px">
-    {% for reason in report.rows | map(attribute='reason') | unique %}<li>{{ reason }}</li>{% else %}<li>ไม่มีคำถามเป้าหมาย</li>{% endfor %}
+    {% for reason in report.rows | map(attribute='reason') | unique %}<li>{{ reason|tr }}</li>{% else %}<li>{{ _("ไม่มีคำถามเป้าหมาย") }}</li>{% endfor %}
   </ul>
   {% endif %}
 </div>
@@ -53,36 +53,36 @@
 
 <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
   <div style="text-align:center">
-    <div class="muted">ถูกพูดถึง</div>
+    <div class="muted">{{ _("ถูกพูดถึง") }}</div>
     <div class="sov {{ 'pos' if report.rate else 'no' }}">{{ report.rate }}%</div>
-    <div class="muted">ของคำถามที่ถามได้</div>
+    <div class="muted">{{ _("ของคำถามที่ถามได้") }}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">ถูกอ้างอิง</div>
+    <div class="muted">{{ _("ถูกอ้างอิง") }}</div>
     <div class="sov {{ 'pos' if report.cited else 'no' }}">{{ report.cited }}</div>
-    <div class="muted">ใช้เว็บเราเป็นแหล่ง</div>
+    <div class="muted">{{ _("ใช้เว็บเราเป็นแหล่ง") }}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">ถูกเอ่ยชื่อ</div>
+    <div class="muted">{{ _("ถูกเอ่ยชื่อ") }}</div>
     <div class="sov {{ 'pos' if report.named else 'no' }}">{{ report.named }}</div>
-    <div class="muted">จาก {{ report.asked }} คำตอบ</div>
+    <div class="muted">{{ _("จาก {n} คำตอบ", n=report.asked) }}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">ค่าใช้จ่ายรอบนี้</div>
+    <div class="muted">{{ _("ค่าใช้จ่ายรอบนี้") }}</div>
     <div class="sov" style="font-size:30px">${{ '%.3f' % (report.cost_usd or 0) }}</div>
-    <div class="muted">≈ ฿{{ '%.1f' % ((report.cost_usd or 0) * fx) }} · {{ "{:,}".format(report.tokens_in or 0) }} in / {{ "{:,}".format(report.tokens_out or 0) }} out · ค้น {{ report.searches or 0 }}</div>
+    <div class="muted">≈ ฿{{ '%.1f' % ((report.cost_usd or 0) * fx) }} · {{ "{:,}".format(report.tokens_in or 0) }} in / {{ "{:,}".format(report.tokens_out or 0) }} out · {{ _("ค้น {n}", n=report.searches or 0) }}</div>
   </div>
   <div style="margin-left:auto;text-align:right">
-    <div class="muted">ถามล่าสุด</div>
+    <div class="muted">{{ _("ถามล่าสุด") }}</div>
     <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
-    <div class="muted" style="font-size:12px">30 วันล่าสุดรวม ${{ '%.2f' % cost_30d }} ≈ ฿{{ '%.0f' % (cost_30d * fx) }}</div>
+    <div class="muted" style="font-size:12px">{{ _("30 วันล่าสุดรวม ${usd} ≈ ฿{thb}", usd='%.2f' % cost_30d, thb='%.0f' % (cost_30d * fx)) }}</div>
   </div>
 </div>
 
-<h2>แยกตามเจ้า</h2>
+<h2>{{ _("แยกตามเจ้า") }}</h2>
 <div class="card">
   <table>
-    <tr><th>AI</th><th>ถามได้</th><th>อ้างอิงเว็บเรา</th><th>เอ่ยชื่อ</th><th>ค่าใช้จ่าย</th><th>หมายเหตุ</th></tr>
+    <tr><th>AI</th><th>{{ _("ถามได้") }}</th><th>{{ _("อ้างอิงเว็บเรา") }}</th><th>{{ _("เอ่ยชื่อ") }}</th><th>{{ _("ค่าใช้จ่าย") }}</th><th>{{ _("หมายเหตุ") }}</th></tr>
     {% for e in engines %}{% set v = report.by_engine.get(e) %}{% if v %}
     <tr>
       <td><b>{{ v.label }}</b></td>
@@ -91,33 +91,33 @@
       <td>{% if v.named %}<span class="pill ok">{{ v.named }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
       <td class="muted" style="font-size:12px">{% if v.asked %}${{ '%.3f' % (v.cost_usd or 0) }}<br>{{ "{:,}".format(v.tokens_in or 0) }}/{{ "{:,}".format(v.tokens_out or 0) }} tok{% else %}–{% endif %}</td>
       <td class="muted" style="font-size:12px">
-        {%- if v.skipped %}ข้าม {{ v.skipped }} — ยังไม่มีคีย์{% endif %}
-        {%- if v.unsearched %} ไม่ได้ค้น {{ v.unsearched }}{% endif %}
-        {%- if v.no_answer %} ไม่มีคำตอบ {{ v.no_answer }}{% endif %}
-        {%- if v.errors %} <span class="pill no">ผิดพลาด {{ v.errors }}</span>{% endif %}
+        {%- if v.skipped %}{{ _("ข้าม {n} — ยังไม่มีคีย์", n=v.skipped) }}{% endif %}
+        {%- if v.unsearched %} {{ _("ไม่ได้ค้น {n}", n=v.unsearched) }}{% endif %}
+        {%- if v.no_answer %} {{ _("ไม่มีคำตอบ {n}", n=v.no_answer) }}{% endif %}
+        {%- if v.errors %} <span class="pill no">{{ _("ผิดพลาด {n}", n=v.errors) }}</span>{% endif %}
       </td>
     </tr>
     {% endif %}{% endfor %}
   </table>
 </div>
 
-<h2>รายคำถาม</h2>
+<h2>{{ _("รายคำถาม") }}</h2>
 <div class="card" style="overflow-x:auto">
   <table>
-    <tr><th>คำถาม</th>{% for e, spec in engines.items() %}<th style="text-align:center">{{ spec.label }}</th>{% endfor %}</tr>
+    <tr><th>{{ _("คำถาม") }}</th>{% for e, spec in engines.items() %}<th style="text-align:center">{{ spec.label }}</th>{% endfor %}</tr>
     {% for m in matrix %}
     <tr>
       <td>{{ m.q }}</td>
       {% for e in engines %}
       {% set st = m.cells.get(e, 'skip') %}
       <td style="text-align:center">
-        {%- if st == 'cited' %}<span class="pill ok">อ้างอิง</span>
-        {%- elif st == 'named' %}<span class="pill ok" style="opacity:.75">เอ่ยชื่อ</span>
-        {%- elif st == 'absent' %}<span class="pill no">ไม่พูดถึง</span>
-        {%- elif st == 'unsearched' %}<span class="pill" title="ตอบโดยไม่ได้ค้นเว็บ (ถามกลับ/ตอบจากความจำ) — ไม่นับ">ไม่ได้ค้น</span>
-        {%- elif st == 'no_answer' %}<span class="pill" title="คำตอบว่าง (เช่น output เต็มก่อนตอบ) — ไม่นับ">ไม่มีคำตอบ</span>
-        {%- elif st == 'error' %}<span class="pill no">ผิดพลาด</span>
-        {%- else %}<span class="muted">ข้าม</span>{% endif %}
+        {%- if st == 'cited' %}<span class="pill ok">{{ _("อ้างอิง") }}</span>
+        {%- elif st == 'named' %}<span class="pill ok" style="opacity:.75">{{ _("เอ่ยชื่อ") }}</span>
+        {%- elif st == 'absent' %}<span class="pill no">{{ _("ไม่พูดถึง") }}</span>
+        {%- elif st == 'unsearched' %}<span class="pill" title="{{ _("ตอบโดยไม่ได้ค้นเว็บ (ถามกลับ/ตอบจากความจำ) — ไม่นับ") }}">{{ _("ไม่ได้ค้น") }}</span>
+        {%- elif st == 'no_answer' %}<span class="pill" title="{{ _("คำตอบว่าง (เช่น output เต็มก่อนตอบ) — ไม่นับ") }}">{{ _("ไม่มีคำตอบ") }}</span>
+        {%- elif st == 'error' %}<span class="pill no">{{ _("ผิดพลาด") }}</span>
+        {%- else %}<span class="muted">{{ _("ข้าม") }}</span>{% endif %}
       </td>
       {% endfor %}
     </tr>
@@ -125,7 +125,7 @@
     {% set nlinks = m.links.values() | map('length') | sum %}
     {% if nlinks %}
     <tr><td colspan="{{ 1 + engines|length }}" style="padding:0 0 10px 12px;border-top:0">
-      <details><summary class="muted" style="cursor:pointer;font-size:12px">ลิงก์ที่ถูกอ้าง {{ nlinks }} รายการ</summary>
+      <details><summary class="muted" style="cursor:pointer;font-size:12px">{{ _("ลิงก์ที่ถูกอ้าง {n} รายการ", n=nlinks) }}</summary>
         <div style="font-size:12px;margin-top:6px;line-height:1.7">
         {% for e, spec in engines.items() if m.links.get(e) %}
           <div><b>{{ spec.label }}</b>
@@ -133,7 +133,7 @@
             <div style="padding-left:12px;word-break:break-all">
               {% set h = u.replace('https://','').replace('http://','').replace('www.','') %}
               <a class="link" href="{{ u }}" target="_blank" rel="noopener">{{ h[:110] }}{{ '…' if h|length > 110 else '' }}</a>
-              {%- if u.startswith('https://') and '/' not in h %} <span class="muted">(Gemini ให้แค่โดเมน ไม่มี path)</span>{% endif %}
+              {%- if u.startswith('https://') and '/' not in h %} <span class="muted">({{ _("Gemini ให้แค่โดเมน ไม่มี path") }})</span>{% endif %}
             </div>
           {% endfor %}
           </div>
@@ -147,24 +147,25 @@
 </div>
 
 {% if rivals %}
-<h2>เว็บที่ AI อ้างอิงแทนเรา</h2>
+<h2>{{ _("เว็บที่ AI อ้างอิงแทนเรา") }}</h2>
 <div class="card">
   <table>
-    <tr><th>โดเมน</th><th>ถูกอ้างกี่ครั้ง</th></tr>
+    <tr><th>{{ _("โดเมน") }}</th><th>{{ _("ถูกอ้างกี่ครั้ง") }}</th></tr>
     {% for host, n in rivals %}
     <tr><td><a class="link" href="https://{{ host }}" target="_blank" rel="noopener">{{ host }}</a></td><td>{{ n }}</td></tr>
     {% endfor %}
   </table>
-  <p class="muted" style="font-size:12px;margin:10px 0 0">นี่คือคู่แข่งที่ชนะคำถามเหล่านี้อยู่ตอนนี้ — ดูว่าเขาเขียนอะไรที่เราไม่มี</p>
+  <p class="muted" style="font-size:12px;margin:10px 0 0">{{ _("นี่คือคู่แข่งที่ชนะคำถามเหล่านี้อยู่ตอนนี้ — ดูว่าเขาเขียนอะไรที่เราไม่มี") }}</p>
 </div>
 {% endif %}
 
 <p class="muted" style="font-size:12px">
-  <b>อ้างอิง</b> = AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง) ·
-  <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น ·
-  <b>ไม่ได้ค้น / ไม่มีคำตอบ</b> = AI ไม่ได้ให้คำตอบที่อิงการค้นเว็บ จึงไม่นับเข้า % (นับเป็น "ไม่พูดถึง" จะได้ 0% ปลอม) ·
-  ตัวเลขนี้คนละตัวกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI ·
-  <b>ค่าใช้จ่าย</b> — ผ่าน OpenRouter ใช้เงินที่หักจริง (<code>usage.cost</code>) · คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {{ fx }}
+  <b>{{ _("อ้างอิง") }}</b> = {{ _("AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง)") }} ·
+  <b>{{ _("เอ่ยชื่อ") }}</b> = {{ _("พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น") }} ·
+  <b>{{ _("ไม่ได้ค้น / ไม่มีคำตอบ") }}</b> = {{ _('AI ไม่ได้ให้คำตอบที่อิงการค้นเว็บ จึงไม่นับเข้า % (นับเป็น "ไม่พูดถึง" จะได้ 0% ปลอม)') }} ·
+  {%- set sov_link %}<a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a>{% endset %}
+  {{ _("ตัวเลขนี้คนละตัวกับ {link} ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI", link=sov_link)|safe }} ·
+  <b>{{ _("ค่าใช้จ่าย") }}</b> — {{ _("ผ่าน OpenRouter ใช้เงินที่หักจริง") }} (<code>usage.cost</code>) · {{ _("คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {fx}", fx=fx) }}
 </p>
 {% endif %}
 {% if running %}

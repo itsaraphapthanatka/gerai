@@ -1,85 +1,86 @@
 {% extends "base.html" %}
-{% block title %}อัปเกรดแผน — เจอ.AI{% endblock %}
+{% block title %}{{ _("อัปเกรดแผน") }} — เจอ.AI{% endblock %}
 {% block content %}
-<h1>อัปเกรดแผน</h1>
-<p class="muted">เลือกแผนที่เหมาะกับธุรกิจคุณ — โควตามากขึ้น ปลดล็อกฟีเจอร์ AI เต็มรูปแบบ</p>
+<h1>{{ _("อัปเกรดแผน") }}</h1>
+<p class="muted">{{ _("เลือกแผนที่เหมาะกับธุรกิจคุณ — โควตามากขึ้น ปลดล็อกฟีเจอร์ AI เต็มรูปแบบ") }}</p>
 
-{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if notice %}<div class="ok-banner">{{ notice|tr }}</div>{% endif %}
 {% set cur = plans[current] %}
 {% if is_admin %}
 <div class="card" style="display:flex;align-items:center;gap:10px;border-color:var(--purple);background:var(--purple-tint)">
   <span style="font-size:20px">👑</span>
-  <div style="font-size:13.5px">คุณเป็น <b>ผู้ดูแลระบบ</b> — ใช้งานได้ <b>ไม่จำกัด</b> ทุกฟีเจอร์ · หน้านี้แสดงแผนไว้อ้างอิงราคาสำหรับลูกค้า</div>
+  <div style="font-size:13.5px"><b>{{ _("คุณเป็นผู้ดูแลระบบ — ใช้งานได้ไม่จำกัดทุกฟีเจอร์") }}</b> · {{ _("หน้านี้แสดงแผนไว้อ้างอิงราคาสำหรับลูกค้า") }}</div>
 </div>
 {% else %}
 {% if requested and requested != current %}
 <div class="card" style="border-color:var(--purple);background:var(--purple-tint);display:flex;align-items:center;gap:10px">
   <span style="font-size:18px">⏳</span>
-  <div style="font-size:13.5px">ส่งคำขอแผน <b>{{ plans[requested].label if requested in plans else requested }}</b> ไว้แล้ว — ทีมงานกำลังดำเนินการ</div>
+  {% set req_b %}<b>{{ (plans[requested].label if requested in plans else requested)|tr }}</b>{% endset %}
+  <div style="font-size:13.5px">{{ _("ส่งคำขอแผน {plan} ไว้แล้ว — ทีมงานกำลังดำเนินการ")|e|replace("{plan}", req_b) }}</div>
 </div>
 {% endif %}
-<!-- แผนปัจจุบัน + การใช้งาน -->
+{# แผนปัจจุบัน + การใช้งาน #}
 <div class="card" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
   <div>
-    <div class="muted" style="font-size:12px">แผนปัจจุบัน</div>
-    <div style="font-size:22px;font-weight:700;color:var(--purple)">{{ cur.label }}</div>
+    <div class="muted" style="font-size:12px">{{ _("แผนปัจจุบัน") }}</div>
+    <div style="font-size:22px;font-weight:700;color:var(--purple)">{{ cur.label|tr }}</div>
   </div>
   <div style="display:flex;gap:22px;flex-wrap:wrap">
-    <div><div class="muted" style="font-size:11px">แบรนด์</div><b>{{ usage.brands }}/{{ cur.brands }}</b></div>
-    <div><div class="muted" style="font-size:11px">มอนิเตอร์/เดือน</div><b>{{ usage.runs }}/{{ cur.runs_month }}</b></div>
-    <div><div class="muted" style="font-size:11px">คอนเทนต์/เดือน</div><b>{{ usage.content }}/{{ cur.content_month }}</b></div>
+    <div><div class="muted" style="font-size:11px">{{ _("แบรนด์") }}</div><b>{{ usage.brands }}/{{ cur.brands }}</b></div>
+    <div><div class="muted" style="font-size:11px">{{ _("มอนิเตอร์/เดือน") }}</div><b>{{ usage.runs }}/{{ cur.runs_month }}</b></div>
+    <div><div class="muted" style="font-size:11px">{{ _("คอนเทนต์/เดือน") }}</div><b>{{ usage.content }}/{{ cur.content_month }}</b></div>
   </div>
 </div>
 {% endif %}
 
-<!-- แผน -->
+{# แผน #}
 <div class="plans">
   {% for key, p in plans.items() if key != 'free' or free_open or key == current %}
   <div class="plan {{ 'rec' if key == 'pro' }} {{ 'ent' if p.get('hidden') }} {{ 'cur' if key == current and not is_admin }}">
-    {% if key == 'pro' %}<div class="ribbon">แนะนำ</div>{% endif %}
+    {% if key == 'pro' %}<div class="ribbon">{{ _("แนะนำ") }}</div>{% endif %}
     {% if p.get('hidden') %}<div class="ribbon ent-rb">Enterprise</div>{% endif %}
-    <div class="p-label">{{ p.label }}</div>
-    <div class="p-tag">{{ p.tagline }}</div>
-    <div class="p-price">{% if p.get('hidden') %}<span style="font-size:21px">ติดต่อเรา</span>{% elif p.price %}฿{{ '{:,}'.format(p.price) }}{% else %}ฟรี{% endif %}<span>{{ p.period }}</span></div>
+    <div class="p-label">{{ p.label|tr }}</div>
+    <div class="p-tag">{{ p.tagline|tr }}</div>
+    <div class="p-price">{% if p.get('hidden') %}<span style="font-size:21px">{{ _("ติดต่อเรา") }}</span>{% elif p.price %}฿{{ '{:,}'.format(p.price) }}{% else %}{{ _("ฟรี") }}{% endif %}<span>{{ ' ' if p.period.startswith(' ') }}{{ p.period|tr }}</span></div>
     <ul class="p-perks">
-      {% for f in p.perks %}<li>{{ f }}</li>{% endfor %}
+      {% for f in p.perks %}<li>{{ f|tr }}</li>{% endfor %}
     </ul>
     {% if is_admin %}
-      <div class="muted" style="text-align:center;font-size:12px;padding:10px 0">แผนสำหรับลูกค้า</div>
+      <div class="muted" style="text-align:center;font-size:12px;padding:10px 0">{{ _("แผนสำหรับลูกค้า") }}</div>
     {% elif key == current %}
-      <button class="p-btn cur-btn" disabled>✓ แผนปัจจุบัน</button>
+      <button class="p-btn cur-btn" disabled>✓ {{ _("แผนปัจจุบัน") }}</button>
     {% elif p.get('hidden') %}
       <form method="post" action="/upgrade"><input type="hidden" name="plan" value="{{ key }}">
-        <button class="p-btn" type="submit">ติดต่อทีมงาน</button>
+        <button class="p-btn" type="submit">{{ _("ติดต่อทีมงาน") }}</button>
       </form>
     {% elif p.price %}
-      <a class="p-btn" href="/upgrade/pay/{{ key }}">เลือก & ชำระเงิน →</a>
+      <a class="p-btn" href="/upgrade/pay/{{ key }}">{{ _("เลือก & ชำระเงิน →") }}</a>
     {% else %}
       <form method="post" action="/upgrade"><input type="hidden" name="plan" value="{{ key }}">
-        <button class="p-btn" type="submit">ใช้ฟรี</button>
+        <button class="p-btn" type="submit">{{ _("ใช้ฟรี") }}</button>
       </form>
     {% endif %}
   </div>
   {% endfor %}
 </div>
 
-<!-- add-on -->
-<h2>แพ็กเกจเสริม</h2>
+{# add-on #}
+<h2>{{ _("แพ็กเกจเสริม") }}</h2>
 <div class="addons">
   {% for a in addons %}
   <div class="addon">
     <div class="a-top">
-      <div class="a-label">{{ a.label }}</div>
-      <div class="a-price">฿{{ '{:,}'.format(a.price) }} <span>{{ a.period }}</span></div>
+      <div class="a-label">{{ a.label|tr }}</div>
+      <div class="a-price">฿{{ '{:,}'.format(a.price) }} <span>{{ a.period|tr }}</span></div>
     </div>
-    <div class="a-desc">{{ a.desc }}</div>
-    {% if not is_admin %}<a href="/upgrade/pay/{{ a.key }}" class="a-buy">ซื้อ →</a>{% endif %}
+    <div class="a-desc">{{ a.desc|tr }}</div>
+    {% if not is_admin %}<a href="/upgrade/pay/{{ a.key }}" class="a-buy">{{ _("ซื้อ →") }}</a>{% endif %}
   </div>
   {% endfor %}
 </div>
 
 <p class="muted" style="margin-top:18px;font-size:12.5px">
-  💡 ราคายังไม่รวม VAT · กด "เลือก & ชำระเงิน" หรือ "ซื้อ" → สแกน PromptPay + แนบสลิป → ทีมงานยืนยันและเปิดใช้ให้ (ปกติภายในไม่กี่ชั่วโมง)
+  💡 {{ _('ราคายังไม่รวม VAT · กด "เลือก & ชำระเงิน" หรือ "ซื้อ" → สแกน PromptPay + แนบสลิป → ทีมงานยืนยันและเปิดใช้ให้ (ปกติภายในไม่กี่ชั่วโมง)') }}
 </p>
 
 <style>
@@ -115,24 +116,24 @@
 </style>
 {% if stripe_portal or stripe_invoices %}
 <div class="card" style="margin-top:16px">
-  <h2 style="margin-top:0;font-size:15px">การชำระเงินและใบแจ้งหนี้ (Stripe)</h2>
-  {% if stripe_portal %}<p class="muted" style="font-size:13px">เปลี่ยนบัตร ดูใบแจ้งหนี้ย้อนหลัง หรือยกเลิกการสมัคร ได้เองที่ <a class="btn ghost sm" href="/account/billing">จัดการการสมัคร ↗</a></p>{% endif %}
+  <h2 style="margin-top:0;font-size:15px">{{ _("การชำระเงินและใบแจ้งหนี้ (Stripe)") }}</h2>
+  {% if stripe_portal %}<p class="muted" style="font-size:13px">{{ _("เปลี่ยนบัตร ดูใบแจ้งหนี้ย้อนหลัง หรือยกเลิกการสมัคร ได้เองที่") }} <a class="btn ghost sm" href="/account/billing">{{ _("จัดการการสมัคร") }} ↗</a></p>{% endif %}
   {% if stripe_invoices %}
   <table style="font-size:13px">
-    <thead><tr><th>วันที่</th><th>เลขที่</th><th>ยอด (บาท)</th><th>สถานะ</th><th></th></tr></thead>
-    <tbody>{% for i in stripe_invoices %}<tr><td class="muted">{{ (i.created_at or '')[:10] }}</td><td>{{ i.number or i.invoice_id }}</td><td>{{ "{:,}".format(i.amount or 0) }}</td><td><span class="pill {{ 'ok' if i.status == 'paid' else '' }}">{{ 'ชำระแล้ว' if i.status == 'paid' else i.status }}</span></td><td>{% if i.hosted_url %}<a class="link" href="{{ i.hosted_url }}" target="_blank">ดูใบแจ้งหนี้</a>{% endif %}{% if i.pdf_url %} · <a class="link" href="{{ i.pdf_url }}">PDF</a>{% endif %}</td></tr>{% endfor %}</tbody>
+    <thead><tr><th>{{ _("วันที่") }}</th><th>{{ _("เลขที่") }}</th><th>{{ _("ยอด (บาท)") }}</th><th>{{ _("สถานะ") }}</th><th></th></tr></thead>
+    <tbody>{% for i in stripe_invoices %}<tr><td class="muted">{{ (i.created_at or '')[:10] }}</td><td>{{ i.number or i.invoice_id }}</td><td>{{ "{:,}".format(i.amount or 0) }}</td><td><span class="pill {{ 'ok' if i.status == 'paid' else '' }}">{{ _('ชำระแล้ว') if i.status == 'paid' else i.status }}</span></td><td>{% if i.hosted_url %}<a class="link" href="{{ i.hosted_url }}" target="_blank">{{ _("ดูใบแจ้งหนี้") }}</a>{% endif %}{% if i.pdf_url %} · <a class="link" href="{{ i.pdf_url }}">PDF</a>{% endif %}</td></tr>{% endfor %}</tbody>
   </table>
   {% endif %}
 </div>
 {% endif %}
 {% if acct_docs %}
 <div class="card" style="margin-top:16px">
-  <h2 style="margin-top:0;font-size:15px">ใบเสร็จและใบแจ้งหนี้</h2>
+  <h2 style="margin-top:0;font-size:15px">{{ _("ใบเสร็จและใบแจ้งหนี้") }}</h2>
   <table style="font-size:13px">
-    <thead><tr><th>วันที่</th><th>เลขที่</th><th>ยอด (บาท)</th><th>สถานะ</th><th></th></tr></thead>
+    <thead><tr><th>{{ _("วันที่") }}</th><th>{{ _("เลขที่") }}</th><th>{{ _("ยอด (บาท)") }}</th><th>{{ _("สถานะ") }}</th><th></th></tr></thead>
     <tbody>{% for d in acct_docs %}<tr><td class="muted">{{ (d.created_at or '')[:10] }}</td><td>{{ d.number }}</td><td>{{ "{:,.2f}".format(d.total) }}</td>
-      <td><span class="pill {{ 'ok' if d.status in ('paid','issued') else '' }}">{{ {'issued':'ชำระแล้ว','paid':'ชำระแล้ว','open':'รอชำระ','claimed':'รอตรวจยอด'}.get(d.status, d.status) }}</span></td>
-      <td><a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}" target="_blank">{{ 'ชำระ/ดู' if d.kind == 'invoice' and d.status == 'open' else 'ดู' }}</a> · <a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}.pdf">PDF</a></td></tr>{% endfor %}</tbody>
+      <td><span class="pill {{ 'ok' if d.status in ('paid','issued') else '' }}">{{ {'issued': _('ชำระแล้ว'), 'paid': _('ชำระแล้ว'), 'open': _('รอชำระ'), 'claimed': _('รอตรวจยอด')}.get(d.status, d.status) }}</span></td>
+      <td><a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}" target="_blank">{{ _('ชำระ/ดู') if d.kind == 'invoice' and d.status == 'open' else _('ดู') }}</a> · <a class="link" href="/{{ 'bill' if d.kind == 'invoice' else 'doc' }}/{{ d.token }}.pdf">PDF</a></td></tr>{% endfor %}</tbody>
   </table>
 </div>
 {% endif %}

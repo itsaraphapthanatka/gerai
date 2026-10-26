@@ -1,55 +1,55 @@
 {% extends "base.html" %}
-{% block title %}ชุดติดตั้ง on-site — {{ brand['name'] }}{% endblock %}
+{% block title %}{{ _("ชุดติดตั้ง on-site") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
-<h1>ชุดติดตั้ง on-site (Phase A)</h1>
-<p class="muted">ไฟล์/โค้ดสำเร็จรูปสำหรับวางในเว็บลูกค้า — เปิดทางให้ AI เห็นและเข้าใจแบรนด์</p>
+<h1>{{ _("ชุดติดตั้ง on-site") }} (Phase A)</h1>
+<p class="muted">{{ _("ไฟล์/โค้ดสำเร็จรูปสำหรับวางในเว็บลูกค้า — เปิดทางให้ AI เห็นและเข้าใจแบรนด์") }}</p>
 
-<h2>llms.txt <span class="muted">— วางที่ราก: {{ brand['domain'] }}/llms.txt</span></h2>
+<h2>llms.txt <span class="muted">— {{ _("วางที่ราก:") }} {{ brand['domain'] }}/llms.txt</span></h2>
 <div class="card">
-  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">{{ _("คัดลอก") }}</button>
   <pre class="code">{{ llms_txt }}</pre>
 </div>
 
-<h2>robots.txt <span class="muted">— เปิดทาง AI crawler</span></h2>
+<h2>robots.txt <span class="muted">— {{ _("เปิดทาง AI crawler") }}</span></h2>
 <div class="card">
-  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">{{ _("คัดลอก") }}</button>
   <pre class="code">{{ robots }}</pre>
 </div>
 
-<h2>geo-sitemap.xml <span class="muted">— {{ published_count }} หน้าที่เผยแพร่แล้ว</span></h2>
+<h2>geo-sitemap.xml <span class="muted">— {{ _("{n} หน้าที่เผยแพร่แล้ว", n=published_count) }}</span></h2>
 <div class="card">
   <p class="muted" style="margin-top:0">
-    ต้องให้เสิร์ฟที่ <code>{{ brand['domain'] }}{{ sitemap_path }}</code> เท่านั้น (Google ไม่รับ sitemap ข้ามโดเมน) —
-    proxy/rewrite มาที่ <code>{{ sitemap_src }}</code> เพื่อให้อัปเดตอัตโนมัติทุกครั้งที่เผยแพร่คอนเทนต์ใหม่
-    แล้วส่ง URL เข้า Google Search Console → Sitemaps
+    {{ _("ต้องให้เสิร์ฟที่ <code>{url}</code> เท่านั้น (Google ไม่รับ sitemap ข้ามโดเมน)", url=(brand['domain'] ~ sitemap_path)|e)|safe }} —
+    {{ _("proxy/rewrite มาที่ <code>{src}</code> เพื่อให้อัปเดตอัตโนมัติทุกครั้งที่เผยแพร่คอนเทนต์ใหม่", src=sitemap_src|e)|safe }}
+    {{ _("แล้วส่ง URL เข้า Google Search Console → Sitemaps") }}
   </p>
   {% if published_count == 0 %}
-  <p class="muted">ยังไม่มีคอนเทนต์ที่เผยแพร่ — sitemap จะมีแค่หน้าแรก</p>
+  <p class="muted">{{ _("ยังไม่มีคอนเทนต์ที่เผยแพร่ — sitemap จะมีแค่หน้าแรก") }}</p>
   {% endif %}
-  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">{{ _("คัดลอก") }}</button>
   <pre class="code">{{ sitemap }}</pre>
 </div>
 
-<h2>Schema องค์กร (JSON-LD) <span class="muted">— วางใน &lt;head&gt; ทุกหน้า หรือผ่าน Connector</span></h2>
+<h2>{{ _("Schema องค์กร (JSON-LD)") }} <span class="muted">— {{ _("วางใน <head> ทุกหน้า หรือผ่าน Connector") }}</span></h2>
 <div class="card">
-  {% if saved %}<p class="pill ok" style="display:inline-block">บันทึกแล้ว</p>{% endif %}
+  {% if saved %}<p class="pill ok" style="display:inline-block">{{ _("บันทึกแล้ว") }}</p>{% endif %}
   <form method="post" action="/brands/{{ brand['id'] }}/schema-type" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <label for="schema_type" style="font-size:13px">ประเภทธุรกิจ</label>
+    <label for="schema_type" style="font-size:13px">{{ _("ประเภทธุรกิจ") }}</label>
     <select name="schema_type" id="schema_type" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;max-width:100%">
       {% for value, label in schema_types %}
-      <option value="{{ value }}" {{ 'selected' if value == schema_type }}>{{ label }} — {{ value }}</option>
+      <option value="{{ value }}" {{ 'selected' if value == schema_type }}>{{ label|tr }} — {{ value }}</option>
       {% endfor %}
     </select>
-    <button class="btn sm" type="submit">บันทึก</button>
-    {% if schema_type_is_guess %}<span class="muted" style="font-size:12px">ยังไม่ได้เลือก — ระบบเดาให้เป็น <b>{{ schema_type }}</b> จากชื่อและตลาดของแบรนด์</span>{% endif %}
+    <button class="btn sm" type="submit">{{ _("บันทึก") }}</button>
+    {% if schema_type_is_guess %}<span class="muted" style="font-size:12px">{{ _("ยังไม่ได้เลือก — ระบบเดาให้เป็น <b>{type}</b> จากชื่อและตลาดของแบรนด์", type=schema_type|e)|safe }}</span>{% endif %}
   </form>
   <p class="muted" style="font-size:12px;margin:0 0 10px">
-    บอก Google และ AI ว่าแบรนด์นี้เป็นธุรกิจประเภทไหน — เลือกผิดประเภท entity ของแบรนด์จะเพี้ยน
-    ถ้าไม่มีอันไหนตรงเลย เลือก "ธุรกิจทั่วไป" ไว้ปลอดภัยกว่าเลือกผิด
-    {% if wp and wp['mode'] == 'connector' %}<br>เปลี่ยนแล้วอย่าลืมกด "ซิงค์" ที่หน้า WordPress เพื่อส่งค่าใหม่เข้าปลั๊กอิน{% endif %}
+    {{ _("บอก Google และ AI ว่าแบรนด์นี้เป็นธุรกิจประเภทไหน — เลือกผิดประเภท entity ของแบรนด์จะเพี้ยน") }}
+    {{ _('ถ้าไม่มีอันไหนตรงเลย เลือก "ธุรกิจทั่วไป" ไว้ปลอดภัยกว่าเลือกผิด') }}
+    {% if wp and wp['mode'] == 'connector' %}<br>{{ _('เปลี่ยนแล้วอย่าลืมกด "ซิงค์" ที่หน้า WordPress เพื่อส่งค่าใหม่เข้าปลั๊กอิน') }}{% endif %}
   </p>
-  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">คัดลอก</button>
+  <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">{{ _("คัดลอก") }}</button>
   <pre class="code">{{ org_schema }}</pre>
 </div>
 {% endblock %}

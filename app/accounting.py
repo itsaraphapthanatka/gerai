@@ -233,6 +233,8 @@ def context(doc, pdf: bool = False) -> dict:
 def render(doc, pdf: bool = False, extra: dict | None = None) -> str:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(Path(__file__).parent / "templates")), autoescape=select_autoescape(["html"]))
+    from . import i18n
+    i18n.install(env)                                     # partial ที่ใช้ร่วม (_ds.html) เรียก font_css()/_() — ใบเสร็จ/ใบกำกับภาษีคงภาษาไทย
     return env.get_template("acct_doc.html").render({**context(doc, pdf), **(extra or {})})
 
 

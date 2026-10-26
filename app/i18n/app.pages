@@ -1,0 +1,10 @@
+# หน้าแอปหลังล็อกอิน (shell + แบรนด์) — ตรวจว่าไม่มีไทยหลงนอก _()
+base.html
+dashboard.html
+brand.html
+brand_content.html
+brand_monitor.html
+brand_questions.html
+brand_wp.html
+notifications.html
+chat.html

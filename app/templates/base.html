@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}GEO Platform{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700{% if font_css() %}&family={{ font_css() }}{% endif %}&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#0a0a0a">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/favicon-32.png">
@@ -37,8 +37,8 @@
     --surface: #ffffff;
     --canvas: #f7f8fa;
     --shadow: none;
-    --font-ui: "DM Sans","IBM Plex Sans Thai","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
-    --font-display: "DM Sans","IBM Plex Sans Thai","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
+    --font-ui: "DM Sans",{% if font_css() %}"{{ font_family() }}",{% endif %}"IBM Plex Sans Thai","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
+    --font-display: "DM Sans",{% if font_css() %}"{{ font_family() }}",{% endif %}"IBM Plex Sans Thai","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
   }
   * { box-sizing: border-box; }
   body { font-family: var(--font-ui); margin: 0; color: var(--ink); background: var(--canvas); font-size: 16px; line-height: 1.38; -webkit-font-smoothing: antialiased; display: flex; min-height: 100vh; }
@@ -166,6 +166,18 @@
   a.link { color: var(--ink); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; font-weight: 500; }
   a.link:hover { text-decoration-color: var(--coral); }
   pre.code { white-space: pre-wrap; word-break: break-word; font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 12.5px; line-height: 1.55; background: var(--canvas); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 8px 0 0; overflow: auto; color: var(--ink); }
+  /* ตัวเลือกภาษา (_lang.html) — ในกล่องผู้ใช้ (เปิดขึ้นด้านบน) และแถบบนมือถือ */
+  .ub-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .ds-lang { position: relative; font-size: 12px; }
+  .ds-lang summary { list-style: none; cursor: pointer; color: var(--cool); padding: 4px 2px; display: inline-flex; align-items: center; gap: 6px; }
+  .ds-lang summary::-webkit-details-marker { display: none; }
+  .ds-lang summary::after { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+  .ds-lang ul { list-style: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 200; min-width: 130px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin: 0; box-shadow: 0 12px 30px -12px rgba(0,0,0,.18); }
+  .sidebar .ds-lang ul { top: auto; bottom: calc(100% + 6px); }
+  .ds-lang a, .sidebar .user-box .ds-lang a { display: block; padding: 7px 11px; border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 13px; }
+  .ds-lang a:hover, .ds-lang a[aria-current] { background: var(--canvas); }
+  .mtopbar .mlang { margin-left: auto; margin-right: 52px; }
+  .mtopbar .ds-lang summary { font-size: 13px; padding: 8px 4px; }
   .copybox { background: var(--canvas); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 13px; margin-top: 2px; }
 </style>
 </head>
@@ -174,10 +186,11 @@
 {% set _path = request.url.path %}
 {% if _tid %}
 {% set _unread = unread_count(request) %}
-<a href="/notifications" class="bell" aria-label="การแจ้งเตือน" title="การแจ้งเตือน">🔔{% if _unread %}<span class="bell-dot">{{ _unread if _unread < 100 else '99+' }}</span>{% endif %}</a>
+<a href="/notifications" class="bell" aria-label="{{ _('การแจ้งเตือน') }}" title="{{ _('การแจ้งเตือน') }}">🔔{% if _unread %}<span class="bell-dot">{{ _unread if _unread < 100 else '99+' }}</span>{% endif %}</a>
 <header class="mtopbar">
-  <button class="hamb" onclick="document.body.classList.toggle('nav-open')" aria-label="เมนู">☰</button>
+  <button class="hamb" onclick="document.body.classList.toggle('nav-open')" aria-label="{{ _('เมนู') }}">☰</button>
   <span class="mlogo"><span style="width:8px;height:8px;border-radius:9999px;background:var(--coral);display:inline-block;margin-right:6px;vertical-align:2px"></span>เจอ<span style="color:var(--coral)">.AI</span></span>
+  <div class="mlang">{% include "_lang.html" %}</div>
 </header>
 <div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
 <aside class="sidebar">
@@ -186,32 +199,32 @@
     <span class="sub">GEO Platform</span>
   </div>
   <nav>
-    <span class="section-label">หลัก</span>
-    <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> หน้าหลัก</a>
-    <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> อัปเกรดแผน</a>
-    <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> รหัสผ่าน</a>
+    <span class="section-label">{{ _("หลัก") }}</span>
+    <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> {{ _("หน้าหลัก") }}</a>
+    <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> {{ _("อัปเกรดแผน", _ns="app") }}</a>
+    <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> {{ _("รหัสผ่าน") }}</a>
     {% if request.session.get('is_admin') %}
-    <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> ผู้ดูแลระบบ</a>
-    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> ผู้ติดต่อ{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
-    <a href="/admin/leads" class="{{ 'active' if _path.startswith('/admin/leads') }}"><span class="icon">🎯</span> ลูกค้าเป้าหมาย</a>
-    <a href="/admin/decisions" class="{{ 'active' if _path.startswith('/admin/decisions') }}"><span class="icon">🧭</span> การตัดสินใจ</a>
-    <a href="/admin/office" class="{{ 'active' if _path.startswith('/admin/office') }}"><span class="icon">🏢</span> ออฟฟิศ</a>
-    <a href="/admin/calls" class="{{ 'active' if _path.startswith('/admin/calls') }}"><span class="icon">📞</span> โทรปิดดีล</a>
-    <a href="/admin/accounting" class="{{ 'active' if _path.startswith('/admin/accounting') }}"><span class="icon">🧾</span> บัญชี</a>
-    <a href="/admin/results" class="{{ 'active' if _path.startswith('/admin/results') }}"><span class="icon">📈</span> ผลลัพธ์ลูกค้า</a>
-    <a href="/admin/salesbot" class="{{ 'active' if _path.startswith('/admin/salesbot') }}"><span class="icon">💬</span> ตอบแชตขาย</a>
-    <a href="/admin/partners" class="{{ 'active' if _path.startswith('/admin/partners') }}"><span class="icon">🤝</span> พันธมิตร</a>
-    <a href="/admin/ceo" class="{{ 'active' if _path.startswith('/admin/ceo') }}"><span class="icon">💬</span> สั่งงาน CEO</a>
-    <a href="/admin/tasks" class="{{ 'active' if _path.startswith('/admin/tasks') }}"><span class="icon">📋</span> งานที่ CEO แจก</a>
-    <a href="/admin/inbox" class="{{ 'active' if _path.startswith('/admin/inbox') }}"><span class="icon">📥</span> อีเมลตอบกลับ</a>
-    <a href="/admin/deliverability" class="{{ 'active' if _path.startswith('/admin/deliverability') }}"><span class="icon">📬</span> การส่งอีเมล</a>
-    <a href="/admin/marketing" class="{{ 'active' if _path.startswith('/admin/marketing') }}"><span class="icon">📣</span> การตลาด</a>
-    <a href="/admin/skills" class="{{ 'active' if _path.startswith('/admin/skills') }}"><span class="icon">🎓</span> ทักษะเอเจนต์</a>
-    <a href="/admin/email" class="{{ 'active' if _path.startswith('/admin/email') }}"><span class="icon">📧</span> อีเมล</a>
-    <a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> ตั้งค่า</a>
+    <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> {{ _("ผู้ดูแลระบบ") }}</a>
+    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> {{ _("ผู้ติดต่อ") }}{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
+    <a href="/admin/leads" class="{{ 'active' if _path.startswith('/admin/leads') }}"><span class="icon">🎯</span> {{ _("ลูกค้าเป้าหมาย") }}</a>
+    <a href="/admin/decisions" class="{{ 'active' if _path.startswith('/admin/decisions') }}"><span class="icon">🧭</span> {{ _("การตัดสินใจ") }}</a>
+    <a href="/admin/office" class="{{ 'active' if _path.startswith('/admin/office') }}"><span class="icon">🏢</span> {{ _("ออฟฟิศ") }}</a>
+    <a href="/admin/calls" class="{{ 'active' if _path.startswith('/admin/calls') }}"><span class="icon">📞</span> {{ _("โทรปิดดีล") }}</a>
+    <a href="/admin/accounting" class="{{ 'active' if _path.startswith('/admin/accounting') }}"><span class="icon">🧾</span> {{ _("บัญชี") }}</a>
+    <a href="/admin/results" class="{{ 'active' if _path.startswith('/admin/results') }}"><span class="icon">📈</span> {{ _("ผลลัพธ์ลูกค้า") }}</a>
+    <a href="/admin/salesbot" class="{{ 'active' if _path.startswith('/admin/salesbot') }}"><span class="icon">💬</span> {{ _("ตอบแชตขาย") }}</a>
+    <a href="/admin/partners" class="{{ 'active' if _path.startswith('/admin/partners') }}"><span class="icon">🤝</span> {{ _("พันธมิตร") }}</a>
+    <a href="/admin/ceo" class="{{ 'active' if _path.startswith('/admin/ceo') }}"><span class="icon">💬</span> {{ _("สั่งงาน CEO") }}</a>
+    <a href="/admin/tasks" class="{{ 'active' if _path.startswith('/admin/tasks') }}"><span class="icon">📋</span> {{ _("งานที่ CEO แจก") }}</a>
+    <a href="/admin/inbox" class="{{ 'active' if _path.startswith('/admin/inbox') }}"><span class="icon">📥</span> {{ _("อีเมลตอบกลับ") }}</a>
+    <a href="/admin/deliverability" class="{{ 'active' if _path.startswith('/admin/deliverability') }}"><span class="icon">📬</span> {{ _("การส่งอีเมล") }}</a>
+    <a href="/admin/marketing" class="{{ 'active' if _path.startswith('/admin/marketing') }}"><span class="icon">📣</span> {{ _("การตลาด") }}</a>
+    <a href="/admin/skills" class="{{ 'active' if _path.startswith('/admin/skills') }}"><span class="icon">🎓</span> {{ _("ทักษะเอเจนต์") }}</a>
+    <a href="/admin/email" class="{{ 'active' if _path.startswith('/admin/email') }}"><span class="icon">📧</span> {{ _("อีเมล", _ns="app") }}</a>
+    <a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> {{ _("ตั้งค่า") }}</a>
     {% endif %}
 
-    <span class="section-label">แบรนด์</span>
+    <span class="section-label">{{ _("แบรนด์") }}</span>
     {% set _brands = sidebar_brands(request) %}
     {% if _brands %}
       {% for b in _brands %}
@@ -223,25 +236,25 @@
         </a>
         {% if _path.startswith('/brands/' ~ _bid) %}
         <div class="sub-nav">
-          <a href="/brands/{{ b['id'] }}/questions" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/questions' }}"><span class="icon">❓</span> คำถาม</a>
-          <a href="/brands/{{ b['id'] }}/monitor" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/monitor' }}"><span class="icon">📡</span> มอนิเตอร์</a>
-          <a href="/brands/{{ b['id'] }}/content" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/content' }}"><span class="icon">📝</span> คอนเทนต์</a>
+          <a href="/brands/{{ b['id'] }}/questions" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/questions' }}"><span class="icon">❓</span> {{ _("คำถาม", _ns="app") }}</a>
+          <a href="/brands/{{ b['id'] }}/monitor" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/monitor' }}"><span class="icon">📡</span> {{ _("มอนิเตอร์") }}</a>
+          <a href="/brands/{{ b['id'] }}/content" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/content' }}"><span class="icon">📝</span> {{ _("คอนเทนต์") }}</a>
           <a href="/brands/{{ b['id'] }}/wp" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/wp' }}"><span class="icon">🔗</span> WordPress</a>
           <a href="/brands/{{ b['id'] }}/impact" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/impact' }}"><span class="icon">📊</span> SoV Impact</a>
-          <a href="/brands/{{ b['id'] }}/assets" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/assets' }}"><span class="icon">🛡️</span> ชุดติดตั้ง</a>
+          <a href="/brands/{{ b['id'] }}/assets" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/assets' }}"><span class="icon">🛡️</span> {{ _("ชุดติดตั้ง") }}</a>
         </div>
         {% endif %}
       {% endfor %}
     {% else %}
-      <a href="/app" style="opacity:.5;font-size:13px"><span class="icon">＋</span> เพิ่มแบรนด์</a>
+      <a href="/app" style="opacity:.5;font-size:13px"><span class="icon">＋</span> {{ _("เพิ่มแบรนด์") }}</a>
     {% endif %}
   </nav>
   <div class="user-box">
     <div class="name">
-      {{ request.session.get('name') or 'ผู้ใช้' }}
+      {{ request.session.get('name') or _('ผู้ใช้') }}
       {% if request.session.get('is_admin') %}<span class="badge-admin">ADMIN</span>{% endif %}
     </div>
-    <a href="/logout">ออกจากระบบ</a>
+    <div class="ub-row"><a href="/logout">{{ _("ออกจากระบบ") }}</a>{% include "_lang.html" %}</div>
   </div>
 </aside>
 {% endif %}
@@ -249,8 +262,8 @@
 {% set _tr = trial_of(request) %}{% if _tr.on %}
 <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 16px;padding:12px 16px;border-radius:14px;
   {{ 'background:var(--danger-subtle);color:var(--danger-text)' if _tr.expired else 'background:var(--purple-tint);color:var(--purple-dark)' }};font-size:14px">
-  <span>{% if _tr.expired %}<b>ช่วงทดลองใช้ฟรี 14 วันหมดแล้ว</b> — ระบบหยุดมอนิเตอร์และสร้างคอนเทนต์ให้ ข้อมูลเดิมยังอยู่ครบ{% else %}<b>ทดลองใช้ฟรี เหลือ {{ _tr.days_left }} วัน</b> (ถึง {{ _tr.ends[8:10] }}/{{ _tr.ends[5:7] }}/{{ _tr.ends[:4]|int + 543 }}) — อัปเกรดเพื่อใช้ต่อโดยไม่สะดุด{% endif %}</span>
-  <a href="/upgrade" class="btn sm" style="text-decoration:none">ดูแผน →</a></div>
+  <span>{% if _tr.expired %}<b>{{ _("ช่วงทดลองใช้ฟรี 14 วันหมดแล้ว") }}</b> {{ _("— ระบบหยุดมอนิเตอร์และสร้างคอนเทนต์ให้ ข้อมูลเดิมยังอยู่ครบ") }}{% else %}{% set _end = (_tr.ends[8:10] ~ "/" ~ _tr.ends[5:7] ~ "/" ~ (_tr.ends[:4]|int + 543)) if ui_lang() == "th" else _tr.ends %}<b>{{ _("ทดลองใช้ฟรี เหลือ {n} วัน", n=_tr.days_left) }}</b> {{ _("(ถึง {date}) — อัปเกรดเพื่อใช้ต่อโดยไม่สะดุด", date=_end) }}{% endif %}</span>
+  <a href="/upgrade" class="btn sm" style="text-decoration:none">{{ _("ดูแผน →") }}</a></div>
 {% endif %}
 <main>{% block content %}{% endblock %}</main>
 </div>
@@ -258,8 +271,8 @@
 <!-- AI loading overlay (โผล่ตอน submit ฟอร์มที่มี data-loading) -->
 <div id="ai-loading">
   <div class="ai-spin"></div>
-  <div id="ai-loading-msg" class="ai-load-title">⏳ กำลังสร้างด้วย AI…</div>
-  <div class="ai-load-sub">ใช้เวลา ~45 วิ – 2 นาที · กรุณารอสักครู่ อย่าปิดหน้านี้</div>
+  <div id="ai-loading-msg" class="ai-load-title">{{ _("⏳ กำลังสร้างด้วย AI…") }}</div>
+  <div class="ai-load-sub">{{ _("ใช้เวลา ~45 วิ – 2 นาที · กรุณารอสักครู่ อย่าปิดหน้านี้") }}</div>
 </div>
 <style>
 #ai-loading{display:none;position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.9);

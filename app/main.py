@@ -54,8 +54,21 @@ async def _no_cache_html(request: Request, call_next):
     return resp
 
 
+@app.middleware("http")
+async def _remember_lang(request: Request, call_next):
+    """?lang=xx บนหน้าใดก็ได้ = จำภาษาลงคุกกี้ (หน้าถัดไปทั้งเว็บใช้ภาษานี้) · หน้าแรก /en /zh /ja /ko ตั้งเอง"""
+    from . import i18n
+    want = i18n.valid(request.query_params.get("lang"))
+    resp = await call_next(request)
+    if want and request.cookies.get(i18n.COOKIE) != want:
+        resp.set_cookie(i18n.COOKIE, want, max_age=365 * 86400, samesite="lax", secure=request.url.scheme == "https")
+    return resp
+
+
 # Jinja2 globals ของ base.html — ลงทะเบียนตอน import ไม่ใช่ตอน startup: เป็น lambda ที่ค่อยอ่าน DB ตอน render
 # จึงไม่ต้องรอ startup และ TestClient(app) ที่ไม่ได้เข้า lifespan (สเมอก์เทสต์ทุกตัว) render หน้าได้เหมือน production
+from . import i18n as _i18n
+_i18n.install(templates.env)   # _("ข้อความไทย") · |tr · html_lang() · lang_links() — แปลตามภาษาที่เลือก
 templates.env.filters["urlpath"] = lambda u, n=60: deep_audit._path(u, n)   # รายงานเต็ม: path อ่านง่าย ไม่ล้นตาราง
 templates.env.globals["sidebar_brands"] = lambda req: (
     db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []   # sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
@@ -374,14 +387,22 @@ def _landing_page(request: Request, lang: str):
     base = str(request.base_url).rstrip("/")
     ctx.update(T=t, lang=lang, html_lang=L.HTML_LANG[lang], og_locale=L.OG_LOCALE[lang],
                font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
-               langs=[{"code": c, "name": L.NAMES[c], "href": L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
+               langs=[{"code": c, "name": L.NAMES[c], "path": L.PATHS[c], "href": "/?lang=th" if c == "th" else L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
                canonical=base + L.PATHS[lang], base=base, src="home" if lang == "th" else f"home-{lang}",
                proof=_proof_view(_landing_proof(), lang), plan_rows=_plan_rows(ctx["plans"], lang), preview=False)
-    return templates.TemplateResponse(request, "landing_v2.html", ctx)
+    resp = templates.TemplateResponse(request, "landing_v2.html", ctx)
+    from . import i18n
+    if request.cookies.get(i18n.COOKIE) != lang and (lang != "th" or i18n.valid(request.query_params.get("lang"))):
+        resp.set_cookie(i18n.COOKIE, lang, max_age=365 * 86400, samesite="lax", secure=request.url.scheme == "https")
+    return resp
 
 
 @app.get("/")
 def landing(request: Request):
+    from . import i18n
+    remembered = i18n.valid(request.cookies.get(i18n.COOKIE))
+    if not i18n.valid(request.query_params.get("lang")) and remembered and remembered != "th":
+        return _redirect(i18n.PATHS[remembered])          # เลือกภาษาไว้แล้ว → หน้าแรกภาษานั้น (เลือกไทยคืน = /?lang=th)
     return _landing_page(request, "th")
 
 
@@ -592,11 +613,14 @@ def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, 
 
 
 @app.get("/audit/{token}/progress")
-def audit_progress(token: str):
+def audit_progress(request: Request, token: str):
     lead = db.get_lead_by_token(token)
     if not lead:
         return JSONResponse({"error": "not found"}, status_code=404)
-    return JSONResponse(deep_audit.progress(lead), headers={"Cache-Control": "no-store"})
+    p = deep_audit.progress(lead)
+    if p.get("step"):
+        p["step"] = _i18n.tr(p["step"], _i18n.lang_of(request))      # ขั้นที่กำลังทำ ตามภาษาที่ลูกค้าเลือก
+    return JSONResponse(p, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/audit/{token}/contact")
@@ -785,10 +809,10 @@ def _company() -> dict:
             "contract_reviewed": db.get_setting("contract_reviewed") == "1"}
 
 
-def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
+def _quote_ctx(q, lead, error: str = "", pdf: bool = False, lang: str = "th") -> dict:
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
     ppid, ppname = _promptpay_config()
-    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q), "refund_days": quotes.refund_days(q),
+    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q, lang), "refund_days": quotes.refund_days(q),
             "yearly": quotes.cycle_of(q) == "year", "period_total": quotes.period_total(q), "yearly_pct": quotes.yearly_discount(),
             "alt": quotes.alternative(q),
             "summary": leads.public_summary(report), "company": _company(),
@@ -797,13 +821,13 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
             "qr": promptpay.qr_data_uri(ppid, quotes.payable(q)) if (ppid and q["status"] == "accepted" and not pdf) else None,
             "vat": quotes.vat_pct(q), "payable": quotes.payable(q), "baht": quotes.baht,
             "stripe_ready": stripe_pay.available() and not pdf, "stripe_mode": stripe_pay.mode(),
-            "error": error, "pdf": pdf, "base": _public_base()}
+            "error": error, "pdf": pdf, "base": _public_base(), "lang": lang}
 
 
-def _contract_ctx(q, lead, pdf: bool = False) -> dict:
+def _contract_ctx(q, lead, pdf: bool = False, lang: str = "th") -> dict:
     co = _company()
-    return {"q": dict(q), "lead": dict(lead), "company": co, "pdf": pdf, "base": _public_base(), "refund_days": quotes.refund_days(q),
-            "sections": quotes.contract_sections(co, {"name": lead["name"], "domain": lead["domain"], "email": lead["email"]}, q)}
+    return {"q": dict(q), "lead": dict(lead), "company": co, "pdf": pdf, "base": _public_base(), "refund_days": quotes.refund_days(q), "lang": lang,
+            "sections": quotes.contract_sections(co, {"name": lead["name"], "domain": lead["domain"], "email": lead["email"]}, q, lang)}
 
 
 def _render_pdf(request: Request, template: str, ctx: dict, filename: str):
@@ -853,7 +877,7 @@ def quote_pdf(request: Request, token: str):
     q = db.get_quote_by_token(token)
     if not q:
         return _redirect("/")
-    return _render_pdf(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), pdf=True), f"{q['number']}.pdf")
+    return _render_pdf(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), pdf=True, lang=_i18n.lang_of(request)), f"{q['number']}.pdf")
 
 
 @app.get("/q/{token}/contract.pdf")
@@ -861,7 +885,7 @@ def contract_pdf(request: Request, token: str):
     q = db.get_quote_by_token(token)
     if not q:
         return _redirect("/")
-    return _render_pdf(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"]), pdf=True), f"{q['number']}-contract.pdf")
+    return _render_pdf(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"]), pdf=True, lang=_i18n.lang_of(request)), f"{q['number']}-contract.pdf")
 
 
 @app.get("/q/{token}/contract")
@@ -869,7 +893,7 @@ def contract_page(request: Request, token: str):
     q = db.get_quote_by_token(token)
     if not q:
         return _redirect("/")
-    return templates.TemplateResponse(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"])))
+    return templates.TemplateResponse(request, "contract.html", _contract_ctx(q, db.get_lead(q["lead_id"]), lang=_i18n.lang_of(request)))
 
 
 @app.get("/q/{token}")
@@ -881,7 +905,7 @@ def quote_page(request: Request, token: str, paid: int = 0):
     if paid and q["status"] != "paid":                      # กลับจาก Stripe แต่ webhook ยังไม่มา → ถาม Stripe ตรง ๆ
         stripe_pay.sync_session(db.get_quote(q["id"]))
     q = db.get_quote(q["id"])
-    ctx = _quote_ctx(q, db.get_lead(q["lead_id"]))
+    ctx = _quote_ctx(q, db.get_lead(q["lead_id"]), lang=_i18n.lang_of(request))
     ctx["just_paid"] = bool(paid) and q["status"] != "paid"
     return templates.TemplateResponse(request, "quote.html", ctx)
 
@@ -894,7 +918,7 @@ def quote_cycle(request: Request, token: str, cycle: str = Form(""), website: st
         return _redirect("/")
     err = pipeline.change_cycle(q, cycle, "customer")
     if err:
-        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), error=err))
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), error=err, lang=_i18n.lang_of(request)))
     return _redirect(f"/q/{token}")
 
 
@@ -910,7 +934,7 @@ def quote_stripe(request: Request, token: str):
     try:
         url = stripe_pay.create_checkout(q, lead, _public_base(), _company().get("name") or "เจอ.AI")
     except Exception as e:
-        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=f"เปิดหน้าชำระเงินไม่ได้: {str(e)[:160]}"))
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=f"เปิดหน้าชำระเงินไม่ได้: {str(e)[:160]}", lang=_i18n.lang_of(request)))
     pipeline.record(lead["id"], "note", f"ลูกค้าเปิดหน้าชำระ Stripe ({q['number']})", "customer")
     return _redirect(url)
 
@@ -944,15 +968,15 @@ def quote_accept(request: Request, token: str, name: str = Form(""), agree: str 
         return _redirect("/")
     lead = db.get_lead(q["lead_id"])
     if not agree:
-        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error="ติ๊กยอมรับเงื่อนไขและสัญญาก่อน"))
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error="ติ๊กยอมรับเงื่อนไขและสัญญาก่อน", lang=_i18n.lang_of(request)))
     if q["status"] in ("sent", "viewed") and (buyer_name or buyer_tax_id or buyer_address):
         from . import accounting
         err = accounting.save_buyer(q["id"], buyer_name, buyer_tax_id, buyer_branch, buyer_address)
         if err:
-            return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err))
+            return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err, lang=_i18n.lang_of(request)))
     err = pipeline.accept_quote(q, name, _client_ip(request))
     if err:
-        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err))
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=err, lang=_i18n.lang_of(request)))
     return _redirect(f"/q/{token}")
 
 
@@ -2327,7 +2351,7 @@ def brand_report_pdf(request: Request, brand_id: int):
         return _redirect("/app" if _tid(request) else "/login")
     data = report.collect(brand_id)
     try:
-        pdf = report.to_pdf(report.render_html(data, pdf=True))
+        pdf = report.to_pdf(report.render_html(data, pdf=True, lang=_i18n.lang_of(request)))
     except Exception as e:
         # บริการ PDF (container pdf) ล่ม — ให้คนยังเอารายงานไปได้ด้วย Print ของเบราว์เซอร์
         return templates.TemplateResponse(request, "report.html",

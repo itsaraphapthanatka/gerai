@@ -5,7 +5,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/favicon-32.png">
 <style>
-  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--good:#1c7a44;--bad:#b42318;--font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif}
+  :root{--primary:#0a0a0a;--slate:#45515e;--stone:#8e8e93;--surface:#f7f8fa;--hairline:#e5e7eb;--good:#1c7a44;--bad:#b42318;--font:'DM Sans',{% if font_css() %}'{{ font_family() }}',{% endif %}'IBM Plex Sans Thai',system-ui,sans-serif}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--font);color:var(--primary);background:#fff;line-height:1.6;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:40px 16px 64px}

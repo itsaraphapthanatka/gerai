@@ -1,12 +1,11 @@
 <!doctype html>
-<html lang="th">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>ขอไม่รับการติดต่อ · เจอ.AI</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>{{ _("ขอไม่รับการติดต่อ") }} · เจอ.AI</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;color:#0a0a0a;background:#fff;line-height:1.6}
+  body{font-family:{% if font_css() %}'{{ font_family() }}',{% endif %}'IBM Plex Sans Thai',system-ui,sans-serif;color:#0a0a0a;background:#fff;line-height:1.6}
   .wrap{max-width:560px;margin:0 auto;padding:60px 24px}
   .brand{font-weight:700;color:#45515e;margin-bottom:24px}.brand a{color:inherit;text-decoration:none}
   h1{font-size:26px;margin-bottom:10px}p{color:#45515e;margin-bottom:18px}
@@ -16,13 +15,13 @@
 {% include "_ds.html" %}
 </head>
 <body><div class="wrap">
-  <div class="ds-head">{% include "_logo.html" %}</div>
+  <div class="ds-head">{% include "_logo.html" %}{% include "_lang.html" %}</div>
   {% if done %}
-  <h1>เรียบร้อย</h1>
-  <div class="ok">เราบันทึกว่า {{ lead.domain }} ไม่ต้องการรับการติดต่อจากเจอ.AI แล้ว ข้อเสนอที่ค้างอยู่ถูกยกเลิกทั้งหมด และเราจะไม่ส่งข้อความถึงคุณอีก</div>
+  <h1>{{ _("เรียบร้อย") }}</h1>
+  <div class="ok">{{ _("เราบันทึกว่า {domain} ไม่ต้องการรับการติดต่อจากเจอ.AI แล้ว ข้อเสนอที่ค้างอยู่ถูกยกเลิกทั้งหมด และเราจะไม่ส่งข้อความถึงคุณอีก", domain=lead.domain) }}</div>
   {% else %}
-  <h1>ขอไม่รับการติดต่อ</h1>
-  <p>กดปุ่มด้านล่าง เจอ.AI จะหยุดส่งอีเมลและข้อความทุกช่องทางถึง {{ lead.domain }} ทันที และลบช่องทางติดต่อออกจากรายชื่อที่ติดต่อได้</p>
-  <form method="post" action="/u/{{ lead.token }}"><button type="submit">ยืนยัน ไม่รับการติดต่อ</button></form>
+  <h1>{{ _("ขอไม่รับการติดต่อ") }}</h1>
+  <p>{{ _("กดปุ่มด้านล่าง เจอ.AI จะหยุดส่งอีเมลและข้อความทุกช่องทางถึง {domain} ทันที และลบช่องทางติดต่อออกจากรายชื่อที่ติดต่อได้", domain=lead.domain) }}</p>
+  <form method="post" action="/u/{{ lead.token }}"><button type="submit">{{ _("ยืนยัน ไม่รับการติดต่อ") }}</button></form>
   {% endif %}
 </div></body></html>

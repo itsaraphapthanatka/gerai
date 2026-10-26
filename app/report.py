@@ -163,13 +163,15 @@ def collect(brand_id: int) -> dict:
 _env = None
 
 
-def render_html(data: dict, pdf: bool = False) -> str:
-    """เรนเดอร์ report.html (เทมเพลตเดี่ยว ไม่ใช้ base) — pdf=True ซ่อนปุ่มและใช้ฟอนต์จากระบบของ Gotenberg"""
+def render_html(data: dict, pdf: bool = False, lang: str = "th") -> str:
+    """เรนเดอร์ report.html (เทมเพลตเดี่ยว ไม่ใช้ base) — pdf=True ซ่อนปุ่มและใช้ฟอนต์จากระบบของ Gotenberg · lang = ภาษาของรายงาน"""
     global _env
     if _env is None:
         import jinja2
+        from . import i18n
         _env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(Path(__file__).parent / "templates")), autoescape=True)
-    return _env.get_template("report.html").render(d=data, pdf=pdf)
+        i18n.install(_env)
+    return _env.get_template("report.html").render(d=data, pdf=pdf, lang=lang)
 
 
 def to_pdf(html: str) -> bytes:

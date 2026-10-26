@@ -2,17 +2,17 @@
 {% block title %}SoV Impact — {{ brand.name }}{% endblock %}
 {% block content %}
 <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-  <a href="/brands/{{ brand.id }}" class="btn ghost sm">← กลับ</a>
+  <a href="/brands/{{ brand.id }}" class="btn ghost sm">← {{ _("กลับ") }}</a>
   <div>
-    <h1 style="margin:0">ผลกระทบ SoV — {{ brand.name }}</h1>
-    <p class="muted" style="margin:4px 0 0">เปรียบเทียบ Share of Voice ก่อนและหลังเผยแพร่คอนเทนต์</p>
+    <h1 style="margin:0">{{ _("ผลกระทบ SoV") }} — {{ brand.name }}</h1>
+    <p class="muted" style="margin:4px 0 0">{{ _("เปรียบเทียบ Share of Voice ก่อนและหลังเผยแพร่คอนเทนต์") }}</p>
   </div>
 </div>
 
 {% if not runs %}
 <div class="card" style="text-align:center;padding:40px">
-  <p class="muted">ยังไม่มีข้อมูล monitoring — รันมอนิเตอร์ก่อนอย่างน้อย 1 ครั้ง</p>
-  <a href="/brands/{{ brand.id }}" class="btn sm" style="margin-top:12px">ไปหน้าแบรนด์</a>
+  <p class="muted">{{ _("ยังไม่มีข้อมูล monitoring — รันมอนิเตอร์ก่อนอย่างน้อย 1 ครั้ง") }}</p>
+  <a href="/brands/{{ brand.id }}" class="btn sm" style="margin-top:12px">{{ _("ไปหน้าแบรนด์") }}</a>
 </div>
 {% else %}
 
@@ -20,7 +20,7 @@
 <div class="card">
   <h2 style="margin-top:0;border:none;padding:0 0 10px">Timeline Share of Voice</h2>
   {% if not publishes %}
-  <p class="muted" style="font-size:13px">ยังไม่มีคอนเทนต์ที่เผยแพร่ — เส้นสีม่วงจะปรากฏหลังเผยแพร่ครั้งแรก</p>
+  <p class="muted" style="font-size:13px">{{ _("ยังไม่มีคอนเทนต์ที่เผยแพร่ — เส้นสีม่วงจะปรากฏหลังเผยแพร่ครั้งแรก") }}</p>
   {% endif %}
   <div style="position:relative;height:220px;margin-top:12px">
     <canvas id="sovChart"></canvas>
@@ -33,32 +33,32 @@
 {% set delta = ((last_sov - first_sov) * 100) | round(1) %}
 <div style="display:flex;gap:14px;flex-wrap:wrap;margin:14px 0">
   <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">SoV เริ่มต้น</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">{{ _("SoV เริ่มต้น") }}</div>
     <div class="sov {% if first_sov > 0 %}pos{% else %}no{% endif %}">{{ (first_sov*100)|round(1) }}%</div>
-    <div class="muted" style="font-size:11px;margin-top:4px">Run แรก</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">{{ _("Run แรก") }}</div>
   </div>
   <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">SoV ล่าสุด</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">{{ _("SoV ล่าสุด") }}</div>
     <div class="sov {% if last_sov > 0 %}pos{% else %}no{% endif %}">{{ (last_sov*100)|round(1) }}%</div>
-    <div class="muted" style="font-size:11px;margin-top:4px">Run ล่าสุด</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">{{ _("Run ล่าสุด") }}</div>
   </div>
   <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">การเปลี่ยนแปลง</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">{{ _("การเปลี่ยนแปลง") }}</div>
     <div class="sov {% if delta >= 0 %}pos{% else %}no{% endif %}">{% if delta >= 0 %}+{% endif %}{{ delta }}%</div>
-    <div class="muted" style="font-size:11px;margin-top:4px">Run แรก → ล่าสุด</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">{{ _("Run แรก → ล่าสุด") }}</div>
   </div>
   <div class="card" style="flex:1;min-width:140px;text-align:center;padding:20px 14px">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">คอนเทนต์เผยแพร่</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">{{ _("คอนเทนต์เผยแพร่") }}</div>
     <div class="sov" style="color:var(--purple)">{{ publishes|length }}</div>
-    <div class="muted" style="font-size:11px;margin-top:4px">ชิ้น</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">{{ _("ชิ้น") }}</div>
   </div>
 </div>
 
 <!-- ตารางเทียบรายคำถาม -->
 {% if runs|length >= 2 %}
 <div class="card" style="margin-top:4px">
-  <h2 style="margin-top:0;border:none;padding-bottom:10px">รายละเอียดรายคำถาม</h2>
-  <p class="muted" style="font-size:12px;margin-top:-6px">เปรียบเทียบ Run แรก กับ Run ล่าสุด</p>
+  <h2 style="margin-top:0;border:none;padding-bottom:10px">{{ _("รายละเอียดรายคำถาม") }}</h2>
+  <p class="muted" style="font-size:12px;margin-top:-6px">{{ _("เปรียบเทียบ Run แรก กับ Run ล่าสุด") }}</p>
   <div id="qTable"></div>
 </div>
 {% endif %}
@@ -66,15 +66,15 @@
 <!-- คอนเทนต์ที่เผยแพร่ -->
 {% if publishes %}
 <div class="card" style="margin-top:4px">
-  <h2 style="margin-top:0;border:none;padding-bottom:10px">คอนเทนต์ที่เผยแพร่</h2>
+  <h2 style="margin-top:0;border:none;padding-bottom:10px">{{ _("คอนเทนต์ที่เผยแพร่") }}</h2>
   <table>
-    <thead><tr><th>ชื่อ</th><th>เผยแพร่เมื่อ</th><th>ลิงก์</th></tr></thead>
+    <thead><tr><th>{{ _("ชื่อ") }}</th><th>{{ _("เผยแพร่เมื่อ") }}</th><th>{{ _("ลิงก์") }}</th></tr></thead>
     <tbody>
     {% for p in publishes %}
     <tr>
-      <td>{{ p.title or "(ไม่มีชื่อ)" }}</td>
+      <td>{{ p.title or _("(ไม่มีชื่อ)") }}</td>
       <td class="muted" style="white-space:nowrap">{{ (p.published_at or "")[:16] }}</td>
-      <td>{% if p.wp_link %}<a href="{{ p.wp_link }}" target="_blank" class="link" style="font-size:12px">เปิดใน WP ↗</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if p.wp_link %}<a href="{{ p.wp_link }}" target="_blank" class="link" style="font-size:12px">{{ _("เปิดใน WP") }} ↗</a>{% else %}<span class="muted">—</span>{% endif %}</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -89,6 +89,7 @@
   const runs = {{ runs | tojson }};
   const publishes = {{ publishes | tojson }};
   const qResults = {{ question_results | safe }};
+  const T = {{ {"none": _("ไม่มีข้อมูลรายคำถาม"), "q": _("คำถาม"), "first": _("Run แรก"), "last": _("Run ล่าสุด"), "change": _("เปลี่ยนแปลง"), "up": _("ดีขึ้น"), "down": _("ลดลง"), "same": _("คงเดิม"), "found": _("พบ"), "missing": _("ไม่พบ")}|tojson }};
 
   /* ---- Chart ---- */
   const canvas = document.getElementById('sovChart');
@@ -128,7 +129,7 @@
   publishes.forEach(p => {
     if (!p.published_at) return;
     const pubDate = p.published_at.slice(0,10);
-    // หา run ที่ใกล้ที่สุดหลัง publish
+    {# หา run ที่ใกล้ที่สุดหลัง publish #}
     const idx = runs.findIndex(r => (r.started_at||'').slice(0,10) >= pubDate);
     const x = idx >= 0 ? xPos(idx) : xPos(runs.length - 1);
     ctx.strokeStyle = 'rgba(255,85,48,0.35)'; ctx.lineWidth = 1.5;
@@ -182,19 +183,19 @@
   });
 
   const rows = Object.values(qMap);
-  if (!rows.length) { tbl.innerHTML = '<p class="muted" style="font-size:13px">ไม่มีข้อมูลรายคำถาม</p>'; return; }
+  if (!rows.length) { tbl.innerHTML = '<p class="muted" style="font-size:13px">' + T.none + '</p>'; return; }
 
-  let html = '<table><thead><tr><th>คำถาม</th><th style="text-align:center">Run แรก</th><th style="text-align:center">Run ล่าสุด</th><th style="text-align:center">เปลี่ยนแปลง</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>' + T.q + '</th><th style="text-align:center">' + T.first + '</th><th style="text-align:center">' + T.last + '</th><th style="text-align:center">' + T.change + '</th></tr></thead><tbody>';
   rows.forEach(r => {
     const f = r.first; const l = r.last;
     let change = '—', cls = '';
     if (f !== null && l !== null) {
-      if (l > f)       { change = '▲ ดีขึ้น'; cls = 'color:var(--green)'; }
-      else if (l < f)  { change = '▼ ลดลง';   cls = 'color:var(--danger)'; }
-      else             { change = '= คงเดิม';  cls = 'color:var(--silver)'; }
+      if (l > f)       { change = '▲ ' + T.up; cls = 'color:var(--green)'; }
+      else if (l < f)  { change = '▼ ' + T.down;   cls = 'color:var(--danger)'; }
+      else             { change = '= ' + T.same;  cls = 'color:var(--silver)'; }
     }
-    const fPill = f === null ? '—' : (f ? '<span class="pill ok">พบ</span>' : '<span class="pill no">ไม่พบ</span>');
-    const lPill = l === null ? '—' : (l ? '<span class="pill ok">พบ</span>' : '<span class="pill no">ไม่พบ</span>');
+    const fPill = f === null ? '—' : (f ? '<span class="pill ok">' + T.found + '</span>' : '<span class="pill no">' + T.missing + '</span>');
+    const lPill = l === null ? '—' : (l ? '<span class="pill ok">' + T.found + '</span>' : '<span class="pill no">' + T.missing + '</span>');
     html += `<tr><td style="max-width:320px">${r.question}</td><td style="text-align:center">${fPill}</td><td style="text-align:center">${lPill}</td><td style="text-align:center;font-size:12px;font-weight:600;${cls}">${change}</td></tr>`;
   });
   html += '</tbody></table>';

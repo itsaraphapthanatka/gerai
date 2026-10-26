@@ -1,0 +1,3284 @@
+{
+ "คอนเทนต์": {
+  "en": "Content",
+  "zh": "内容",
+  "ja": "コンテンツ",
+  "ko": "콘텐츠"
+ },
+ "ภาษา {code}": {
+  "en": "Language {code}",
+  "zh": "语言 {code}",
+  "ja": "言語 {code}",
+  "ko": "언어 {code}"
+ },
+ "ที่มา {source}": {
+  "en": "Source {source}",
+  "zh": "来源 {source}",
+  "ja": "作成元 {source}",
+  "ko": "출처 {source}"
+ },
+ "ความพร้อม AEO / GEO": {
+  "en": "AEO / GEO readiness",
+  "zh": "AEO / GEO 就绪度",
+  "ja": "AEO / GEO 対応度",
+  "ko": "AEO / GEO 준비도"
+ },
+ "กำลังสร้างใหม่ให้ครบ AEO… (~30-60 วิ)": {
+  "en": "Rebuilding to full AEO… (~30–60 s)",
+  "zh": "正在按完整 AEO 重新生成…（约 30–60 秒）",
+  "ja": "AEO 対応で再生成しています…（約30〜60秒）",
+  "ko": "AEO 기준으로 다시 생성하는 중…(약 30~60초)"
+ },
+ "สร้างเนื้อหาชิ้นนี้ใหม่ด้วยฟอร์แมต AEO เต็ม (answer-first + ลิสต์/ตาราง + FAQ + schema)?": {
+  "en": "Regenerate this piece in the full AEO format (answer-first + lists/tables + FAQ + schema)?",
+  "zh": "用完整 AEO 格式（答案优先 + 列表/表格 + FAQ + schema）重新生成这篇内容？",
+  "ja": "このコンテンツを AEO の完全な形式（answer-first + リスト/表 + FAQ + schema）で作り直しますか？",
+  "ko": "이 콘텐츠를 완전한 AEO 형식(answer-first + 목록/표 + FAQ + schema)으로 다시 생성하시겠습니까?"
+ },
+ "เนื้อหาเดิมจะถูกเขียนทับ": {
+  "en": "The current content will be overwritten.",
+  "zh": "现有内容将被覆盖。",
+  "ja": "現在の内容は上書きされます。",
+  "ko": "기존 내용은 덮어쓰게 됩니다."
+ },
+ "สร้างใหม่ให้ครบ AEO": {
+  "en": "Rebuild to full AEO",
+  "zh": "按完整 AEO 重新生成",
+  "ja": "AEO 対応で作り直す",
+  "ko": "AEO 기준으로 다시 생성"
+ },
+ "ระบบจะเขียนใหม่ให้ได้ครบ 6/6 (answer-first, ลิสต์, FAQ, schema)": {
+  "en": "The system will rewrite it to score 6/6 (answer-first, lists, FAQ, schema)",
+  "zh": "系统会重写至 6/6 全部达标（答案优先、列表、FAQ、schema）",
+  "ja": "6/6 をすべて満たすよう書き直します（answer-first、リスト、FAQ、schema）",
+  "ko": "6/6을 모두 충족하도록 다시 작성합니다(answer-first, 목록, FAQ, schema)"
+ },
+ "เนื้อหา (Markdown)": {
+  "en": "Content (Markdown)",
+  "zh": "正文（Markdown）",
+  "ja": "本文（Markdown）",
+  "ko": "본문(Markdown)"
+ },
+ "คัดลอกไปใช้ได้ทุกแพลตฟอร์ม": {
+  "en": "copy and use on any platform",
+  "zh": "可复制到任何平台使用",
+  "ja": "どのプラットフォームにもコピーして使えます",
+  "ko": "어떤 플랫폼에든 복사해 사용할 수 있습니다"
+ },
+ "คัดลอก": {
+  "en": "Copy",
+  "zh": "复制",
+  "ja": "コピー",
+  "ko": "복사"
+ },
+ "วางใน <head> ของหน้านั้น": {
+  "en": "paste into that page's <head>",
+  "zh": "粘贴到该页面的 <head> 中",
+  "ja": "そのページの <head> に貼り付けます",
+  "ko": "해당 페이지의 <head>에 붙여 넣으세요"
+ },
+ "เผยแพร่เข้า WordPress": {
+  "en": "Publish to WordPress",
+  "zh": "发布到 WordPress",
+  "ja": "WordPress に公開",
+  "ko": "WordPress에 게시"
+ },
+ "เผยแพร่บทความ": {
+  "en": "Publish article",
+  "zh": "发布文章",
+  "ja": "記事を公開",
+  "ko": "글 게시"
+ },
+ "เผยแพร่แล้ว": {
+  "en": "Published",
+  "zh": "已发布",
+  "ja": "公開済み",
+  "ko": "게시됨"
+ },
+ "เปิดหน้า": {
+  "en": "Open page",
+  "zh": "打开页面",
+  "ja": "ページを開く",
+  "ko": "페이지 열기"
+ },
+ "เพื่อให้ AI เห็น ต้องเป็น \"เผยแพร่ (public)\"": {
+  "en": "For AI to see it, it must be \"Published (public)\"",
+  "zh": "要让 AI 看到，必须设为“发布（public）”",
+  "ja": "AI に見てもらうには「公開（public）」にする必要があります",
+  "ko": "AI가 보려면 \"게시(public)\" 상태여야 합니다"
+ },
+ "\"ร่าง (draft)\" ไว้รีวิวใน WordPress ก่อน แต่ AI/Google จะยังมองไม่เห็น": {
+  "en": "\"Draft\" lets you review it in WordPress first, but AI/Google can't see it yet",
+  "zh": "“草稿（draft）”可先在 WordPress 中审阅，但 AI/Google 还看不到",
+  "ja": "「下書き（draft）」は WordPress で先に確認できますが、AI/Google からはまだ見えません",
+  "ko": "\"임시 저장(draft)\"은 WordPress에서 먼저 검토할 수 있지만 AI/Google에는 아직 보이지 않습니다"
+ },
+ "เผยแพร่เลย (public)": {
+  "en": "Publish now (public)",
+  "zh": "立即发布（public）",
+  "ja": "今すぐ公開（public）",
+  "ko": "지금 게시(public)"
+ },
+ "บันทึกเป็นร่าง": {
+  "en": "Save as draft",
+  "zh": "保存为草稿",
+  "ja": "下書きとして保存",
+  "ko": "임시 저장"
+ },
+ "ผ่าน Connector (พร้อม schema)": {
+  "en": "via Connector (with schema)",
+  "zh": "通过 Connector（含 schema）",
+  "ja": "Connector 経由（schema 付き）",
+  "ko": "Connector 경유(schema 포함)"
+ },
+ "เว็บนี้ไม่ได้เชื่อม WordPress — เผยแพร่แล้วบทความจะขึ้นเป็น<b>หน้า hosted</b> (เนื้อหา + schema ที่ AI อ่านได้) ที่": {
+  "en": "This site isn't connected to WordPress — once published, the article goes live as a <b>hosted page</b> (content + schema that AI can read) at",
+  "zh": "此网站未连接 WordPress — 发布后文章会作为<b>托管页面</b>（AI 可读取的内容 + schema）上线，地址为",
+  "ja": "このサイトは WordPress と連携していません — 公開すると記事は<b>ホスト型ページ</b>（AI が読める本文 + schema）として次の URL に掲載されます:",
+  "ko": "이 사이트는 WordPress와 연결되어 있지 않습니다 — 게시하면 글이 <b>호스팅 페이지</b>(AI가 읽을 수 있는 본문 + schema)로 다음 주소에 올라갑니다:"
+ },
+ "เผยแพร่ (public)": {
+  "en": "Publish (public)",
+  "zh": "发布（public）",
+  "ja": "公開（public）",
+  "ko": "게시(public)"
+ },
+ "เก็บเป็นร่าง": {
+  "en": "Keep as draft",
+  "zh": "保留为草稿",
+  "ja": "下書きのままにする",
+  "ko": "임시 저장으로 두기"
+ },
+ "อยากให้ขึ้นใต้โดเมนคุณ (<code>โดเมน/geo/…</code>)? ตั้ง proxy ครั้งเดียวที่": {
+  "en": "Want it under your own domain (<code>domain/geo/…</code>)? Set up a proxy once in",
+  "zh": "想放在您自己的域名下（<code>域名/geo/…</code>）？只需在此设置一次 proxy：",
+  "ja": "自社ドメイン（<code>ドメイン/geo/…</code>）の下に表示したい場合は、一度だけ proxy を設定してください:",
+  "ko": "내 도메인(<code>도메인/geo/…</code>) 아래에 올리고 싶다면 한 번만 proxy를 설정하세요:"
+ },
+ "หน้าแบรนด์ → แท็บ \"เว็บเขียนเอง / Dev\"": {
+  "en": "Brand page → \"Custom site / Dev\" tab",
+  "zh": "品牌页面 → “自建网站 / Dev”标签",
+  "ja": "ブランドページ →「自作サイト / Dev」タブ",
+  "ko": "브랜드 페이지 → \"직접 만든 사이트 / Dev\" 탭"
+ },
+ "ลบคอนเทนต์นี้?": {
+  "en": "Delete this content?",
+  "zh": "删除此内容？",
+  "ja": "このコンテンツを削除しますか？",
+  "ko": "이 콘텐츠를 삭제하시겠습니까?"
+ },
+ "ลบคอนเทนต์นี้": {
+  "en": "Delete this content",
+  "zh": "删除此内容",
+  "ja": "このコンテンツを削除",
+  "ko": "이 콘텐츠 삭제"
+ },
+ "การมองเห็นบน AI": {
+  "en": "AI visibility",
+  "zh": "AI 可见度",
+  "ja": "AI での露出",
+  "ko": "AI 가시성"
+ },
+ "ถาม {engines} ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม": {
+  "en": "Ask {engines} your real target questions and see whether the brand is mentioned or cited",
+  "zh": "用真实的目标问题询问 {engines}，看看品牌是否被提及或引用",
+  "ja": "実際のターゲット質問を {engines} に投げ、ブランドが言及・引用されるかを確認します",
+  "ko": "실제 타깃 질문을 {engines}에 물어 브랜드가 언급되거나 인용되는지 확인합니다"
+ },
+ "ถามผู้ช่วย AI ด้วยคำถามเป้าหมายจริง แล้วดูว่าแบรนด์ถูกเอ่ยถึงหรือถูกอ้างอิงไหม": {
+  "en": "Ask AI assistants your real target questions and see whether the brand is mentioned or cited",
+  "zh": "用真实的目标问题询问 AI 助手，看看品牌是否被提及或引用",
+  "ja": "実際のターゲット質問を AI アシスタントに投げ、ブランドが言及・引用されるかを確認します",
+  "ko": "실제 타깃 질문을 AI 어시스턴트에 물어 브랜드가 언급되거나 인용되는지 확인합니다"
+ },
+ "ยังไม่ได้ตั้งคีย์ของ AI เจ้าไหนเลย": {
+  "en": "No AI provider key is set yet",
+  "zh": "尚未设置任何 AI 服务的密钥",
+  "ja": "AI サービスのキーがまだ1つも設定されていません",
+  "ko": "아직 설정된 AI 서비스 키가 없습니다"
+ },
+ "ทุกเจ้าจะถูก \"ข้าม\" จนกว่าจะใส่คีย์ — ง่ายสุดคือคีย์ OpenRouter ตัวเดียวถึงทั้ง 4 เจ้า หรือจะใส่คีย์ตรงทีละเจ้าก็ได้": {
+  "en": "Every provider is \"skipped\" until a key is added — easiest is a single OpenRouter key that reaches all 4, or add direct keys one by one",
+  "zh": "在添加密钥之前，所有服务都会被“跳过” — 最简单的是用一个 OpenRouter 密钥覆盖全部 4 家，也可以逐个添加直连密钥",
+  "ja": "キーを入れるまで全サービスが「スキップ」されます — いちばん簡単なのは OpenRouter のキー1つで4社すべてを使う方法です。各社のキーを個別に入れることもできます",
+  "ko": "키를 넣기 전까지 모든 서비스가 \"건너뜀\" 처리됩니다 — 가장 쉬운 방법은 OpenRouter 키 하나로 4곳 모두 쓰는 것이며, 각 서비스 키를 따로 넣어도 됩니다"
+ },
+ "ใส่ได้ที่": {
+  "en": "Add it in",
+  "zh": "可在此添加：",
+  "ja": "設定場所:",
+  "ko": "입력 위치:"
+ },
+ "ตั้งค่าระบบ": {
+  "en": "System settings",
+  "zh": "系统设置",
+  "ja": "システム設定",
+  "ko": "시스템 설정"
+ },
+ "แจ้งผู้ดูแลระบบ": {
+  "en": "ask your administrator",
+  "zh": "请联系管理员",
+  "ja": "管理者にご連絡ください",
+  "ko": "관리자에게 문의하세요"
+ },
+ "เจ้าที่พร้อม:": {
+  "en": "Ready:",
+  "zh": "可用：",
+  "ja": "利用可能:",
+  "ko": "사용 가능:"
+ },
+ "ผ่าน OpenRouter": {
+  "en": "via OpenRouter",
+  "zh": "通过 OpenRouter",
+  "ja": "OpenRouter 経由",
+  "ko": "OpenRouter 경유"
+ },
+ "ยังไม่มีคีย์": {
+  "en": "no key yet",
+  "zh": "尚无密钥",
+  "ja": "キー未設定",
+  "ko": "키 없음"
+ },
+ "ไม่ได้ถาม {engines} (ยังไม่มีคีย์ — ใส่ได้ที่ตั้งค่าระบบ แล้วจะกลับมาอยู่ในตาราง)": {
+  "en": "{engines} not asked (no key yet — add one in System settings and it will reappear in the table)",
+  "zh": "未询问 {engines}（尚无密钥 — 在系统设置中添加后会重新出现在表格中）",
+  "ja": "{engines} には質問していません（キー未設定 — システム設定で追加すると表に戻ります）",
+  "ko": "{engines}에는 묻지 않았습니다(키 없음 — 시스템 설정에서 추가하면 표에 다시 나타납니다)"
+ },
+ "กำลังถาม…": {
+  "en": "Asking…",
+  "zh": "正在询问…",
+  "ja": "質問中…",
+  "ko": "질문하는 중…"
+ },
+ "ถาม AI ตอนนี้": {
+  "en": "Ask AI now",
+  "zh": "立即询问 AI",
+  "ja": "今すぐ AI に質問",
+  "ko": "지금 AI에 질문"
+ },
+ "ถามทุกเจ้าที่มีคีย์ × ทุกคำถามเป้าหมาย · มีค่าใช้จ่ายต่อคำถาม · ใช้เวลาหลายนาที": {
+  "en": "Asks every provider with a key × every target question · costs per question · takes several minutes",
+  "zh": "询问所有已设密钥的服务 × 所有目标问题 · 每个问题都有费用 · 需要几分钟",
+  "ja": "キーのある全サービス × 全ターゲット質問に聞きます · 質問ごとに費用がかかります · 数分かかります",
+  "ko": "키가 있는 모든 서비스 × 모든 타깃 질문에 묻습니다 · 질문마다 비용이 듭니다 · 몇 분 걸립니다"
+ },
+ "กำลังถาม — รอสักครู่แล้วรีเฟรชหน้านี้": {
+  "en": "Asking — wait a moment, then refresh this page",
+  "zh": "正在询问 — 请稍候再刷新此页面",
+  "ja": "質問中です — しばらく待ってからこのページを再読み込みしてください",
+  "ko": "질문하는 중입니다 — 잠시 후 이 페이지를 새로 고침하세요"
+ },
+ "ยังไม่เคยถาม — กด \"ถาม AI ตอนนี้\" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)": {
+  "en": "Not asked yet — click \"Ask AI now\" to start (needs at least 1 target question)",
+  "zh": "尚未询问 — 点击“立即询问 AI”开始（至少需要 1 个目标问题）",
+  "ja": "まだ質問していません —「今すぐ AI に質問」を押して始めてください（ターゲット質問が1件以上必要です）",
+  "ko": "아직 질문하지 않았습니다 — \"지금 AI에 질문\"을 눌러 시작하세요(타깃 질문이 1개 이상 필요합니다)"
+ },
+ "รอบล่าสุด {at} ถามไม่ได้สักเจ้า": {
+  "en": "Latest round {at}: no provider could be asked",
+  "zh": "最近一轮 {at}：没有任何服务询问成功",
+  "ja": "直近の実行 {at}: どのサービスにも質問できませんでした",
+  "ko": "최근 회차 {at}: 어느 서비스에도 질문하지 못했습니다"
+ },
+ "มีคีย์แต่เรียกไม่สำเร็จ": {
+  "en": "Key set but the call failed",
+  "zh": "已设密钥但调用失败",
+  "ja": "キーはありますが呼び出しに失敗しました",
+  "ko": "키는 있지만 호출에 실패했습니다"
+ },
+ "ผิดพลาด": {
+  "en": "Error",
+  "zh": "出错",
+  "ja": "エラー",
+  "ko": "오류"
+ },
+ "ไม่มีคำถามเป้าหมาย": {
+  "en": "No target questions",
+  "zh": "没有目标问题",
+  "ja": "ターゲット質問がありません",
+  "ko": "타깃 질문이 없습니다"
+ },
+ "ถูกพูดถึง": {
+  "en": "Mentioned",
+  "zh": "被提及",
+  "ja": "言及",
+  "ko": "언급됨"
+ },
+ "ของคำถามที่ถามได้": {
+  "en": "of answerable questions",
+  "zh": "占可询问的问题",
+  "ja": "回答が得られた質問のうち",
+  "ko": "답변을 받은 질문 중"
+ },
+ "ถูกอ้างอิง": {
+  "en": "Cited",
+  "zh": "被引用",
+  "ja": "引用",
+  "ko": "인용됨"
+ },
+ "ใช้เว็บเราเป็นแหล่ง": {
+  "en": "used our site as a source",
+  "zh": "以我们的网站为来源",
+  "ja": "自社サイトを情報源に使用",
+  "ko": "우리 사이트를 출처로 사용"
+ },
+ "ถูกเอ่ยชื่อ": {
+  "en": "Named",
+  "zh": "被点名",
+  "ja": "名前が挙がった",
+  "ko": "이름 언급"
+ },
+ "จาก {n} คำตอบ": {
+  "en": "of {n} answers",
+  "zh": "共 {n} 个回答",
+  "ja": "{n} 件の回答中",
+  "ko": "답변 {n}개 중"
+ },
+ "ค่าใช้จ่ายรอบนี้": {
+  "en": "Cost this round",
+  "zh": "本轮费用",
+  "ja": "今回の費用",
+  "ko": "이번 회차 비용"
+ },
+ "ค้น {n}": {
+  "en": "{n} searches",
+  "zh": "搜索 {n} 次",
+  "ja": "検索 {n} 回",
+  "ko": "검색 {n}회"
+ },
+ "ถามล่าสุด": {
+  "en": "Last asked",
+  "zh": "最近询问",
+  "ja": "最終質問",
+  "ko": "최근 질문"
+ },
+ "30 วันล่าสุดรวม ${usd} ≈ ฿{thb}": {
+  "en": "Last 30 days total ${usd} ≈ ฿{thb}",
+  "zh": "近 30 天合计 ${usd} ≈ ฿{thb}",
+  "ja": "過去30日の合計 ${usd} ≈ ฿{thb}",
+  "ko": "최근 30일 합계 ${usd} ≈ ฿{thb}"
+ },
+ "แยกตามเจ้า": {
+  "en": "By provider",
+  "zh": "按服务",
+  "ja": "サービス別",
+  "ko": "서비스별"
+ },
+ "ถามได้": {
+  "en": "Answered",
+  "zh": "已回答",
+  "ja": "回答あり",
+  "ko": "답변됨"
+ },
+ "อ้างอิงเว็บเรา": {
+  "en": "Cites our site",
+  "zh": "引用我们的网站",
+  "ja": "自社サイトを引用",
+  "ko": "우리 사이트 인용"
+ },
+ "เอ่ยชื่อ": {
+  "en": "Named",
+  "zh": "点名",
+  "ja": "名前あり",
+  "ko": "이름 언급"
+ },
+ "ค่าใช้จ่าย": {
+  "en": "Cost",
+  "zh": "费用",
+  "ja": "費用",
+  "ko": "비용"
+ },
+ "หมายเหตุ": {
+  "en": "Notes",
+  "zh": "备注",
+  "ja": "備考",
+  "ko": "비고"
+ },
+ "ข้าม {n} — ยังไม่มีคีย์": {
+  "en": "{n} skipped — no key yet",
+  "zh": "跳过 {n} — 尚无密钥",
+  "ja": "{n} 件スキップ — キー未設定",
+  "ko": "{n}개 건너뜀 — 키 없음"
+ },
+ "ไม่ได้ค้น {n}": {
+  "en": "{n} without search",
+  "zh": "未搜索 {n}",
+  "ja": "検索なし {n}",
+  "ko": "검색 안 함 {n}"
+ },
+ "ไม่มีคำตอบ {n}": {
+  "en": "{n} no answer",
+  "zh": "无回答 {n}",
+  "ja": "回答なし {n}",
+  "ko": "답변 없음 {n}"
+ },
+ "ผิดพลาด {n}": {
+  "en": "{n} errors",
+  "zh": "出错 {n}",
+  "ja": "エラー {n}",
+  "ko": "오류 {n}"
+ },
+ "รายคำถาม": {
+  "en": "By question",
+  "zh": "按问题",
+  "ja": "質問別",
+  "ko": "질문별"
+ },
+ "คำถาม": {
+  "en": "Question",
+  "zh": "问题",
+  "ja": "質問",
+  "ko": "질문"
+ },
+ "อ้างอิง": {
+  "en": "Cited",
+  "zh": "引用",
+  "ja": "引用",
+  "ko": "인용"
+ },
+ "ไม่พูดถึง": {
+  "en": "Not mentioned",
+  "zh": "未提及",
+  "ja": "言及なし",
+  "ko": "언급 안 됨"
+ },
+ "ตอบโดยไม่ได้ค้นเว็บ (ถามกลับ/ตอบจากความจำ) — ไม่นับ": {
+  "en": "Answered without a web search (asked back / answered from memory) — not counted",
+  "zh": "未搜索网页就作答（反问/凭记忆回答）— 不计入",
+  "ja": "ウェブ検索せずに回答（聞き返し/記憶から回答）— 集計外",
+  "ko": "웹 검색 없이 답변(되묻기/기억으로 답변) — 집계 제외"
+ },
+ "ไม่ได้ค้น": {
+  "en": "No search",
+  "zh": "未搜索",
+  "ja": "検索なし",
+  "ko": "검색 안 함"
+ },
+ "คำตอบว่าง (เช่น output เต็มก่อนตอบ) — ไม่นับ": {
+  "en": "Empty answer (e.g. output limit hit before answering) — not counted",
+  "zh": "回答为空（例如输出额度在作答前用完）— 不计入",
+  "ja": "回答が空（例: 回答前に出力上限に達した）— 集計外",
+  "ko": "빈 답변(예: 답하기 전에 출력 한도 초과) — 집계 제외"
+ },
+ "ไม่มีคำตอบ": {
+  "en": "No answer",
+  "zh": "无回答",
+  "ja": "回答なし",
+  "ko": "답변 없음"
+ },
+ "ข้าม": {
+  "en": "Skipped",
+  "zh": "跳过",
+  "ja": "スキップ",
+  "ko": "건너뜀"
+ },
+ "ลิงก์ที่ถูกอ้าง {n} รายการ": {
+  "en": "{n} cited links",
+  "zh": "被引用链接 {n} 个",
+  "ja": "引用されたリンク {n} 件",
+  "ko": "인용된 링크 {n}개"
+ },
+ "Gemini ให้แค่โดเมน ไม่มี path": {
+  "en": "Gemini gives only the domain, no path",
+  "zh": "Gemini 只提供域名，没有路径",
+  "ja": "Gemini はドメインのみでパスなし",
+  "ko": "Gemini는 도메인만 제공하고 경로는 없음"
+ },
+ "เว็บที่ AI อ้างอิงแทนเรา": {
+  "en": "Sites AI cites instead of us",
+  "zh": "AI 引用的其他网站（而非我们）",
+  "ja": "自社の代わりに AI が引用しているサイト",
+  "ko": "AI가 우리 대신 인용하는 사이트"
+ },
+ "โดเมน": {
+  "en": "Domain",
+  "zh": "域名",
+  "ja": "ドメイン",
+  "ko": "도메인"
+ },
+ "ถูกอ้างกี่ครั้ง": {
+  "en": "Times cited",
+  "zh": "被引用次数",
+  "ja": "引用回数",
+  "ko": "인용 횟수"
+ },
+ "นี่คือคู่แข่งที่ชนะคำถามเหล่านี้อยู่ตอนนี้ — ดูว่าเขาเขียนอะไรที่เราไม่มี": {
+  "en": "These are the competitors currently winning these questions — see what they've written that we haven't",
+  "zh": "这些是目前在这些问题上胜出的竞争对手 — 看看他们写了哪些我们没有的内容",
+  "ja": "これらが現在この質問で勝っている競合です — 自社にない内容を何書いているか確認しましょう",
+  "ko": "현재 이 질문들에서 앞서고 있는 경쟁사입니다 — 우리에게 없는 어떤 내용을 썼는지 확인하세요"
+ },
+ "AI ใช้หน้าเว็บเราเป็นแหล่งข้อมูลตอนตอบ (ดีที่สุด คอนเทนต์เราถูกหยิบไปใช้จริง)": {
+  "en": "AI used our page as a source when answering (best case — our content is actually being used)",
+  "zh": "AI 作答时把我们的网页作为信息来源（最佳 — 我们的内容真正被采用）",
+  "ja": "AI が回答時に自社ページを情報源として使用（最良 — 自社コンテンツが実際に使われています）",
+  "ko": "AI가 답변할 때 우리 페이지를 출처로 사용(가장 좋음 — 우리 콘텐츠가 실제로 쓰임)"
+ },
+ "พูดถึงแบรนด์แต่อ้างข้อมูลจากที่อื่น": {
+  "en": "mentions the brand but cites information from elsewhere",
+  "zh": "提到了品牌，但引用的是其他来源的信息",
+  "ja": "ブランドには触れているが、情報は他サイトから引用",
+  "ko": "브랜드를 언급했지만 정보는 다른 곳에서 인용"
+ },
+ "ไม่ได้ค้น / ไม่มีคำตอบ": {
+  "en": "No search / No answer",
+  "zh": "未搜索 / 无回答",
+  "ja": "検索なし / 回答なし",
+  "ko": "검색 안 함 / 답변 없음"
+ },
+ "AI ไม่ได้ให้คำตอบที่อิงการค้นเว็บ จึงไม่นับเข้า % (นับเป็น \"ไม่พูดถึง\" จะได้ 0% ปลอม)": {
+  "en": "AI didn't give an answer based on a web search, so it isn't counted in the % (counting it as \"Not mentioned\" would give a false 0%)",
+  "zh": "AI 没有给出基于网页搜索的回答，因此不计入 %（若算作“未提及”会得到虚假的 0%）",
+  "ja": "AI がウェブ検索に基づく回答をしなかったため % に含めません（「言及なし」と数えると見かけ上 0% になってしまいます）",
+  "ko": "AI가 웹 검색에 기반한 답을 주지 않았으므로 %에 포함하지 않습니다(\"언급 안 됨\"으로 세면 거짓 0%가 됩니다)"
+ },
+ "ตัวเลขนี้คนละตัวกับ {link} ซึ่งวัดจากผลค้นเว็บ ไม่ใช่คำตอบของ AI": {
+  "en": "This number is separate from {link}, which is measured from web search results, not AI answers",
+  "zh": "这个数字与 {link} 不同，后者基于网页搜索结果而非 AI 回答",
+  "ja": "この数値は、AI の回答ではなくウェブ検索結果から測定する {link} とは別のものです",
+  "ko": "이 수치는 AI 답변이 아닌 웹 검색 결과로 측정하는 {link}와 별개입니다"
+ },
+ "ผ่าน OpenRouter ใช้เงินที่หักจริง": {
+  "en": "via OpenRouter uses the amount actually charged",
+  "zh": "通过 OpenRouter 时使用实际扣费金额",
+  "ja": "OpenRouter 経由では実際の請求額を使用",
+  "ko": "OpenRouter 경유 시 실제 차감 금액을 사용"
+ },
+ "คีย์ตรงคำนวณจาก token/จำนวนค้นที่ API ส่งกลับ × ราคาทางการ (USD) · บาทเป็นค่าประมาณที่อัตรา {fx}": {
+  "en": "direct keys are calculated from the tokens/searches the API returns × official prices (USD) · baht is an estimate at a rate of {fx}",
+  "zh": "直连密钥按 API 返回的 token/搜索次数 × 官方价格（USD）计算 · 泰铢为按汇率 {fx} 的估算值",
+  "ja": "直接キーは API が返す token/検索回数 × 公式価格（USD）で計算 · バーツはレート {fx} での概算です",
+  "ko": "직접 키는 API가 돌려준 token/검색 수 × 공식 가격(USD)으로 계산 · 바트는 환율 {fx} 기준 추정치입니다"
+ },
+ "คำตอบ AI ของ Google เองสำหรับคำถามเป้าหมาย: กล่อง AI Overview เหนือผลค้นหา และแท็บ AI Mode พูดถึงหรืออ้างอิงแบรนด์ไหม": {
+  "en": "Google's own AI answers for your target questions: do the AI Overview box above the results and the AI Mode tab mention or cite the brand?",
+  "zh": "Google 自己针对目标问题的 AI 回答：搜索结果上方的 AI Overview 框和 AI Mode 标签是否提及或引用了品牌",
+  "ja": "ターゲット質問に対する Google 自身の AI 回答: 検索結果上部の AI Overview と AI Mode タブがブランドに言及・引用しているか",
+  "ko": "타깃 질문에 대한 Google 자체 AI 답변: 검색 결과 위의 AI Overview 상자와 AI Mode 탭이 브랜드를 언급하거나 인용하는지"
+ },
+ "ยังไม่ได้ตั้งคีย์ SerpApi": {
+  "en": "SerpApi key not set",
+  "zh": "尚未设置 SerpApi 密钥",
+  "ja": "SerpApi のキーが未設定です",
+  "ko": "SerpApi 키가 설정되지 않았습니다"
+ },
+ "Google ไม่มี API สำหรับ AI Overview/AI Mode และ Serper ที่ใช้วัด SoV ก็ไม่ให้ — ต้องใช้ SerpApi (แผนฟรี 100 search/เดือน)": {
+  "en": "Google has no API for AI Overview/AI Mode, and Serper (used for SoV) doesn't provide it either — SerpApi is required (free plan: 100 searches/month)",
+  "zh": "Google 没有 AI Overview/AI Mode 的 API，用于衡量 SoV 的 Serper 也不提供 — 需要使用 SerpApi（免费方案每月 100 次搜索）",
+  "ja": "Google には AI Overview/AI Mode の API がなく、SoV 測定に使う Serper も対応していません — SerpApi が必要です（無料プランは月100検索）",
+  "ko": "Google에는 AI Overview/AI Mode API가 없고 SoV 측정에 쓰는 Serper도 제공하지 않습니다 — SerpApi가 필요합니다(무료 플랜 월 100회 검색)"
+ },
+ "บันทึกแล้ว": {
+  "en": "Saved",
+  "zh": "已保存",
+  "ja": "保存しました",
+  "ko": "저장했습니다"
+ },
+ "เช็คอัตโนมัติทุกจันทร์ 10:30": {
+  "en": "Check automatically every Monday at 10:30",
+  "zh": "每周一 10:30 自动检查",
+  "ja": "毎週月曜 10:30 に自動チェック",
+  "ko": "매주 월요일 10:30 자동 확인"
+ },
+ "แบรนด์นี้": {
+  "en": "This brand",
+  "zh": "此品牌",
+  "ja": "このブランド",
+  "ko": "이 브랜드"
+ },
+ "{n} search/รอบ": {
+  "en": "{n} searches/round",
+  "zh": "{n} 次搜索/轮",
+  "ja": "{n} 検索/回",
+  "ko": "{n}회 검색/회차"
+ },
+ "{k} แบบ × สูงสุด {n} คำถาม": {
+  "en": "{k} types × up to {n} questions",
+  "zh": "{k} 种 × 最多 {n} 个问题",
+  "ja": "{k} 種類 × 最大 {n} 問",
+  "ko": "{k}가지 × 최대 {n}개 질문"
+ },
+ "เปิดอยู่ {n} แบรนด์": {
+  "en": "{n} brands enabled",
+  "zh": "已开启 {n} 个品牌",
+  "ja": "{n} ブランドで有効",
+  "ko": "{n}개 브랜드 사용 중"
+ },
+ "{n} search/เดือน": {
+  "en": "{n} searches/month",
+  "zh": "{n} 次搜索/月",
+  "ja": "{n} 検索/月",
+  "ko": "월 {n}회 검색"
+ },
+ "เกินแผนฟรี SerpApi (100/เดือน) ต้องแผนเสียเงินหรือลดแบรนด์": {
+  "en": "over the SerpApi free plan (100/month) — use a paid plan or fewer brands",
+  "zh": "超出 SerpApi 免费方案（100/月）— 需要付费方案或减少品牌",
+  "ja": "SerpApi 無料プラン（月100）を超えています — 有料プランにするかブランドを減らしてください",
+  "ko": "SerpApi 무료 플랜(월 100회)을 초과합니다 — 유료 플랜을 쓰거나 브랜드를 줄이세요"
+ },
+ "อยู่ในแผนฟรี": {
+  "en": "within the free plan",
+  "zh": "在免费方案内",
+  "ja": "無料プランの範囲内",
+  "ko": "무료 플랜 범위 내"
+ },
+ "กำลังเช็ค…": {
+  "en": "Checking…",
+  "zh": "正在检查…",
+  "ja": "チェック中…",
+  "ko": "확인하는 중…"
+ },
+ "เช็คตอนนี้": {
+  "en": "Check now",
+  "zh": "立即检查",
+  "ja": "今すぐチェック",
+  "ko": "지금 확인"
+ },
+ "ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที": {
+  "en": "Every target question × 2 types · uses about 2 SerpApi searches per question · takes about 1 minute",
+  "zh": "所有目标问题 × 2 种 · 每个问题约消耗 2 次 SerpApi 搜索 · 约需 1 分钟",
+  "ja": "全ターゲット質問 × 2種類 · 1問あたり SerpApi を約2検索消費 · 約1分かかります",
+  "ko": "모든 타깃 질문 × 2가지 · 질문당 SerpApi 약 2회 검색 사용 · 약 1분 소요"
+ },
+ "กำลังเช็ค — รอสักครู่แล้วรีเฟรชหน้านี้": {
+  "en": "Checking — wait a moment, then refresh this page",
+  "zh": "正在检查 — 请稍候再刷新此页面",
+  "ja": "チェック中です — しばらく待ってからこのページを再読み込みしてください",
+  "ko": "확인하는 중입니다 — 잠시 후 이 페이지를 새로 고침하세요"
+ },
+ "ยังไม่เคยเช็ค — กด \"เช็คตอนนี้\" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)": {
+  "en": "Not checked yet — click \"Check now\" to start (needs at least 1 target question)",
+  "zh": "尚未检查 — 点击“立即检查”开始（至少需要 1 个目标问题）",
+  "ja": "まだチェックしていません —「今すぐチェック」を押して始めてください（ターゲット質問が1件以上必要です）",
+  "ko": "아직 확인하지 않았습니다 — \"지금 확인\"을 눌러 시작하세요(타깃 질문이 1개 이상 필요합니다)"
+ },
+ "รอบล่าสุด {at} ถูกข้าม": {
+  "en": "Latest round {at} was skipped",
+  "zh": "最近一轮 {at} 已跳过",
+  "ja": "直近の実行 {at} はスキップされました",
+  "ko": "최근 회차 {at}은(는) 건너뛰었습니다"
+ },
+ "AI Overview พูดถึงเรา": {
+  "en": "AI Overview mentions us",
+  "zh": "AI Overview 提到我们",
+  "ja": "AI Overview での言及",
+  "ko": "AI Overview 언급"
+ },
+ "จากคำถามที่ Google แสดง AI Overview": {
+  "en": "of questions where Google shows an AI Overview",
+  "zh": "在 Google 显示 AI Overview 的问题中",
+  "ja": "Google が AI Overview を表示した質問のうち",
+  "ko": "Google이 AI Overview를 보여 준 질문 중"
+ },
+ "อีก {n} ข้อไม่แสดง": {
+  "en": "{n} more not shown",
+  "zh": "另有 {n} 个未显示",
+  "ja": "ほか {n} 件は表示なし",
+  "ko": "나머지 {n}개는 표시 안 됨"
+ },
+ "AI Mode พูดถึงเรา": {
+  "en": "AI Mode mentions us",
+  "zh": "AI Mode 提到我们",
+  "ja": "AI Mode での言及",
+  "ko": "AI Mode 언급"
+ },
+ "อ้างอิง {cited} · เอ่ยชื่อ {named}": {
+  "en": "Cited {cited} · Named {named}",
+  "zh": "引用 {cited} · 点名 {named}",
+  "ja": "引用 {cited} · 名前あり {named}",
+  "ko": "인용 {cited} · 이름 언급 {named}"
+ },
+ "เช็คล่าสุด": {
+  "en": "Last checked",
+  "zh": "最近检查",
+  "ja": "最終チェック",
+  "ko": "최근 확인"
+ },
+ "ใช้ {n} search": {
+  "en": "Used {n} searches",
+  "zh": "使用 {n} 次搜索",
+  "ja": "{n} 検索を使用",
+  "ko": "검색 {n}회 사용"
+ },
+ "Google ไม่แสดง AI Overview สำหรับคำถามนี้ — ไม่นับ": {
+  "en": "Google shows no AI Overview for this question — not counted",
+  "zh": "Google 未对此问题显示 AI Overview — 不计入",
+  "ja": "Google はこの質問に AI Overview を表示しません — 集計外",
+  "ko": "Google이 이 질문에 AI Overview를 표시하지 않음 — 집계 제외"
+ },
+ "ไม่มี AI Overview": {
+  "en": "No AI Overview",
+  "zh": "无 AI Overview",
+  "ja": "AI Overview なし",
+  "ko": "AI Overview 없음"
+ },
+ "แหล่งที่ Google อ้าง {n} รายการ · ข้อความคำตอบ": {
+  "en": "{n} sources cited by Google · answer text",
+  "zh": "Google 引用的来源 {n} 个 · 回答内容",
+  "ja": "Google の引用元 {n} 件 · 回答本文",
+  "ko": "Google이 인용한 출처 {n}개 · 답변 내용"
+ },
+ "เว็บที่ Google AI อ้างอิงแทนเรา": {
+  "en": "Sites Google AI cites instead of us",
+  "zh": "Google AI 引用的其他网站（而非我们）",
+  "ja": "自社の代わりに Google AI が引用しているサイト",
+  "ko": "Google AI가 우리 대신 인용하는 사이트"
+ },
+ "Google AI ใช้หน้าเว็บแบรนด์เป็นแหล่ง": {
+  "en": "Google AI uses the brand's page as a source",
+  "zh": "Google AI 以品牌网页为来源",
+  "ja": "Google AI がブランドのページを情報源に使用",
+  "ko": "Google AI가 브랜드 페이지를 출처로 사용"
+ },
+ "พูดถึงแบรนด์แต่อ้างที่อื่น": {
+  "en": "mentions the brand but cites elsewhere",
+  "zh": "提到了品牌，但引用其他来源",
+  "ja": "ブランドに触れているが引用は他サイト",
+  "ko": "브랜드를 언급했지만 다른 곳을 인용"
+ },
+ "Google ไม่ขึ้นกล่อง AI สำหรับคำถามนั้น (ไม่ใช่ความผิดของแบรนด์ ไม่นับเข้าตัวหาร)": {
+  "en": "Google shows no AI box for that question (not the brand's fault; excluded from the denominator)",
+  "zh": "Google 未对该问题显示 AI 框（不是品牌的问题，不计入分母）",
+  "ja": "その質問では Google が AI ボックスを表示しません（ブランドの問題ではなく、分母に含めません）",
+  "ko": "그 질문에는 Google이 AI 상자를 띄우지 않습니다(브랜드 잘못이 아니며 분모에서 제외)"
+ },
+ "มองเห็นบน AI": {
+  "en": "AI visibility",
+  "zh": "AI 可见度",
+  "ja": "AI での露出",
+  "ko": "AI 가시성"
+ },
+ "ตัวเลขนี้คนละชุดกับ {sov} (ผลค้น 10 ลิงก์) และ {ai} (ChatGPT/Perplexity/Gemini)": {
+  "en": "These numbers are separate from {sov} (10-link search results) and {ai} (ChatGPT/Perplexity/Gemini)",
+  "zh": "这些数字与 {sov}（10 条链接的搜索结果）和 {ai}（ChatGPT/Perplexity/Gemini）是不同的指标",
+  "ja": "この数値は {sov}（10件の検索結果）や {ai}（ChatGPT/Perplexity/Gemini）とは別の指標です",
+  "ko": "이 수치는 {sov}(검색 결과 10개 링크) 및 {ai}(ChatGPT/Perplexity/Gemini)와 별개의 지표입니다"
+ },
+ "ค้นแบบประเทศไทย/ภาษาไทย ผลอาจต่างจากที่เห็นในเครื่องตัวเองซึ่งขึ้นกับประวัติและตำแหน่ง": {
+  "en": "Searches are run as Thailand/Thai language, so results may differ from what you see on your own device, which depends on history and location",
+  "zh": "以泰国/泰语进行搜索，结果可能与您在自己设备上看到的不同（取决于历史记录和位置）",
+  "ja": "検索はタイ/タイ語の設定で行うため、履歴や位置情報に左右されるご自身の端末での結果とは異なる場合があります",
+  "ko": "태국/태국어 기준으로 검색하므로, 기록과 위치에 따라 달라지는 내 기기의 결과와 다를 수 있습니다"
+ },
+ "อันดับ Google": {
+  "en": "Google ranking",
+  "zh": "Google 排名",
+  "ja": "Google 順位",
+  "ko": "Google 순위"
+ },
+ "เช็คว่าเว็บติด {pages} หน้าแรกของ Google (~{limit} อันดับ) ของคำถามเป้าหมายหรือยัง": {
+  "en": "Checks whether the site is on Google's first {pages} pages (~{limit} positions) for the target questions",
+  "zh": "检查网站是否已进入目标问题在 Google 的前 {pages} 页（约 {limit} 名）",
+  "ja": "ターゲット質問で Google の上位 {pages} ページ（約 {limit} 位）以内に入っているかを確認します",
+  "ko": "타깃 질문에서 Google 상위 {pages}페이지(약 {limit}위) 안에 들었는지 확인합니다"
+ },
+ "ยังไม่ได้ตั้งค่า Serper": {
+  "en": "Serper not set up",
+  "zh": "尚未设置 Serper",
+  "ja": "Serper が未設定です",
+  "ko": "Serper가 설정되지 않았습니다"
+ },
+ "อันดับที่เช็คได้ตอนนี้ <b>ไม่ใช่ของ Google</b> (มาจาก search backend ตัวอื่น)": {
+  "en": "The rankings checked right now <b>are not Google's</b> (they come from another search backend)",
+  "zh": "目前检查到的排名<b>不是 Google 的</b>（来自其他搜索后端）",
+  "ja": "現在チェックしている順位は<b>Google のものではありません</b>（別の検索バックエンドの結果です）",
+  "ko": "지금 확인되는 순위는 <b>Google 순위가 아닙니다</b>(다른 검색 백엔드 결과)"
+ },
+ "ต้องใส่ Serper API key ที่ {link} เพื่อวัดอันดับ Google จริง": {
+  "en": "add a Serper API key in {link} to measure real Google rankings",
+  "zh": "请在 {link} 中添加 Serper API key，以测量真实的 Google 排名",
+  "ja": "実際の Google 順位を測るには {link} で Serper API key を設定してください",
+  "ko": "실제 Google 순위를 측정하려면 {link}에서 Serper API key를 넣으세요"
+ },
+ "ต้องใส่ Serper API key (แจ้งผู้ดูแลระบบ) เพื่อวัดอันดับ Google จริง": {
+  "en": "a Serper API key is needed to measure real Google rankings (ask your administrator)",
+  "zh": "需要 Serper API key 才能测量真实的 Google 排名（请联系管理员）",
+  "ja": "実際の Google 順位を測るには Serper API key が必要です（管理者にご連絡ください）",
+  "ko": "실제 Google 순위를 측정하려면 Serper API key가 필요합니다(관리자에게 문의하세요)"
+ },
+ "เช็คอันดับตอนนี้": {
+  "en": "Check rankings now",
+  "zh": "立即检查排名",
+  "ja": "今すぐ順位をチェック",
+  "ko": "지금 순위 확인"
+ },
+ "ใช้โควตาเดียวกับการมอนิเตอร์": {
+  "en": "Uses the same quota as monitoring",
+  "zh": "与监测共用配额",
+  "ja": "モニタリングと同じ枠を使用します",
+  "ko": "모니터링과 같은 할당량을 사용합니다"
+ },
+ "ยังไม่เคยเช็คอันดับ — กดปุ่มด้านบนเพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)": {
+  "en": "Rankings not checked yet — click the button above to start (needs at least 1 target question)",
+  "zh": "尚未检查排名 — 点击上方按钮开始（至少需要 1 个目标问题）",
+  "ja": "まだ順位をチェックしていません — 上のボタンを押して始めてください（ターゲット質問が1件以上必要です）",
+  "ko": "아직 순위를 확인하지 않았습니다 — 위 버튼을 눌러 시작하세요(타깃 질문이 1개 이상 필요합니다)"
+ },
+ "ติด {n} หน้าแรก": {
+  "en": "On first {n} pages",
+  "zh": "进入前 {n} 页",
+  "ja": "上位 {n} ページ以内",
+  "ko": "상위 {n}페이지 진입"
+ },
+ "อันดับเฉลี่ย": {
+  "en": "Average position",
+  "zh": "平均排名",
+  "ja": "平均順位",
+  "ko": "평균 순위"
+ },
+ "เฉพาะที่ติด": {
+  "en": "ranked only",
+  "zh": "仅计已上榜",
+  "ja": "ランクイン分のみ",
+  "ko": "순위 진입한 것만"
+ },
+ "แนวโน้ม — สัดส่วนคำถามที่ติด {n} หน้าแรก": {
+  "en": "Trend — share of questions on the first {n} pages",
+  "zh": "趋势 — 进入前 {n} 页的问题占比",
+  "ja": "推移 — 上位 {n} ページ以内に入った質問の割合",
+  "ko": "추이 — 상위 {n}페이지에 든 질문 비율"
+ },
+ "กราฟแนวโน้มอันดับ Google": {
+  "en": "Google ranking trend chart",
+  "zh": "Google 排名趋势图",
+  "ja": "Google 順位の推移グラフ",
+  "ko": "Google 순위 추이 그래프"
+ },
+ "อันดับ": {
+  "en": "Position",
+  "zh": "排名",
+  "ja": "順位",
+  "ko": "순위"
+ },
+ "เปลี่ยนแปลง": {
+  "en": "Change",
+  "zh": "变化",
+  "ja": "変化",
+  "ko": "변화"
+ },
+ "หน้าที่ติด": {
+  "en": "Ranking page",
+  "zh": "上榜页面",
+  "ja": "ランクインしたページ",
+  "ko": "순위에 오른 페이지"
+ },
+ "ไม่ติด {n} หน้าแรก": {
+  "en": "Not in first {n} pages",
+  "zh": "未进入前 {n} 页",
+  "ja": "上位 {n} ページ圏外",
+  "ko": "상위 {n}페이지 밖"
+ },
+ "ดีขึ้น {n} อันดับ": {
+  "en": "up {n}",
+  "zh": "上升 {n} 名",
+  "ja": "{n} 位上昇",
+  "ko": "{n}계단 상승"
+ },
+ "ตก {n} อันดับ": {
+  "en": "down {n}",
+  "zh": "下降 {n} 名",
+  "ja": "{n} 位下落",
+  "ko": "{n}계단 하락"
+ },
+ "เพิ่งติด": {
+  "en": "Newly ranked",
+  "zh": "新上榜",
+  "ja": "新たにランクイン",
+  "ko": "새로 진입"
+ },
+ "หลุด": {
+  "en": "Dropped out",
+  "zh": "掉出",
+  "ja": "圏外に",
+  "ko": "이탈"
+ },
+ "เท่าเดิม": {
+  "en": "No change",
+  "zh": "持平",
+  "ja": "変化なし",
+  "ko": "변화 없음"
+ },
+ "อันดับ Google เป็นตัวชี้วัดตั้งต้นของ GEO — หน้าที่ไม่ติด index/อันดับต่ำมาก AI แทบไม่หยิบไปอ้างอิง": {
+  "en": "Google ranking is GEO's leading indicator — AI rarely cites pages that aren't indexed or rank very low",
+  "zh": "Google 排名是 GEO 的先行指标 — 未被收录或排名很低的页面几乎不会被 AI 引用",
+  "ja": "Google 順位は GEO の先行指標です — インデックスされていない、または順位が非常に低いページは AI にほとんど引用されません",
+  "ko": "Google 순위는 GEO의 선행 지표입니다 — 색인되지 않았거나 순위가 매우 낮은 페이지는 AI가 거의 인용하지 않습니다"
+ },
+ "SoV บน AI": {
+  "en": "SoV on AI",
+  "zh": "AI 上的 SoV",
+  "ja": "AI での SoV",
+  "ko": "AI 상의 SoV"
+ },
+ "ดู {link} ควบคู่กัน": {
+  "en": "Check {link} alongside it.",
+  "zh": "请同时查看 {link}。",
+  "ja": "{link} も併せてご確認ください。",
+  "ko": "{link}도 함께 확인하세요."
+ },
+ "ความเร็วเว็บ": {
+  "en": "Site speed",
+  "zh": "网站速度",
+  "ja": "サイト速度",
+  "ko": "사이트 속도"
+ },
+ "คะแนนจาก Google PageSpeed Insights (Lighthouse) ทั้งมือถือและเดสก์ท็อป ความเร็วเป็นสัญญาณอันดับของ Google และหน้าที่ช้ามากบอทอ่านได้ไม่ครบ": {
+  "en": "Scores from Google PageSpeed Insights (Lighthouse) for mobile and desktop. Speed is a Google ranking signal, and bots may not read very slow pages in full",
+  "zh": "来自 Google PageSpeed Insights（Lighthouse）的手机和桌面端评分。速度是 Google 的排名信号，过慢的页面爬虫可能读不完整",
+  "ja": "Google PageSpeed Insights（Lighthouse）によるモバイル・デスクトップのスコアです。速度は Google の順位シグナルで、極端に遅いページはボットが最後まで読めないことがあります",
+  "ko": "Google PageSpeed Insights(Lighthouse)의 모바일·데스크톱 점수입니다. 속도는 Google 순위 신호이며, 너무 느린 페이지는 봇이 끝까지 읽지 못할 수 있습니다"
+ },
+ "กำลังสแกน…": {
+  "en": "Scanning…",
+  "zh": "正在扫描…",
+  "ja": "スキャン中…",
+  "ko": "스캔하는 중…"
+ },
+ "สแกนตอนนี้": {
+  "en": "Scan now",
+  "zh": "立即扫描",
+  "ja": "今すぐスキャン",
+  "ko": "지금 스캔"
+ },
+ "Google รัน Lighthouse ให้ 2 รอบ (มือถือ/เดสก์ท็อป) ใช้เวลาราว 1–2 นาที · ไม่มีค่าใช้จ่าย": {
+  "en": "Google runs Lighthouse twice (mobile/desktop), about 1–2 minutes · free",
+  "zh": "Google 会运行 2 次 Lighthouse（手机/桌面），约 1–2 分钟 · 免费",
+  "ja": "Google が Lighthouse を2回（モバイル/デスクトップ）実行します。約1〜2分 · 無料",
+  "ko": "Google이 Lighthouse를 2회(모바일/데스크톱) 실행합니다. 약 1~2분 · 무료"
+ },
+ "กำลังสแกน — รอสักครู่แล้วรีเฟรชหน้านี้": {
+  "en": "Scanning — wait a moment, then refresh this page",
+  "zh": "正在扫描 — 请稍候再刷新此页面",
+  "ja": "スキャン中です — しばらく待ってからこのページを再読み込みしてください",
+  "ko": "스캔하는 중입니다 — 잠시 후 이 페이지를 새로 고침하세요"
+ },
+ "ยังไม่เคยสแกน — กด \"สแกนตอนนี้\" เพื่อเริ่ม": {
+  "en": "Not scanned yet — click \"Scan now\" to start",
+  "zh": "尚未扫描 — 点击“立即扫描”开始",
+  "ja": "まだスキャンしていません —「今すぐスキャン」を押して始めてください",
+  "ko": "아직 스캔하지 않았습니다 — \"지금 스캔\"을 눌러 시작하세요"
+ },
+ "มือถือ": {
+  "en": "Mobile",
+  "zh": "手机",
+  "ja": "モバイル",
+  "ko": "모바일"
+ },
+ "เดสก์ท็อป": {
+  "en": "Desktop",
+  "zh": "桌面",
+  "ja": "デスクトップ",
+  "ko": "데스크톱"
+ },
+ "ประสิทธิภาพ": {
+  "en": "Performance",
+  "zh": "性能",
+  "ja": "パフォーマンス",
+  "ko": "성능"
+ },
+ "จาก 100": {
+  "en": "out of 100",
+  "zh": "满分 100",
+  "ja": "100点満点",
+  "ko": "100점 만점"
+ },
+ "สแกนล่าสุด": {
+  "en": "Last scanned",
+  "zh": "最近扫描",
+  "ja": "最終スキャン",
+  "ko": "최근 스캔"
+ },
+ "สแกน{device}ไม่สำเร็จ": {
+  "en": "{device} scan failed",
+  "zh": "{device}扫描失败",
+  "ja": "{device}のスキャンに失敗しました",
+  "ko": "{device} 스캔 실패"
+ },
+ "หมวด": {
+  "en": "Category",
+  "zh": "类别",
+  "ja": "カテゴリ",
+  "ko": "항목"
+ },
+ "คะแนน": {
+  "en": "Score",
+  "zh": "得分",
+  "ja": "スコア",
+  "ko": "점수"
+ },
+ "เมตริก (lab)": {
+  "en": "Metric (lab)",
+  "zh": "指标（实验室）",
+  "ja": "指標（ラボ）",
+  "ko": "지표(랩)"
+ },
+ "ค่า": {
+  "en": "Value",
+  "zh": "数值",
+  "ja": "値",
+  "ko": "값"
+ },
+ "ไม่มีเมตริก": {
+  "en": "No metrics",
+  "zh": "无指标",
+  "ja": "指標なし",
+  "ko": "지표 없음"
+ },
+ "ข้อมูลผู้ใช้จริง (Chrome UX Report)": {
+  "en": "Real-user data (Chrome UX Report)",
+  "zh": "真实用户数据（Chrome UX Report）",
+  "ja": "実ユーザーデータ（Chrome UX Report）",
+  "ko": "실사용자 데이터(Chrome UX Report)"
+ },
+ "ทั้งโดเมน เพราะหน้านี้คนเข้ายังไม่พอ": {
+  "en": "whole domain, because this page doesn't have enough visitors yet",
+  "zh": "整个域名，因为此页面访问量还不够",
+  "ja": "このページの訪問数がまだ足りないため、ドメイン全体のデータです",
+  "ko": "이 페이지 방문자가 아직 부족해 도메인 전체 기준입니다"
+ },
+ "ผ่าน Core Web Vitals": {
+  "en": "Passes Core Web Vitals",
+  "zh": "通过 Core Web Vitals",
+  "ja": "Core Web Vitals 合格",
+  "ko": "Core Web Vitals 통과"
+ },
+ "ต้องปรับปรุง": {
+  "en": "Needs improvement",
+  "zh": "需要改进",
+  "ja": "改善が必要",
+  "ko": "개선 필요"
+ },
+ "ช้า": {
+  "en": "Slow",
+  "zh": "慢",
+  "ja": "遅い",
+  "ko": "느림"
+ },
+ "เมตริก": {
+  "en": "Metric",
+  "zh": "指标",
+  "ja": "指標",
+  "ko": "지표"
+ },
+ "ระดับ": {
+  "en": "Rating",
+  "zh": "等级",
+  "ja": "評価",
+  "ko": "등급"
+ },
+ "ดี": {
+  "en": "Good",
+  "zh": "良好",
+  "ja": "良好",
+  "ko": "좋음"
+ },
+ "พอใช้": {
+  "en": "Average",
+  "zh": "一般",
+  "ja": "普通",
+  "ko": "보통"
+ },
+ "Google ยังไม่มีข้อมูลผู้ใช้จริง (CrUX) ของเว็บนี้ — ปกติสำหรับเว็บที่คนเข้าไม่มาก คะแนนด้านบนเป็นผลทดสอบในห้องแล็บ": {
+  "en": "Google has no real-user data (CrUX) for this site yet — normal for sites without much traffic. The scores above are lab test results",
+  "zh": "Google 尚无此网站的真实用户数据（CrUX）— 访问量不大的网站通常如此。上方得分为实验室测试结果",
+  "ja": "Google にはこのサイトの実ユーザーデータ（CrUX）がまだありません — 訪問者が多くないサイトでは普通です。上のスコアはラボテストの結果です",
+  "ko": "Google에 이 사이트의 실사용자 데이터(CrUX)가 아직 없습니다 — 방문자가 많지 않은 사이트에서는 정상입니다. 위 점수는 랩 테스트 결과입니다"
+ },
+ "สิ่งที่ควรแก้ก่อน ({device})": {
+  "en": "Fix first ({device})",
+  "zh": "优先修复（{device}）",
+  "ja": "優先して直す項目（{device}）",
+  "ko": "먼저 고칠 항목({device})"
+ },
+ "เรียงตามเวลาโหลดที่ประหยัดได้": {
+  "en": "sorted by load time saved",
+  "zh": "按可节省的加载时间排序",
+  "ja": "短縮できる読み込み時間の順",
+  "ko": "줄일 수 있는 로딩 시간 순"
+ },
+ "รายการ": {
+  "en": "Item",
+  "zh": "项目",
+  "ja": "項目",
+  "ko": "항목"
+ },
+ "ประหยัดได้": {
+  "en": "Savings",
+  "zh": "可节省",
+  "ja": "短縮",
+  "ko": "절감"
+ },
+ "ประวัติ": {
+  "en": "History",
+  "zh": "历史记录",
+  "ja": "履歴",
+  "ko": "기록"
+ },
+ "วันที่": {
+  "en": "Date",
+  "zh": "日期",
+  "ja": "日付",
+  "ko": "날짜"
+ },
+ "SEO (มือถือ)": {
+  "en": "SEO (mobile)",
+  "zh": "SEO（手机）",
+  "ja": "SEO（モバイル）",
+  "ko": "SEO(모바일)"
+ },
+ "คะแนน 90+ ดี · 50–89 พอใช้ · ต่ำกว่า 50 ต้องแก้ (เกณฑ์เดียวกับ Lighthouse) · LCP = เนื้อหาหลักโผล่กี่วินาที · CLS = หน้ากระตุก · TBT = JavaScript บล็อกการตอบสนอง": {
+  "en": "Score 90+ good · 50–89 average · below 50 needs fixing (same thresholds as Lighthouse) · LCP = seconds until main content appears · CLS = layout shifting · TBT = JavaScript blocking responsiveness",
+  "zh": "得分 90+ 良好 · 50–89 一般 · 低于 50 需修复（与 Lighthouse 标准相同）· LCP = 主要内容出现所需秒数 · CLS = 页面跳动 · TBT = JavaScript 阻塞响应",
+  "ja": "スコア 90以上は良好 · 50〜89は普通 · 50未満は要修正（Lighthouse と同じ基準）· LCP = メインコンテンツが表示されるまでの秒数 · CLS = レイアウトのずれ · TBT = JavaScript による応答のブロック",
+  "ko": "점수 90+ 좋음 · 50~89 보통 · 50 미만 수정 필요(Lighthouse와 같은 기준) · LCP = 주요 콘텐츠가 보이기까지 걸린 초 · CLS = 화면 밀림 · TBT = JavaScript로 인한 응답 지연"
+ },
+ "คะแนน lab แกว่งได้รอบละไม่กี่แต้มตามเครือข่ายของ Google — ดูแนวโน้มจากประวัติ ไม่ใช่ตัวเลขครั้งเดียว · สแกนอัตโนมัติทุกสัปดาห์": {
+  "en": "Lab scores can swing a few points per run depending on Google's network — look at the trend in history, not a single number · scanned automatically every week",
+  "zh": "实验室得分每次可能因 Google 网络浮动几分 — 请看历史趋势，而非单次数值 · 每周自动扫描",
+  "ja": "ラボのスコアは Google のネットワーク次第で毎回数点ぶれます — 1回の数値ではなく履歴の推移を見てください · 毎週自動でスキャンします",
+  "ko": "랩 점수는 Google 네트워크에 따라 회차마다 몇 점씩 달라질 수 있습니다 — 한 번의 숫자가 아니라 기록의 추이를 보세요 · 매주 자동 스캔"
+ },
+ "สุขภาพเว็บ": {
+  "en": "Site health",
+  "zh": "网站健康",
+  "ja": "サイトの健全性",
+  "ko": "사이트 상태"
+ },
+ "ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล": {
+  "en": "Checks for anything on the site that keeps GEO from working",
+  "zh": "检查网站上是否有阻碍 GEO 见效的问题",
+  "ja": "サイト上に GEO の効果を妨げるものがないか確認します",
+  "ko": "사이트에 GEO 효과를 막는 요소가 있는지 점검합니다"
+ },
+ "เว็บเปิดได้ปกติ": {
+  "en": "Site is up",
+  "zh": "网站可正常访问",
+  "ja": "サイトは正常に表示されています",
+  "ko": "사이트가 정상적으로 열립니다"
+ },
+ "เข้าเว็บไม่ได้": {
+  "en": "Site is unreachable",
+  "zh": "无法访问网站",
+  "ja": "サイトにアクセスできません",
+  "ko": "사이트에 접속할 수 없습니다"
+ },
+ "ตรวจพบตั้งแต่ {at}": {
+  "en": "Detected since {at}",
+  "zh": "自 {at} 起检测到",
+  "ja": "{at} から検出",
+  "ko": "{at}부터 감지됨"
+ },
+ "{n} วัน": {
+  "en": "{n} days",
+  "zh": "{n} 天",
+  "ja": "{n}日",
+  "ko": "{n}일"
+ },
+ "ผลตรวจด้านล่างเชื่อไม่ได้": {
+  "en": "The results below can't be trusted",
+  "zh": "下方检查结果不可信",
+  "ja": "下の検査結果は信頼できません",
+  "ko": "아래 점검 결과는 신뢰할 수 없습니다"
+ },
+ "รอบนั้นดึงหน้าแรกไม่ได้ ข้ออื่นจึงตกตามกันหมด เพราะตัวตรวจเข้าเว็บไม่ได้ ไม่ใช่เพราะเว็บมีปัญหาหลายอย่าง — กด \"ตรวจตอนนี้\" อีกครั้งเมื่อเว็บกลับมา": {
+  "en": "That run couldn't fetch the homepage, so the other checks failed with it — because the checker couldn't reach the site, not because the site has many problems. Click \"Check now\" again once the site is back",
+  "zh": "那一轮无法获取首页，其他项目也随之失败 — 原因是检查程序无法访问网站，而不是网站有很多问题。网站恢复后请再次点击“立即检查”",
+  "ja": "その回はトップページを取得できなかったため、他の項目も連鎖的に不合格になっています — サイトに多くの問題があるのではなく、検査ツールがアクセスできなかったためです。サイトが復旧したら、もう一度「今すぐ検査」を押してください",
+  "ko": "그 회차에는 홈페이지를 가져오지 못해 다른 항목도 함께 실패했습니다 — 사이트에 문제가 많아서가 아니라 점검 도구가 사이트에 접속하지 못했기 때문입니다. 사이트가 복구되면 \"지금 점검\"을 다시 누르세요"
+ },
+ "กำลังตรวจ…": {
+  "en": "Checking…",
+  "zh": "正在检查…",
+  "ja": "検査中…",
+  "ko": "점검하는 중…"
+ },
+ "ตรวจตอนนี้": {
+  "en": "Check now",
+  "zh": "立即检查",
+  "ja": "今すぐ検査",
+  "ko": "지금 점검"
+ },
+ "ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที": {
+  "en": "Fetches the live site to check, about half a minute",
+  "zh": "抓取真实网站进行检查，约需半分钟",
+  "ja": "実際のサイトを取得して検査します。約30秒",
+  "ko": "실제 사이트를 가져와 점검합니다. 약 30초"
+ },
+ "กำลังตรวจ — รอสักครู่แล้วรีเฟรชหน้านี้": {
+  "en": "Checking — wait a moment, then refresh this page",
+  "zh": "正在检查 — 请稍候再刷新此页面",
+  "ja": "検査中です — しばらく待ってからこのページを再読み込みしてください",
+  "ko": "점검하는 중입니다 — 잠시 후 이 페이지를 새로 고침하세요"
+ },
+ "ยังไม่เคยตรวจ — กด \"ตรวจตอนนี้\" เพื่อเริ่ม": {
+  "en": "Not checked yet — click \"Check now\" to start",
+  "zh": "尚未检查 — 点击“立即检查”开始",
+  "ja": "まだ検査していません —「今すぐ検査」を押して始めてください",
+  "ko": "아직 점검하지 않았습니다 — \"지금 점검\"을 눌러 시작하세요"
+ },
+ "สถานะ": {
+  "en": "Status",
+  "zh": "状态",
+  "ja": "ステータス",
+  "ko": "상태"
+ },
+ "ผ่าน": {
+  "en": "Pass",
+  "zh": "通过",
+  "ja": "合格",
+  "ko": "통과"
+ },
+ "{n} ปัญหา": {
+  "en": "{n} issues",
+  "zh": "{n} 个问题",
+  "ja": "問題 {n} 件",
+  "ko": "문제 {n}개"
+ },
+ "ควรดู": {
+  "en": "Review",
+  "zh": "建议查看",
+  "ja": "要確認",
+  "ko": "확인 권장"
+ },
+ "ตรวจล่าสุด": {
+  "en": "Last checked",
+  "zh": "最近检查",
+  "ja": "最終検査",
+  "ko": "최근 점검"
+ },
+ "ต้องแก้": {
+  "en": "Needs fixing",
+  "zh": "需要修复",
+  "ja": "要修正",
+  "ko": "수정 필요"
+ },
+ "รายละเอียด": {
+  "en": "Details",
+  "zh": "详情",
+  "ja": "詳細",
+  "ko": "세부 내용"
+ },
+ "ผลตรวจทั้งหมด": {
+  "en": "All results",
+  "zh": "全部检查结果",
+  "ja": "すべての検査結果",
+  "ko": "전체 점검 결과"
+ },
+ "ไม่ผ่าน": {
+  "en": "Fail",
+  "zh": "未通过",
+  "ja": "不合格",
+  "ko": "실패"
+ },
+ "ทุกข้อมาจากปัญหาที่เคยเกิดจริงกับเว็บลูกค้า — คอนเทนต์ดีแค่ไหนก็ไม่มีผลถ้าเว็บสั่ง noindex, ส่งเนื้อหาหน้าแรกให้ทุก URL, หรือ sitemap เต็มไปด้วยลิงก์ตาย": {
+  "en": "Every check comes from problems that really happened on client sites — no matter how good the content is, it won't work if the site says noindex, serves the homepage content for every URL, or has a sitemap full of dead links",
+  "zh": "每一项都来自客户网站真实发生过的问题 — 如果网站设置了 noindex、所有 URL 都返回首页内容，或 sitemap 里满是失效链接，内容再好也没用",
+  "ja": "どの項目も実際にクライアントのサイトで起きた問題に基づいています — サイトが noindex を指定している、すべての URL でトップページの内容を返している、sitemap がリンク切れだらけ、といった状態では、どんなに良いコンテンツでも効果がありません",
+  "ko": "모든 항목은 고객 사이트에서 실제로 있었던 문제에서 나왔습니다 — 사이트가 noindex를 지정하거나, 모든 URL에 홈페이지 내용을 보내거나, sitemap이 죽은 링크로 가득하다면 콘텐츠가 아무리 좋아도 효과가 없습니다"
+ },
+ "ข้อมูลจาก Google โดยตรง: หน้าคอนเทนต์หน้าไหนอยู่ใน index จริง sitemap ถูกรับไหม และคนค้นเจอเราด้วยคำว่าอะไร": {
+  "en": "Data straight from Google: which content pages are actually indexed, whether the sitemap was accepted, and which searches people find us with",
+  "zh": "直接来自 Google 的数据：哪些内容页真正被收录、sitemap 是否被接受，以及用户通过哪些搜索词找到我们",
+  "ja": "Google から直接取得したデータ: どのコンテンツページが実際にインデックスされているか、sitemap が受理されたか、どんな検索語で見つけられているか",
+  "ko": "Google에서 직접 받은 데이터: 어떤 콘텐츠 페이지가 실제로 색인됐는지, sitemap이 접수됐는지, 사람들이 어떤 검색어로 우리를 찾는지"
+ },
+ "ยังไม่ได้ตั้งบัญชีบริการ Google": {
+  "en": "Google service account not set up",
+  "zh": "尚未设置 Google 服务账号",
+  "ja": "Google サービスアカウントが未設定です",
+  "ko": "Google 서비스 계정이 설정되지 않았습니다"
+ },
+ "ต้องมี service account JSON จาก Google Cloud ก่อน": {
+  "en": "You need a service account JSON from Google Cloud first",
+  "zh": "需要先从 Google Cloud 获取 service account JSON",
+  "ja": "まず Google Cloud の service account JSON が必要です",
+  "ko": "먼저 Google Cloud의 service account JSON이 필요합니다"
+ },
+ "บัญชีบริการ:": {
+  "en": "Service account:",
+  "zh": "服务账号：",
+  "ja": "サービスアカウント:",
+  "ko": "서비스 계정:"
+ },
+ "เพิ่มอีเมลนี้เป็นผู้ใช้ใน Search Console ของ <b>{domain}</b> (การตั้งค่า → ผู้ใช้และสิทธิ์ → เพิ่มผู้ใช้ → สิทธิ์ <b>Full</b>) แล้วกดซิงค์ — Restricted ดูได้แต่ส่ง sitemap ไม่ได้": {
+  "en": "Add this email as a user in the Search Console for <b>{domain}</b> (Settings → Users and permissions → Add user → <b>Full</b> permission), then sync — Restricted can view but can't submit a sitemap",
+  "zh": "在 <b>{domain}</b> 的 Search Console 中将此邮箱添加为用户（设置 → 用户和权限 → 添加用户 → <b>Full</b> 权限），然后同步 — Restricted 只能查看，无法提交 sitemap",
+  "ja": "<b>{domain}</b> の Search Console でこのメールをユーザーとして追加し（設定 → ユーザーと権限 → ユーザーを追加 → <b>Full</b> 権限）、同期してください — Restricted は閲覧のみで sitemap を送信できません",
+  "ko": "<b>{domain}</b>의 Search Console에서 이 이메일을 사용자로 추가한 뒤(설정 → 사용자 및 권한 → 사용자 추가 → <b>Full</b> 권한) 동기화하세요 — Restricted는 보기만 가능하고 sitemap을 제출할 수 없습니다"
+ },
+ "กำลังซิงค์…": {
+  "en": "Syncing…",
+  "zh": "正在同步…",
+  "ja": "同期中…",
+  "ko": "동기화하는 중…"
+ },
+ "ซิงค์ Search Console ตอนนี้": {
+  "en": "Sync Search Console now",
+  "zh": "立即同步 Search Console",
+  "ja": "今すぐ Search Console を同期",
+  "ko": "지금 Search Console 동기화"
+ },
+ "ส่ง sitemap ให้ถ้ายังไม่ได้ส่ง · ตรวจ index รายหน้า · ดึงคลิก 28 วัน — ไม่มีค่าใช้จ่าย ใช้เวลาราวหนึ่งนาที": {
+  "en": "Submits the sitemap if not yet submitted · checks indexing per page · pulls 28 days of clicks — free, about a minute",
+  "zh": "若尚未提交则提交 sitemap · 逐页检查收录 · 获取 28 天点击 — 免费，约需一分钟",
+  "ja": "未送信なら sitemap を送信 · ページごとにインデックスを確認 · 28日分のクリックを取得 — 無料、約1分",
+  "ko": "아직 제출하지 않았다면 sitemap 제출 · 페이지별 색인 확인 · 28일 클릭 가져오기 — 무료, 약 1분"
+ },
+ "กำลังซิงค์ — รอสักครู่แล้วรีเฟรชหน้านี้": {
+  "en": "Syncing — wait a moment, then refresh this page",
+  "zh": "正在同步 — 请稍候再刷新此页面",
+  "ja": "同期中です — しばらく待ってからこのページを再読み込みしてください",
+  "ko": "동기화하는 중입니다 — 잠시 후 이 페이지를 새로 고침하세요"
+ },
+ "ยังไม่เคยซิงค์ — กด \"ซิงค์ Search Console ตอนนี้\" เพื่อเริ่ม": {
+  "en": "Not synced yet — click \"Sync Search Console now\" to start",
+  "zh": "尚未同步 — 点击“立即同步 Search Console”开始",
+  "ja": "まだ同期していません —「今すぐ Search Console を同期」を押して始めてください",
+  "ko": "아직 동기화하지 않았습니다 — \"지금 Search Console 동기화\"를 눌러 시작하세요"
+ },
+ "ยังเข้าถึง Search Console ของเว็บนี้ไม่ได้": {
+  "en": "Can't access this site's Search Console yet",
+  "zh": "暂时无法访问此网站的 Search Console",
+  "ja": "このサイトの Search Console にまだアクセスできません",
+  "ko": "아직 이 사이트의 Search Console에 접근할 수 없습니다"
+ },
+ "property ที่ลองหา:": {
+  "en": "Properties tried:",
+  "zh": "尝试过的 property：",
+  "ja": "試した property:",
+  "ko": "시도한 property:"
+ },
+ "ให้เจ้าของเว็บเพิ่ม <code>{email}</code> เป็นผู้ใช้สิทธิ์ Full ใน property ใดก็ได้ข้างต้น แล้วกดซิงค์อีกครั้ง": {
+  "en": "Ask the site owner to add <code>{email}</code> as a Full user on any of the properties above, then sync again",
+  "zh": "请网站所有者在上述任一 property 中将 <code>{email}</code> 添加为 Full 权限用户，然后再次同步",
+  "ja": "サイトのオーナーに、上記いずれかの property で <code>{email}</code> を Full 権限のユーザーとして追加してもらい、もう一度同期してください",
+  "ko": "사이트 소유자에게 위 property 중 하나에 <code>{email}</code>을(를) Full 권한 사용자로 추가해 달라고 한 뒤 다시 동기화하세요"
+ },
+ "ซิงค์ล่าสุด": {
+  "en": "Last synced",
+  "zh": "最近同步",
+  "ja": "最終同期",
+  "ko": "최근 동기화"
+ },
+ "อยู่ใน index": {
+  "en": "Indexed",
+  "zh": "已收录",
+  "ja": "インデックス済み",
+  "ko": "색인됨"
+ },
+ "หน้าคอนเทนต์": {
+  "en": "content pages",
+  "zh": "内容页",
+  "ja": "コンテンツページ",
+  "ko": "콘텐츠 페이지"
+ },
+ "คลิกจาก Google": {
+  "en": "Clicks from Google",
+  "zh": "来自 Google 的点击",
+  "ja": "Google からのクリック",
+  "ko": "Google 클릭"
+ },
+ "28 วัน ทั้งเว็บ · หน้าคอนเทนต์ {n}": {
+  "en": "28 days, whole site · content pages {n}",
+  "zh": "28 天，全站 · 内容页 {n}",
+  "ja": "28日間・サイト全体 · コンテンツページ {n}",
+  "ko": "28일, 사이트 전체 · 콘텐츠 페이지 {n}"
+ },
+ "อันดับเฉลี่ย {n}": {
+  "en": "Avg. position {n}",
+  "zh": "平均排名 {n}",
+  "ja": "平均順位 {n}",
+  "ko": "평균 순위 {n}"
+ },
+ "สิทธิ์ {perm}": {
+  "en": "{perm} permission",
+  "zh": "{perm} 权限",
+  "ja": "{perm} 権限",
+  "ko": "{perm} 권한"
+ },
+ "ข้อมูล {start} – {end}": {
+  "en": "Data {start} – {end}",
+  "zh": "数据 {start} – {end}",
+  "ja": "データ {start} – {end}",
+  "ko": "데이터 {start} – {end}"
+ },
+ "ส่งแล้ว": {
+  "en": "Submitted",
+  "zh": "已提交",
+  "ja": "送信済み",
+  "ko": "제출됨"
+ },
+ "ระบบเพิ่งส่งให้รอบนี้": {
+  "en": "Submitted by us this sync",
+  "zh": "本次由系统提交",
+  "ja": "今回システムが送信",
+  "ko": "이번에 시스템이 제출"
+ },
+ "ส่งซ้ำรอบนี้": {
+  "en": "Resubmitted this sync",
+  "zh": "本次重新提交",
+  "ja": "今回再送信",
+  "ko": "이번에 재제출"
+ },
+ "Google ยังไม่ประมวลผล": {
+  "en": "Google hasn't processed it yet",
+  "zh": "Google 尚未处理",
+  "ja": "Google は未処理です",
+  "ko": "Google이 아직 처리하지 않음"
+ },
+ "เตือน {n}": {
+  "en": "{n} warnings",
+  "zh": "警告 {n}",
+  "ja": "警告 {n}",
+  "ko": "경고 {n}"
+ },
+ "ส่งล่าสุด {at}": {
+  "en": "Last submitted {at}",
+  "zh": "最近提交 {at}",
+  "ja": "最終送信 {at}",
+  "ko": "최근 제출 {at}"
+ },
+ "Google ดาวน์โหลดล่าสุด {at}": {
+  "en": "Last downloaded by Google {at}",
+  "zh": "Google 最近下载 {at}",
+  "ja": "Google の最終ダウンロード {at}",
+  "ko": "Google 최근 다운로드 {at}"
+ },
+ "ยังไม่เคย": {
+  "en": "never",
+  "zh": "从未",
+  "ja": "なし",
+  "ko": "없음"
+ },
+ "URL ใน sitemap {n}": {
+  "en": "URLs in sitemap {n}",
+  "zh": "sitemap 中的 URL {n}",
+  "ja": "sitemap 内の URL {n}",
+  "ko": "sitemap 내 URL {n}"
+ },
+ "ยังไม่ได้ส่ง": {
+  "en": "Not submitted",
+  "zh": "未提交",
+  "ja": "未送信",
+  "ko": "미제출"
+ },
+ "หน้าคอนเทนต์รายหน้า": {
+  "en": "Content pages, one by one",
+  "zh": "逐页查看内容页",
+  "ja": "コンテンツページ別",
+  "ko": "콘텐츠 페이지별"
+ },
+ "หน้า": {
+  "en": "Page",
+  "zh": "页面",
+  "ja": "ページ",
+  "ko": "페이지"
+ },
+ "สถานะใน Google": {
+  "en": "Status in Google",
+  "zh": "在 Google 中的状态",
+  "ja": "Google でのステータス",
+  "ko": "Google 내 상태"
+ },
+ "Google อ่านล่าสุด": {
+  "en": "Last crawled by Google",
+  "zh": "Google 最近抓取",
+  "ja": "Google の最終クロール",
+  "ko": "Google 최근 크롤링"
+ },
+ "คลิก": {
+  "en": "Clicks",
+  "zh": "点击",
+  "ja": "クリック",
+  "ko": "클릭"
+ },
+ "เปิดใน Search Console": {
+  "en": "Open in Search Console",
+  "zh": "在 Search Console 中打开",
+  "ja": "Search Console で開く",
+  "ko": "Search Console에서 열기"
+ },
+ "Google รายงานจากครั้งที่อ่านล่าสุด — ตรวจสดแล้วหน้านี้ไม่มี noindex": {
+  "en": "Google reports from its last crawl — a live check shows this page no longer has noindex",
+  "zh": "Google 按上次抓取结果报告 — 实时检查显示此页面已无 noindex",
+  "ja": "Google は前回のクロール時点の情報を報告しています — 現在のページを確認したところ noindex はありません",
+  "ko": "Google은 마지막 크롤링 기준으로 보고합니다 — 실시간 확인 결과 이 페이지에는 noindex가 없습니다"
+ },
+ "เคยติด noindex · แก้แล้ว รอ Google อ่านใหม่": {
+  "en": "Was noindex · fixed, waiting for Google to recrawl",
+  "zh": "曾有 noindex · 已修复，等待 Google 重新抓取",
+  "ja": "以前 noindex · 修正済み、Google の再クロール待ち",
+  "ko": "과거 noindex · 수정됨, Google 재크롤링 대기"
+ },
+ "อยู่ใน sitemap ที่ Google เห็น": {
+  "en": "In a sitemap Google has seen",
+  "zh": "在 Google 已读取的 sitemap 中",
+  "ja": "Google が認識している sitemap に含まれています",
+  "ko": "Google이 본 sitemap에 포함됨"
+ },
+ "มีลิงก์ชี้มา {n}": {
+  "en": "{n} linking pages",
+  "zh": "有 {n} 个链接指向",
+  "ja": "被リンク {n}",
+  "ko": "이 페이지로 오는 링크 {n}개"
+ },
+ "ยังไม่มีคอนเทนต์ที่เผยแพร่ให้ตรวจ": {
+  "en": "No published content to check yet",
+  "zh": "尚无可检查的已发布内容",
+  "ja": "検査できる公開済みコンテンツがまだありません",
+  "ko": "아직 점검할 게시 콘텐츠가 없습니다"
+ },
+ "ตรวจ {n} จาก {total} หน้า — จำกัดต่อรอบเพื่อรักษาโควตา URL Inspection (2,000 ครั้ง/วัน)": {
+  "en": "Checked {n} of {total} pages — limited per sync to stay within the URL Inspection quota (2,000/day)",
+  "zh": "已检查 {total} 页中的 {n} 页 — 每轮有上限，以免超出 URL Inspection 配额（每天 2,000 次）",
+  "ja": "{total} ページ中 {n} ページを確認 — URL Inspection の上限（1日2,000回）を守るため、1回あたりの件数を制限しています",
+  "ko": "{total}페이지 중 {n}페이지 확인 — URL Inspection 할당량(하루 2,000회)을 지키기 위해 회차당 수를 제한합니다"
+ },
+ "คำค้นที่พาคนมาหน้าคอนเทนต์": {
+  "en": "Searches that bring people to content pages",
+  "zh": "带来内容页访问的搜索词",
+  "ja": "コンテンツページへの流入検索語",
+  "ko": "콘텐츠 페이지로 사람을 데려오는 검색어"
+ },
+ "คำค้น": {
+  "en": "Query",
+  "zh": "搜索词",
+  "ja": "検索語",
+  "ko": "검색어"
+ },
+ "ยังไม่มีคำค้นที่นำคนมาหน้าคอนเทนต์ใน 28 วันนี้ — ปกติสำหรับหน้าที่ยังไม่อยู่ใน index": {
+  "en": "No searches brought people to content pages in the last 28 days — normal for pages that aren't indexed yet",
+  "zh": "近 28 天还没有搜索词带来内容页访问 — 尚未被收录的页面通常如此",
+  "ja": "この28日間、コンテンツページに流入した検索語はまだありません — まだインデックスされていないページでは普通です",
+  "ko": "최근 28일 동안 콘텐츠 페이지로 사람을 데려온 검색어가 없습니다 — 아직 색인되지 않은 페이지에서는 정상입니다"
+ },
+ "คำค้นทั้งเว็บ (10 อันดับ)": {
+  "en": "Top 10 searches for the whole site",
+  "zh": "全站搜索词（前 10 名）",
+  "ja": "サイト全体の検索語（上位10）",
+  "ko": "사이트 전체 검색어(상위 10개)"
+ },
+ "Google ยังไม่มีข้อมูลคำค้นของเว็บนี้ในช่วง 28 วัน": {
+  "en": "Google has no search data for this site in the last 28 days",
+  "zh": "Google 近 28 天尚无此网站的搜索词数据",
+  "ja": "Google にはこの28日間、このサイトの検索語データがありません",
+  "ko": "Google에 최근 28일간 이 사이트의 검색어 데이터가 없습니다"
+ },
+ "บางขั้นตอนทำไม่สำเร็จ": {
+  "en": "Some steps didn't complete",
+  "zh": "部分步骤未完成",
+  "ja": "一部の手順が完了しませんでした",
+  "ko": "일부 단계가 완료되지 않았습니다"
+ },
+ "Google เก็บหน้านี้แล้ว ค้นเจอได้": {
+  "en": "Google has stored this page and it can be found in search",
+  "zh": "Google 已收录此页面，可以被搜索到",
+  "ja": "Google がこのページを登録済みで、検索で見つかります",
+  "ko": "Google이 이 페이지를 저장했으며 검색으로 찾을 수 있습니다"
+ },
+ "อ่านแล้ว ยังไม่เก็บ": {
+  "en": "Crawled, not indexed",
+  "zh": "已抓取，未收录",
+  "ja": "クロール済み・未登録",
+  "ko": "크롤링됨, 색인 안 됨"
+ },
+ "Google มาอ่านแล้วแต่เลือกไม่เก็บ มักเป็นเนื้อหาบาง/ซ้ำ": {
+  "en": "Google read it but chose not to store it — usually thin or duplicate content",
+  "zh": "Google 已读取但选择不收录 — 通常是内容单薄或重复",
+  "ja": "Google は読み込んだものの登録しませんでした — 内容が薄い・重複していることが多いです",
+  "ko": "Google이 읽었지만 저장하지 않기로 했습니다 — 보통 내용이 빈약하거나 중복된 경우입니다"
+ },
+ "เห็นแล้ว ยังไม่อ่าน": {
+  "en": "Discovered, not crawled",
+  "zh": "已发现，未抓取",
+  "ja": "検出済み・未クロール",
+  "ko": "발견됨, 크롤링 안 됨"
+ },
+ "รู้จาก sitemap แล้วแต่ยังไม่มา รอหรือเพิ่มลิงก์ภายใน": {
+  "en": "Known from the sitemap but not visited yet — wait, or add internal links",
+  "zh": "已从 sitemap 得知但尚未抓取 — 请等待或增加内部链接",
+  "ja": "sitemap で把握済みですが、まだ訪問されていません — 待つか内部リンクを増やしてください",
+  "ko": "sitemap으로 알고는 있지만 아직 방문하지 않았습니다 — 기다리거나 내부 링크를 추가하세요"
+ },
+ "ยังไม่รู้จัก": {
+  "en": "Unknown",
+  "zh": "未知",
+  "ja": "未検出",
+  "ko": "알려지지 않음"
+ },
+ "ไม่เคยเห็น URL นี้เลย sitemap/ลิงก์ยังไปไม่ถึง": {
+  "en": "Google has never seen this URL — the sitemap/links haven't reached it yet",
+  "zh": "Google 从未见过此 URL — sitemap/链接尚未触达",
+  "ja": "Google はこの URL をまだ一度も見ていません — sitemap/リンクが届いていません",
+  "ko": "Google이 이 URL을 한 번도 보지 못했습니다 — sitemap/링크가 아직 닿지 않았습니다"
+ },
+ "เคยติด noindex": {
+  "en": "Was noindex",
+  "zh": "曾有 noindex",
+  "ja": "以前 noindex",
+  "ko": "과거 noindex"
+ },
+ "Google จำสถานะจากครั้งที่อ่านล่าสุด ตรวจสดแล้วไม่มี noindex — รอรอบ crawl หรือกด \"ขอให้จัดทำดัชนี\" ใน Search Console ทีละ URL (API ทำแทนไม่ได้)": {
+  "en": "Google remembers the status from its last crawl; a live check shows no noindex — wait for the next crawl or click \"Request indexing\" in Search Console URL by URL (the API can't do this for you)",
+  "zh": "Google 记住的是上次抓取时的状态，实时检查已无 noindex — 等待下次抓取，或在 Search Console 中逐个 URL 点击“请求编入索引”（API 无法代劳）",
+  "ja": "Google は前回クロール時の状態を記憶しています。現在のページに noindex はありません — 次のクロールを待つか、Search Console で URL ごとに「インデックス登録をリクエスト」を押してください（API では代行できません）",
+  "ko": "Google은 마지막 크롤링 때의 상태를 기억하고 있으며, 실시간 확인 결과 noindex가 없습니다 — 다음 크롤링을 기다리거나 Search Console에서 URL마다 \"색인 생성 요청\"을 누르세요(API로는 대신할 수 없습니다)"
+ },
+ "ข้อมูลคลิกช้ากว่าปัจจุบันราว 3 วัน": {
+  "en": "Click data lags about 3 days behind",
+  "zh": "点击数据比当前约延迟 3 天",
+  "ja": "クリックデータは約3日遅れです",
+  "ko": "클릭 데이터는 약 3일 늦게 반영됩니다"
+ },
+ "ผลข้อ \"Google เก็บเข้า index แล้ว\" ใน{link}ใช้ตัวเลขชุดนี้เมื่อเชื่อมแล้ว": {
+  "en": "Once connected, the \"Indexed by Google\" check in {link} uses these numbers",
+  "zh": "连接后，{link}中的“已被 Google 收录”一项会使用这组数字",
+  "ja": "連携後は、{link}の「Google にインデックス済み」の項目にこの数値が使われます",
+  "ko": "연결되면 {link}의 \"Google 색인 완료\" 항목에 이 수치가 사용됩니다"
+ },
+ "กลับ": {
+  "en": "Back",
+  "zh": "返回",
+  "ja": "戻る",
+  "ko": "뒤로"
+ },
+ "ผลกระทบ SoV": {
+  "en": "SoV impact",
+  "zh": "SoV 影响",
+  "ja": "SoV への効果",
+  "ko": "SoV 영향"
+ },
+ "เปรียบเทียบ Share of Voice ก่อนและหลังเผยแพร่คอนเทนต์": {
+  "en": "Compare Share of Voice before and after publishing content",
+  "zh": "对比发布内容前后的 Share of Voice",
+  "ja": "コンテンツ公開前後の Share of Voice を比較します",
+  "ko": "콘텐츠 게시 전후의 Share of Voice를 비교합니다"
+ },
+ "ยังไม่มีข้อมูล monitoring — รันมอนิเตอร์ก่อนอย่างน้อย 1 ครั้ง": {
+  "en": "No monitoring data yet — run monitoring at least once first",
+  "zh": "尚无监测数据 — 请先至少运行一次监测",
+  "ja": "モニタリングデータがまだありません — まず1回以上モニタリングを実行してください",
+  "ko": "아직 모니터링 데이터가 없습니다 — 먼저 모니터링을 한 번 이상 실행하세요"
+ },
+ "ไปหน้าแบรนด์": {
+  "en": "Go to brand page",
+  "zh": "前往品牌页面",
+  "ja": "ブランドページへ",
+  "ko": "브랜드 페이지로 이동"
+ },
+ "ยังไม่มีคอนเทนต์ที่เผยแพร่ — เส้นสีม่วงจะปรากฏหลังเผยแพร่ครั้งแรก": {
+  "en": "No published content yet — a marker line will appear after the first publish",
+  "zh": "尚无已发布内容 — 首次发布后会出现标记线",
+  "ja": "公開済みコンテンツはまだありません — 初めて公開すると目印の線が表示されます",
+  "ko": "아직 게시된 콘텐츠가 없습니다 — 처음 게시하면 표시선이 나타납니다"
+ },
+ "SoV เริ่มต้น": {
+  "en": "Starting SoV",
+  "zh": "初始 SoV",
+  "ja": "開始時の SoV",
+  "ko": "시작 SoV"
+ },
+ "Run แรก": {
+  "en": "First run",
+  "zh": "首次运行",
+  "ja": "初回の実行",
+  "ko": "첫 실행"
+ },
+ "SoV ล่าสุด": {
+  "en": "Latest SoV",
+  "zh": "最新 SoV",
+  "ja": "最新の SoV",
+  "ko": "최근 SoV"
+ },
+ "Run ล่าสุด": {
+  "en": "Latest run",
+  "zh": "最近一次运行",
+  "ja": "最新の実行",
+  "ko": "최근 실행"
+ },
+ "การเปลี่ยนแปลง": {
+  "en": "Change",
+  "zh": "变化",
+  "ja": "変化",
+  "ko": "변화"
+ },
+ "Run แรก → ล่าสุด": {
+  "en": "First run → latest",
+  "zh": "首次运行 → 最近",
+  "ja": "初回 → 最新",
+  "ko": "첫 실행 → 최근"
+ },
+ "คอนเทนต์เผยแพร่": {
+  "en": "Content published",
+  "zh": "已发布内容",
+  "ja": "公開コンテンツ",
+  "ko": "게시된 콘텐츠"
+ },
+ "ชิ้น": {
+  "en": "pieces",
+  "zh": "篇",
+  "ja": "件",
+  "ko": "개"
+ },
+ "รายละเอียดรายคำถาม": {
+  "en": "Details by question",
+  "zh": "按问题查看详情",
+  "ja": "質問別の詳細",
+  "ko": "질문별 세부 내용"
+ },
+ "เปรียบเทียบ Run แรก กับ Run ล่าสุด": {
+  "en": "Comparing the first run with the latest run",
+  "zh": "对比首次运行与最近一次运行",
+  "ja": "初回の実行と最新の実行を比較",
+  "ko": "첫 실행과 최근 실행 비교"
+ },
+ "คอนเทนต์ที่เผยแพร่": {
+  "en": "Published content",
+  "zh": "已发布的内容",
+  "ja": "公開済みコンテンツ",
+  "ko": "게시된 콘텐츠"
+ },
+ "ชื่อ": {
+  "en": "Title",
+  "zh": "标题",
+  "ja": "タイトル",
+  "ko": "제목"
+ },
+ "เผยแพร่เมื่อ": {
+  "en": "Published at",
+  "zh": "发布时间",
+  "ja": "公開日時",
+  "ko": "게시 시각"
+ },
+ "ลิงก์": {
+  "en": "Link",
+  "zh": "链接",
+  "ja": "リンク",
+  "ko": "링크"
+ },
+ "(ไม่มีชื่อ)": {
+  "en": "(untitled)",
+  "zh": "（无标题）",
+  "ja": "（無題）",
+  "ko": "(제목 없음)"
+ },
+ "เปิดใน WP": {
+  "en": "Open in WP",
+  "zh": "在 WP 中打开",
+  "ja": "WP で開く",
+  "ko": "WP에서 열기"
+ },
+ "ไม่มีข้อมูลรายคำถาม": {
+  "en": "No per-question data",
+  "zh": "没有按问题的数据",
+  "ja": "質問別のデータがありません",
+  "ko": "질문별 데이터가 없습니다"
+ },
+ "ดีขึ้น": {
+  "en": "Improved",
+  "zh": "改善",
+  "ja": "改善",
+  "ko": "개선"
+ },
+ "ลดลง": {
+  "en": "Declined",
+  "zh": "下降",
+  "ja": "低下",
+  "ko": "하락"
+ },
+ "คงเดิม": {
+  "en": "Unchanged",
+  "zh": "不变",
+  "ja": "変化なし",
+  "ko": "변화 없음"
+ },
+ "พบ": {
+  "en": "Found",
+  "zh": "出现",
+  "ja": "あり",
+  "ko": "발견"
+ },
+ "ไม่พบ": {
+  "en": "Not found",
+  "zh": "未出现",
+  "ja": "なし",
+  "ko": "미발견"
+ },
+ "ความคืบหน้า": {
+  "en": "Progress",
+  "zh": "进展",
+  "ja": "進捗",
+  "ko": "진행 상황"
+ },
+ "ยังไม่เคยรันมอนิเตอร์ — กด \"รันมอนิเตอร์ตอนนี้\" ที่หน้าแบรนด์ก่อน": {
+  "en": "Monitoring hasn't run yet — click \"Run monitoring now\" on the brand page first",
+  "zh": "尚未运行监测 — 请先在品牌页面点击“立即运行监测”",
+  "ja": "まだモニタリングを実行していません — まずブランドページで「今すぐモニタリングを実行」を押してください",
+  "ko": "아직 모니터링을 실행하지 않았습니다 — 먼저 브랜드 페이지에서 \"지금 모니터링 실행\"을 누르세요"
+ },
+ "ก่อน (รันแรก)": {
+  "en": "Before (first run)",
+  "zh": "之前（首次运行）",
+  "ja": "前（初回）",
+  "ko": "이전(첫 실행)"
+ },
+ "ล่าสุด": {
+  "en": "Latest",
+  "zh": "最新",
+  "ja": "最新",
+  "ko": "최근"
+ },
+ "จุด (pp)": {
+  "en": "points (pp)",
+  "zh": "个百分点（pp）",
+  "ja": "ポイント（pp）",
+  "ko": "%p (pp)"
+ },
+ "มีรันเดียว — รันอีกครั้ง<b>หลังเผยแพร่คอนเทนต์</b>เพื่อเทียบก่อน/หลัง": {
+  "en": "Only one run — run again <b>after publishing content</b> to compare before/after",
+  "zh": "只有一次运行 — 请在<b>发布内容后</b>再运行一次，以便对比前后",
+  "ja": "実行は1回だけです — 前後を比較するため、<b>コンテンツ公開後</b>にもう一度実行してください",
+  "ko": "실행이 한 번뿐입니다 — 전후를 비교하려면 <b>콘텐츠를 게시한 뒤</b> 다시 실행하세요"
+ },
+ "แนวโน้ม SoV": {
+  "en": "SoV trend",
+  "zh": "SoV 趋势",
+  "ja": "SoV の推移",
+  "ko": "SoV 추이"
+ },
+ "กราฟแนวโน้ม Share of Voice": {
+  "en": "Share of Voice trend chart",
+  "zh": "Share of Voice 趋势图",
+  "ja": "Share of Voice の推移グラフ",
+  "ko": "Share of Voice 추이 그래프"
+ },
+ "รายคำถาม: ก่อน → หลัง": {
+  "en": "By question: before → after",
+  "zh": "按问题：之前 → 之后",
+  "ja": "質問別: 前 → 後",
+  "ko": "질문별: 이전 → 이후"
+ },
+ "ก่อน": {
+  "en": "Before",
+  "zh": "之前",
+  "ja": "前",
+  "ko": "이전"
+ },
+ "โผล่": {
+  "en": "Appears",
+  "zh": "出现",
+  "ja": "表示あり",
+  "ko": "노출"
+ },
+ "ไม่โผล่": {
+  "en": "Not shown",
+  "zh": "未出现",
+  "ja": "表示なし",
+  "ko": "미노출"
+ },
+ "ขึ้นมาโผล่": {
+  "en": "Now appears",
+  "zh": "开始出现",
+  "ja": "表示されるように",
+  "ko": "새로 노출"
+ },
+ "รายงาน GEO": {
+  "en": "GEO report",
+  "zh": "GEO 报告",
+  "ja": "GEO レポート",
+  "ko": "GEO 리포트"
+ },
+ "ดาวน์โหลด PDF": {
+  "en": "Download PDF",
+  "zh": "下载 PDF",
+  "ja": "PDF をダウンロード",
+  "ko": "PDF 다운로드"
+ },
+ "กลับหน้าแบรนด์": {
+  "en": "Back to brand page",
+  "zh": "返回品牌页面",
+  "ja": "ブランドページに戻る",
+  "ko": "브랜드 페이지로 돌아가기"
+ },
+ "รายงาน GEO รายเดือน": {
+  "en": "Monthly GEO report",
+  "zh": "GEO 月度报告",
+  "ja": "月次 GEO レポート",
+  "ko": "월간 GEO 리포트"
+ },
+ "ช่วง {start} ถึง {end} ({days} วัน)": {
+  "en": "Period {start} to {end} ({days} days)",
+  "zh": "期间 {start} 至 {end}（{days} 天）",
+  "ja": "期間 {start}〜{end}（{days}日間）",
+  "ko": "기간 {start} ~ {end}({days}일)"
+ },
+ "คำถามเป้าหมาย {n} ข้อ": {
+  "en": "{n} target questions",
+  "zh": "目标问题 {n} 个",
+  "ja": "ターゲット質問 {n} 件",
+  "ko": "타깃 질문 {n}개"
+ },
+ "สร้าง {at}": {
+  "en": "Generated {at}",
+  "zh": "生成于 {at}",
+  "ja": "作成 {at}",
+  "ko": "생성 {at}"
+ },
+ "ผลค้นเว็บ": {
+  "en": "web search results",
+  "zh": "网页搜索结果",
+  "ja": "ウェブ検索結果",
+  "ko": "웹 검색 결과"
+ },
+ "{n} จุด": {
+  "en": "{n} pts",
+  "zh": "{n} 个百分点",
+  "ja": "{n} ポイント",
+  "ko": "{n}%p"
+ },
+ "จาก {at}": {
+  "en": "from {at}",
+  "zh": "相比 {at}",
+  "ja": "{at} 比",
+  "ko": "{at} 대비"
+ },
+ "{hits}/{total} คำถาม": {
+  "en": "{hits}/{total} questions",
+  "zh": "{hits}/{total} 个问题",
+  "ja": "{hits}/{total} 問",
+  "ko": "질문 {hits}/{total}개"
+ },
+ "ยังไม่เคยรันมอนิเตอร์": {
+  "en": "Monitoring hasn't run yet",
+  "zh": "尚未运行监测",
+  "ja": "まだモニタリングを実行していません",
+  "ko": "아직 모니터링을 실행하지 않았습니다"
+ },
+ "ติดอันดับ Google": {
+  "en": "Ranking on Google",
+  "zh": "Google 上榜",
+  "ja": "Google ランクイン",
+  "ko": "Google 순위 진입"
+ },
+ "เฉลี่ยอันดับ {n}": {
+  "en": "avg. position {n}",
+  "zh": "平均排名 {n}",
+  "ja": "平均順位 {n}",
+  "ko": "평균 순위 {n}"
+ },
+ "รอบก่อน {a}/{b}": {
+  "en": "previous round {a}/{b}",
+  "zh": "上一轮 {a}/{b}",
+  "ja": "前回 {a}/{b}",
+  "ko": "이전 회차 {a}/{b}"
+ },
+ "ยังไม่เคยเช็ค": {
+  "en": "Not checked yet",
+  "zh": "尚未检查",
+  "ja": "未チェック",
+  "ko": "아직 확인하지 않음"
+ },
+ "ถูกพูดถึงบนผู้ช่วย AI": {
+  "en": "Mentioned by AI assistants",
+  "zh": "被 AI 助手提及",
+  "ja": "AI アシスタントでの言及",
+  "ko": "AI 어시스턴트 언급"
+ },
+ "อ้างอิง {cited} · เอ่ยชื่อ {named} จาก {n} คำตอบ": {
+  "en": "Cited {cited} · Named {named} of {n} answers",
+  "zh": "{n} 个回答中 引用 {cited} · 点名 {named}",
+  "ja": "{n} 件の回答中 引用 {cited} · 名前あり {named}",
+  "ko": "답변 {n}개 중 인용 {cited} · 이름 언급 {named}"
+ },
+ "ยังไม่มีผล": {
+  "en": "No results yet",
+  "zh": "尚无结果",
+  "ja": "結果はまだありません",
+  "ko": "아직 결과 없음"
+ },
+ "คลิกจาก Google (28 วัน)": {
+  "en": "Clicks from Google (28 days)",
+  "zh": "来自 Google 的点击（28 天）",
+  "ja": "Google からのクリック（28日間）",
+  "ko": "Google 클릭(28일)"
+ },
+ "ยังไม่ได้เชื่อม Search Console": {
+  "en": "Search Console not connected",
+  "zh": "尚未连接 Search Console",
+  "ja": "Search Console 未連携",
+  "ko": "Search Console 미연결"
+ },
+ "สิ่งที่ควรทำต่อ": {
+  "en": "Next steps",
+  "zh": "下一步建议",
+  "ja": "次にやるべきこと",
+  "ko": "다음에 할 일"
+ },
+ "Share of Voice รายรอบ": {
+  "en": "Share of Voice by round",
+  "zh": "各轮 Share of Voice",
+  "ja": "回ごとの Share of Voice",
+  "ko": "회차별 Share of Voice"
+ },
+ "ยังไม่มีข้อมูล — รันมอนิเตอร์ก่อน": {
+  "en": "No data yet — run monitoring first",
+  "zh": "尚无数据 — 请先运行监测",
+  "ja": "データがありません — まずモニタリングを実行してください",
+  "ko": "아직 데이터가 없습니다 — 먼저 모니터링을 실행하세요"
+ },
+ "อันดับ Google รายคำถาม": {
+  "en": "Google ranking by question",
+  "zh": "按问题的 Google 排名",
+  "ja": "質問別の Google 順位",
+  "ko": "질문별 Google 순위"
+ },
+ "ไม่ติด": {
+  "en": "Not ranked",
+  "zh": "未上榜",
+  "ja": "圏外",
+  "ko": "순위 밖"
+ },
+ "ยังไม่เคยเช็คอันดับ": {
+  "en": "Rankings not checked yet",
+  "zh": "尚未检查排名",
+  "ja": "まだ順位をチェックしていません",
+  "ko": "아직 순위를 확인하지 않았습니다"
+ },
+ "หน้าคอนเทนต์อยู่ใน index": {
+  "en": "Content pages indexed",
+  "zh": "已收录的内容页",
+  "ja": "インデックス済みコンテンツページ",
+  "ko": "색인된 콘텐츠 페이지"
+ },
+ "Google ยังไม่รู้จัก": {
+  "en": "Unknown to Google",
+  "zh": "Google 未知",
+  "ja": "Google 未検出",
+  "ko": "Google에 알려지지 않음"
+ },
+ "เห็นแล้วยังไม่อ่าน": {
+  "en": "Discovered, not crawled",
+  "zh": "已发现未抓取",
+  "ja": "検出済み・未クロール",
+  "ko": "발견됨, 크롤링 안 됨"
+ },
+ "อ่านแล้วไม่เก็บ": {
+  "en": "Crawled, not indexed",
+  "zh": "已抓取未收录",
+  "ja": "クロール済み・未登録",
+  "ko": "크롤링됨, 색인 안 됨"
+ },
+ "ถูกบล็อก": {
+  "en": "Blocked",
+  "zh": "被屏蔽",
+  "ja": "ブロック",
+  "ko": "차단됨"
+ },
+ "ซิงค์": {
+  "en": "Synced",
+  "zh": "同步",
+  "ja": "同期",
+  "ko": "동기화"
+ },
+ "คำค้นที่คนเจอเว็บ (28 วัน)": {
+  "en": "Searches people found the site with (28 days)",
+  "zh": "用户找到网站的搜索词（28 天）",
+  "ja": "サイトが見つかった検索語（28日間）",
+  "ko": "사이트를 찾은 검색어(28일)"
+ },
+ "ยังไม่ได้เชื่อม": {
+  "en": "Not connected",
+  "zh": "尚未连接",
+  "ja": "未連携",
+  "ko": "연결 안 됨"
+ },
+ "ยังไม่เคยซิงค์ Search Console": {
+  "en": "Search Console not synced yet",
+  "zh": "尚未同步 Search Console",
+  "ja": "Search Console はまだ同期していません",
+  "ko": "아직 Search Console을 동기화하지 않았습니다"
+ },
+ "ผู้ช่วย AI": {
+  "en": "AI assistants",
+  "zh": "AI 助手",
+  "ja": "AI アシスタント",
+  "ko": "AI 어시스턴트"
+ },
+ "ถาม": {
+  "en": "Asked",
+  "zh": "询问",
+  "ja": "質問",
+  "ko": "질문"
+ },
+ "ถามเมื่อ {at}": {
+  "en": "Asked on {at}",
+  "zh": "询问于 {at}",
+  "ja": "質問日 {at}",
+  "ko": "질문 일시 {at}"
+ },
+ "ยังไม่มีผล (ยังไม่ได้ถามหรือยังไม่มีคีย์)": {
+  "en": "No results yet (not asked yet or no key)",
+  "zh": "尚无结果（尚未询问或尚无密钥）",
+  "ja": "結果はまだありません（未質問またはキー未設定）",
+  "ko": "아직 결과 없음(아직 묻지 않았거나 키 없음)"
+ },
+ "Google AI Overview พูดถึงเรา {hit}/{shown} (ไม่แสดง {none} ข้อ)": {
+  "en": "Google AI Overview mentions us {hit}/{shown} ({none} not shown)",
+  "zh": "Google AI Overview 提到我们 {hit}/{shown}（{none} 个未显示）",
+  "ja": "Google AI Overview での言及 {hit}/{shown}（表示なし {none} 件）",
+  "ko": "Google AI Overview 언급 {hit}/{shown}(표시 안 됨 {none}개)"
+ },
+ "สุขภาพและความเร็วเว็บ": {
+  "en": "Site health and speed",
+  "zh": "网站健康与速度",
+  "ja": "サイトの健全性と速度",
+  "ko": "사이트 상태와 속도"
+ },
+ "ผ่านทุกข้อ": {
+  "en": "All checks passed",
+  "zh": "全部通过",
+  "ja": "すべて合格",
+  "ko": "모두 통과"
+ },
+ "ไม่ผ่าน {n} ข้อ": {
+  "en": "{n} checks failed",
+  "zh": "{n} 项未通过",
+  "ja": "不合格 {n} 件",
+  "ko": "{n}개 항목 실패"
+ },
+ "ยังไม่เคยตรวจสุขภาพเว็บ": {
+  "en": "Site health not checked yet",
+  "zh": "尚未检查网站健康",
+  "ja": "まだサイトの健全性を検査していません",
+  "ko": "아직 사이트 상태를 점검하지 않았습니다"
+ },
+ "ความเร็ว (PageSpeed):": {
+  "en": "Speed (PageSpeed):",
+  "zh": "速度（PageSpeed）：",
+  "ja": "速度（PageSpeed）:",
+  "ko": "속도(PageSpeed):"
+ },
+ "ยังไม่เคยสแกนความเร็ว": {
+  "en": "Speed not scanned yet",
+  "zh": "尚未扫描速度",
+  "ja": "まだ速度をスキャンしていません",
+  "ko": "아직 속도를 스캔하지 않았습니다"
+ },
+ "ทั้งหมด": {
+  "en": "Total",
+  "zh": "总计",
+  "ja": "合計",
+  "ko": "전체"
+ },
+ "เผยแพร่ในช่วงนี้": {
+  "en": "Published this period",
+  "zh": "本期发布",
+  "ja": "期間内に公開",
+  "ko": "이번 기간 게시"
+ },
+ "ร่าง": {
+  "en": "Draft",
+  "zh": "草稿",
+  "ja": "下書き",
+  "ko": "임시 저장"
+ },
+ "เผยแพร่ล่าสุด": {
+  "en": "Last published",
+  "zh": "最近发布",
+  "ja": "最終公開",
+  "ko": "최근 게시"
+ },
+ "ช่องว่าง (ยังไม่มีคอนเทนต์)": {
+  "en": "Gaps (no content yet)",
+  "zh": "空缺（尚无内容）",
+  "ja": "ギャップ（コンテンツ未作成）",
+  "ko": "공백(콘텐츠 없음)"
+ },
+ "เผยแพร่ใหม่ในช่วงนี้": {
+  "en": "Newly published this period",
+  "zh": "本期新发布",
+  "ja": "期間内の新規公開",
+  "ko": "이번 기간 새로 게시"
+ },
+ "SoV = แบรนด์โผล่ในผลค้นเว็บของคำถามแนว AI · ผู้ช่วย AI = ChatGPT/Perplexity/Gemini ตอบจริง · index/คลิกจาก Google Search Console": {
+  "en": "SoV = brand appears in web search results for AI-style questions · AI assistants = real answers from ChatGPT/Perplexity/Gemini · index/clicks from Google Search Console",
+  "zh": "SoV = 品牌出现在 AI 式问题的网页搜索结果中 · AI 助手 = ChatGPT/Perplexity/Gemini 的真实回答 · 收录/点击来自 Google Search Console",
+  "ja": "SoV = AI 型の質問のウェブ検索結果にブランドが表示されること · AI アシスタント = ChatGPT/Perplexity/Gemini の実際の回答 · インデックス/クリックは Google Search Console より",
+  "ko": "SoV = AI형 질문의 웹 검색 결과에 브랜드가 노출됨 · AI 어시스턴트 = ChatGPT/Perplexity/Gemini의 실제 답변 · 색인/클릭은 Google Search Console 기준"
+ },
+ "รายงาน": {
+  "en": "Report",
+  "zh": "报告",
+  "ja": "レポート",
+  "ko": "리포트"
+ },
+ "รายงานการมองเห็นบน AI": {
+  "en": "AI visibility report",
+  "zh": "AI 可见度报告",
+  "ja": "AI 露出レポート",
+  "ko": "AI 가시성 리포트"
+ },
+ "จำนวนคำถามที่แบรนด์โผล่ในผลการค้นหา (สิ่งที่ AI หยิบไปตอบ)": {
+  "en": "Number of questions where the brand appears in search results (what AI draws on to answer)",
+  "zh": "品牌出现在搜索结果中的问题数（AI 作答时取用的内容）",
+  "ja": "検索結果にブランドが表示された質問の数（AI が回答に使う情報）",
+  "ko": "검색 결과에 브랜드가 노출된 질문 수(AI가 답변에 가져다 쓰는 정보)"
+ },
+ "ผลรายคำถาม": {
+  "en": "Results by question",
+  "zh": "按问题的结果",
+  "ja": "質問別の結果",
+  "ko": "질문별 결과"
+ },
+ "โผล่ไหม": {
+  "en": "Appears?",
+  "zh": "是否出现",
+  "ja": "表示",
+  "ko": "노출 여부"
+ },
+ "เว็บที่ครองพื้นที่": {
+  "en": "Sites taking the spots",
+  "zh": "占据位置的网站",
+  "ja": "上位を占めるサイト",
+  "ko": "자리를 차지한 사이트"
+ },
+ "คู่แข่ง/เว็บที่ครองพื้นที่บ่อยสุด": {
+  "en": "Competitors / sites taking the spots most often",
+  "zh": "最常占据位置的竞争对手/网站",
+  "ja": "最も頻繁に上位を占める競合/サイト",
+  "ko": "가장 자주 자리를 차지한 경쟁사/사이트"
+ },
+ "โผล่กี่คำถาม": {
+  "en": "Questions appeared in",
+  "zh": "出现在几个问题中",
+  "ja": "表示された質問数",
+  "ko": "노출된 질문 수"
+ },
+ "ให้ระบบทำงาน GEO ครบวงจรเองทุกสัปดาห์: วัดทุกตัว → เขียนคอนเทนต์ปิดช่องว่าง → ส่งรายงาน แล้วบอกว่าทำอะไรไปบ้าง": {
+  "en": "Let the system run the full GEO cycle every week: measure everything → write content to close gaps → send the report, then tell you what it did",
+  "zh": "让系统每周自动完成整套 GEO 工作：全面测量 → 撰写内容填补空缺 → 发送报告，并告诉您做了什么",
+  "ja": "GEO の一連の作業を毎週システムに任せます: すべて計測 → ギャップを埋めるコンテンツを作成 → レポートを送信し、実施内容をお知らせします",
+  "ko": "매주 GEO 전 과정을 시스템이 알아서 처리합니다: 모든 지표 측정 → 공백을 메우는 콘텐츠 작성 → 리포트 발송 후 무엇을 했는지 알려 드립니다"
+ },
+ "บันทึกการตั้งค่า Autopilot แล้ว": {
+  "en": "Autopilot settings saved",
+  "zh": "Autopilot 设置已保存",
+  "ja": "Autopilot の設定を保存しました",
+  "ko": "Autopilot 설정을 저장했습니다"
+ },
+ "ตั้งค่า": {
+  "en": "Settings",
+  "zh": "设置",
+  "ja": "設定",
+  "ko": "설정"
+ },
+ "เปิดอยู่": {
+  "en": "On",
+  "zh": "已开启",
+  "ja": "オン",
+  "ko": "켜짐"
+ },
+ "ปิด": {
+  "en": "Off",
+  "zh": "已关闭",
+  "ja": "オフ",
+  "ko": "꺼짐"
+ },
+ "เปิด Autopilot (รันอัตโนมัติทุกคืนวันอังคาร 02:00)": {
+  "en": "Turn on Autopilot (runs automatically every Tuesday night at 02:00)",
+  "zh": "开启 Autopilot（每周二凌晨 02:00 自动运行）",
+  "ja": "Autopilot をオン（毎週火曜の深夜 02:00 に自動実行）",
+  "ko": "Autopilot 켜기(매주 화요일 밤 02:00 자동 실행)"
+ },
+ "คอนเทนต์ต่อรอบ": {
+  "en": "Content per round",
+  "zh": "每轮内容数",
+  "ja": "1回あたりのコンテンツ数",
+  "ko": "회차당 콘텐츠"
+ },
+ "วัดอย่างเดียว ไม่เขียน": {
+  "en": "Measure only, don't write",
+  "zh": "仅测量，不撰写",
+  "ja": "計測のみ（作成しない）",
+  "ko": "측정만, 작성 안 함"
+ },
+ "{n} ชิ้น — เลือกจากคำถามที่ยังไม่มีคอนเทนต์": {
+  "en": "{n} pieces — chosen from questions without content",
+  "zh": "{n} 篇 — 从尚无内容的问题中选择",
+  "ja": "{n} 件 — コンテンツがまだない質問から選びます",
+  "ko": "{n}개 — 콘텐츠가 없는 질문에서 선택"
+ },
+ "เมื่อเขียนเสร็จ": {
+  "en": "When writing is done",
+  "zh": "撰写完成后",
+  "ja": "作成後",
+  "ko": "작성이 끝나면"
+ },
+ "แผนปัจจุบันไม่มี auto เผยแพร่ — เลือก \"เผยแพร่เลย\" ระบบจะสร้างเป็นร่างแทน": {
+  "en": "Your current plan doesn't include auto-publish — if you choose \"publish right away\", drafts will be created instead",
+  "zh": "当前方案不含自动发布 — 选择“立即发布”时系统会改为创建草稿",
+  "ja": "現在のプランには自動公開がありません —「すぐに公開」を選んでも下書きとして作成されます",
+  "ko": "현재 플랜에는 자동 게시가 없습니다 — \"바로 게시\"를 선택하면 임시 저장으로 대신 만듭니다"
+ },
+ "บันทึก": {
+  "en": "Save",
+  "zh": "保存",
+  "ja": "保存",
+  "ko": "저장"
+ },
+ "สิ่งที่ทำในแต่ละรอบ": {
+  "en": "What each round does",
+  "zh": "每轮执行的内容",
+  "ja": "各回で行うこと",
+  "ko": "회차마다 하는 일"
+ },
+ "มอนิเตอร์ SoV · อันดับ Google · Search Console (ส่ง sitemap ให้ถ้ายังไม่ส่ง) · สุขภาพเว็บ · ความเร็ว": {
+  "en": "Monitor SoV · Google ranking · Search Console (submits the sitemap if not yet submitted) · site health · speed",
+  "zh": "监测 SoV · Google 排名 · Search Console（若尚未提交则提交 sitemap）· 网站健康 · 速度",
+  "ja": "SoV のモニタリング · Google 順位 · Search Console（未送信なら sitemap を送信）· サイトの健全性 · 速度",
+  "ko": "SoV 모니터링 · Google 순위 · Search Console(미제출 시 sitemap 제출) · 사이트 상태 · 속도"
+ },
+ "ถามผู้ช่วย AI และ Google AI Overview/AI Mode": {
+  "en": "Ask AI assistants and Google AI Overview/AI Mode",
+  "zh": "询问 AI 助手以及 Google AI Overview/AI Mode",
+  "ja": "AI アシスタントと Google AI Overview/AI Mode に質問",
+  "ko": "AI 어시스턴트와 Google AI Overview/AI Mode에 질문"
+ },
+ "ข้ามถ้าเพิ่งถามไม่ถึง 3 วัน — มีค่าใช้จ่าย": {
+  "en": "skipped if asked less than 3 days ago — has a cost",
+  "zh": "若 3 天内已询问则跳过 — 会产生费用",
+  "ja": "3日以内に質問済みならスキップ — 費用がかかります",
+  "ko": "3일 안에 이미 물었다면 건너뜀 — 비용 발생"
+ },
+ "เขียนคอนเทนต์ให้คำถามที่ยังไม่มีคอนเทนต์ตามจำนวนที่ตั้ง แล้วเผยแพร่ตามโหมด": {
+  "en": "Write content for questions that don't have any yet, up to the number set, then publish according to the mode",
+  "zh": "按设定数量为尚无内容的问题撰写内容，并按模式发布",
+  "ja": "コンテンツがまだない質問に設定数だけコンテンツを作成し、モードに従って公開",
+  "ko": "콘텐츠가 없는 질문에 설정한 수만큼 콘텐츠를 작성하고 모드에 따라 게시"
+ },
+ "สร้างรายงานสรุป ส่งอีเมลให้เจ้าของแบรนด์": {
+  "en": "Create a summary report and email it to the brand owner",
+  "zh": "生成摘要报告并发邮件给品牌所有者",
+  "ja": "サマリーレポートを作成してブランドオーナーにメール送信",
+  "ko": "요약 리포트를 만들어 브랜드 소유자에게 이메일 발송"
+ },
+ "ต้องตั้ง SMTP ที่ผู้ดูแล → อีเมล": {
+  "en": "requires SMTP set up in Admin → Email",
+  "zh": "需在 管理 → 邮件 中设置 SMTP",
+  "ja": "管理 → メール で SMTP の設定が必要",
+  "ko": "관리 → 이메일에서 SMTP 설정 필요"
+ },
+ "และแจ้งเตือนในแอป": {
+  "en": "and send an in-app notification",
+  "zh": "并发送应用内通知",
+  "ja": "アプリ内でも通知",
+  "ko": "앱 내 알림도 발송"
+ },
+ "ตัววัดที่ไม่มีค่าใช้จ่ายข้ามถ้าทำไปไม่ถึง 20 ชม. (cron รายสัปดาห์อาจเพิ่งรัน) · ขั้นไหนล้มขั้นอื่นทำต่อ และบันทึกเหตุผลไว้ด้านล่าง": {
+  "en": "Free measurements are skipped if run less than 20 hours ago (the weekly cron may have just run) · if a step fails, the others continue and the reason is logged below",
+  "zh": "免费的测量项目若 20 小时内已运行则跳过（每周 cron 可能刚运行过）· 某步骤失败时其他步骤继续，并在下方记录原因",
+  "ja": "無料の計測は20時間以内に実行済みならスキップします（週次 cron が直前に実行された可能性があるため）· 失敗した手順があっても他の手順は続行し、理由を下に記録します",
+  "ko": "무료 측정은 20시간 안에 실행했다면 건너뜁니다(주간 cron이 방금 실행됐을 수 있음) · 한 단계가 실패해도 나머지는 계속하며 이유는 아래에 기록합니다"
+ },
+ "กำลังรัน…": {
+  "en": "Running…",
+  "zh": "正在运行…",
+  "ja": "実行中…",
+  "ko": "실행하는 중…"
+ },
+ "รันตอนนี้": {
+  "en": "Run now",
+  "zh": "立即运行",
+  "ja": "今すぐ実行",
+  "ko": "지금 실행"
+ },
+ "ใช้เวลาหลายนาที — ผลจะขึ้นในตารางด้านล่าง": {
+  "en": "Takes several minutes — results will appear in the table below",
+  "zh": "需要几分钟 — 结果将显示在下方表格中",
+  "ja": "数分かかります — 結果は下の表に表示されます",
+  "ko": "몇 분 걸립니다 — 결과는 아래 표에 표시됩니다"
+ },
+ "ประวัติการรัน": {
+  "en": "Run history",
+  "zh": "运行记录",
+  "ja": "実行履歴",
+  "ko": "실행 기록"
+ },
+ "กำลังรันรอบแรก — รอสักครู่แล้วรีเฟรช": {
+  "en": "Running the first round — wait a moment, then refresh",
+  "zh": "正在运行第一轮 — 请稍候再刷新",
+  "ja": "初回を実行中です — しばらく待ってから再読み込みしてください",
+  "ko": "첫 회차를 실행하는 중입니다 — 잠시 후 새로 고침하세요"
+ },
+ "ยังไม่เคยรัน — เปิด Autopilot แล้วรอคืนวันอังคาร หรือกด \"รันตอนนี้\"": {
+  "en": "Not run yet — turn on Autopilot and wait for Tuesday night, or click \"Run now\"",
+  "zh": "尚未运行 — 开启 Autopilot 后等待周二晚上，或点击“立即运行”",
+  "ja": "まだ実行していません — Autopilot をオンにして火曜の夜を待つか、「今すぐ実行」を押してください",
+  "ko": "아직 실행하지 않았습니다 — Autopilot을 켜고 화요일 밤을 기다리거나 \"지금 실행\"을 누르세요"
+ },
+ "สำเร็จ": {
+  "en": "Succeeded",
+  "zh": "成功",
+  "ja": "成功",
+  "ko": "성공"
+ },
+ "มีขั้นที่ล้ม {n}": {
+  "en": "{n} steps failed",
+  "zh": "{n} 个步骤失败",
+  "ja": "失敗した手順 {n}",
+  "ko": "실패한 단계 {n}개"
+ },
+ "โหมด {mode}": {
+  "en": "Mode: {mode}",
+  "zh": "模式：{mode}",
+  "ja": "モード: {mode}",
+  "ko": "모드: {mode}"
+ },
+ "{n} ชิ้น": {
+  "en": "{n} pieces",
+  "zh": "{n} 篇",
+  "ja": "{n} 件",
+  "ko": "{n}개"
+ },
+ "ใช้เวลา {n} วิ": {
+  "en": "took {n} s",
+  "zh": "耗时 {n} 秒",
+  "ja": "所要 {n} 秒",
+  "ko": "소요 {n}초"
+ },
+ "ทำแล้ว": {
+  "en": "Done",
+  "zh": "已完成",
+  "ja": "完了",
+  "ko": "완료"
+ },
+ "ล้ม": {
+  "en": "Failed",
+  "zh": "失败",
+  "ja": "失敗",
+  "ko": "실패"
+ },
+ "{n} วิ": {
+  "en": "{n} s",
+  "zh": "{n} 秒",
+  "ja": "{n} 秒",
+  "ko": "{n}초"
+ },
+ "คอนเทนต์รอบนี้:": {
+  "en": "Content this round:",
+  "zh": "本轮内容：",
+  "ja": "今回のコンテンツ:",
+  "ko": "이번 회차 콘텐츠:"
+ },
+ "ปิดครบทุกคำถามแล้ว — เพิ่มคำถามใหม่ {n} ข้อ รอวัดรอบหน้า": {
+  "en": "All questions covered — added {n} new questions to measure next round",
+  "zh": "所有问题都已覆盖 — 新增 {n} 个问题，等待下一轮测量",
+  "ja": "すべての質問をカバーしました — 新しい質問を {n} 件追加し、次回に計測します",
+  "ko": "모든 질문을 다뤘습니다 — 새 질문 {n}개를 추가했으며 다음 회차에 측정합니다"
+ },
+ "โควตาแพ็กเกจเต็ม": {
+  "en": "plan quota used up",
+  "zh": "套餐配额已用完",
+  "ja": "プランの上限に達しました",
+  "ko": "플랜 할당량 소진"
+ },
+ "Autopilot ไม่แทนที่ cron รายตัววัดที่มีอยู่ — มันรวบงานทั้งหมดของแบรนด์ไว้รอบเดียวและ \"ทำต่อ\" (เขียน/เผยแพร่/ส่งรายงาน) ส่วนตัววัดเดิมยังรันตามเวลาของมัน": {
+  "en": "Autopilot doesn't replace the existing per-metric crons — it bundles all of a brand's work into one round and \"follows through\" (writes/publishes/sends the report), while the existing measurements keep running on their own schedules",
+  "zh": "Autopilot 不会取代现有各指标的 cron — 它把品牌的所有工作合并为一轮并“继续执行”（撰写/发布/发送报告），原有测量仍按各自时间运行",
+  "ja": "Autopilot は既存の指標ごとの cron を置き換えません — ブランドの作業を1回にまとめて「その先まで実行」（作成/公開/レポート送信）し、既存の計測はそれぞれのスケジュールで動き続けます",
+  "ko": "Autopilot은 기존 지표별 cron을 대체하지 않습니다 — 브랜드의 모든 작업을 한 회차로 묶어 \"이어서 처리\"(작성/게시/리포트 발송)하며, 기존 측정은 각자의 일정대로 계속 실행됩니다"
+ },
+ "ค่าใช้จ่ายต่อรอบ ≈ ผู้ช่วย AI (~$0.4/แบรนด์) + Serper credits ของ SoV/อันดับ + SerpApi ถ้าเปิด · คอนเทนต์นับโควตาแพ็กเกจตามปกติ": {
+  "en": "Cost per round ≈ AI assistants (~$0.4/brand) + Serper credits for SoV/ranking + SerpApi if enabled · content counts toward your plan quota as usual",
+  "zh": "每轮费用 ≈ AI 助手（约 $0.4/品牌）+ SoV/排名的 Serper 额度 + SerpApi（若开启）· 内容照常计入套餐配额",
+  "ja": "1回あたりの費用 ≈ AI アシスタント（約 $0.4/ブランド）+ SoV/順位の Serper クレジット + SerpApi（有効な場合）· コンテンツは通常どおりプランの上限に含まれます",
+  "ko": "회차당 비용 ≈ AI 어시스턴트(약 $0.4/브랜드) + SoV/순위용 Serper 크레딧 + SerpApi(켠 경우) · 콘텐츠는 평소처럼 플랜 할당량에 포함됩니다"
+ },
+ "ชุดติดตั้ง on-site": {
+  "en": "On-site install kit",
+  "zh": "站内安装包",
+  "ja": "オンサイト導入キット",
+  "ko": "온사이트 설치 키트"
+ },
+ "ไฟล์/โค้ดสำเร็จรูปสำหรับวางในเว็บลูกค้า — เปิดทางให้ AI เห็นและเข้าใจแบรนด์": {
+  "en": "Ready-made files/code to put on the client's site — so AI can see and understand the brand",
+  "zh": "可直接放到客户网站上的现成文件/代码 — 让 AI 能看到并理解品牌",
+  "ja": "クライアントのサイトに設置する既製のファイル/コード — AI がブランドを見つけて理解できるようにします",
+  "ko": "고객 사이트에 넣을 기성 파일/코드 — AI가 브랜드를 보고 이해할 수 있게 합니다"
+ },
+ "วางที่ราก:": {
+  "en": "place at the root:",
+  "zh": "放在根目录：",
+  "ja": "ルートに設置:",
+  "ko": "루트에 배치:"
+ },
+ "เปิดทาง AI crawler": {
+  "en": "lets AI crawlers in",
+  "zh": "允许 AI 爬虫访问",
+  "ja": "AI クローラーを許可",
+  "ko": "AI 크롤러 허용"
+ },
+ "{n} หน้าที่เผยแพร่แล้ว": {
+  "en": "{n} published pages",
+  "zh": "已发布页面 {n} 个",
+  "ja": "公開済みページ {n} 件",
+  "ko": "게시된 페이지 {n}개"
+ },
+ "ต้องให้เสิร์ฟที่ <code>{url}</code> เท่านั้น (Google ไม่รับ sitemap ข้ามโดเมน)": {
+  "en": "Must be served at <code>{url}</code> only (Google doesn't accept cross-domain sitemaps)",
+  "zh": "必须在 <code>{url}</code> 提供（Google 不接受跨域 sitemap）",
+  "ja": "必ず <code>{url}</code> で配信してください（Google はドメインをまたぐ sitemap を受け付けません）",
+  "ko": "반드시 <code>{url}</code>에서 제공해야 합니다(Google은 다른 도메인의 sitemap을 받지 않습니다)"
+ },
+ "proxy/rewrite มาที่ <code>{src}</code> เพื่อให้อัปเดตอัตโนมัติทุกครั้งที่เผยแพร่คอนเทนต์ใหม่": {
+  "en": "proxy/rewrite it to <code>{src}</code> so it updates automatically whenever new content is published",
+  "zh": "将其 proxy/rewrite 到 <code>{src}</code>，每次发布新内容都会自动更新",
+  "ja": "<code>{src}</code> へ proxy/rewrite すると、新しいコンテンツを公開するたびに自動更新されます",
+  "ko": "<code>{src}</code>로 proxy/rewrite하면 새 콘텐츠를 게시할 때마다 자동으로 업데이트됩니다"
+ },
+ "แล้วส่ง URL เข้า Google Search Console → Sitemaps": {
+  "en": "then submit the URL in Google Search Console → Sitemaps",
+  "zh": "然后在 Google Search Console → Sitemaps 中提交该 URL",
+  "ja": "その後 Google Search Console → Sitemaps で URL を送信してください",
+  "ko": "그다음 Google Search Console → Sitemaps에 URL을 제출하세요"
+ },
+ "ยังไม่มีคอนเทนต์ที่เผยแพร่ — sitemap จะมีแค่หน้าแรก": {
+  "en": "No published content yet — the sitemap will only contain the homepage",
+  "zh": "尚无已发布内容 — sitemap 中只会有首页",
+  "ja": "公開済みコンテンツはまだありません — sitemap にはトップページのみが入ります",
+  "ko": "아직 게시된 콘텐츠가 없습니다 — sitemap에는 홈페이지만 들어갑니다"
+ },
+ "Schema องค์กร (JSON-LD)": {
+  "en": "Organization schema (JSON-LD)",
+  "zh": "组织 Schema（JSON-LD）",
+  "ja": "組織の Schema（JSON-LD）",
+  "ko": "조직 Schema(JSON-LD)"
+ },
+ "วางใน <head> ทุกหน้า หรือผ่าน Connector": {
+  "en": "paste into <head> on every page, or via the Connector",
+  "zh": "粘贴到每个页面的 <head> 中，或通过 Connector",
+  "ja": "全ページの <head> に貼り付けるか、Connector 経由で設置",
+  "ko": "모든 페이지의 <head>에 붙여 넣거나 Connector로 적용"
+ },
+ "ประเภทธุรกิจ": {
+  "en": "Business type",
+  "zh": "业务类型",
+  "ja": "業種",
+  "ko": "업종"
+ },
+ "ยังไม่ได้เลือก — ระบบเดาให้เป็น <b>{type}</b> จากชื่อและตลาดของแบรนด์": {
+  "en": "Not chosen yet — the system guessed <b>{type}</b> from the brand's name and market",
+  "zh": "尚未选择 — 系统根据品牌名称和市场推测为 <b>{type}</b>",
+  "ja": "未選択です — ブランド名と市場からシステムが <b>{type}</b> と推定しました",
+  "ko": "아직 선택하지 않았습니다 — 브랜드 이름과 시장을 보고 시스템이 <b>{type}</b>(으)로 추정했습니다"
+ },
+ "บอก Google และ AI ว่าแบรนด์นี้เป็นธุรกิจประเภทไหน — เลือกผิดประเภท entity ของแบรนด์จะเพี้ยน": {
+  "en": "Tells Google and AI what kind of business this brand is — picking the wrong type distorts the brand's entity",
+  "zh": "告诉 Google 和 AI 这个品牌属于哪类业务 — 选错类型会让品牌实体失真",
+  "ja": "このブランドがどんな業種かを Google と AI に伝えます — 種類を間違えるとブランドのエンティティがずれてしまいます",
+  "ko": "이 브랜드가 어떤 업종인지 Google과 AI에 알려 줍니다 — 잘못 고르면 브랜드 엔티티가 왜곡됩니다"
+ },
+ "ถ้าไม่มีอันไหนตรงเลย เลือก \"ธุรกิจทั่วไป\" ไว้ปลอดภัยกว่าเลือกผิด": {
+  "en": "If nothing fits, choosing \"General business\" is safer than choosing the wrong one",
+  "zh": "如果都不符合，选择“一般业务”比选错更安全",
+  "ja": "どれも当てはまらない場合は、間違ったものを選ぶより「一般ビジネス」を選ぶほうが安全です",
+  "ko": "맞는 것이 없다면 잘못 고르기보다 \"일반 비즈니스\"를 고르는 편이 안전합니다"
+ },
+ "เปลี่ยนแล้วอย่าลืมกด \"ซิงค์\" ที่หน้า WordPress เพื่อส่งค่าใหม่เข้าปลั๊กอิน": {
+  "en": "After changing it, remember to click \"Sync\" on the WordPress page to send the new value to the plugin",
+  "zh": "修改后别忘了在 WordPress 页面点击“同步”，把新值发送到插件",
+  "ja": "変更したら、WordPress のページで「同期」を押して新しい値をプラグインに送るのを忘れないでください",
+  "ko": "변경한 뒤에는 WordPress 페이지에서 \"동기화\"를 눌러 새 값을 플러그인에 보내는 것을 잊지 마세요"
+ },
+ "ตอบก่อน (answer-first / TL;DR)": {
+  "en": "Answer first (answer-first / TL;DR)",
+  "zh": "先给答案（answer-first / TL;DR）",
+  "ja": "結論から回答（answer-first / TL;DR）",
+  "ko": "답변 먼저(answer-first / TL;DR)"
+ },
+ "มีหัวข้อย่อย / ลิสต์มีชื่อ": {
+  "en": "Has subheadings / titled list items",
+  "zh": "有小标题 / 带标题的列表",
+  "ja": "小見出し / 見出し付きリストあり",
+  "ko": "소제목 / 제목 있는 목록 있음"
+ },
+ "มีลิสต์หรือตาราง": {
+  "en": "Has a list or table",
+  "zh": "有列表或表格",
+  "ja": "リストまたは表あり",
+  "ko": "목록 또는 표 있음"
+ },
+ "FAQ อย่างน้อย 2 ข้อ ({n} ข้อ)": {
+  "en": "At least 2 FAQs ({n})",
+  "zh": "至少 2 条 FAQ（{n} 条）",
+  "ja": "FAQ 2件以上（{n} 件）",
+  "ko": "FAQ 2개 이상({n}개)"
+ },
+ "Meta description 50–160 ตัว": {
+  "en": "Meta description 50–160 characters",
+  "zh": "Meta description 50–160 个字符",
+  "ja": "Meta description 50〜160文字",
+  "ko": "Meta description 50~160자"
+ },
+ "Title ≤ 60 ตัว": {
+  "en": "Title ≤ 60 characters",
+  "zh": "Title ≤ 60 个字符",
+  "ja": "Title 60文字以内",
+  "ko": "Title 60자 이하"
+ },
+ "HowTo schema (เฉพาะบทความ how-to)": {
+  "en": "HowTo schema (how-to articles only)",
+  "zh": "HowTo schema（仅限 how-to 文章）",
+  "ja": "HowTo schema（how-to 記事のみ）",
+  "ko": "HowTo schema(how-to 글만 해당)"
+ },
+ "ธุรกิจทั่วไป (ปลอดภัยสุดถ้าไม่แน่ใจ)": {
+  "en": "General business (safest if unsure)",
+  "zh": "一般业务（不确定时最稳妥）",
+  "ja": "一般ビジネス（迷ったらこれが最も安全）",
+  "ko": "일반 비즈니스(확실하지 않을 때 가장 안전)"
+ },
+ "บริการวิชาชีพ / ที่ปรึกษา / ซอฟต์แวร์ / เอเจนซี": {
+  "en": "Professional services / consulting / software / agency",
+  "zh": "专业服务 / 咨询 / 软件 / 代理机构",
+  "ja": "専門サービス / コンサルティング / ソフトウェア / エージェンシー",
+  "ko": "전문 서비스 / 컨설팅 / 소프트웨어 / 에이전시"
+ },
+ "อสังหาริมทรัพย์ / นายหน้า": {
+  "en": "Real estate / agent",
+  "zh": "房地产 / 中介",
+  "ja": "不動産 / 仲介",
+  "ko": "부동산 / 중개"
+ },
+ "กฎหมาย / ทนายความ": {
+  "en": "Legal / lawyer",
+  "zh": "法律 / 律师",
+  "ja": "法律 / 弁護士",
+  "ko": "법률 / 변호사"
+ },
+ "คลินิก / การแพทย์": {
+  "en": "Clinic / medical",
+  "zh": "诊所 / 医疗",
+  "ja": "クリニック / 医療",
+  "ko": "클리닉 / 의료"
+ },
+ "ความงาม / สปา / ซาลอน": {
+  "en": "Beauty / spa / salon",
+  "zh": "美容 / 水疗 / 沙龙",
+  "ja": "美容 / スパ / サロン",
+  "ko": "뷰티 / 스파 / 살롱"
+ },
+ "ก่อสร้าง / รับเหมา / ตกแต่ง": {
+  "en": "Construction / contractor / interior",
+  "zh": "建筑 / 承包 / 装修",
+  "ja": "建設 / 請負 / 内装",
+  "ko": "건설 / 시공 / 인테리어"
+ },
+ "ร้านอาหาร / คาเฟ่": {
+  "en": "Restaurant / café",
+  "zh": "餐厅 / 咖啡馆",
+  "ja": "飲食店 / カフェ",
+  "ko": "음식점 / 카페"
+ },
+ "โรงแรม / ที่พัก": {
+  "en": "Hotel / lodging",
+  "zh": "酒店 / 住宿",
+  "ja": "ホテル / 宿泊施設",
+  "ko": "호텔 / 숙박"
+ },
+ "ร้านค้า / ค้าปลีก": {
+  "en": "Store / retail",
+  "zh": "商店 / 零售",
+  "ja": "店舗 / 小売",
+  "ko": "매장 / 소매"
+ },
+ "ยานยนต์ / อู่ / คาร์แคร์": {
+  "en": "Automotive / garage / car care",
+  "zh": "汽车 / 修车厂 / 汽车美容",
+  "ja": "自動車 / 整備工場 / カーケア",
+  "ko": "자동차 / 정비소 / 카케어"
+ },
+ "การเงิน / ประกัน": {
+  "en": "Finance / insurance",
+  "zh": "金融 / 保险",
+  "ja": "金融 / 保険",
+  "ko": "금융 / 보험"
+ },
+ "ท่องเที่ยว / ทัวร์": {
+  "en": "Travel / tours",
+  "zh": "旅游 / 旅行团",
+  "ja": "旅行 / ツアー",
+  "ko": "여행 / 투어"
+ },
+ "โรงเรียน / คอร์สเรียน": {
+  "en": "School / courses",
+  "zh": "学校 / 课程",
+  "ja": "学校 / 講座",
+  "ko": "학교 / 강좌"
+ },
+ "ขนส่ง / ขนย้าย": {
+  "en": "Transport / moving",
+  "zh": "运输 / 搬家",
+  "ja": "運送 / 引っ越し",
+  "ko": "운송 / 이사"
+ },
+ "องค์กร (ไม่มีหน้าร้าน/พื้นที่บริการ)": {
+  "en": "Organization (no storefront/service area)",
+  "zh": "组织（无门店/服务区域）",
+  "ja": "組織（店舗/サービス提供エリアなし）",
+  "ko": "조직(매장/서비스 지역 없음)"
+ },
+ "เผยแพร่บนหน้า hosted แล้ว → {url}": {
+  "en": "Published on the hosted page → {url}",
+  "zh": "已发布到托管页面 → {url}",
+  "ja": "ホスト型ページに公開しました → {url}",
+  "ko": "호스팅 페이지에 게시했습니다 → {url}"
+ },
+ "เว็บนี้ไม่ได้เชื่อม WordPress — กด \"เผยแพร่ (public)\" เพื่อขึ้นหน้า hosted": {
+  "en": "This site isn't connected to WordPress — click \"Publish (public)\" to put it on the hosted page",
+  "zh": "此网站未连接 WordPress — 点击“发布（public）”即可上线到托管页面",
+  "ja": "このサイトは WordPress と連携していません —「公開（public）」を押すとホスト型ページに掲載されます",
+  "ko": "이 사이트는 WordPress와 연결되어 있지 않습니다 — \"게시(public)\"를 누르면 호스팅 페이지에 올라갑니다"
+ },
+ "ร่าง (draft)": {
+  "en": "Draft",
+  "zh": "草稿（draft）",
+  "ja": "下書き（draft）",
+  "ko": "임시 저장(draft)"
+ },
+ "ส่งเข้า WordPress แล้ว — {mode}": {
+  "en": "Sent to WordPress — {mode}",
+  "zh": "已发送到 WordPress — {mode}",
+  "ja": "WordPress に送信しました — {mode}",
+  "ko": "WordPress로 보냈습니다 — {mode}"
+ },
+ "ส่งผ่าน Connector แล้ว — {mode} (พร้อม schema)": {
+  "en": "Sent via Connector — {mode} (with schema)",
+  "zh": "已通过 Connector 发送 — {mode}（含 schema）",
+  "ja": "Connector 経由で送信しました — {mode}（schema 付き）",
+  "ko": "Connector로 보냈습니다 — {mode}(schema 포함)"
+ },
+ "ส่งไม่สำเร็จ: {err}": {
+  "en": "Couldn't send: {err}",
+  "zh": "发送失败：{err}",
+  "ja": "送信できませんでした: {err}",
+  "ko": "보내지 못했습니다: {err}"
+ },
+ "Connector ตอบ HTTP {code}: {body}": {
+  "en": "Connector replied HTTP {code}: {body}",
+  "zh": "Connector 返回 HTTP {code}：{body}",
+  "ja": "Connector の応答 HTTP {code}: {body}",
+  "ko": "Connector 응답 HTTP {code}: {body}"
+ },
+ "เซิร์ฟเวอร์ตัด Authorization header ทิ้ง — WordPress ไม่เห็นรหัสเลย (ไม่ใช่รหัสผิด). แก้ที่ .htaccess ของเว็บ เพิ่ม: RewriteCond %{HTTP:Authorization} . แล้ว RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]": {
+  "en": "The server strips the Authorization header — WordPress never sees the password (it isn't wrong). Fix it in the site's .htaccess by adding: RewriteCond %{HTTP:Authorization} . then RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]",
+  "zh": "服务器丢弃了 Authorization header — WordPress 完全看不到密码（并非密码错误）。请在网站的 .htaccess 中添加：RewriteCond %{HTTP:Authorization} . 然后 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]",
+  "ja": "サーバーが Authorization header を削除しています — WordPress にはパスワードが届いていません（パスワードの誤りではありません）。サイトの .htaccess に次を追加してください: RewriteCond %{HTTP:Authorization} . の後に RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]",
+  "ko": "서버가 Authorization header를 버리고 있습니다 — WordPress가 비밀번호를 전혀 받지 못합니다(비밀번호가 틀린 것이 아닙니다). 사이트의 .htaccess에 다음을 추가하세요: RewriteCond %{HTTP:Authorization} . 다음에 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]"
+ },
+ "รหัสไม่ถูกต้อง — ต้องใช้ Application Password (สร้างที่ ผู้ใช้ → โปรไฟล์ → Application Passwords) ไม่ใช่รหัสเข้าระบบปกติ": {
+  "en": "Wrong password — use an Application Password (create it under Users → Profile → Application Passwords), not your normal login password",
+  "zh": "密码不正确 — 需要使用 Application Password（在 用户 → 个人资料 → Application Passwords 中创建），而不是普通登录密码",
+  "ja": "パスワードが正しくありません — 通常のログインパスワードではなく Application Password（ユーザー → プロフィール → Application Passwords で作成）を使ってください",
+  "ko": "비밀번호가 올바르지 않습니다 — 일반 로그인 비밀번호가 아니라 Application Password(사용자 → 프로필 → Application Passwords에서 생성)를 사용하세요"
+ },
+ "ชื่อผู้ใช้ไม่ถูกต้อง — ลองใช้ username ของ WordPress แทนอีเมล": {
+  "en": "Wrong username — try your WordPress username instead of your email",
+  "zh": "用户名不正确 — 请尝试使用 WordPress 的 username 而不是邮箱",
+  "ja": "ユーザー名が正しくありません — メールアドレスではなく WordPress の username をお試しください",
+  "ko": "사용자 이름이 올바르지 않습니다 — 이메일 대신 WordPress username을 사용해 보세요"
+ },
+ "เว็บนี้ปิดใช้งาน Application Passwords — เปิดก่อน (เว็บต้องเป็น HTTPS)": {
+  "en": "Application Passwords are disabled on this site — enable them first (the site must use HTTPS)",
+  "zh": "此网站已停用 Application Passwords — 请先启用（网站必须使用 HTTPS）",
+  "ja": "このサイトでは Application Passwords が無効です — 先に有効にしてください（サイトは HTTPS が必要です）",
+  "ko": "이 사이트는 Application Passwords가 꺼져 있습니다 — 먼저 켜세요(사이트가 HTTPS여야 합니다)"
+ },
+ "ผู้ใช้นี้ถูกปิด Application Passwords — เปิดให้ผู้ใช้ก่อน": {
+  "en": "Application Passwords are disabled for this user — enable them for the user first",
+  "zh": "此用户的 Application Passwords 已被停用 — 请先为该用户启用",
+  "ja": "このユーザーは Application Passwords が無効です — 先にユーザーに対して有効にしてください",
+  "ko": "이 사용자는 Application Passwords가 꺼져 있습니다 — 먼저 사용자에게 켜 주세요"
+ },
+ "ถูกปฏิเสธ (HTTP 403) — อาจมีปลั๊กอินความปลอดภัย (Wordfence ฯลฯ) บล็อก REST API": {
+  "en": "Rejected (HTTP 403) — a security plugin (Wordfence, etc.) may be blocking the REST API",
+  "zh": "被拒绝（HTTP 403）— 可能有安全插件（Wordfence 等）屏蔽了 REST API",
+  "ja": "拒否されました（HTTP 403）— セキュリティプラグイン（Wordfence など）が REST API をブロックしている可能性があります",
+  "ko": "거부되었습니다(HTTP 403) — 보안 플러그인(Wordfence 등)이 REST API를 막고 있을 수 있습니다"
+ },
+ "ถูกปฏิเสธ (HTTP 403 · {code}) — อาจมีปลั๊กอินความปลอดภัย (Wordfence ฯลฯ) บล็อก REST API": {
+  "en": "Rejected (HTTP 403 · {code}) — a security plugin (Wordfence, etc.) may be blocking the REST API",
+  "zh": "被拒绝（HTTP 403 · {code}）— 可能有安全插件（Wordfence 等）屏蔽了 REST API",
+  "ja": "拒否されました（HTTP 403 · {code}）— セキュリティプラグイン（Wordfence など）が REST API をブロックしている可能性があります",
+  "ko": "거부되었습니다(HTTP 403 · {code}) — 보안 플러그인(Wordfence 등)이 REST API를 막고 있을 수 있습니다"
+ },
+ "ปฏิเสธ (HTTP {code})": {
+  "en": "Rejected (HTTP {code})",
+  "zh": "被拒绝（HTTP {code}）",
+  "ja": "拒否されました（HTTP {code}）",
+  "ko": "거부됨(HTTP {code})"
+ },
+ "ยังไม่ได้ตั้ง {env}": {
+  "en": "{env} is not set",
+  "zh": "尚未设置 {env}",
+  "ja": "{env} が未設定です",
+  "ko": "{env}이(가) 설정되지 않았습니다"
+ },
+ "คีย์ {env} สั้นผิดปกติ ({n} ตัวอักษร) — น่าจะเป็น placeholder ค้างอยู่": {
+  "en": "The {env} key is unusually short ({n} characters) — probably a leftover placeholder",
+  "zh": "{env} 密钥异常短（{n} 个字符）— 可能是遗留的占位符",
+  "ja": "{env} のキーが異常に短いです（{n} 文字）— プレースホルダーが残っている可能性があります",
+  "ko": "{env} 키가 비정상적으로 짧습니다({n}자) — 남아 있는 placeholder일 가능성이 큽니다"
+ },
+ "ยังไม่ได้ตั้งคีย์ SerpApi (ผู้ดูแล → ตั้งค่า → Google AI Overview / AI Mode)": {
+  "en": "SerpApi key not set (Admin → Settings → Google AI Overview / AI Mode)",
+  "zh": "尚未设置 SerpApi 密钥（管理 → 设置 → Google AI Overview / AI Mode）",
+  "ja": "SerpApi のキーが未設定です（管理 → 設定 → Google AI Overview / AI Mode）",
+  "ko": "SerpApi 키가 설정되지 않았습니다(관리 → 설정 → Google AI Overview / AI Mode)"
+ },
+ "การเข้าถึง": {
+  "en": "Accessibility",
+  "zh": "无障碍",
+  "ja": "ユーザー補助",
+  "ko": "접근성"
+ },
+ "แนวปฏิบัติ": {
+  "en": "Best practices",
+  "zh": "最佳做法",
+  "ja": "おすすめの方法",
+  "ko": "권장사항"
+ },
+ "Google ตอบ {code}: {msg}": {
+  "en": "Google replied {code}: {msg}",
+  "zh": "Google 返回 {code}：{msg}",
+  "ja": "Google の応答 {code}: {msg}",
+  "ko": "Google 응답 {code}: {msg}"
+ },
+ "โควตาแบบไม่มีคีย์ของ Google หมด (ใช้ร่วมกับทุกคน) — ใส่ PageSpeed Insights API key ที่ตั้งค่าระบบ ฟรี 25,000 ครั้ง/วัน สร้างในโปรเจกต์ Google Cloud เดียวกับ Search Console ได้": {
+  "en": "Google's keyless quota is used up (it's shared with everyone) — add a PageSpeed Insights API key in System settings: free for 25,000 calls/day, and you can create it in the same Google Cloud project as Search Console",
+  "zh": "Google 的无密钥配额已用完（所有人共用）— 请在系统设置中添加 PageSpeed Insights API key，每天免费 25,000 次，可在与 Search Console 相同的 Google Cloud 项目中创建",
+  "ja": "Google のキーなし枠を使い切りました（全員で共有）— システム設定で PageSpeed Insights API key を設定してください。1日25,000回まで無料で、Search Console と同じ Google Cloud プロジェクトで作成できます",
+  "ko": "Google의 키 없는 할당량이 소진되었습니다(모두가 함께 사용) — 시스템 설정에 PageSpeed Insights API key를 넣으세요. 하루 25,000회 무료이며 Search Console과 같은 Google Cloud 프로젝트에서 만들 수 있습니다"
+ },
+ "Google อ่านแล้ว ยังไม่เก็บ": {
+  "en": "Crawled by Google, not indexed",
+  "zh": "Google 已抓取，未收录",
+  "ja": "Google がクロール済み・未登録",
+  "ko": "Google 크롤링됨, 색인 안 됨"
+ },
+ "Google เห็นแล้ว ยังไม่อ่าน": {
+  "en": "Discovered by Google, not crawled",
+  "zh": "Google 已发现，未抓取",
+  "ja": "Google が検出済み・未クロール",
+  "ko": "Google 발견됨, 크롤링 안 됨"
+ },
+ "ถูกบล็อก (noindex/robots)": {
+  "en": "Blocked (noindex/robots)",
+  "zh": "被屏蔽（noindex/robots）",
+  "ja": "ブロック（noindex/robots）",
+  "ko": "차단됨(noindex/robots)"
+ },
+ "อื่น ๆ": {
+  "en": "Other",
+  "zh": "其他",
+  "ja": "その他",
+  "ko": "기타"
+ },
+ "ตรวจไม่ได้": {
+  "en": "Couldn't check",
+  "zh": "无法检查",
+  "ja": "確認できません",
+  "ko": "확인 불가"
+ },
+ "ยังไม่ยืนยัน": {
+  "en": "Unverified",
+  "zh": "未验证",
+  "ja": "未確認",
+  "ko": "미인증"
+ },
+ "ยังไม่ได้ตั้งบัญชีบริการ (ผู้ดูแล → ตั้งค่า → Search Console)": {
+  "en": "Service account not set up (Admin → Settings → Search Console)",
+  "zh": "尚未设置服务账号（管理 → 设置 → Search Console）",
+  "ja": "サービスアカウントが未設定です（管理 → 設定 → Search Console）",
+  "ko": "서비스 계정이 설정되지 않았습니다(관리 → 설정 → Search Console)"
+ },
+ "เรียก Search Console ไม่ได้ — {err}": {
+  "en": "Couldn't call Search Console — {err}",
+  "zh": "无法调用 Search Console — {err}",
+  "ja": "Search Console を呼び出せませんでした — {err}",
+  "ko": "Search Console을 호출하지 못했습니다 — {err}"
+ },
+ "บัญชี {email} ยังไม่ได้รับสิทธิ์ใน property ของเว็บนี้": {
+  "en": "Account {email} hasn't been given access to this site's property yet",
+  "zh": "账号 {email} 尚未获得此网站 property 的权限",
+  "ja": "アカウント {email} にはまだこのサイトの property の権限がありません",
+  "ko": "계정 {email}은(는) 아직 이 사이트 property 권한을 받지 못했습니다"
+ },
+ "บัญชี {email} ยังไม่ได้รับสิทธิ์ใน property ของเว็บนี้ (เห็น {n} property อื่น)": {
+  "en": "Account {email} hasn't been given access to this site's property yet (it can see {n} other properties)",
+  "zh": "账号 {email} 尚未获得此网站 property 的权限（可看到 {n} 个其他 property）",
+  "ja": "アカウント {email} にはまだこのサイトの property の権限がありません（他の property は {n} 件見えています）",
+  "ko": "계정 {email}은(는) 아직 이 사이트 property 권한을 받지 못했습니다(다른 property {n}개는 보임)"
+ },
+ "property {prop} ยังไม่ผ่านการยืนยันความเป็นเจ้าของ — ยืนยันใน Search Console ก่อน": {
+  "en": "Property {prop} hasn't passed ownership verification — verify it in Search Console first",
+  "zh": "property {prop} 尚未通过所有权验证 — 请先在 Search Console 中验证",
+  "ja": "property {prop} は所有権の確認が済んでいません — 先に Search Console で確認してください",
+  "ko": "property {prop}의 소유권 확인이 끝나지 않았습니다 — 먼저 Search Console에서 확인하세요"
+ },
+ "สิทธิ์ {perm} ส่ง sitemap ไม่ได้ — ให้เจ้าของเว็บเพิ่มบัญชีเป็น Full": {
+  "en": "{perm} permission can't submit a sitemap — ask the site owner to make the account Full",
+  "zh": "{perm} 权限无法提交 sitemap — 请网站所有者将账号设为 Full",
+  "ja": "{perm} 権限では sitemap を送信できません — サイトのオーナーにアカウントを Full にしてもらってください",
+  "ko": "{perm} 권한으로는 sitemap을 제출할 수 없습니다 — 사이트 소유자에게 계정을 Full로 바꿔 달라고 하세요"
+ },
+ "Google ไม่ได้อ่าน sitemap มา {n} วัน — ส่งซ้ำให้แล้วเพื่อกระตุ้นให้อ่านใหม่": {
+  "en": "Google hasn't read the sitemap for {n} days — resubmitted it to prompt a fresh read",
+  "zh": "Google 已有 {n} 天未读取 sitemap — 已重新提交以促使其重新读取",
+  "ja": "Google が {n} 日間 sitemap を読んでいません — 再読み込みを促すため再送信しました",
+  "ko": "Google이 {n}일 동안 sitemap을 읽지 않았습니다 — 다시 읽도록 재제출했습니다"
+ },
+ "คอนเทนต์ทั้งหมด": {
+  "en": "All content",
+  "zh": "全部内容",
+  "ja": "すべてのコンテンツ",
+  "ko": "전체 콘텐츠"
+ },
+ "คำถามเป้าหมาย": {
+  "en": "Target questions",
+  "zh": "目标问题",
+  "ja": "ターゲット質問",
+  "ko": "타깃 질문"
+ },
+ "ประวัติ SoV รายรอบ": {
+  "en": "SoV history by round",
+  "zh": "各轮 SoV 记录",
+  "ja": "回ごとの SoV 履歴",
+  "ko": "회차별 SoV 기록"
+ },
+ "อันดับ Google รอบล่าสุด": {
+  "en": "Latest Google ranking",
+  "zh": "最近一轮 Google 排名",
+  "ja": "最新の Google 順位",
+  "ko": "최근 회차 Google 순위"
+ },
+ "ผลถามผู้ช่วย AI รอบล่าสุด": {
+  "en": "Latest AI assistant results",
+  "zh": "最近一轮 AI 助手结果",
+  "ja": "最新の AI アシスタント結果",
+  "ko": "최근 회차 AI 어시스턴트 결과"
+ },
+ "สถานะ index รายหน้า (Search Console)": {
+  "en": "Index status by page (Search Console)",
+  "zh": "逐页收录状态（Search Console）",
+  "ja": "ページ別インデックス状況（Search Console）",
+  "ko": "페이지별 색인 상태(Search Console)"
+ },
+ "ผลตรวจสุขภาพเว็บล่าสุด": {
+  "en": "Latest site health results",
+  "zh": "最近一次网站健康检查结果",
+  "ja": "最新のサイト健全性の検査結果",
+  "ko": "최근 사이트 상태 점검 결과"
+ },
+ "เว็บเรนเดอร์ฝั่ง client — บอท AI อ่านไม่เห็นอะไร ต้องทำ prerender/SSR (ทำกับ {site} แล้ว ใช้สูตรเดียวกัน)": {
+  "en": "The site renders client-side — AI bots can't read anything. It needs prerender/SSR (already done for {site}; same recipe applies)",
+  "zh": "网站在客户端渲染 — AI 爬虫什么都读不到，需要做 prerender/SSR（已在 {site} 上实施，可用同样方法）",
+  "ja": "サイトがクライアント側でレンダリングされており、AI ボットには何も読めません。prerender/SSR が必要です（{site} で実施済み。同じ方法が使えます）",
+  "ko": "사이트가 클라이언트 측에서 렌더링되어 AI 봇이 아무것도 읽지 못합니다. prerender/SSR이 필요합니다({site}에 이미 적용함, 같은 방법 사용)"
+ },
+ "ตัวเชื่อม /geo · llms.txt · sitemap ยังเป็น redirect/ไม่ครบ — ตั้ง rewrite ให้ตอบบนโดเมนเอง": {
+  "en": "The /geo connector · llms.txt · sitemap are still redirects/incomplete — set up a rewrite so they're served on your own domain",
+  "zh": "/geo 连接 · llms.txt · sitemap 仍是 redirect/不完整 — 请设置 rewrite，让它们在自己的域名上响应",
+  "ja": "/geo の接続 · llms.txt · sitemap がまだ redirect/不完全です — 自社ドメインで応答するよう rewrite を設定してください",
+  "ko": "/geo 연결 · llms.txt · sitemap이 아직 redirect이거나 불완전합니다 — 자체 도메인에서 응답하도록 rewrite를 설정하세요"
+ },
+ "เชื่อม Search Console (เพิ่มบัญชีบริการเป็นผู้ใช้ Full) เพื่อให้เห็น index จริงและส่ง sitemap อัตโนมัติ": {
+  "en": "Connect Search Console (add the service account as a Full user) to see real indexing and submit the sitemap automatically",
+  "zh": "连接 Search Console（将服务账号添加为 Full 用户），以查看真实收录情况并自动提交 sitemap",
+  "ja": "Search Console を連携して（サービスアカウントを Full ユーザーとして追加）、実際のインデックス状況を確認し sitemap を自動送信しましょう",
+  "ko": "Search Console을 연결하세요(서비스 계정을 Full 사용자로 추가). 실제 색인 상태를 보고 sitemap을 자동 제출할 수 있습니다"
+ },
+ "หน้าคอนเทนต์ยังไม่อยู่ใน index เลย (0/{n}) — เพิ่มลิงก์ภายในจากหน้าแรก/เมนู แล้วรอ Google crawl": {
+  "en": "No content pages are indexed yet (0/{n}) — add internal links from the homepage/menu, then wait for Google to crawl",
+  "zh": "内容页尚未被收录（0/{n}）— 请从首页/菜单添加内部链接，然后等待 Google 抓取",
+  "ja": "コンテンツページがまだ1つもインデックスされていません（0/{n}）— トップページ/メニューから内部リンクを張り、Google のクロールを待ちましょう",
+  "ko": "콘텐츠 페이지가 아직 하나도 색인되지 않았습니다(0/{n}) — 홈페이지/메뉴에서 내부 링크를 추가하고 Google 크롤링을 기다리세요"
+ },
+ "อยู่ใน index แค่ {a}/{b} หน้า — ดูสถานะรายหน้าในหน้า Search Console": {
+  "en": "Only {a}/{b} pages are indexed — check per-page status on the Search Console page",
+  "zh": "仅 {a}/{b} 个页面被收录 — 请在 Search Console 页面查看逐页状态",
+  "ja": "インデックス済みは {a}/{b} ページのみです — Search Console のページでページ別の状況を確認してください",
+  "ko": "색인된 페이지가 {a}/{b}개뿐입니다 — Search Console 페이지에서 페이지별 상태를 확인하세요"
+ },
+ "{n} คำถามยังไม่มีคอนเทนต์รองรับ — สร้างจากหน้า คอนเทนต์ (ระบบเขียนให้)": {
+  "en": "{n} questions have no content yet — create it from the Content page (the system writes it for you)",
+  "zh": "{n} 个问题还没有对应内容 — 请在“内容”页面创建（系统会代写）",
+  "ja": "{n} 件の質問にまだ対応するコンテンツがありません — コンテンツページから作成してください（システムが作成します）",
+  "ko": "질문 {n}개에 아직 콘텐츠가 없습니다 — 콘텐츠 페이지에서 만드세요(시스템이 작성합니다)"
+ },
+ "ไม่มีคอนเทนต์เผยแพร่ใหม่ใน {n} วัน — GEO ต้องเติมต่อเนื่อง ตั้ง auto สร้าง/เผยแพร่ได้": {
+  "en": "No new content published in {n} days — GEO needs steady additions; you can set up auto create/publish",
+  "zh": "{n} 天内没有发布新内容 — GEO 需要持续补充，可设置自动生成/发布",
+  "ja": "{n} 日間、新しいコンテンツが公開されていません — GEO は継続的な追加が必要です。自動作成/公開を設定できます",
+  "ko": "{n}일 동안 새로 게시한 콘텐츠가 없습니다 — GEO는 꾸준히 채워야 하며, 자동 작성/게시를 설정할 수 있습니다"
+ },
+ "ผู้ช่วย AI ยังไม่พูดถึงแบรนด์เลย — ดูว่า AI อ้างหน้าแบบไหนของคู่แข่ง (หน้า มองเห็นบน AI) แล้วทำหน้าแบบนั้น": {
+  "en": "AI assistants don't mention the brand at all yet — see which kinds of competitor pages AI cites (on the AI visibility page) and build pages like those",
+  "zh": "AI 助手还完全没有提到品牌 — 查看 AI 引用了竞争对手的哪类页面（见“AI 可见度”页面），然后做同类页面",
+  "ja": "AI アシスタントはまだブランドに一度も触れていません — AI が競合のどんなページを引用しているか（AI での露出ページ）を確認し、同じタイプのページを作りましょう",
+  "ko": "AI 어시스턴트가 아직 브랜드를 전혀 언급하지 않습니다 — AI가 경쟁사의 어떤 페이지를 인용하는지(AI 가시성 페이지) 확인하고 그런 페이지를 만드세요"
+ },
+ "ความเร็วมือถือ {n}/100 — แก้ตามรายการในหน้า ความเร็วเว็บ (เริ่มจากที่ประหยัดเวลาได้มากสุด)": {
+  "en": "Mobile speed {n}/100 — fix the items on the Site speed page (start with the biggest time savings)",
+  "zh": "手机速度 {n}/100 — 按“网站速度”页面中的项目修复（从节省时间最多的开始）",
+  "ja": "モバイル速度 {n}/100 — サイト速度ページの項目を修正してください（短縮効果が大きいものから）",
+  "ko": "모바일 속도 {n}/100 — 사이트 속도 페이지의 항목을 고치세요(가장 많이 줄일 수 있는 것부터)"
+ },
+ "สุขภาพเว็บยังตก: {fails}": {
+  "en": "Site health still failing: {fails}",
+  "zh": "网站健康仍未通过：{fails}",
+  "ja": "サイトの健全性で不合格: {fails}",
+  "ko": "사이트 상태 실패 항목: {fails}"
+ },
+ "สร้าง PDF ไม่ได้ตอนนี้ ({err}) — ใช้ Print → Save as PDF ของเบราว์เซอร์แทนได้": {
+  "en": "Can't create the PDF right now ({err}) — use your browser's Print → Save as PDF instead",
+  "zh": "暂时无法生成 PDF（{err}）— 可改用浏览器的 打印 → 另存为 PDF",
+  "ja": "現在 PDF を作成できません（{err}）— 代わりにブラウザの 印刷 → PDF に保存 をお使いください",
+  "ko": "지금은 PDF를 만들 수 없습니다({err}) — 대신 브라우저의 인쇄 → PDF로 저장을 사용하세요"
+ },
+ "มอนิเตอร์ SoV": {
+  "en": "SoV monitoring",
+  "zh": "SoV 监测",
+  "ja": "SoV モニタリング",
+  "ko": "SoV 모니터링"
+ },
+ "เขียนคอนเทนต์ปิดช่องว่าง": {
+  "en": "Write content to close gaps",
+  "zh": "撰写内容填补空缺",
+  "ja": "ギャップを埋めるコンテンツ作成",
+  "ko": "공백을 메우는 콘텐츠 작성"
+ },
+ "รายงาน + อีเมล": {
+  "en": "Report + email",
+  "zh": "报告 + 邮件",
+  "ja": "レポート + メール",
+  "ko": "리포트 + 이메일"
+ },
+ "แจ้งเตือน": {
+  "en": "Notification",
+  "zh": "通知",
+  "ja": "通知",
+  "ko": "알림"
+ },
+ "สร้างเป็นร่าง — คนตรวจก่อนเผยแพร่": {
+  "en": "Create as draft — a person reviews before publishing",
+  "zh": "创建为草稿 — 人工审核后再发布",
+  "ja": "下書きとして作成 — 公開前に人が確認",
+  "ko": "임시 저장으로 작성 — 사람이 검토한 뒤 게시"
+ },
+ "สร้างแล้วเผยแพร่เลย": {
+  "en": "Create and publish right away",
+  "zh": "创建后立即发布",
+  "ja": "作成してすぐに公開",
+  "ko": "작성 후 바로 게시"
+ },
+ "เพิ่งทำเมื่อ {n} ชม.ก่อน": {
+  "en": "done {n} h ago",
+  "zh": "{n} 小时前刚做过",
+  "ja": "{n} 時間前に実施済み",
+  "ko": "{n}시간 전에 실행함"
+ },
+ "เพิ่งทำไปไม่ถึงชั่วโมง": {
+  "en": "done less than an hour ago",
+  "zh": "不到一小时前刚做过",
+  "ja": "1時間以内に実施済み",
+  "ko": "1시간 이내에 실행함"
+ },
+ "ตั้งไว้ 0 ชิ้น (วัดอย่างเดียว)": {
+  "en": "set to 0 pieces (measure only)",
+  "zh": "设为 0 篇（仅测量）",
+  "ja": "0件に設定（計測のみ）",
+  "ko": "0개로 설정(측정만)"
+ },
+ "ไม่มีฟังก์ชันของขั้นนี้": {
+  "en": "no function for this step",
+  "zh": "此步骤没有对应功能",
+  "ja": "この手順の機能がありません",
+  "ko": "이 단계의 기능이 없습니다"
+ },
+ "SoV {a}/{b} คำถาม": {
+  "en": "SoV {a}/{b} questions",
+  "zh": "SoV {a}/{b} 个问题",
+  "ja": "SoV {a}/{b} 問",
+  "ko": "SoV 질문 {a}/{b}개"
+ },
+ "ติดอันดับ {a}/{b}": {
+  "en": "Ranked {a}/{b}",
+  "zh": "上榜 {a}/{b}",
+  "ja": "ランクイン {a}/{b}",
+  "ko": "순위 진입 {a}/{b}"
+ },
+ "ติดอันดับ {a}/{b} เฉลี่ย #{avg}": {
+  "en": "Ranked {a}/{b}, avg. #{avg}",
+  "zh": "上榜 {a}/{b}，平均 #{avg}",
+  "ja": "ランクイン {a}/{b}、平均 #{avg}",
+  "ko": "순위 진입 {a}/{b}, 평균 #{avg}"
+ },
+ "ยังไม่ได้เชื่อม — {reason}": {
+  "en": "Not connected — {reason}",
+  "zh": "尚未连接 — {reason}",
+  "ja": "未連携 — {reason}",
+  "ko": "연결 안 됨 — {reason}"
+ },
+ "index {a}/{b} · ส่ง sitemap ให้แล้ว": {
+  "en": "index {a}/{b} · sitemap submitted",
+  "zh": "收录 {a}/{b} · 已提交 sitemap",
+  "ja": "インデックス {a}/{b} · sitemap を送信済み",
+  "ko": "색인 {a}/{b} · sitemap 제출함"
+ },
+ "ไม่ผ่าน {n} ข้อ: {checks}": {
+  "en": "{n} checks failed: {checks}",
+  "zh": "{n} 项未通过：{checks}",
+  "ja": "不合格 {n} 件: {checks}",
+  "ko": "{n}개 항목 실패: {checks}"
+ },
+ "มือถือ {n}": {
+  "en": "Mobile {n}",
+  "zh": "手机 {n}",
+  "ja": "モバイル {n}",
+  "ko": "모바일 {n}"
+ },
+ "สแกนไม่ได้ — {err}": {
+  "en": "Couldn't scan — {err}",
+  "zh": "无法扫描 — {err}",
+  "ja": "スキャンできませんでした — {err}",
+  "ko": "스캔하지 못했습니다 — {err}"
+ },
+ "ถูกพูดถึง {rate}% จาก {n} คำตอบ · ${cost}": {
+  "en": "Mentioned {rate}% of {n} answers · ${cost}",
+  "zh": "{n} 个回答中被提及 {rate}% · ${cost}",
+  "ja": "{n} 件の回答中 {rate}% で言及 · ${cost}",
+  "ko": "답변 {n}개 중 {rate}% 언급 · ${cost}"
+ },
+ "ข้าม — ยังไม่มีคีย์ AI": {
+  "en": "Skipped — no AI key yet",
+  "zh": "跳过 — 尚无 AI 密钥",
+  "ja": "スキップ — AI のキー未設定",
+  "ko": "건너뜀 — AI 키 없음"
+ },
+ "ถามไม่สำเร็จ": {
+  "en": "Asking failed",
+  "zh": "询问失败",
+  "ja": "質問に失敗しました",
+  "ko": "질문 실패"
+ },
+ "ไม่มีช่องว่างที่ยังไม่มีคอนเทนต์": {
+  "en": "No gaps without content",
+  "zh": "没有尚无内容的空缺",
+  "ja": "コンテンツのないギャップはありません",
+  "ko": "콘텐츠가 없는 공백이 없습니다"
+ },
+ "สร้าง {n} ชิ้น (ร่าง)": {
+  "en": "Created {n} pieces (drafts)",
+  "zh": "已创建 {n} 篇（草稿）",
+  "ja": "{n} 件作成（下書き）",
+  "ko": "{n}개 작성(임시 저장)"
+ },
+ "สร้าง {n} ชิ้น เผยแพร่ {p}": {
+  "en": "Created {n} pieces, published {p}",
+  "zh": "已创建 {n} 篇，发布 {p} 篇",
+  "ja": "{n} 件作成、{p} 件公開",
+  "ko": "{n}개 작성, {p}개 게시"
+ },
+ "สร้าง {n} ชิ้น (ร่าง) · โควตาแพ็กเกจเต็ม": {
+  "en": "Created {n} pieces (drafts) · plan quota used up",
+  "zh": "已创建 {n} 篇（草稿）· 套餐配额已用完",
+  "ja": "{n} 件作成（下書き）· プランの上限に達しました",
+  "ko": "{n}개 작성(임시 저장) · 플랜 할당량 소진"
+ },
+ "สร้าง {n} ชิ้น เผยแพร่ {p} · โควตาแพ็กเกจเต็ม": {
+  "en": "Created {n} pieces, published {p} · plan quota used up",
+  "zh": "已创建 {n} 篇，发布 {p} 篇 · 套餐配额已用完",
+  "ja": "{n} 件作成、{p} 件公開 · プランの上限に達しました",
+  "ko": "{n}개 작성, {p}개 게시 · 플랜 할당량 소진"
+ },
+ "แจ้งแล้ว": {
+  "en": "Notified",
+  "zh": "已通知",
+  "ja": "通知済み",
+  "ko": "알림 보냄"
+ },
+ "เสร็จ": {
+  "en": "Done",
+  "zh": "完成",
+  "ja": "完了",
+  "ko": "완료"
+ },
+ "ไม่มี SMTP — ดูรายงานได้ที่หน้า รายงาน & ส่งออก": {
+  "en": "No SMTP — view the report on the Reports & export page",
+  "zh": "未设置 SMTP — 可在“报告与导出”页面查看报告",
+  "ja": "SMTP がありません — レポートは「レポート & エクスポート」ページで確認できます",
+  "ko": "SMTP 없음 — 리포트는 리포트 & 내보내기 페이지에서 볼 수 있습니다"
+ },
+ "ไม่ได้ส่งอีเมล — อีเมลเจ้าของแบรนด์ ({email}) ยังเป็นที่อยู่สมมติ แก้ที่แผงผู้ดูแล → ลูกค้า": {
+  "en": "Email not sent — the brand owner's email ({email}) is still a placeholder address; fix it in Admin panel → Customers",
+  "zh": "未发送邮件 — 品牌所有者的邮箱（{email}）仍是占位地址，请在 管理面板 → 客户 中修改",
+  "ja": "メールを送信していません — ブランドオーナーのメール（{email}）がまだ仮のアドレスです。管理パネル → 顧客 で修正してください",
+  "ko": "이메일을 보내지 않았습니다 — 브랜드 소유자 이메일({email})이 아직 임시 주소입니다. 관리 패널 → 고객에서 수정하세요"
+ },
+ "ส่งอีเมลรายงานถึง {email}": {
+  "en": "Report emailed to {email}",
+  "zh": "已将报告发送至 {email}",
+  "ja": "レポートを {email} にメール送信しました",
+  "ko": "리포트를 {email}(으)로 보냈습니다"
+ },
+ "ส่งอีเมลรายงานถึง {email} พร้อม PDF": {
+  "en": "Report emailed to {email} with PDF",
+  "zh": "已将报告连同 PDF 发送至 {email}",
+  "ja": "レポートを PDF 付きで {email} にメール送信しました",
+  "ko": "리포트를 PDF와 함께 {email}(으)로 보냈습니다"
+ },
+ "เผยแพร่ไม่สำเร็จ: {msg}": {
+  "en": "publish failed: {msg}",
+  "zh": "发布失败：{msg}",
+  "ja": "公開に失敗しました: {msg}",
+  "ko": "게시 실패: {msg}"
+ },
+ "ยังไม่เคยมอนิเตอร์ — ระบบต้องวัดก่อนว่าแบรนด์ยังไม่โผล่ข้อไหน แล้วค่อยเขียน (กด “รันมอนิเตอร์”)": {
+  "en": "Not monitored yet — the system first measures which questions the brand doesn't appear for, then writes (click “Run monitoring”)",
+  "zh": "尚未监测 — 系统需要先测出品牌在哪些问题中未出现，再撰写（点击“运行监测”）",
+  "ja": "まだモニタリングしていません — まずブランドが表示されない質問を計測してから作成します（「モニタリングを実行」を押してください）",
+  "ko": "아직 모니터링하지 않았습니다 — 먼저 브랜드가 노출되지 않는 질문을 측정한 뒤 작성합니다(“모니터링 실행”을 누르세요)"
+ },
+ "มีคำถามรอเขียน {n} ข้อ แต่โควตาคอนเทนต์เดือนนี้เต็ม — เริ่มใหม่เดือนหน้า": {
+  "en": "{n} questions are waiting to be written, but this month's content quota is used up — it resets next month",
+  "zh": "有 {n} 个问题待撰写，但本月内容配额已用完 — 下月重置",
+  "ja": "作成待ちの質問が {n} 件ありますが、今月のコンテンツ上限に達しました — 来月リセットされます",
+  "ko": "작성 대기 중인 질문이 {n}개 있지만 이번 달 콘텐츠 할당량이 소진되었습니다 — 다음 달에 초기화됩니다"
+ },
+ "ปิดครบทุกคำถามที่วัดแล้ว · คำถามใหม่ {n} ข้อรอมอนิเตอร์รอบหน้า วัดก่อน — จะเขียนให้เฉพาะข้อที่ยังไม่โผล่": {
+  "en": "All measured questions are covered · {n} new questions await the next monitoring round — once measured, content is written only for the ones that don't appear",
+  "zh": "所有已测量的问题都已覆盖 · {n} 个新问题等待下一轮监测 — 测量后只为未出现的问题撰写",
+  "ja": "計測済みの質問はすべてカバーしました · 新しい質問 {n} 件は次回のモニタリング待ちです — 計測後、表示されない質問だけ作成します",
+  "ko": "측정한 질문은 모두 다뤘습니다 · 새 질문 {n}개가 다음 모니터링을 기다립니다 — 측정 후 노출되지 않는 질문만 작성합니다"
+ },
+ "ปิดครบทุกคำถามที่วัดแล้ว · คำถามใหม่ {n} ข้อรอมอนิเตอร์รอบหน้า{when} วัดก่อน — จะเขียนให้เฉพาะข้อที่ยังไม่โผล่": {
+  "en": "All measured questions are covered · {n} new questions await the next monitoring round{when} — once measured, content is written only for the ones that don't appear",
+  "zh": "所有已测量的问题都已覆盖 · {n} 个新问题等待下一轮监测{when} — 测量后只为未出现的问题撰写",
+  "ja": "計測済みの質問はすべてカバーしました · 新しい質問 {n} 件は次回のモニタリング{when}待ちです — 計測後、表示されない質問だけ作成します",
+  "ko": "측정한 질문은 모두 다뤘습니다 · 새 질문 {n}개가 다음 모니터링{when}을 기다립니다 — 측정 후 노출되지 않는 질문만 작성합니다"
+ },
+ "ปิดครบทุกคำถามแล้ว ({n} ข้อ) แต่โควตาคอนเทนต์เดือนนี้เต็ม — เริ่มใหม่เดือนหน้า": {
+  "en": "All questions covered ({n}), but this month's content quota is used up — it resets next month",
+  "zh": "所有问题都已覆盖（{n} 个），但本月内容配额已用完 — 下月重置",
+  "ja": "すべての質問をカバーしました（{n} 件）が、今月のコンテンツ上限に達しました — 来月リセットされます",
+  "ko": "모든 질문을 다뤘지만({n}개) 이번 달 콘텐츠 할당량이 소진되었습니다 — 다음 달에 초기화됩니다"
+ },
+ "ปิดครบทุกคำถามแล้ว ({n} ข้อ) — ถึงเพดาน {max} คำถาม ระบบไม่คิดเพิ่ม ลบคำถามที่ไม่ต้องการออกถ้าอยากให้คิดใหม่": {
+  "en": "All questions covered ({n}) — the {max}-question cap is reached, so no new ones will be generated. Delete questions you don't need if you want new ones",
+  "zh": "所有问题都已覆盖（{n} 个）— 已达 {max} 个问题上限，系统不再新增。如需新问题，请删除不需要的问题",
+  "ja": "すべての質問をカバーしました（{n} 件）— 上限の {max} 問に達したため、これ以上は追加しません。新しい質問が欲しい場合は不要な質問を削除してください",
+  "ko": "모든 질문을 다뤘습니다({n}개) — 질문 상한 {max}개에 도달해 더 만들지 않습니다. 새 질문을 원하면 필요 없는 질문을 삭제하세요"
+ }
+}

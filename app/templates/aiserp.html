@@ -3,63 +3,63 @@
 {% block content %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>Google AI Overview / AI Mode</h1>
-<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — คำตอบ AI ของ Google เองสำหรับคำถามเป้าหมาย: กล่อง AI Overview เหนือผลค้นหา และแท็บ AI Mode พูดถึงหรืออ้างอิงแบรนด์ไหม</p>
+<p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("คำตอบ AI ของ Google เองสำหรับคำถามเป้าหมาย: กล่อง AI Overview เหนือผลค้นหา และแท็บ AI Mode พูดถึงหรืออ้างอิงแบรนด์ไหม") }}</p>
 
 {# คนละตัวเลขกับ SoV (ผลค้น 10 ลิงก์) และ "มองเห็นบน AI" (ChatGPT/Perplexity/Gemini) — นี่คือ AI ของ Google ที่คนไทยเจอก่อนเพื่อน #}
 {% if not available %}
 <div class="card" style="border-color:var(--amber,#e0a800)">
-  <b>⚠️ ยังไม่ได้ตั้งคีย์ SerpApi</b>
-  <p class="muted" style="margin:6px 0 0">Google ไม่มี API สำหรับ AI Overview/AI Mode และ Serper ที่ใช้วัด SoV ก็ไม่ให้ — ต้องใช้ SerpApi (แผนฟรี 100 search/เดือน)
-    {%- if request.session.get('is_admin') %} ใส่ได้ที่ <a class="link" href="/admin/settings">ตั้งค่าระบบ</a>{% else %} (แจ้งผู้ดูแลระบบ){% endif %}</p>
+  <b>⚠️ {{ _("ยังไม่ได้ตั้งคีย์ SerpApi") }}</b>
+  <p class="muted" style="margin:6px 0 0">{{ _("Google ไม่มี API สำหรับ AI Overview/AI Mode และ Serper ที่ใช้วัด SoV ก็ไม่ให้ — ต้องใช้ SerpApi (แผนฟรี 100 search/เดือน)") }}
+    {%- if request.session.get('is_admin') %} {{ _("ใส่ได้ที่") }} <a class="link" href="/admin/settings">{{ _("ตั้งค่าระบบ") }}</a>{% else %} ({{ _("แจ้งผู้ดูแลระบบ") }}){% endif %}</p>
 </div>
 {% endif %}
 
-{% if saved %}<div class="ok-banner">บันทึกแล้ว</div>{% endif %}
+{% if saved %}<div class="ok-banner">{{ _("บันทึกแล้ว") }}</div>{% endif %}
 {# เลือกเป็นรายแบรนด์ว่าจะให้ cron จันทร์ 10:30 เช็คให้ไหม — ทุกคำถามกินโควตา SerpApi แผนฟรีมีแค่ 100/เดือน #}
 <div class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13.5px">
   <form method="post" action="/brands/{{ brand['id'] }}/ai-serp/auto" style="display:flex;gap:8px;align-items:center;margin:0">
-    <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0"><input type="checkbox" name="on" value="1" {% if brand['aiserp_auto'] %}checked{% endif %} onchange="this.form.submit()" style="width:auto"> เช็คอัตโนมัติทุกจันทร์ 10:30</label>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0"><input type="checkbox" name="on" value="1" {% if brand['aiserp_auto'] %}checked{% endif %} onchange="this.form.submit()" style="width:auto"> {{ _("เช็คอัตโนมัติทุกจันทร์ 10:30") }}</label>
   </form>
-  <span class="muted">แบรนด์นี้ ≈ <b>{{ est_round }} search/รอบ</b> ({{ 2 }} แบบ × สูงสุด {{ max_q }} คำถาม)</span>
-  <span class="muted" style="margin-left:auto">เปิดอยู่ {{ auto_brands|length }} แบรนด์ ≈ <b>{{ auto_month }} search/เดือน</b>
-    {%- if auto_month > 100 %} — เกินแผนฟรี SerpApi (100/เดือน) ต้องแผนเสียเงินหรือลดแบรนด์{% elif auto_brands %} — อยู่ในแผนฟรี{% endif %}</span>
+  <span class="muted">{{ _("แบรนด์นี้") }} ≈ <b>{{ _("{n} search/รอบ", n=est_round) }}</b> ({{ _("{k} แบบ × สูงสุด {n} คำถาม", k=2, n=max_q) }})</span>
+  <span class="muted" style="margin-left:auto">{{ _("เปิดอยู่ {n} แบรนด์", n=auto_brands|length) }} ≈ <b>{{ _("{n} search/เดือน", n=auto_month) }}</b>
+    {%- if auto_month > 100 %} — {{ _("เกินแผนฟรี SerpApi (100/เดือน) ต้องแผนเสียเงินหรือลดแบรนด์") }}{% elif auto_brands %} — {{ _("อยู่ในแผนฟรี") }}{% endif %}</span>
 </div>
 
 <form method="post" action="/brands/{{ brand['id'] }}/ai-serp/run" style="margin:14px 0">
-  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ 'กำลังเช็ค…' if running else 'เช็คตอนนี้' }}</button>
-  <span class="muted" style="margin-left:8px;font-size:12px">ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที</span>
+  <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ _('กำลังเช็ค…') if running else _('เช็คตอนนี้') }}</button>
+  <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที") }}</span>
 </form>
 
 {% if running and not report %}
-<div class="card"><p class="muted">กำลังเช็ค — รอสักครู่แล้วรีเฟรชหน้านี้</p></div>
+<div class="card"><p class="muted">{{ _("กำลังเช็ค — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>
 {% elif not report %}
-<div class="card"><p class="muted">ยังไม่เคยเช็ค — กด "เช็คตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)</p></div>
+<div class="card"><p class="muted">{{ _('ยังไม่เคยเช็ค — กด "เช็คตอนนี้" เพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)') }}</p></div>
 {% elif report.skip %}
-<div class="card"><p class="muted" style="margin:0">รอบล่าสุด {{ report.checked_at[:16].replace('T', ' ') }} ถูกข้าม — {{ report.skip }}</p></div>
+<div class="card"><p class="muted" style="margin:0">{{ _("รอบล่าสุด {at} ถูกข้าม", at=report.checked_at[:16].replace('T', ' ')) }} — {{ report.skip|tr }}</p></div>
 {% else %}
 {% set ov = report.by_kind.overview %}{% set md = report.by_kind.mode %}
 <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
   <div style="text-align:center">
-    <div class="muted">AI Overview พูดถึงเรา</div>
+    <div class="muted">{{ _("AI Overview พูดถึงเรา") }}</div>
     <div class="sov {{ 'pos' if (ov.cited + ov.named) else 'no' }}">{{ ov.cited + ov.named }}/{{ ov.shown }}</div>
-    <div class="muted">จากคำถามที่ Google แสดง AI Overview{% if ov.none %} · อีก {{ ov.none }} ข้อไม่แสดง{% endif %}</div>
+    <div class="muted">{{ _("จากคำถามที่ Google แสดง AI Overview") }}{% if ov.none %} · {{ _("อีก {n} ข้อไม่แสดง", n=ov.none) }}{% endif %}</div>
   </div>
   <div style="text-align:center">
-    <div class="muted">AI Mode พูดถึงเรา</div>
+    <div class="muted">{{ _("AI Mode พูดถึงเรา") }}</div>
     <div class="sov {{ 'pos' if (md.cited + md.named) else 'no' }}">{{ md.cited + md.named }}/{{ md.shown }}</div>
-    <div class="muted">อ้างอิง {{ md.cited }} · เอ่ยชื่อ {{ md.named }}</div>
+    <div class="muted">{{ _("อ้างอิง {cited} · เอ่ยชื่อ {named}", cited=md.cited, named=md.named) }}</div>
   </div>
   <div style="margin-left:auto;text-align:right">
-    <div class="muted">เช็คล่าสุด</div>
+    <div class="muted">{{ _("เช็คล่าสุด") }}</div>
     <div>{{ report.checked_at[:16].replace('T', ' ') }}</div>
-    <div class="muted" style="font-size:12px">ใช้ {{ report.searches }} search{% if ov.errors + md.errors %} · <span class="pill no">ผิดพลาด {{ ov.errors + md.errors }}</span>{% endif %}</div>
+    <div class="muted" style="font-size:12px">{{ _("ใช้ {n} search", n=report.searches) }}{% if ov.errors + md.errors %} · <span class="pill no">{{ _("ผิดพลาด {n}", n=ov.errors + md.errors) }}</span>{% endif %}</div>
   </div>
 </div>
 
-<h2>รายคำถาม</h2>
+<h2>{{ _("รายคำถาม") }}</h2>
 <div class="card" style="overflow-x:auto">
   <table>
-    <tr><th>คำถาม</th>{% for k, label in kinds.items() %}<th style="text-align:center">{{ label }}</th>{% endfor %}</tr>
+    <tr><th>{{ _("คำถาม") }}</th>{% for k, label in kinds.items() %}<th style="text-align:center">{{ label }}</th>{% endfor %}</tr>
     {% for m in matrix %}
     <tr>
       <td>{{ m.q }}</td>
@@ -67,19 +67,19 @@
       {% set c = m.cells.get(k) %}
       <td style="text-align:center">
         {%- if not c %}<span class="muted">–</span>
-        {%- elif c.status == 'cited' %}<span class="pill ok">อ้างอิงเว็บเรา</span>
-        {%- elif c.status == 'named' %}<span class="pill ok" style="opacity:.75">เอ่ยชื่อ</span>
-        {%- elif c.status == 'absent' %}<span class="pill no">ไม่พูดถึง</span>
-        {%- elif c.status == 'none' %}<span class="pill" title="Google ไม่แสดง AI Overview สำหรับคำถามนี้ — ไม่นับ">ไม่มี AI Overview</span>
-        {%- elif c.status == 'error' %}<span class="pill no" title="{{ c.reason }}">ผิดพลาด</span>
+        {%- elif c.status == 'cited' %}<span class="pill ok">{{ _("อ้างอิงเว็บเรา") }}</span>
+        {%- elif c.status == 'named' %}<span class="pill ok" style="opacity:.75">{{ _("เอ่ยชื่อ") }}</span>
+        {%- elif c.status == 'absent' %}<span class="pill no">{{ _("ไม่พูดถึง") }}</span>
+        {%- elif c.status == 'none' %}<span class="pill" title="{{ _("Google ไม่แสดง AI Overview สำหรับคำถามนี้ — ไม่นับ") }}">{{ _("ไม่มี AI Overview") }}</span>
+        {%- elif c.status == 'error' %}<span class="pill no" title="{{ c.reason }}">{{ _("ผิดพลาด") }}</span>
         {%- else %}<span class="muted">{{ c.status }}</span>{% endif %}
       </td>
       {% endfor %}
     </tr>
-    {% set srcs = [] %}{% for k in kinds %}{% if m.cells.get(k) %}{% for u in m.cells[k].sources %}{% set _ = srcs.append((kinds[k], u)) %}{% endfor %}{% endif %}{% endfor %}
+    {% set srcs = [] %}{% for k in kinds %}{% if m.cells.get(k) %}{% for u in m.cells[k].sources %}{% set _x = srcs.append((kinds[k], u)) %}{% endfor %}{% endif %}{% endfor %}
     {% if srcs %}
     <tr><td colspan="{{ 1 + kinds|length }}" style="padding:0 0 10px 12px;border-top:0">
-      <details><summary class="muted" style="cursor:pointer;font-size:12px">แหล่งที่ Google อ้าง {{ srcs|length }} รายการ · ข้อความคำตอบ</summary>
+      <details><summary class="muted" style="cursor:pointer;font-size:12px">{{ _("แหล่งที่ Google อ้าง {n} รายการ · ข้อความคำตอบ", n=srcs|length) }}</summary>
         <div style="font-size:12px;margin-top:6px;line-height:1.7">
           {% for k in kinds %}{% set c = m.cells.get(k) %}{% if c and (c.sources or c.excerpt) %}
           <div><b>{{ kinds[k] }}</b>
@@ -96,10 +96,10 @@
 </div>
 
 {% if rivals %}
-<h2>เว็บที่ Google AI อ้างอิงแทนเรา</h2>
+<h2>{{ _("เว็บที่ Google AI อ้างอิงแทนเรา") }}</h2>
 <div class="card">
   <table>
-    <tr><th>โดเมน</th><th>ถูกอ้างกี่ครั้ง</th></tr>
+    <tr><th>{{ _("โดเมน") }}</th><th>{{ _("ถูกอ้างกี่ครั้ง") }}</th></tr>
     {% for host, n in rivals %}
     <tr><td><a class="link" href="https://{{ host }}" target="_blank" rel="noopener">{{ host }}</a></td><td>{{ n }}</td></tr>
     {% endfor %}
@@ -108,8 +108,10 @@
 {% endif %}
 
 <p class="muted" style="font-size:12px">
-  <b>อ้างอิงเว็บเรา</b> = Google AI ใช้หน้าเว็บแบรนด์เป็นแหล่ง · <b>เอ่ยชื่อ</b> = พูดถึงแบรนด์แต่อ้างที่อื่น · <b>ไม่มี AI Overview</b> = Google ไม่ขึ้นกล่อง AI สำหรับคำถามนั้น (ไม่ใช่ความผิดของแบรนด์ ไม่นับเข้าตัวหาร) ·
-  ตัวเลขนี้คนละชุดกับ <a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a> (ผลค้น 10 ลิงก์) และ <a class="link" href="/brands/{{ brand['id'] }}/ai">มองเห็นบน AI</a> (ChatGPT/Perplexity/Gemini) · ค้นแบบประเทศไทย/ภาษาไทย ผลอาจต่างจากที่เห็นในเครื่องตัวเองซึ่งขึ้นกับประวัติและตำแหน่ง
+  <b>{{ _("อ้างอิงเว็บเรา") }}</b> = {{ _("Google AI ใช้หน้าเว็บแบรนด์เป็นแหล่ง") }} · <b>{{ _("เอ่ยชื่อ") }}</b> = {{ _("พูดถึงแบรนด์แต่อ้างที่อื่น") }} · <b>{{ _("ไม่มี AI Overview") }}</b> = {{ _("Google ไม่ขึ้นกล่อง AI สำหรับคำถามนั้น (ไม่ใช่ความผิดของแบรนด์ ไม่นับเข้าตัวหาร)") }} ·
+  {%- set sov_link %}<a class="link" href="/brands/{{ brand['id'] }}/progress">SoV</a>{% endset %}
+  {%- set ai_link %}<a class="link" href="/brands/{{ brand['id'] }}/ai">{{ _("มองเห็นบน AI") }}</a>{% endset %}
+  {{ _("ตัวเลขนี้คนละชุดกับ {sov} (ผลค้น 10 ลิงก์) และ {ai} (ChatGPT/Perplexity/Gemini)", sov=sov_link, ai=ai_link)|safe }} · {{ _("ค้นแบบประเทศไทย/ภาษาไทย ผลอาจต่างจากที่เห็นในเครื่องตัวเองซึ่งขึ้นกับประวัติและตำแหน่ง") }}
 </p>
 {% endif %}
 {% if running %}

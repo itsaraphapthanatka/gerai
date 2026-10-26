@@ -1,84 +1,86 @@
 {% extends "base.html" %}
-{% block title %}คอนเทนต์ GEO — {{ brand['name'] }}{% endblock %}
+{% block title %}{{ _("คอนเทนต์ GEO") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{# แปลข้อความที่ระบบเก็บไว้เป็นไทย · ไม่มีคำแปลทั้งก้อน → แปลทีละท่อนที่คั่นด้วย " · " #}
+{% macro trx(s) %}{% set t = (s or '')|tr %}{% if t == s and ' · ' in (s or '') %}{{ s.split(' · ')|map('tr')|join(' · ') }}{% else %}{{ t }}{% endif %}{% endmacro %}
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
   <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
-  <h1 style="margin:0">คอนเทนต์ GEO</h1>
+  <h1 style="margin:0">{{ _("คอนเทนต์ GEO") }}</h1>
 </div>
-<p class="muted">สร้างบทความ + Schema JSON-LD จากคำถามเป้าหมาย แล้วเผยแพร่เข้า WordPress</p>
+<p class="muted">{{ _("สร้างบทความ + Schema JSON-LD จากคำถามเป้าหมาย แล้วเผยแพร่เข้า WordPress") }}</p>
 
-{% if limit_msg %}<div class="err">{{ limit_msg }}</div>{% endif %}
+{% if limit_msg %}<div class="err">{{ limit_msg|tr }}</div>{% endif %}
 
 <!-- auto สร้างร่าง + โหมดเผยแพร่ -->
 <div class="card" style="margin-bottom:12px;border-color:var(--purple)">
-  <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 auto สร้างคอนเทนต์ปิด gap</div>
-  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ — แล้ว<b>คิดคำถามใหม่เพิ่มเอง</b> (รอบละ {{ auto_topup[0] }} ข้อ ไม่เกิน {{ auto_topup[1] }} ข้อ/แบรนด์) ให้มอนิเตอร์วัดก่อน ค่อยเขียนต่อ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)</div>
+  <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 {{ _("auto สร้างคอนเทนต์ปิด gap") }}</div>
+  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">{{ _("ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ — แล้ว") }}<b>{{ _("คิดคำถามใหม่เพิ่มเอง") }}</b> {{ _("(รอบละ {n} ข้อ ไม่เกิน {max} ข้อ/แบรนด์) ให้มอนิเตอร์วัดก่อน ค่อยเขียนต่อ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)", n=auto_topup[0], max=auto_topup[1]) }}</div>
 
   <div style="display:flex;gap:20px;flex-wrap:wrap">
     {% set curw = brand['auto_content_weekly'] or 0 %}
     <form method="post" action="/brands/{{ brand['id'] }}/auto-content" style="display:flex;flex-direction:column;gap:6px">
-      <label style="font-size:12px;font-weight:600">1. ความถี่สร้างร่าง</label>
+      <label style="font-size:12px;font-weight:600">1. {{ _("ความถี่สร้างร่าง") }}</label>
       <div style="display:flex;gap:8px;align-items:center">
         <select name="weekly" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
           {% for n, label in auto_content_choices %}
-          <option value="{{ n }}" {% if n == curw %}selected{% endif %}>{{ label }}</option>
+          <option value="{{ n }}" {% if n == curw %}selected{% endif %}>{{ label|tr }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="sm">บันทึก</button>
+        <button type="submit" class="sm">{{ _("บันทึก") }}</button>
       </div>
     </form>
 
     {% set curp = brand['auto_publish_days'] if brand['auto_publish_days'] is not none else -1 %}
     <form method="post" action="/brands/{{ brand['id'] }}/auto-publish" style="display:flex;flex-direction:column;gap:6px">
-      <label style="font-size:12px;font-weight:600">2. เมื่อสร้างร่างแล้ว</label>
+      <label style="font-size:12px;font-weight:600">2. {{ _("เมื่อสร้างร่างแล้ว") }}</label>
       <div style="display:flex;gap:8px;align-items:center">
         <select name="days" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
           {% for n, label in auto_publish_choices %}
-          <option value="{{ n }}" {% if n == curp %}selected{% endif %}>{{ label }}</option>
+          <option value="{{ n }}" {% if n == curp %}selected{% endif %}>{{ label|tr }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="sm">บันทึก</button>
+        <button type="submit" class="sm">{{ _("บันทึก") }}</button>
       </div>
     </form>
 
     <form method="post" action="/brands/{{ brand['id'] }}/auto-image" style="display:flex;flex-direction:column;gap:6px">
-      <label style="font-size:12px;font-weight:600">3. แนบรูปประกอบ {% if not can_images %}<span class="pill admin" style="font-size:9px">Pro</span>{% endif %}</label>
+      <label style="font-size:12px;font-weight:600">3. {{ _("แนบรูปประกอบ") }} {% if not can_images %}<span class="pill admin" style="font-size:9px">Pro</span>{% endif %}</label>
       <div style="display:flex;gap:8px;align-items:center">
         <select name="on" onchange="this.form.submit()" {% if not can_images %}disabled{% endif %} style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
-          <option value="0" {% if not brand['auto_image'] %}selected{% endif %}>ปิด</option>
-          <option value="1" {% if brand['auto_image'] %}selected{% endif %}>เปิด (AI หา/สร้างรูป)</option>
+          <option value="0" {% if not brand['auto_image'] %}selected{% endif %}>{{ _("ปิด") }}</option>
+          <option value="1" {% if brand['auto_image'] %}selected{% endif %}>{{ _("เปิด (AI หา/สร้างรูป)") }}</option>
         </select>
       </div>
-      {% if not can_images %}<a href="/upgrade" class="link" style="font-size:11px">🔒 อัปเกรด Pro เพื่อใช้</a>{% endif %}
+      {% if not can_images %}<a href="/upgrade" class="link" style="font-size:11px">🔒 {{ _("อัปเกรด Pro เพื่อใช้") }}</a>{% endif %}
     </form>
   </div>
   {% if auto_status %}
   {# สถานะจริงของ auto — ไม่งั้นเห็นแค่ "3 ชิ้น/สัปดาห์" แล้วไม่รู้ว่าทำไมไม่มีอะไรเกิดขึ้น #}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;border-radius:8px;padding:8px 11px;{% if auto_status.queue.tone == 'warn' %}background:#fff6e6;border:1px solid #ffe2a8{% else %}background:#f3f0ff;border:1px solid #ddd6fe{% endif %}">
-    🤖 {{ auto_status.progress }}<br>{{ auto_status.queue.text }}
+    🤖 {{ trx(auto_status.progress) }}<br>{{ auto_status.queue.text|tr }}
   </div>
   {% endif %}
   {% if brand['auto_image'] %}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#eef6ff;border:1px solid #cfe3ff;border-radius:8px;padding:8px 11px">
-    🖼️ จะ<b>หารูปจากเว็บแบรนด์ก่อน</b> (AI ดูรูปจริงแล้วเลือกที่เกี่ยวข้อง) — ถ้าไม่มี <b>สร้างรูปประกอบให้ด้วย AI</b> · เพิ่มเวลา ~30-60 วิ/ชิ้น
-    {% if image_cap %}<br>{{ image_cap }}{% endif %}
+    🖼️ {{ _("จะ") }}<b>{{ _("หารูปจากเว็บแบรนด์ก่อน") }}</b> {{ _("(AI ดูรูปจริงแล้วเลือกที่เกี่ยวข้อง) — ถ้าไม่มี") }} <b>{{ _("สร้างรูปประกอบให้ด้วย AI") }}</b> · {{ _("เพิ่มเวลา ~30-60 วิ/ชิ้น") }}
+    {% if image_cap %}<br>{{ image_cap|tr }}{% endif %}
   </div>
   {% endif %}
   {% if curp >= 0 %}
   <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.6;background:#fff6e6;border:1px solid #ffe2a8;border-radius:8px;padding:8px 11px">
-    ⚠️ โหมดนี้จะ<b>เผยแพร่ร่าง auto ขึ้นเว็บเองโดยไม่ต้องรอคน</b>{% if curp > 0 %} (หลัง {{ curp }} วัน — มีเวลาเข้ามาแก้/ลบก่อน){% else %} ทันที{% endif %} · AI ถูกสั่งไม่ให้แต่งตัวเลข/ราคา แต่ควรเข้ามาตรวจเป็นระยะ
+    ⚠️ {{ _("โหมดนี้จะ") }}<b>{{ _("เผยแพร่ร่าง auto ขึ้นเว็บเองโดยไม่ต้องรอคน") }}</b>{% if curp > 0 %} {{ _("(หลัง {n} วัน — มีเวลาเข้ามาแก้/ลบก่อน)", n=curp) }}{% else %} {{ _("ทันที") }}{% endif %} · {{ _("AI ถูกสั่งไม่ให้แต่งตัวเลข/ราคา แต่ควรเข้ามาตรวจเป็นระยะ") }}
   </div>
   {% endif %}
 </div>
 
 <!-- สร้างคอนเทนต์ -->
 <div class="card">
-  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ สร้างคอนเทนต์ใหม่</h2>
+  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ {{ _("สร้างคอนเทนต์ใหม่") }}</h2>
   {% if questions %}
-  <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="⏳ กำลังสร้างคอนเทนต์ด้วย AI…">
+  <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="{{ _("⏳ กำลังสร้างคอนเทนต์ด้วย AI…") }}">
     <div class="row">
       <div style="flex:3">
-        <label>คำถามเป้าหมาย</label>
+        <label>{{ _("คำถามเป้าหมาย") }}</label>
         <select name="question_id" required>
           {% for q in questions %}
           <option value="{{ q['id'] }}">{{ q['question'] }}</option>
@@ -86,80 +88,82 @@
         </select>
       </div>
       <div style="flex:1.4">
-        <label>รูปแบบ <span class="muted">(AEO)</span></label>
+        <label>{{ _("รูปแบบ") }} <span class="muted">(AEO)</span></label>
         <select name="ctype">
-          <option value="auto">🤖 อัตโนมัติตามคำถาม (แนะนำ)</option>
-          <option value="qa">ถาม-ตอบ (มาตรฐาน)</option>
-          <option value="comparison">⚖️ หน้าเปรียบเทียบ — ROI สูงสุด</option>
-          <option value="listicle">🔢 ลิสต์อันดับ (X ข้อ)</option>
+          <option value="auto">🤖 {{ _("อัตโนมัติตามคำถาม (แนะนำ)") }}</option>
+          <option value="qa">{{ _("ถาม-ตอบ (มาตรฐาน)") }}</option>
+          <option value="comparison">⚖️ {{ _("หน้าเปรียบเทียบ — ROI สูงสุด") }}</option>
+          <option value="listicle">🔢 {{ _("ลิสต์อันดับ (X ข้อ)") }}</option>
         </select>
       </div>
       <div style="flex:1">
-        <label>ภาษา</label>
+        <label>{{ _("ภาษา") }}</label>
         <select name="lang">
-          <option value="th">ไทย</option>
+          <option value="th">{{ _("ไทย") }}</option>
           <option value="en">English</option>
         </select>
       </div>
       <div style="display:flex;align-items:flex-end">
-        <button class="alt" type="submit" {% if not can_generate %}disabled{% endif %}>สร้าง</button>
+        <button class="alt" type="submit" {% if not can_generate %}disabled{% endif %}>{{ _("สร้าง") }}</button>
       </div>
     </div>
   </form>
-  <p class="muted" style="font-size:12px;margin:10px 0 0">💡 <b>เปรียบเทียบ</b> = เทียบตัวเลือก/ประเภทพร้อมตาราง (AI ชอบอ้างอิงสุด) · <b>ลิสต์อันดับ</b> = บทความแบบ "5 ข้อควรรู้" + ItemList schema</p>
+  <p class="muted" style="font-size:12px;margin:10px 0 0">💡 <b>{{ _("เปรียบเทียบ") }}</b> = {{ _("เทียบตัวเลือก/ประเภทพร้อมตาราง (AI ชอบอ้างอิงสุด)") }} · <b>{{ _("ลิสต์อันดับ") }}</b> = {{ _('บทความแบบ "5 ข้อควรรู้" + ItemList schema') }}</p>
   {% else %}
-  <p class="muted">ยังไม่มีคำถาม — <a href="/brands/{{ brand['id'] }}/questions" class="link">เพิ่มคำถามก่อน</a></p>
+  <p class="muted">{{ _("ยังไม่มีคำถาม") }} — <a href="/brands/{{ brand['id'] }}/questions" class="link">{{ _("เพิ่มคำถามก่อน") }}</a></p>
   {% endif %}
-  <p style="margin:14px 0 0"><a class="link" href="/brands/{{ brand['id'] }}/assets">→ ชุดติดตั้ง on-site (llms.txt · robots · schema องค์กร)</a></p>
+  <p style="margin:14px 0 0"><a class="link" href="/brands/{{ brand['id'] }}/assets">→ {{ _("ชุดติดตั้ง on-site (llms.txt · robots · schema องค์กร)") }}</a></p>
 </div>
 
 <!-- ข้อมูลจริงของแบรนด์ (grounding) -->
 <div class="card" style="margin-top:4px">
-  {% if request.query_params.get('saved') %}<div class="ok-banner" style="margin-bottom:10px">บันทึกแล้ว ✓ — คอนเทนต์ที่สร้างต่อจากนี้จะใช้ข้อมูลจริงนี้</div>{% endif %}
-  <h2 style="margin-top:0;border:none;padding:0 0 6px;font-size:15px">📌 ข้อมูลจริงของแบรนด์ <span class="muted" style="font-size:12px">— ให้ AI เขียนคอนเทนต์เฉพาะเจาะจง + จริง (ไม่มั่ว)</span></h2>
+  {% if request.query_params.get('saved') %}<div class="ok-banner" style="margin-bottom:10px">{{ _("บันทึกแล้ว ✓ — คอนเทนต์ที่สร้างต่อจากนี้จะใช้ข้อมูลจริงนี้") }}</div>{% endif %}
+  <h2 style="margin-top:0;border:none;padding:0 0 6px;font-size:15px">📌 {{ _("ข้อมูลจริงของแบรนด์") }} <span class="muted" style="font-size:12px">— {{ _("ให้ AI เขียนคอนเทนต์เฉพาะเจาะจง + จริง (ไม่มั่ว)") }}</span></h2>
   <form method="post" action="/brands/{{ brand['id'] }}/facts">
-    <textarea name="facts" rows="4" placeholder="เช่น ก่อตั้งปี 2558 · พื้นที่บริการ: บางนา-สมุทรปราการ · ใบอนุญาต... · จุดเด่น: ... · เคสตัวอย่าง: ..." style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13.5px;padding:10px 12px;border:1px solid var(--border);border-radius:8px">{{ brand['facts'] or '' }}</textarea>
+    <textarea name="facts" rows="4" placeholder="{{ _("เช่น ก่อตั้งปี 2558 · พื้นที่บริการ: บางนา-สมุทรปราการ · ใบอนุญาต... · จุดเด่น: ... · เคสตัวอย่าง: ...") }}" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13.5px;padding:10px 12px;border:1px solid var(--border);border-radius:8px">{{ brand['facts'] or '' }}</textarea>
     <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
-      <button type="submit" class="sm">บันทึก</button>
-      <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="refresh_site" value="1"> ดึงเนื้อหาเว็บใหม่</label>
-      <span class="muted" style="font-size:12px">{% if brand['site_context'] %}🌐 ดึงข้อมูลจากเว็บแล้ว (ใช้ ground อัตโนมัติ){% else %}🌐 เว็บจะถูกดึงอัตโนมัติตอนสร้างคอนเทนต์ครั้งแรก{% endif %}</span>
+      <button type="submit" class="sm">{{ _("บันทึก") }}</button>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="refresh_site" value="1"> {{ _("ดึงเนื้อหาเว็บใหม่") }}</label>
+      <span class="muted" style="font-size:12px">{% if brand['site_context'] %}🌐 {{ _("ดึงข้อมูลจากเว็บแล้ว (ใช้ ground อัตโนมัติ)") }}{% else %}🌐 {{ _("เว็บจะถูกดึงอัตโนมัติตอนสร้างคอนเทนต์ครั้งแรก") }}{% endif %}</span>
     </div>
   </form>
-  <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.6">💡 ยิ่งใส่ข้อมูลจริง (พื้นที่ ปีก่อตั้ง ใบอนุญาต เคส) AI ยิ่งเขียนเฉพาะเจาะจง น่าเชื่อถือ และถูก AI อ้างอิงง่ายขึ้น — ระบบยังดึงเนื้อหาจากเว็บจริงของคุณมาประกอบให้ด้วย</p>
+  <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.6">💡 {{ _("ยิ่งใส่ข้อมูลจริง (พื้นที่ ปีก่อตั้ง ใบอนุญาต เคส) AI ยิ่งเขียนเฉพาะเจาะจง น่าเชื่อถือ และถูก AI อ้างอิงง่ายขึ้น — ระบบยังดึงเนื้อหาจากเว็บจริงของคุณมาประกอบให้ด้วย") }}</p>
 </div>
 
 <!-- รายการคอนเทนต์ -->
 {% if content %}
 {% if request.query_params.get('fixing') %}
-<div class="ok-banner" style="margin-top:4px">🔧 กำลังซ่อมเบื้องหลัง — จะแจ้งเตือน 🔔 เมื่อเสร็จ (รีเฟรชหน้าดูคะแนนใหม่ได้ภายหลัง · ~30-60 วิ/ชิ้น)</div>
+<div class="ok-banner" style="margin-top:4px">🔧 {{ _("กำลังซ่อมเบื้องหลัง — จะแจ้งเตือน 🔔 เมื่อเสร็จ (รีเฟรชหน้าดูคะแนนใหม่ได้ภายหลัง · ~30-60 วิ/ชิ้น)") }}</div>
 {% endif %}
 {% if aeo_summary %}
 <div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;border-color:var(--purple)">
-  <b style="font-size:14px">📊 AEO รวมทุกชิ้น</b>
-  <span style="font-size:14px">เฉลี่ย <b style="color:var(--purple)">{{ aeo_summary.avg }}/{{ aeo_summary.max }}</b></span>
-  <span class="pill ok">ครบ {{ aeo_summary.full }} ชิ้น</span>
-  {% if aeo_summary.low %}<span class="pill admin" style="background:#fff0e6;color:#b4530b">ควรปรับ {{ aeo_summary.low }} ชิ้น</span>{% endif %}
+  <b style="font-size:14px">📊 {{ _("AEO รวมทุกชิ้น") }}</b>
+  <span style="font-size:14px">{{ _("เฉลี่ย") }} <b style="color:var(--purple)">{{ aeo_summary.avg }}/{{ aeo_summary.max }}</b></span>
+  <span class="pill ok">{{ _("ครบ {n} ชิ้น", n=aeo_summary.full) }}</span>
+  {% if aeo_summary.low %}<span class="pill admin" style="background:#fff0e6;color:#b4530b">{{ _("ควรปรับ {n} ชิ้น", n=aeo_summary.low) }}</span>{% endif %}
   {% if aeo_summary.low %}
   <form method="post" action="/brands/{{ brand['id'] }}/content/fix-all"
-        data-loading="⏳ กำลังเริ่มซ่อม…"
-        onsubmit="return confirm('สร้างเนื้อหาที่ยังไม่เต็ม {{ aeo_summary.low }} ชิ้นใหม่ทั้งหมด?\n\n• เนื้อหาเดิมจะถูกเขียนทับ\n• ชิ้นที่เผยแพร่แล้วจะอัปเดตเวอร์ชัน public ให้อัตโนมัติ\n• ทำเบื้องหลัง จะแจ้งเตือนเมื่อเสร็จ');"
+        data-loading="{{ _("⏳ กำลังเริ่มซ่อม…") }}"
+        onsubmit="return confirm({{ (_('สร้างเนื้อหาที่ยังไม่เต็ม {n} ชิ้นใหม่ทั้งหมด?', n=aeo_summary.low) ~ '\n\n• ' ~ _('เนื้อหาเดิมจะถูกเขียนทับ') ~ '\n• ' ~ _('ชิ้นที่เผยแพร่แล้วจะอัปเดตเวอร์ชัน public ให้อัตโนมัติ') ~ '\n• ' ~ _('ทำเบื้องหลัง จะแจ้งเตือนเมื่อเสร็จ'))|tojson|forceescape }});"
         style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="publish_drafts" value="1"> เผยแพร่ร่างที่ซ่อมด้วย</label>
-    <button type="submit" class="btn">🔧 ซ่อมทั้งหมด ({{ aeo_summary.low }})</button>
+    <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--cool)"><input type="checkbox" name="publish_drafts" value="1"> {{ _("เผยแพร่ร่างที่ซ่อมด้วย") }}</label>
+    <button type="submit" class="btn">🔧 {{ _("ซ่อมทั้งหมด ({n})", n=aeo_summary.low) }}</button>
   </form>
   {% endif %}
 </div>
 {% endif %}
 <div class="card" style="padding:0;overflow:hidden;margin-top:4px">
   <table>
-    <thead><tr><th>หัวข้อ</th><th>AEO</th><th>ภาษา</th><th>ที่มา</th><th>สถานะ</th><th></th></tr></thead>
+    <thead><tr><th>{{ _("หัวข้อ") }}</th><th>AEO</th><th>{{ _("ภาษา") }}</th><th>{{ _("ที่มา") }}</th><th>{{ _("สถานะ") }}</th><th></th></tr></thead>
     <tbody>
     {% for ci in content %}
     <tr>
       <td style="max-width:280px">{{ ci['title'] }}
         {% if '![' not in (ci['body_md'] or '') %}
         {# บอกตรง ๆ ว่าชิ้นนี้ไม่มีรูป และเพราะอะไร (image_note) — เมื่อก่อนเงียบจนไม่มีใครรู้ว่ารูปหายไปตั้งแต่ ส.ค. #}
-        <div class="muted" style="font-size:11px;margin-top:2px" title="{{ ci['image_note'] or '' }}">🖼️ ไม่มีรูป{% if ci['image_note'] %} · {{ ci['image_note'].replace('ไม่มีรูป — ', '')[:70] }}{% endif %}</div>
+        {# ตัดคำนำ "ไม่มีรูป — " ที่ระบบเก็บไว้ (เขียนเป็น \u) แล้วแปลเหตุผลทีละท่อน #}
+        {% set _nt = (ci['image_note'] or '').replace('\u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e39\u0e1b \u2014 ', '') %}
+        <div class="muted" style="font-size:11px;margin-top:2px" title="{{ (_('ไม่มีรูป') ~ ' — ' ~ trx(_nt)) if _nt != (ci['image_note'] or '') else trx(_nt) }}">🖼️ {{ _("ไม่มีรูป") }}{% if ci['image_note'] %} · {{ (trx(_nt)|striptags)[:70] }}{% endif %}</div>
         {% endif %}
       </td>
       <td>
@@ -167,28 +171,28 @@
         {% if rep %}
           {% set pct = rep.score / rep.max %}
           <span class="pill" style="white-space:nowrap;{% if pct >= 1 %}background:#e8f7ee;color:#1c7a44{% elif pct >= 0.5 %}background:#fff6e6;color:#b4530b{% else %}background:#fdeaea;color:#c0392b{% endif %}"
-                title="{% for c in rep['items'] if not c.ok and not c.get('info') %}✗ {{ c.label }}&#10;{% endfor %}">
+                title="{% for c in rep['items'] if not c.ok and not c.get('info') %}✗ {{ c.label|tr }}&#10;{% endfor %}">
             {{ rep.score }}/{{ rep.max }}</span>
         {% endif %}
       </td>
-      <td class="muted">{{ 'ไทย' if ci['lang'] == 'th' else 'EN' }}</td>
+      <td class="muted">{{ _('ไทย') if ci['lang'] == 'th' else 'EN' }}</td>
       <td class="muted">{{ '🤖 auto' if ci['source'] == 'auto' else ci['source'] }}</td>
       <td>
-        {% if ci['status'] == 'published' %}<span class="pill ok">เผยแพร่แล้ว</span>
-        {% else %}<span class="pill admin">ร่าง</span>
+        {% if ci['status'] == 'published' %}<span class="pill ok">{{ _("เผยแพร่แล้ว") }}</span>
+        {% else %}<span class="pill admin">{{ _("ร่าง") }}</span>
           {% if ci['id'] in publish_eta %}
             {% set d = publish_eta[ci['id']] %}
-            <div class="muted" style="font-size:11px;margin-top:3px">⏳ เผยแพร่อัตโนมัติใน {{ 'เร็วๆ นี้' if d < 1 else (d|round(0)|int|string) + ' วัน' }}</div>
+            <div class="muted" style="font-size:11px;margin-top:3px">⏳ {{ _('เผยแพร่อัตโนมัติใน {when}', when=_('เร็วๆ นี้')) if d < 1 else _('เผยแพร่อัตโนมัติใน {n} วัน', n=d|round(0)|int) }}</div>
           {% endif %}
         {% endif %}
       </td>
-      <td><a class="btn ghost sm" href="/content/{{ ci['id'] }}">เปิด</a></td>
+      <td><a class="btn ghost sm" href="/content/{{ ci['id'] }}">{{ _("เปิด") }}</a></td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
 {% else %}
-<p class="muted" style="margin-top:14px">ยังไม่มีคอนเทนต์ — สร้างจากฟอร์มด้านบน</p>
+<p class="muted" style="margin-top:14px">{{ _("ยังไม่มีคอนเทนต์ — สร้างจากฟอร์มด้านบน") }}</p>
 {% endif %}
 {% endblock %}

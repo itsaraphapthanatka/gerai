@@ -1,14 +1,18 @@
 <!doctype html>
-<html lang="th">
+{#- PDF เรนเดอร์ผ่าน report.render_html ซึ่งใช้ jinja env แยก (ไม่มี request/i18n) — มีตัวสำรองให้ _() คืนไทยเดิม #}
+{%- if _ is not defined %}{% macro _(s) %}{{ s.format(**kwargs) if kwargs else s }}{% endmacro %}{% endif %}
+{%- set _lg = ui_lang() if ui_lang is defined else 'th' %}
+{%- set _cjk = {'zh': "'Noto Sans SC','Noto Sans CJK SC','PingFang SC','Microsoft YaHei',", 'ja': "'Noto Sans JP','Noto Sans CJK JP','Hiragino Sans','Yu Gothic',", 'ko': "'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',"}.get(_lg, '') %}
+<html lang="{{ html_lang() if html_lang is defined else 'th' }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>รายงาน GEO — {{ d.brand.name }} ({{ d.period.to }})</title>
-{% if not pdf %}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">{% endif %}
+<title>{{ _("รายงาน GEO") }} — {{ d.brand.name }} ({{ d.period.to }})</title>
+{% if not pdf %}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700{% if font_css is defined and font_css() %}&family={{ font_css() }}{% endif %}&display=swap">{% endif %}
 <style>
   :root { --ink:#1c1c2b; --rmuted:#6b6b7b; --line:#e6e6ee; --purple:#ff5530; --green:#149e61; --red:#d92d20; --amber:#b26a00; --soft:#f6f6fa; }
   * { box-sizing: border-box; }
-  body { font-family: 'Sarabun', 'Leelawadee UI', 'Garuda', sans-serif; color: var(--ink); margin: 0; background: #fff; font-size: 13.5px; line-height: 1.55; }
+  body { font-family: 'Sarabun', {{ _cjk|safe }}'Leelawadee UI', 'Garuda', sans-serif; color: var(--ink); margin: 0; background: #fff; font-size: 13.5px; line-height: 1.55; }
   .page { max-width: 820px; margin: 0 auto; padding: 28px 32px 40px; }
   header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--purple); padding-bottom: 10px; margin-bottom: 18px; }
   header h1 { margin: 0; font-size: 22px; }
@@ -44,114 +48,114 @@
 <body>
 <div class="page">
 {% if not pdf %}
-{% if pdf_error %}<div style="background:#fff3d6;color:#8a5300;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12.5px">{{ pdf_error }}</div>{% endif %}
+{% if pdf_error %}<div style="background:#fff3d6;color:#8a5300;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12.5px">{{ _(pdf_error) }}</div>{% endif %}
 <div class="toolbar">
-  <a class="primary" href="/brands/{{ d.brand.id }}/report.pdf">⬇ ดาวน์โหลด PDF</a>
-  {% for k, label in exports.items() %}<a href="/brands/{{ d.brand.id }}/export/{{ k }}.csv">CSV · {{ label }}</a>{% endfor %}
-  <a href="/brands/{{ d.brand.id }}">← กลับหน้าแบรนด์</a>
+  <a class="primary" href="/brands/{{ d.brand.id }}/report.pdf">⬇ {{ _("ดาวน์โหลด PDF") }}</a>
+  {% for k, label in exports.items() %}<a href="/brands/{{ d.brand.id }}/export/{{ k }}.csv">CSV · {{ _(label) }}</a>{% endfor %}
+  <a href="/brands/{{ d.brand.id }}">← {{ _("กลับหน้าแบรนด์") }}</a>
 </div>
 {% endif %}
 
 <header>
   <div>
-    <h1>รายงาน GEO รายเดือน — {{ d.brand.name }}</h1>
-    <div class="sub">{{ d.site }} · ช่วง {{ d.period.from }} ถึง {{ d.period.to }} ({{ d.period.days }} วัน) · คำถามเป้าหมาย {{ d.n_questions }} ข้อ</div>
+    <h1>{{ _("รายงาน GEO รายเดือน") }} — {{ d.brand.name }}</h1>
+    <div class="sub">{{ d.site }} · {{ _("ช่วง {start} ถึง {end} ({days} วัน)", start=d.period["from"], end=d.period.to, days=d.period.days) }} · {{ _("คำถามเป้าหมาย {n} ข้อ", n=d.n_questions) }}</div>
   </div>
-  <div class="brandmark">{% include "_logo.html" %}<small>GEO Platform · สร้าง {{ d.generated_at.replace('T', ' ') }}</small></div>
+  <div class="brandmark">{% include "_logo.html" %}<small>GEO Platform · {{ _("สร้าง {at}", at=d.generated_at.replace('T', ' ')) }}</small></div>
 </header>
 
 {% set sov = d.sov %}{% set rk = d.rank %}{% set ai = d.ai %}{% set g = d.gsc %}
 <div class="kpis">
-  <div class="kpi"><div class="l">Share of Voice (ผลค้นเว็บ)</div>
+  <div class="kpi"><div class="l">Share of Voice ({{ _("ผลค้นเว็บ") }})</div>
     <div class="v">{{ (sov.latest.sov ~ '%') if sov.latest else '–' }}</div>
-    <div class="s">{% if sov.delta is not none %}<span class="{{ 'up' if sov.delta > 0 else ('down' if sov.delta < 0 else 'flat') }}">{{ '%+d' % sov.delta }} จุด</span> จาก {{ sov.previous.at }}{% elif sov.latest %}{{ sov.latest.hits }}/{{ sov.latest.total }} คำถาม · {{ sov.latest.at }}{% else %}ยังไม่เคยรันมอนิเตอร์{% endif %}</div></div>
-  <div class="kpi"><div class="l">ติดอันดับ Google</div>
+    <div class="s">{% if sov.delta is not none %}<span class="{{ 'up' if sov.delta > 0 else ('down' if sov.delta < 0 else 'flat') }}">{{ _("{n} จุด", n='%+d' % sov.delta) }}</span> {{ _("จาก {at}", at=sov.previous.at) }}{% elif sov.latest %}{{ _("{hits}/{total} คำถาม", hits=sov.latest.hits, total=sov.latest.total) }} · {{ sov.latest.at }}{% else %}{{ _("ยังไม่เคยรันมอนิเตอร์") }}{% endif %}</div></div>
+  <div class="kpi"><div class="l">{{ _("ติดอันดับ Google") }}</div>
     <div class="v">{{ (rk.latest.ranked ~ '/' ~ rk.latest.total) if rk.latest else '–' }}</div>
-    <div class="s">{% if rk.latest %}{% if rk.latest.avg_pos %}เฉลี่ยอันดับ {{ rk.latest.avg_pos }} · {% endif %}{% if rk.previous %}รอบก่อน {{ rk.previous.ranked }}/{{ rk.previous.total }}{% else %}{{ rk.latest.at }}{% endif %}{% else %}ยังไม่เคยเช็ค{% endif %}</div></div>
-  <div class="kpi"><div class="l">ถูกพูดถึงบนผู้ช่วย AI</div>
+    <div class="s">{% if rk.latest %}{% if rk.latest.avg_pos %}{{ _("เฉลี่ยอันดับ {n}", n=rk.latest.avg_pos) }} · {% endif %}{% if rk.previous %}{{ _("รอบก่อน {a}/{b}", a=rk.previous.ranked, b=rk.previous.total) }}{% else %}{{ rk.latest.at }}{% endif %}{% else %}{{ _("ยังไม่เคยเช็ค") }}{% endif %}</div></div>
+  <div class="kpi"><div class="l">{{ _("ถูกพูดถึงบนผู้ช่วย AI") }}</div>
     <div class="v">{{ (ai.rate ~ '%') if ai and ai.asked else '–' }}</div>
-    <div class="s">{% if ai and ai.asked %}อ้างอิง {{ ai.cited }} · เอ่ยชื่อ {{ ai.named }} จาก {{ ai.asked }} คำตอบ{% else %}ยังไม่มีผล{% endif %}</div></div>
-  <div class="kpi"><div class="l">คลิกจาก Google (28 วัน)</div>
+    <div class="s">{% if ai and ai.asked %}{{ _("อ้างอิง {cited} · เอ่ยชื่อ {named} จาก {n} คำตอบ", cited=ai.cited, named=ai.named, n=ai.asked) }}{% else %}{{ _("ยังไม่มีผล") }}{% endif %}</div></div>
+  <div class="kpi"><div class="l">{{ _("คลิกจาก Google (28 วัน)") }}</div>
     <div class="v">{{ "{:,}".format(g.clicks) if g and g.linked else '–' }}</div>
-    <div class="s">{% if g and g.linked %}{{ "{:,}".format(g.impressions) }} impressions · index {{ g.indexed }}/{{ g.inspected }}{% else %}ยังไม่ได้เชื่อม Search Console{% endif %}</div></div>
+    <div class="s">{% if g and g.linked %}{{ "{:,}".format(g.impressions) }} impressions · index {{ g.indexed }}/{{ g.inspected }}{% else %}{{ _("ยังไม่ได้เชื่อม Search Console") }}{% endif %}</div></div>
 </div>
 
 {% if d.next_steps %}
-<h2>สิ่งที่ควรทำต่อ</h2>
-<ol class="steps">{% for s in d.next_steps %}<li>{{ s }}</li>{% endfor %}</ol>
+<h2>{{ _("สิ่งที่ควรทำต่อ") }}</h2>
+<ol class="steps">{% for s in d.next_steps %}<li>{{ _(s) }}</li>{% endfor %}</ol>
 {% endif %}
 
 <div class="grid2">
   <div>
-    <h2>Share of Voice รายรอบ</h2>
+    <h2>{{ _("Share of Voice รายรอบ") }}</h2>
     {% if sov.series %}
-    <table><tr><th>วันที่</th><th class="num">SoV</th></tr>
+    <table><tr><th>{{ _("วันที่") }}</th><th class="num">SoV</th></tr>
       {% for at, v in sov.series %}<tr><td>{{ at }}</td><td class="num">{{ v }}%</td></tr>{% endfor %}</table>
-    {% else %}<p class="empty">ยังไม่มีข้อมูล — รันมอนิเตอร์ก่อน</p>{% endif %}
+    {% else %}<p class="empty">{{ _("ยังไม่มีข้อมูล — รันมอนิเตอร์ก่อน") }}</p>{% endif %}
   </div>
   <div>
-    <h2>อันดับ Google รายคำถาม</h2>
+    <h2>{{ _("อันดับ Google รายคำถาม") }}</h2>
     {% if rk.rows %}
-    <table><tr><th>คำถาม</th><th class="num">อันดับ</th></tr>
-      {% for r in rk.rows %}<tr><td>{{ r.question }}</td><td class="num">{{ ('#' ~ r.position) if r.position else '<span class="pill no">ไม่ติด</span>'|safe }}</td></tr>{% endfor %}</table>
-    {% else %}<p class="empty">ยังไม่เคยเช็คอันดับ</p>{% endif %}
+    <table><tr><th>{{ _("คำถาม") }}</th><th class="num">{{ _("อันดับ") }}</th></tr>
+      {% for r in rk.rows %}<tr><td>{{ r.question }}</td><td class="num">{% if r.position %}#{{ r.position }}{% else %}<span class="pill no">{{ _("ไม่ติด") }}</span>{% endif %}</td></tr>{% endfor %}</table>
+    {% else %}<p class="empty">{{ _("ยังไม่เคยเช็คอันดับ") }}</p>{% endif %}
   </div>
 </div>
 
 <h2>Search Console</h2>
 {% if g and g.linked %}
 <table>
-  <tr><th>หน้าคอนเทนต์อยู่ใน index</th><th>Google ยังไม่รู้จัก</th><th>เห็นแล้วยังไม่อ่าน</th><th>อ่านแล้วไม่เก็บ</th><th>ถูกบล็อก</th><th>sitemap</th><th>ซิงค์</th></tr>
-  <tr><td><b>{{ g.indexed }}/{{ g.inspected }}</b></td><td>{{ g.unknown }}</td><td>{{ g.discovered }}</td><td>{{ g.crawled }}</td><td>{{ g.blocked }}</td><td>{{ 'ส่งแล้ว' if g.sitemap_submitted else 'ยังไม่ได้ส่ง' }}</td><td>{{ g.at }}</td></tr>
+  <tr><th>{{ _("หน้าคอนเทนต์อยู่ใน index") }}</th><th>{{ _("Google ยังไม่รู้จัก") }}</th><th>{{ _("เห็นแล้วยังไม่อ่าน") }}</th><th>{{ _("อ่านแล้วไม่เก็บ") }}</th><th>{{ _("ถูกบล็อก") }}</th><th>sitemap</th><th>{{ _("ซิงค์") }}</th></tr>
+  <tr><td><b>{{ g.indexed }}/{{ g.inspected }}</b></td><td>{{ g.unknown }}</td><td>{{ g.discovered }}</td><td>{{ g.crawled }}</td><td>{{ g.blocked }}</td><td>{{ _('ส่งแล้ว') if g.sitemap_submitted else _('ยังไม่ได้ส่ง') }}</td><td>{{ g.at }}</td></tr>
 </table>
 {% if g.top_queries %}
-<p class="note" style="margin:8px 0 4px">คำค้นที่คนเจอเว็บ (28 วัน)</p>
-<table><tr><th>คำค้น</th><th class="num">คลิก</th><th class="num">Impr.</th><th class="num">อันดับ</th></tr>
+<p class="note" style="margin:8px 0 4px">{{ _("คำค้นที่คนเจอเว็บ (28 วัน)") }}</p>
+<table><tr><th>{{ _("คำค้น") }}</th><th class="num">{{ _("คลิก") }}</th><th class="num">Impr.</th><th class="num">{{ _("อันดับ") }}</th></tr>
   {% for q in g.top_queries %}<tr><td>{{ q.query }}</td><td class="num">{{ q.clicks }}</td><td class="num">{{ q.impressions }}</td><td class="num">{{ q.position or '–' }}</td></tr>{% endfor %}</table>
 {% endif %}
-{% elif g %}<p class="empty">ยังไม่ได้เชื่อม — {{ g.reason }}</p>
-{% else %}<p class="empty">ยังไม่เคยซิงค์ Search Console</p>{% endif %}
+{% elif g %}<p class="empty">{{ _("ยังไม่ได้เชื่อม") }} — {{ _(g.reason) if g.reason else "" }}</p>
+{% else %}<p class="empty">{{ _("ยังไม่เคยซิงค์ Search Console") }}</p>{% endif %}
 
 <div class="grid2">
   <div>
-    <h2>ผู้ช่วย AI</h2>
+    <h2>{{ _("ผู้ช่วย AI") }}</h2>
     {% if ai and ai.engines %}
-    <table><tr><th>AI</th><th class="num">อ้างอิง</th><th class="num">เอ่ยชื่อ</th><th class="num">ถาม</th></tr>
+    <table><tr><th>AI</th><th class="num">{{ _("อ้างอิง") }}</th><th class="num">{{ _("เอ่ยชื่อ") }}</th><th class="num">{{ _("ถาม") }}</th></tr>
       {% for e in ai.engines %}<tr><td>{{ e.label }}</td><td class="num">{{ e.cited }}</td><td class="num">{{ e.named }}</td><td class="num">{{ e.asked }}</td></tr>{% endfor %}</table>
-    <p class="note">ถามเมื่อ {{ ai.at }}{% if ai.cost_usd %} · ค่าใช้จ่าย ${{ '%.2f' % ai.cost_usd }}{% endif %}</p>
-    {% else %}<p class="empty">ยังไม่มีผล (ยังไม่ได้ถามหรือยังไม่มีคีย์)</p>{% endif %}
+    <p class="note">{{ _("ถามเมื่อ {at}", at=ai.at) }}{% if ai.cost_usd %} · {{ _("ค่าใช้จ่าย") }} ${{ '%.2f' % ai.cost_usd }}{% endif %}</p>
+    {% else %}<p class="empty">{{ _("ยังไม่มีผล (ยังไม่ได้ถามหรือยังไม่มีคีย์)") }}</p>{% endif %}
     {% if d.serp %}
-    <p class="note">Google AI Overview พูดถึงเรา {{ d.serp.overview_hit }}/{{ d.serp.overview_shown }} (ไม่แสดง {{ d.serp.overview_none }} ข้อ) · AI Mode {{ d.serp.mode_hit }}/{{ d.serp.mode_shown }} · {{ d.serp.at }}</p>
+    <p class="note">{{ _("Google AI Overview พูดถึงเรา {hit}/{shown} (ไม่แสดง {none} ข้อ)", hit=d.serp.overview_hit, shown=d.serp.overview_shown, none=d.serp.overview_none) }} · AI Mode {{ d.serp.mode_hit }}/{{ d.serp.mode_shown }} · {{ d.serp.at }}</p>
     {% endif %}
   </div>
   <div>
-    <h2>สุขภาพและความเร็วเว็บ</h2>
+    <h2>{{ _("สุขภาพและความเร็วเว็บ") }}</h2>
     {% set h = d.health %}
     {% if h %}
-    <p style="margin:4px 0">{% if h.ok %}<span class="pill ok">ผ่านทุกข้อ</span>{% else %}<span class="pill no">ไม่ผ่าน {{ h.n_fail }} ข้อ</span>{% endif %} <span class="note">{{ h.at }}</span></p>
-    {% if h.fails %}<ul style="margin:4px 0 8px;padding-left:18px">{% for f in h.fails %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-    {% else %}<p class="empty">ยังไม่เคยตรวจสุขภาพเว็บ</p>{% endif %}
+    <p style="margin:4px 0">{% if h.ok %}<span class="pill ok">{{ _("ผ่านทุกข้อ") }}</span>{% else %}<span class="pill no">{{ _("ไม่ผ่าน {n} ข้อ", n=h.n_fail) }}</span>{% endif %} <span class="note">{{ h.at }}</span></p>
+    {% if h.fails %}<ul style="margin:4px 0 8px;padding-left:18px">{% for f in h.fails %}<li>{{ _(f) }}</li>{% endfor %}</ul>{% endif %}
+    {% else %}<p class="empty">{{ _("ยังไม่เคยตรวจสุขภาพเว็บ") }}</p>{% endif %}
     {% set sp = d.speed %}
     {% if sp %}
-    <p style="margin:4px 0">ความเร็ว (PageSpeed): มือถือ <b>{{ sp.mobile if sp.mobile is not none else '–' }}</b> · เดสก์ท็อป <b>{{ sp.desktop if sp.desktop is not none else '–' }}</b>{% if sp.seo is not none %} · SEO {{ sp.seo }}{% endif %} <span class="note">{{ sp.at }}</span></p>
-    {% if sp.error %}<p class="note">{{ sp.error }}</p>{% endif %}
-    {% else %}<p class="empty">ยังไม่เคยสแกนความเร็ว</p>{% endif %}
+    <p style="margin:4px 0">{{ _("ความเร็ว (PageSpeed):") }} {{ _("มือถือ") }} <b>{{ sp.mobile if sp.mobile is not none else '–' }}</b> · {{ _("เดสก์ท็อป") }} <b>{{ sp.desktop if sp.desktop is not none else '–' }}</b>{% if sp.seo is not none %} · SEO {{ sp.seo }}{% endif %} <span class="note">{{ sp.at }}</span></p>
+    {% if sp.error %}<p class="note">{{ _(sp.error) }}</p>{% endif %}
+    {% else %}<p class="empty">{{ _("ยังไม่เคยสแกนความเร็ว") }}</p>{% endif %}
   </div>
 </div>
 
-<h2>คอนเทนต์</h2>
+<h2>{{ _("คอนเทนต์") }}</h2>
 {% set c = d.content %}
 <table>
-  <tr><th>ทั้งหมด</th><th>เผยแพร่แล้ว</th><th>เผยแพร่ในช่วงนี้</th><th>ร่าง</th><th>เผยแพร่ล่าสุด</th><th>ช่องว่าง (ยังไม่มีคอนเทนต์)</th></tr>
+  <tr><th>{{ _("ทั้งหมด") }}</th><th>{{ _("เผยแพร่แล้ว") }}</th><th>{{ _("เผยแพร่ในช่วงนี้") }}</th><th>{{ _("ร่าง") }}</th><th>{{ _("เผยแพร่ล่าสุด") }}</th><th>{{ _("ช่องว่าง (ยังไม่มีคอนเทนต์)") }}</th></tr>
   <tr><td>{{ c.total }}</td><td>{{ c.published }}</td><td><b>{{ c.published_period }}</b></td><td>{{ c.drafts }}</td><td>{{ c.latest or '–' }}</td><td>{{ d.gaps.critical }} / {{ d.gaps.total }}</td></tr>
 </table>
 {% if c.recent %}
-<table style="margin-top:6px"><tr><th>เผยแพร่ใหม่ในช่วงนี้</th><th class="num">วันที่</th></tr>
+<table style="margin-top:6px"><tr><th>{{ _("เผยแพร่ใหม่ในช่วงนี้") }}</th><th class="num">{{ _("วันที่") }}</th></tr>
   {% for x in c.recent %}<tr><td>{{ x.title }}</td><td class="num">{{ x.at }}</td></tr>{% endfor %}</table>
 {% endif %}
 
 <footer>
-  <span>SoV = แบรนด์โผล่ในผลค้นเว็บของคำถามแนว AI · ผู้ช่วย AI = ChatGPT/Perplexity/Gemini ตอบจริง · index/คลิกจาก Google Search Console</span>
+  <span>{{ _("SoV = แบรนด์โผล่ในผลค้นเว็บของคำถามแนว AI · ผู้ช่วย AI = ChatGPT/Perplexity/Gemini ตอบจริง · index/คลิกจาก Google Search Console") }}</span>
   <span>เจอ.AI · {{ d.period.to }}</span>
 </footer>
 </div>

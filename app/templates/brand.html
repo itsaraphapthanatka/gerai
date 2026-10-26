@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ brand['name'] }} — เจอ.AI{% endblock %}
 {% block content %}
+{# แปลข้อความที่ระบบเก็บไว้เป็นไทย · ไม่มีคำแปลทั้งก้อน → แปลทีละท่อนที่คั่นด้วย " · " #}
+{% macro trx(s) %}{% set t = (s or '')|tr %}{% if t == s and ' · ' in (s or '') %}{{ s.split(' · ')|map('tr')|join(' · ') }}{% else %}{{ t }}{% endif %}{% endmacro %}
+{% set RUN_ST = {'done': _('เสร็จ'), 'running': _('กำลังรัน')} %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <div>
     <h1 style="margin:0">{{ brand['name'] }}</h1>
@@ -8,35 +11,35 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <form method="post" action="/brands/{{ brand['id'] }}/run">
-      <button class="alt">▶ รันมอนิเตอร์</button>
+      <button class="alt">▶ {{ _("รันมอนิเตอร์") }}</button>
     </form>
     <form method="post" action="/brands/{{ brand['id'] }}/delete"
-          onsubmit="return confirm('ลบแบรนด์ {{ brand['name'] }} และข้อมูลทั้งหมด?\nไม่สามารถกู้คืนได้')">
-      <button class="danger" type="submit" style="padding:9px 14px;font-size:13px">ลบแบรนด์</button>
+          onsubmit="return confirm({{ (_('ลบแบรนด์ {name} และข้อมูลทั้งหมด?', name=brand['name']) ~ '\n' ~ _('ไม่สามารถกู้คืนได้'))|tojson|forceescape }})">
+      <button class="danger" type="submit" style="padding:9px 14px;font-size:13px">{{ _("ลบแบรนด์") }}</button>
     </form>
   </div>
 </div>
-{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
 
 <!-- SoV snapshot -->
 {% if last_run %}
 <div class="card" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
   <div>
-    <div class="muted" style="font-size:12px;margin-bottom:2px">Share of Voice ล่าสุด</div>
+    <div class="muted" style="font-size:12px;margin-bottom:2px">{{ _("Share of Voice ล่าสุด") }}</div>
     {% set sov = ((last_run['share_of_voice'] or 0)*100)|round(1) %}
     <div class="sov {% if sov > 0 %}pos{% else %}no{% endif %}">{{ sov }}%</div>
     <div class="muted" style="font-size:11px;margin-top:2px">{{ last_run['started_at'][:10] }}</div>
   </div>
   <div style="flex:1;min-width:160px">
-    <div class="muted" style="font-size:12px">พบแบรนด์ใน AI</div>
-    <div style="font-size:22px;font-weight:700;margin:4px 0">{{ last_run['brand_hits'] }}/{{ last_run['questions_total'] }} คำถาม</div>
-    <div class="muted" style="font-size:12px">สถานะ: {{ last_run['status'] }}</div>
+    <div class="muted" style="font-size:12px">{{ _("พบแบรนด์ใน AI") }}</div>
+    <div style="font-size:22px;font-weight:700;margin:4px 0">{{ _("{hits}/{total} คำถาม", hits=last_run['brand_hits'], total=last_run['questions_total']) }}</div>
+    <div class="muted" style="font-size:12px">{{ _("สถานะ: {status}", status=(RUN_ST.get(last_run['status'], last_run['status']) if ui_lang() != 'th' else last_run['status'])) }}</div>
   </div>
-  <a href="/runs/{{ last_run['id'] }}" class="btn ghost sm">ดูรายงาน →</a>
+  <a href="/runs/{{ last_run['id'] }}" class="btn ghost sm">{{ _("ดูรายงาน →") }}</a>
 </div>
 {% else %}
 <div class="card" style="text-align:center;padding:32px">
-  <p class="muted">ยังไม่เคยรัน — กด "รันมอนิเตอร์ตอนนี้" เพื่อเริ่มวัด SoV</p>
+  <p class="muted">{{ _('ยังไม่เคยรัน — กด "รันมอนิเตอร์ตอนนี้" เพื่อเริ่มวัด SoV') }}</p>
 </div>
 {% endif %}
 
@@ -46,26 +49,26 @@
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
     <span style="font-size:20px">🎯</span>
     <div>
-      <div style="font-weight:700;font-size:15px">คำถามที่ควรเขียน ({{ gaps.total_gaps }})</div>
-      <div class="muted" style="font-size:12px">แบรนด์ยังไม่โผล่ใน AI สำหรับคำถามเหล่านี้ — วัดเมื่อ {{ gaps.last_run_at[:10] }}</div>
+      <div style="font-weight:700;font-size:15px">{{ _("คำถามที่ควรเขียน ({n})", n=gaps.total_gaps) }}</div>
+      <div class="muted" style="font-size:12px">{{ _("แบรนด์ยังไม่โผล่ใน AI สำหรับคำถามเหล่านี้ — วัดเมื่อ {date}", date=gaps.last_run_at[:10]) }}</div>
     </div>
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
     {% for g in gaps.gaps %}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:10px">
-      <span class="gap-pill gap-{{ g.level }}">{{ {'critical':'ควรเขียน','draft':'มีร่าง','stale':'รอ index','unmeasured':'ยังไม่วัด'}[g.level] }}</span>
+      <span class="gap-pill gap-{{ g.level }}">{{ {'critical':_('ควรเขียน'),'draft':_('มีร่าง'),'stale':_('รอ index'),'unmeasured':_('ยังไม่วัด')}[g.level] }}</span>
       <div style="flex:1;min-width:160px">
         <div style="font-size:13px;font-weight:500">{{ g.question }}</div>
-        <div class="muted" style="font-size:11px">{{ g.reason }}</div>
+        <div class="muted" style="font-size:11px">{{ g.reason|tr }}</div>
       </div>
       {% if g.level in ('critical', 'unmeasured') %}
-      <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="⏳ กำลังสร้างคอนเทนต์ด้วย AI…">
+      <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="{{ _("⏳ กำลังสร้างคอนเทนต์ด้วย AI…") }}">
         <input type="hidden" name="question_id" value="{{ g.question_id }}">
         <input type="hidden" name="lang" value="{{ g.lang }}">
-        <button type="submit" style="white-space:nowrap;font-size:12px;padding:6px 12px">✍️ เขียนเลย</button>
+        <button type="submit" style="white-space:nowrap;font-size:12px;padding:6px 12px">✍️ {{ _("เขียนเลย") }}</button>
       </form>
       {% else %}
-      <a href="/brands/{{ brand['id'] }}/content" class="btn ghost sm" style="white-space:nowrap;font-size:12px">ดูคอนเทนต์ →</a>
+      <a href="/brands/{{ brand['id'] }}/content" class="btn ghost sm" style="white-space:nowrap;font-size:12px">{{ _("ดูคอนเทนต์ →") }}</a>
       {% endif %}
     </div>
     {% endfor %}
@@ -74,7 +77,7 @@
 {% elif gaps.has_run and gaps.total_gaps == 0 %}
 <div class="card" style="margin-top:16px;border-color:#16a34a;background:#f0fdf4;display:flex;align-items:center;gap:10px">
   <span style="font-size:20px">✅</span>
-  <div style="font-size:13px">ครอบคลุมครบทุกคำถามเป้าหมาย — แบรนด์โผล่ใน AI ทั้ง {{ gaps.q_total }} คำถาม</div>
+  <div style="font-size:13px">{{ _("ครอบคลุมครบทุกคำถามเป้าหมาย — แบรนด์โผล่ใน AI ทั้ง {n} คำถาม", n=gaps.q_total) }}</div>
 </div>
 {% endif %}
 
@@ -83,44 +86,44 @@
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <span style="font-size:20px">⚡</span>
     <div>
-      <div style="font-weight:700;font-size:15px">ติดตั้ง GEO บนเว็บ</div>
-      <div class="muted" style="font-size:12px">เลือกตามชนิดเว็บ — แต่ละแบบมีวิธีติดตั้งและประสิทธิภาพต่างกัน</div>
+      <div style="font-weight:700;font-size:15px">{{ _("ติดตั้ง GEO บนเว็บ") }}</div>
+      <div class="muted" style="font-size:12px">{{ _("เลือกตามชนิดเว็บ — แต่ละแบบมีวิธีติดตั้งและประสิทธิภาพต่างกัน") }}</div>
     </div>
   </div>
 
   <div class="inst-tabs">
     <button type="button" class="inst-tab active" data-t="wp">WordPress</button>
     <button type="button" class="inst-tab" data-t="nocode">CMS / No-code</button>
-    <button type="button" class="inst-tab" data-t="dev">เว็บเขียนเอง / Dev</button>
+    <button type="button" class="inst-tab" data-t="dev">{{ _("เว็บเขียนเอง / Dev") }}</button>
   </div>
 
   <!-- WordPress -->
   <div class="inst-panel active" data-p="wp">
-    <div class="inst-best">✓ ดีสุดสำหรับ GEO — schema อยู่ใน HTML ดิบ + เผยแพร่คอนเทนต์อัตโนมัติ</div>
+    <div class="inst-best">✓ {{ _("ดีสุดสำหรับ GEO — schema อยู่ใน HTML ดิบ + เผยแพร่คอนเทนต์อัตโนมัติ") }}</div>
     {% if wp and wp['site_url'] %}
-      <p style="font-size:13px;margin:10px 0">เชื่อมแล้ว: <b>{{ wp['site_url'] }}</b> · สถานะ {{ wp['status'] or '—' }}</p>
+      <p style="font-size:13px;margin:10px 0">{{ _("เชื่อมแล้ว:") }} <b>{{ wp['site_url'] }}</b> · {{ _("สถานะ") }} {{ trx(wp['status']) if wp['status'] else '—' }}</p>
     {% else %}
-      <p class="muted" style="font-size:13px;margin:10px 0">เชื่อม WordPress เพื่อให้ระบบ publish คอนเทนต์ + ฝัง schema ฝั่งเซิร์ฟเวอร์ให้อัตโนมัติ</p>
+      <p class="muted" style="font-size:13px;margin:10px 0">{{ _("เชื่อม WordPress เพื่อให้ระบบ publish คอนเทนต์ + ฝัง schema ฝั่งเซิร์ฟเวอร์ให้อัตโนมัติ") }}</p>
     {% endif %}
-    <a href="/brands/{{ brand['id'] }}/wp" style="display:inline-block;background:var(--purple);color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">ไปตั้งค่า WordPress →</a>
+    <a href="/brands/{{ brand['id'] }}/wp" style="display:inline-block;background:var(--purple);color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">{{ _("ไปตั้งค่า WordPress →") }}</a>
   </div>
 
   <!-- No-code -->
   <div class="inst-panel" data-p="nocode">
-    <p style="font-size:13px;margin:8px 0">เว็บสำเร็จรูป (Wix, Squarespace, Shopify, Webflow) — วาง &lt;script&gt; นี้ในช่อง <b>Custom Code / Header</b>:</p>
+    <p style="font-size:13px;margin:8px 0">{{ _("เว็บสำเร็จรูป (Wix, Squarespace, Shopify, Webflow) — วาง <script> นี้ในช่อง") }} <b>Custom Code / Header</b>:</p>
     <div style="position:relative">
       <pre class="code" id="codeJs" style="margin:0;padding-right:80px">&lt;script src="{{ embed_js_url }}" async&gt;&lt;/script&gt;</pre>
-      <button type="button" class="copy-btn" data-copy="codeJs">คัดลอก</button>
+      <button type="button" class="copy-btn" data-copy="codeJs">{{ _("คัดลอก") }}</button>
     </div>
     <div class="inst-warn">
-      ⚠️ <b>ข้อจำกัด:</b> GPTBot / ClaudeBot / PerplexityBot ส่วนใหญ่ <b>ไม่รัน JavaScript</b> → schema ที่ฉีดด้วยวิธีนี้อาจถูกมองข้าม (ช่วยได้กับ Google AI). ถ้าแก้โค้ดฝั่งเซิร์ฟเวอร์ได้ แนะนำใช้แท็บ "เว็บเขียนเอง / Dev"
+      ⚠️ <b>{{ _("ข้อจำกัด:") }}</b> {{ _("GPTBot / ClaudeBot / PerplexityBot ส่วนใหญ่") }} <b>{{ _("ไม่รัน JavaScript") }}</b> {{ _('→ schema ที่ฉีดด้วยวิธีนี้อาจถูกมองข้าม (ช่วยได้กับ Google AI). ถ้าแก้โค้ดฝั่งเซิร์ฟเวอร์ได้ แนะนำใช้แท็บ "เว็บเขียนเอง / Dev"') }}
     </div>
     <details style="margin-top:10px">
-      <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">วางตรงไหน? (แต่ละแพลตฟอร์ม)</summary>
+      <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">{{ _("วางตรงไหน? (แต่ละแพลตฟอร์ม)") }}</summary>
       <ul class="muted" style="font-size:12px;margin:8px 0 0;padding-left:18px;line-height:1.9">
         <li><b>Wix:</b> Settings → Custom Code → Add Code → Head</li>
         <li><b>Squarespace:</b> Settings → Advanced → Code Injection → Header</li>
-        <li><b>Shopify:</b> theme.liquid → ก่อน &lt;/head&gt;</li>
+        <li><b>Shopify:</b> theme.liquid → {{ _("ก่อน </head>") }}</li>
         <li><b>Webflow:</b> Project Settings → Custom Code → Head Code</li>
       </ul>
     </details>
@@ -128,74 +131,74 @@
 
   <!-- Dev -->
   <div class="inst-panel" data-p="dev">
-    <div class="inst-best">✓ ครอบคลุม AI bot ทุกตัว — เนื้อหา + schema อยู่ใน HTML จริง · <b>ทำเท่าที่ต้องการ ไม่ต้องครบทุกข้อ</b></div>
+    <div class="inst-best">✓ {{ _("ครอบคลุม AI bot ทุกตัว — เนื้อหา + schema อยู่ใน HTML จริง") }} · <b>{{ _("ทำเท่าที่ต้องการ ไม่ต้องครบทุกข้อ") }}</b></div>
 
     <!-- จำเป็น: หน้าบทความ -->
     <div style="margin-top:14px">
-      <div style="margin-bottom:4px"><span class="pri pri-req">จำเป็น</span><b style="font-size:13.5px">หน้าบทความ GEO</b></div>
+      <div style="margin-bottom:4px"><span class="pri pri-req">{{ _("จำเป็น") }}</span><b style="font-size:13.5px">{{ _("หน้าบทความ GEO") }}</b></div>
       <p class="muted" style="font-size:11.5px;line-height:1.6;margin:0 0 8px">
-        คอนเทนต์ที่เผยแพร่ = <b>หน้าจริง (เนื้อหา + schema ในตัว)</b> ที่ platform โฮสต์ให้ — เพิ่ม proxy path เดียวให้ขึ้นใต้โดเมนคุณ <b>ไม่ต้องเขียนโค้ด</b>
+        {{ _("คอนเทนต์ที่เผยแพร่ =") }} <b>{{ _("หน้าจริง (เนื้อหา + schema ในตัว)") }}</b> {{ _("ที่ platform โฮสต์ให้ — เพิ่ม proxy path เดียวให้ขึ้นใต้โดเมนคุณ") }} <b>{{ _("ไม่ต้องเขียนโค้ด") }}</b>
       </p>
-      <div style="font-size:11px;font-weight:600;margin:8px 0 4px">Nginx — เพิ่มใน server block แล้ว reload (Plesk/cPanel วางช่อง "Additional nginx directives")</div>
+      <div style="font-size:11px;font-weight:600;margin:8px 0 4px">{{ _('Nginx — เพิ่มใน server block แล้ว reload (Plesk/cPanel วางช่อง "Additional nginx directives")') }}</div>
       <div style="position:relative">
         <pre class="code" id="codeProxy" style="margin:0;font-size:11px">location /geo/ {{ '{' }}
     proxy_pass {{ embed_articles_url }};
     proxy_set_header Host {{ embed_host }};
     proxy_ssl_server_name on;
 {{ '}' }}</pre>
-        <button type="button" class="copy-btn" data-copy="codeProxy">คัดลอก</button>
+        <button type="button" class="copy-btn" data-copy="codeProxy">{{ _("คัดลอก") }}</button>
       </div>
-      <div class="muted" style="font-size:11px;margin-top:8px">เสร็จแล้วบทความจะอยู่ที่ <code>โดเมนคุณ/geo/…</code> — กด "เผยแพร่ (public)" ในหน้าคอนเทนต์เพื่อให้ขึ้น</div>
+      <div class="muted" style="font-size:11px;margin-top:8px">{{ _("เสร็จแล้วบทความจะอยู่ที่") }} <code>{{ _("โดเมนคุณ") }}/geo/…</code> — {{ _('กด "เผยแพร่ (public)" ในหน้าคอนเทนต์เพื่อให้ขึ้น') }}</div>
 
       <!-- ไม่มี server: Vercel / Netlify / Next.js -->
-      <div style="font-size:11px;font-weight:600;margin:14px 0 4px">▲ ไม่มี server (Vercel / Netlify / Next.js) — ใช้ rewrites แทน proxy</div>
-      <div style="font-size:10.5px;color:var(--silver);margin-bottom:3px">Vercel — วางไฟล์ <code>vercel.json</code> ที่ root แล้ว deploy</div>
+      <div style="font-size:11px;font-weight:600;margin:14px 0 4px">▲ {{ _("ไม่มี server (Vercel / Netlify / Next.js) — ใช้ rewrites แทน proxy") }}</div>
+      <div style="font-size:10.5px;color:var(--silver);margin-bottom:3px">Vercel — {{ _("วางไฟล์") }} <code>vercel.json</code> {{ _("ที่ root แล้ว deploy") }}</div>
       <div style="position:relative">
         <pre class="code" id="codeVercel" style="margin:0;font-size:11px">{{ embed_vercel_json }}</pre>
-        <button type="button" class="copy-btn" data-copy="codeVercel">คัดลอก</button>
+        <button type="button" class="copy-btn" data-copy="codeVercel">{{ _("คัดลอก") }}</button>
       </div>
-      <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Netlify — ไฟล์ <code>_redirects</code> ที่โฟลเดอร์ publish (เช่น <code>public/</code>)</div>
+      <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Netlify — {{ _("ไฟล์") }} <code>_redirects</code> {{ _("ที่โฟลเดอร์ publish (เช่น") }} <code>public/</code>)</div>
       <div style="position:relative">
         <pre class="code" id="codeNetlify" style="margin:0;font-size:11px">{{ embed_netlify }}</pre>
-        <button type="button" class="copy-btn" data-copy="codeNetlify">คัดลอก</button>
+        <button type="button" class="copy-btn" data-copy="codeNetlify">{{ _("คัดลอก") }}</button>
       </div>
       <details style="margin-top:8px">
-        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">ทางอื่น (Next.js config / Apache / ลิงก์ตรง / ดึง JSON เอง)</summary>
-        <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Next.js — ถ้าอยากใช้ <code>next.config.js</code> แทน vercel.json</div>
+        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">{{ _("ทางอื่น (Next.js config / Apache / ลิงก์ตรง / ดึง JSON เอง)") }}</summary>
+        <div style="font-size:10.5px;color:var(--silver);margin:8px 0 3px">Next.js — {{ _("ถ้าอยากใช้") }} <code>next.config.js</code> {{ _("แทน vercel.json") }}</div>
         <div style="position:relative">
           <pre class="code" id="codeNext" style="margin:0;font-size:11px">{{ embed_next_config }}</pre>
-          <button type="button" class="copy-btn" data-copy="codeNext">คัดลอก</button>
+          <button type="button" class="copy-btn" data-copy="codeNext">{{ _("คัดลอก") }}</button>
         </div>
         <div class="muted" style="font-size:11.5px;line-height:1.9;margin-top:8px">
           <b>Apache:</b> <code>ProxyPass /geo/ {{ embed_articles_url }}</code><br>
-          <b>ลิงก์ตรง (ไม่ proxy):</b> <code>{{ embed_articles_url }}</code><br>
-          <b>render เองในสแตกตัวเอง:</b> ดึงฟีด <code>{{ embed_content_json_url }}</code>
+          <b>{{ _("ลิงก์ตรง (ไม่ proxy):") }}</b> <code>{{ embed_articles_url }}</code><br>
+          <b>{{ _("render เองในสแตกตัวเอง:") }}</b> {{ _("ดึงฟีด") }} <code>{{ embed_content_json_url }}</code>
         </div>
       </details>
-      <div class="muted" style="font-size:10.5px;margin-top:8px;line-height:1.6">⚠️ robots.txt: ถ้ามีอยู่แล้ว <b>อย่า rewrite ทับ</b> — เพิ่มบรรทัด AI bot จากส่วน "llms.txt / robots.txt" ด้านล่างลงในไฟล์เดิมแทน</div>
+      <div class="muted" style="font-size:10.5px;margin-top:8px;line-height:1.6">⚠️ robots.txt: {{ _("ถ้ามีอยู่แล้ว") }} <b>{{ _("อย่า rewrite ทับ") }}</b> — {{ _('เพิ่มบรรทัด AI bot จากส่วน "llms.txt / robots.txt" ด้านล่างลงในไฟล์เดิมแทน') }}</div>
     </div>
 
     <!-- แนะนำ: llms/robots -->
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-      <div style="margin-bottom:4px"><span class="pri pri-rec">แนะนำ</span><b style="font-size:13.5px">llms.txt / robots.txt</b></div>
+      <div style="margin-bottom:4px"><span class="pri pri-rec">{{ _("แนะนำ") }}</span><b style="font-size:13.5px">llms.txt / robots.txt</b></div>
       <p class="muted" style="font-size:11.5px;line-height:1.6;margin:0 0 8px">
-        llms.txt ช่วย AI หาเนื้อหา · robots.txt เปิดทาง AI bot (<b>ข้ามได้</b>ถ้าเว็บเปิดให้ crawler อยู่แล้ว) — วางเป็นไฟล์จริงที่ root
+        {{ _("llms.txt ช่วย AI หาเนื้อหา · robots.txt เปิดทาง AI bot") }} (<b>{{ _("ข้ามได้") }}</b>{{ _("ถ้าเว็บเปิดให้ crawler อยู่แล้ว") }}) — {{ _("วางเป็นไฟล์จริงที่ root") }}
       </p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a href="{{ embed_llms_url }}?dl=1" download="llms.txt" class="dl-btn">⬇ llms.txt</a>
         <a href="{{ embed_robots_url }}?dl=1" download="robots.txt" class="dl-btn">⬇ robots.txt</a>
       </div>
-      <div class="muted" style="font-size:11px;margin-top:8px">หรือ redirect ไป URL นี้ (อัปเดตอัตโนมัติ):</div>
+      <div class="muted" style="font-size:11px;margin-top:8px">{{ _("หรือ redirect ไป URL นี้ (อัปเดตอัตโนมัติ):") }}</div>
       <pre class="code" style="margin:6px 0 0;font-size:11px">{{ embed_llms_url }}
 {{ embed_robots_url }}</pre>
     </div>
 
     <!-- แนะนำ: sitemap -->
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-      <div style="margin-bottom:4px"><span class="pri pri-rec">แนะนำ</span><b style="font-size:13.5px">geo-sitemap.xml</b></div>
+      <div style="margin-bottom:4px"><span class="pri pri-rec">{{ _("แนะนำ") }}</span><b style="font-size:13.5px">geo-sitemap.xml</b></div>
       <p class="muted" style="font-size:11.5px;line-height:1.6;margin:0 0 8px">
-        บอก Google ว่ามีหน้าใหม่ — ไม่มี sitemap หน้าใหม่อาจใช้เวลาเป็นสัปดาห์กว่าจะถูก index (AI ส่วนใหญ่ดึงจาก index อีกที)
-        <br>⚠️ ต้อง <b>proxy/rewrite ให้ขึ้นใต้โดเมนคุณ</b> — Google ไม่รับ sitemap ข้ามโดเมน
+        {{ _("บอก Google ว่ามีหน้าใหม่ — ไม่มี sitemap หน้าใหม่อาจใช้เวลาเป็นสัปดาห์กว่าจะถูก index (AI ส่วนใหญ่ดึงจาก index อีกที)") }}
+        <br>⚠️ {{ _("ต้อง") }} <b>{{ _("proxy/rewrite ให้ขึ้นใต้โดเมนคุณ") }}</b> — {{ _("Google ไม่รับ sitemap ข้ามโดเมน") }}
       </p>
       <div style="position:relative">
         <pre class="code" id="codeSitemap" style="margin:0;font-size:11px">location = /geo-sitemap.xml {{ '{' }}
@@ -203,27 +206,27 @@
     proxy_set_header Host {{ embed_host }};
     proxy_ssl_server_name on;
 {{ '}' }}</pre>
-        <button type="button" class="copy-btn" data-copy="codeSitemap">คัดลอก</button>
+        <button type="button" class="copy-btn" data-copy="codeSitemap">{{ _("คัดลอก") }}</button>
       </div>
       <div class="muted" style="font-size:11px;margin-top:8px">
-        เสร็จแล้วส่ง <code>{{ brand['domain'] }}/geo-sitemap.xml</code> เข้า Google Search Console → Sitemaps
-        (Vercel/Netlify/Next.js: มี rewrite ให้แล้วในโค้ดด้านบน)
+        {{ _("เสร็จแล้วส่ง") }} <code>{{ brand['domain'] }}/geo-sitemap.xml</code> {{ _("เข้า Google Search Console → Sitemaps") }}
+        {{ _("(Vercel/Netlify/Next.js: มี rewrite ให้แล้วในโค้ดด้านบน)") }}
       </div>
     </div>
 
     <!-- ออปชัน: head schema -->
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-      <div style="margin-bottom:4px"><span class="pri pri-opt">ออปชัน</span><b style="font-size:13.5px">ฝัง schema ในหน้าเดิมของเว็บ</b></div>
+      <div style="margin-bottom:4px"><span class="pri pri-opt">{{ _("ออปชัน") }}</span><b style="font-size:13.5px">{{ _("ฝัง schema ในหน้าเดิมของเว็บ") }}</b></div>
       <p class="muted" style="font-size:11.5px;line-height:1.6;margin:0 0 8px">
-        เสริม brand entity บนหน้าอื่น (หน้าแรก ฯลฯ) — <b>ข้ามได้</b> เพราะหน้า <code>/geo/</code> มี schema อยู่แล้ว
+        {{ _("เสริม brand entity บนหน้าอื่น (หน้าแรก ฯลฯ)") }} — <b>{{ _("ข้ามได้") }}</b> {{ _("เพราะหน้า") }} <code>/geo/</code> {{ _("มี schema อยู่แล้ว") }}
       </p>
       <details>
-        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">ดู JSON-LD สำหรับวางใน &lt;head&gt;</summary>
+        <summary style="cursor:pointer;font-size:12px;color:var(--cool);font-weight:500">{{ _("ดู JSON-LD สำหรับวางใน <head>") }}</summary>
         <div style="position:relative;margin-top:6px">
           <pre class="code" id="codeHead" style="margin:0;max-height:200px;overflow:auto;font-size:11px">{{ embed_head_html }}</pre>
-          <button type="button" class="copy-btn" data-copy="codeHead">คัดลอก</button>
+          <button type="button" class="copy-btn" data-copy="codeHead">{{ _("คัดลอก") }}</button>
         </div>
-        <div class="muted" style="font-size:11px;margin-top:6px">หรือให้เซิร์ฟเวอร์ fetch มา inline จาก: <code>{{ embed_head_url }}</code></div>
+        <div class="muted" style="font-size:11px;margin-top:6px">{{ _("หรือให้เซิร์ฟเวอร์ fetch มา inline จาก:") }} <code>{{ embed_head_url }}</code></div>
       </details>
     </div>
   </div>
@@ -244,7 +247,7 @@
     b.addEventListener('click',function(){
       var el=document.getElementById(b.dataset.copy);
       navigator.clipboard.writeText(el.textContent.trim());
-      var o=b.textContent;b.textContent='✓ คัดลอกแล้ว';setTimeout(function(){b.textContent=o},2000);
+      var o=b.textContent;b.textContent={{ _('✓ คัดลอกแล้ว')|tojson }};setTimeout(function(){b.textContent=o},2000);
     });
   });
 })();
@@ -254,77 +257,77 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px">
   <a href="/brands/{{ brand['id'] }}/questions" class="quick-card">
     <div class="qc-icon">❓</div>
-    <div class="qc-label">คำถามเป้าหมาย</div>
-    <div class="qc-count">{{ q_count }} คำถาม</div>
+    <div class="qc-label">{{ _("คำถามเป้าหมาย") }}</div>
+    <div class="qc-count">{{ _("{n} คำถาม", n=q_count) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/monitor" class="quick-card">
     <div class="qc-icon">📡</div>
-    <div class="qc-label">ประวัติมอนิเตอร์</div>
-    <div class="qc-count">{{ 'รัน ' ~ last_run['started_at'][:10] if last_run else 'ยังไม่เคยรัน' }}</div>
+    <div class="qc-label">{{ _("ประวัติมอนิเตอร์") }}</div>
+    <div class="qc-count">{{ _('รัน {date}', date=last_run['started_at'][:10]) if last_run else _('ยังไม่เคยรัน') }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/content" class="quick-card">
     <div class="qc-icon">📝</div>
-    <div class="qc-label">คอนเทนต์ GEO</div>
-    <div class="qc-count">{{ content_count }} ชิ้น</div>
+    <div class="qc-label">{{ _("คอนเทนต์ GEO") }}</div>
+    <div class="qc-count">{{ _("{n} ชิ้น", n=content_count) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/wp" class="quick-card">
     <div class="qc-icon">🔗</div>
     <div class="qc-label">WordPress</div>
-    <div class="qc-count">ตั้งค่าการเผยแพร่</div>
+    <div class="qc-count">{{ _("ตั้งค่าการเผยแพร่") }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/health" class="quick-card">
     <div class="qc-icon">{{ '🩺' if not health else ('✅' if health['ok'] else '🔴') }}</div>
-    <div class="qc-label">สุขภาพเว็บ</div>
-    <div class="qc-count">{{ 'ยังไม่เคยตรวจ' if not health else ('ผ่านทั้งหมด' if health['ok'] else health['n_fail'] ~ ' ปัญหา') }}</div>
+    <div class="qc-label">{{ _("สุขภาพเว็บ") }}</div>
+    <div class="qc-count">{{ _('ยังไม่เคยตรวจ') if not health else (_('ผ่านทั้งหมด') if health['ok'] else _('{n} ปัญหา', n=health['n_fail'])) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/rank" class="quick-card">
     <div class="qc-icon">🔍</div>
-    <div class="qc-label">อันดับ Google</div>
-    <div class="qc-count">{{ 'เช็ค ' ~ last_rank[:10] if last_rank else 'ยังไม่เคยเช็ค' }}</div>
+    <div class="qc-label">{{ _("อันดับ Google") }}</div>
+    <div class="qc-count">{{ _('เช็ค {date}', date=last_rank[:10]) if last_rank else _('ยังไม่เคยเช็ค') }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/ai" class="quick-card">
     <div class="qc-icon">🤖</div>
-    <div class="qc-label">มองเห็นบน AI</div>
-    <div class="qc-count">{{ 'ยังไม่เคยถาม' if not ai else (('ถูกพูดถึง ' ~ ai['rate'] ~ '%') if ai['asked'] else 'ยังไม่มีคีย์') }}</div>
+    <div class="qc-label">{{ _("มองเห็นบน AI") }}</div>
+    <div class="qc-count">{{ _('ยังไม่เคยถาม') if not ai else (_('ถูกพูดถึง {rate}%', rate=ai['rate']) if ai['asked'] else _('ยังไม่มีคีย์')) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/gsc" class="quick-card">
     <div class="qc-icon">📈</div>
     <div class="qc-label">Search Console</div>
-    <div class="qc-count">{{ 'ยังไม่เคยซิงค์' if not gsc else (('index ' ~ gsc['indexed'] ~ '/' ~ gsc['total']) if gsc['linked'] else 'ยังไม่ได้เชื่อม') }}</div>
+    <div class="qc-count">{{ _('ยังไม่เคยซิงค์') if not gsc else (('index ' ~ gsc['indexed'] ~ '/' ~ gsc['total']) if gsc['linked'] else _('ยังไม่ได้เชื่อม')) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/speed" class="quick-card">
     <div class="qc-icon">⚡</div>
-    <div class="qc-label">ความเร็วเว็บ</div>
-    <div class="qc-count">{{ 'ยังไม่เคยสแกน' if not speed else ('มือถือ ' ~ (speed['perf_mobile'] if speed['perf_mobile'] is not none else '–') ~ ' · เดสก์ท็อป ' ~ (speed['perf_desktop'] if speed['perf_desktop'] is not none else '–')) }}</div>
+    <div class="qc-label">{{ _("ความเร็วเว็บ") }}</div>
+    <div class="qc-count">{{ _('ยังไม่เคยสแกน') if not speed else _('มือถือ {m} · เดสก์ท็อป {d}', m=(speed['perf_mobile'] if speed['perf_mobile'] is not none else '–'), d=(speed['perf_desktop'] if speed['perf_desktop'] is not none else '–')) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/ai-serp" class="quick-card">
     <div class="qc-icon">✨</div>
     <div class="qc-label">Google AI Overview / AI Mode</div>
-    <div class="qc-count">{{ 'ยังไม่เคยเช็ค' if not aiserp else (('AI Overview ' ~ aiserp['overview_hit'] ~ '/' ~ aiserp['overview_shown'] ~ ' · AI Mode ' ~ aiserp['mode_hit'] ~ '/' ~ (aiserp['asked'] - aiserp['overview_shown'] if aiserp['asked'] > aiserp['overview_shown'] else aiserp['asked'])) if aiserp['asked'] else 'ยังไม่มีคีย์') }}</div>
+    <div class="qc-count">{{ _('ยังไม่เคยเช็ค') if not aiserp else (('AI Overview ' ~ aiserp['overview_hit'] ~ '/' ~ aiserp['overview_shown'] ~ ' · AI Mode ' ~ aiserp['mode_hit'] ~ '/' ~ (aiserp['asked'] - aiserp['overview_shown'] if aiserp['asked'] > aiserp['overview_shown'] else aiserp['asked'])) if aiserp['asked'] else _('ยังไม่มีคีย์')) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/autopilot" class="quick-card">
     <div class="qc-icon">🤖</div>
     <div class="qc-label">Autopilot</div>
-    <div class="qc-count">{{ ('เปิด · รันล่าสุด ' ~ autopilot_last['started_at'][:10]) if (brand['autopilot'] and autopilot_last) else ('เปิดอยู่ ยังไม่เคยรัน' if brand['autopilot'] else 'ปิด — ให้ระบบทำเองรายสัปดาห์') }}</div>
+    <div class="qc-count">{{ _('เปิด · รันล่าสุด {date}', date=autopilot_last['started_at'][:10]) if (brand['autopilot'] and autopilot_last) else (_('เปิดอยู่ ยังไม่เคยรัน') if brand['autopilot'] else _('ปิด — ให้ระบบทำเองรายสัปดาห์')) }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/report" class="quick-card">
     <div class="qc-icon">📄</div>
-    <div class="qc-label">รายงาน & ส่งออก</div>
-    <div class="qc-count">PDF รายเดือน · CSV</div>
+    <div class="qc-label">{{ _("รายงาน & ส่งออก") }}</div>
+    <div class="qc-count">{{ _("PDF รายเดือน · CSV") }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/chat" class="quick-card">
     <div class="qc-icon">💬</div>
-    <div class="qc-label">ถามข้อมูลแบรนด์</div>
-    <div class="qc-count">AI ตอบจากตัวเลขจริง</div>
+    <div class="qc-label">{{ _("ถามข้อมูลแบรนด์") }}</div>
+    <div class="qc-count">{{ _("AI ตอบจากตัวเลขจริง") }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/impact" class="quick-card">
     <div class="qc-icon">📊</div>
     <div class="qc-label">SoV Impact</div>
-    <div class="qc-count">ก่อน vs หลัง</div>
+    <div class="qc-count">{{ _("ก่อน vs หลัง") }}</div>
   </a>
   <a href="/brands/{{ brand['id'] }}/assets" class="quick-card">
     <div class="qc-icon">🛡️</div>
-    <div class="qc-label">ชุดติดตั้ง</div>
+    <div class="qc-label">{{ _("ชุดติดตั้ง") }}</div>
     <div class="qc-count">llms.txt · schema</div>
   </a>
 </div>
