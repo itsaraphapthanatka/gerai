@@ -85,7 +85,8 @@ dl = next(l for l in db.list_leads(None, 1000) if l["domain"] == "dash.co.th"); 
 assert "อยู่ในสายขายของเราอยู่แล้ว" in PT.submit_client(pb, "already.co.th", "", "", True) or db.get_lead(1)["status"] == "new"
 print("attribution: /p/<code> ตั้งคุกกี้ · ลีดนับเป็นของพันธมิตรครั้งแรก · แนะนำตัวเองไม่นับ · ส่งชื่อลูกค้าต้องยินยอม → ตรวจเว็บ OK")
 
-# ---- ค่าแนะนำจากใบเสร็จ ----
+# ---- ค่าแนะนำจากใบเสร็จ ---- (ตั้งช่วงคืนเงิน 7 วันเพื่อทดสอบการรอ · ค่าจริงตอนนี้ 0 = จ่ายได้ทันที)
+X.set_mandate("refund_days", 7)
 q = P.create_quote(db.get_lead(dl["id"]), "pro", 0, False, cycle="month"); db.update_quote(q["id"], status="claimed")
 P.confirm_payment(db.get_quote(q["id"]), "owner")
 rc = db.list_acct_docs("receipt", lead_id=dl["id"])[0]

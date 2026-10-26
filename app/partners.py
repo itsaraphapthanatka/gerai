@@ -20,7 +20,7 @@ COOKIE = "jr_ref"
 COOKIE_DAYS = 60
 STATUS_TH = {"prospect": "พบจากการค้นหา", "invited": "ส่งคำชวนแล้ว", "replied": "ตอบกลับแล้ว", "applied": "สมัครแล้ว รออนุมัติ",
              "active": "พันธมิตร", "paused": "พักไว้", "rejected": "ไม่รับ", "unsubscribed": "ขอไม่รับการติดต่อ"}
-CSTATUS_TH = {"pending": "รอพ้นช่วงคืนเงิน", "approved": "ถึงกำหนดจ่าย", "paid": "จ่ายแล้ว", "void": "ยกเลิก"}
+CSTATUS_TH = {"pending": "รอถึงกำหนด", "approved": "ถึงกำหนดจ่าย", "paid": "จ่ายแล้ว", "void": "ยกเลิก"}
 FORBIDDEN = re.compile(r"(การันตี|รับประกันอันดับ|อันดับ\s*1|100\s*%|รวยเร็ว)")
 HOOKS = {"search": None, "contact": None, "llm": None}
 

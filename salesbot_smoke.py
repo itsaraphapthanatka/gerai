@@ -21,7 +21,7 @@ lead = db.get_lead(lid)
 
 # ---- คลังข้อเท็จจริง ----
 k = " ".join(SB.knowledge(lead))
-assert "9,900 บาท/เดือน" in k and "29,000" in k and "ทดลองใช้ฟรี 14 วัน" in k and "คืนเงินเต็มได้ภายใน 7 วันแรก" in k
+assert "9,900 บาท/เดือน" in k and "29,000" in k and "ทดลองใช้ฟรี 14 วัน" in k and "ชำระแล้วไม่คืนเงิน" in k and "คืนเงินเต็ม" not in k
 assert "shop.co.th" in k and "ไม่มี llms.txt" in k and "/audit/tok123" in k or "tok123" in k
 print("knowledge: ราคา/แพ็กเกจ/ทดลอง/คืนเงินจากระบบ + ผลตรวจของลีด OK")
 

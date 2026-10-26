@@ -12,14 +12,14 @@ from . import office
 MANDATE_DEFAULT = {
     "max_discount_pct": 10,
     "max_deal_thb": 50000,      # ต่อรายต่อเดือน
-    "refund_days": 7,
+    "refund_days": 0,           # คืนเงินเต็มภายในกี่วัน · 0 = ไม่คืนเงิน (เจ้าของเลิกนโยบายคืนเงิน 25 ต.ค. 2569)
     "ai_cost_cap_thb": 570,     # ต้นทุน AI/เครื่องมือต่อลูกค้าต่อเดือน (จากแผน)
     "min_margin_pct": 70,
     "yearly_discount_pct": 17,  # ส่วนลดมาตรฐานเมื่อจ่ายรายปี (ไม่นับรวมกับส่วนลดสูงสุดของดีล)
     "partner_commission_pct": 20,     # ค่าแนะนำพันธมิตร (% ของค่าบริการก่อน VAT)
     "partner_commission_months": 12,  # จ่ายค่าแนะนำกี่เดือนแรกของลูกค้าแต่ละราย
 }
-MANDATE_LABEL = {"max_discount_pct": "ส่วนลดสูงสุด (%)", "max_deal_thb": "วงเงินต่อดีล (บาท/เดือน)", "refund_days": "คืนเงินเต็มภายใน (วัน)",
+MANDATE_LABEL = {"max_discount_pct": "ส่วนลดสูงสุด (%)", "max_deal_thb": "วงเงินต่อดีล (บาท/เดือน)", "refund_days": "คืนเงินเต็มภายใน (วัน) · 0 = ไม่คืนเงิน",
                  "ai_cost_cap_thb": "เพดานต้นทุน AI ต่อลูกค้า (บาท/เดือน)", "min_margin_pct": "กำไรขั้นต้นขั้นต่ำ (%)",
                  "yearly_discount_pct": "ส่วนลดเมื่อจ่ายรายปี (%)", "partner_commission_pct": "ค่าแนะนำพันธมิตร (%)",
                  "partner_commission_months": "จ่ายค่าแนะนำกี่เดือนแรก"}

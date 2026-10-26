@@ -3,7 +3,7 @@
 {% block content %}
 {% set inp = "padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px" %}
 <h1>พันธมิตร</h1>
-<p class="muted">เอเจนซี่เว็บ/การตลาดและฟรีแลนซ์ที่ส่งลูกค้ามาให้ · ค่าแนะนำ {{ "%g"|format(pct) }}% ของค่าบริการก่อน VAT {{ months }} เดือนแรก (แก้ได้ที่กรอบอำนาจ) · จ่ายหลังพ้นช่วงคืนเงิน 7 วัน · คำชวนทุกฉบับรอคุณอนุมัติ · หาพันธมิตรเองทุกวัน 11:00 · หน้าสมัคร <a class="link" href="/partners" target="_blank">{{ base }}/partners</a></p>
+<p class="muted">เอเจนซี่เว็บ/การตลาดและฟรีแลนซ์ที่ส่งลูกค้ามาให้ · ค่าแนะนำ {{ "%g"|format(pct) }}% ของค่าบริการก่อน VAT {{ months }} เดือนแรก (แก้ได้ที่กรอบอำนาจ) {% if refund_days() %}· จ่ายหลังพ้นช่วงคืนเงิน {{ refund_days() }} วัน {% endif %}· คำชวนทุกฉบับรอคุณอนุมัติ · หาพันธมิตรเองทุกวัน 11:00 · หน้าสมัคร <a class="link" href="/partners" target="_blank">{{ base }}/partners</a></p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:10px 0">

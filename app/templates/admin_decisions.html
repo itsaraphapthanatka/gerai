@@ -2,7 +2,7 @@
 {% block title %}การตัดสินใจของผู้บริหารเอเจนต์ — เจอ.AI{% endblock %}
 {% block content %}
 <h1>การตัดสินใจ</h1>
-<p class="muted">ผู้บริหารเอเจนต์ (CEO · CFO · CTO) — <b>{{ mode }}</b> · กรอบอำนาจ: ส่วนลด ≤ {{ mandate.max_discount_pct }}% · ดีล ≤ {{ "{:,}".format(mandate.max_deal_thb) }} บาท/เดือน · คืนเงินใน {{ mandate.refund_days }} วัน · ยืนยันยอดเข้าและเรื่องนอกกรอบรอคนเสมอ</p>
+<p class="muted">ผู้บริหารเอเจนต์ (CEO · CFO · CTO) — <b>{{ mode }}</b> · กรอบอำนาจ: ส่วนลด ≤ {{ mandate.max_discount_pct }}% · ดีล ≤ {{ "{:,}".format(mandate.max_deal_thb) }} บาท/เดือน · {{ 'คืนเงินใน %d วัน'|format(mandate.refund_days) if mandate.refund_days else 'ไม่คืนเงิน' }} · ยืนยันยอดเข้าและเรื่องนอกกรอบรอคนเสมอ</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if paused %}<div class="err-banner">หยุดฉุกเฉินอยู่ — ไม่มีเรื่องใดทำอัตโนมัติ ข้อเสนอทั้งหมดรอคุณ <form method="post" action="/admin/agents/pause" style="display:inline"><input type="hidden" name="on" value="0"><button class="btn sm" type="submit">เริ่มทำงานต่อ</button></form></div>{% endif %}
 

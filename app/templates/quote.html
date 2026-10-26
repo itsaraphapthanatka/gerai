@@ -106,7 +106,7 @@
   {% if not pdf and q.status in ('draft','sent','viewed') and alt %}
   <div class="item" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
     <div>{% if yearly %}<div class="lb">อยากเริ่มแบบรายเดือนก่อน?</div><div class="why">รายเดือน {{ "{:,}".format(alt.net) }} บาท/เดือน{% if alt.setup_price %} + GEO Setup {{ "{:,}".format(alt.setup_price) }} บาท{% endif %} · ยกเลิกได้ทุกเมื่อ · รายปีที่เสนอไว้ประหยัดกว่า {{ "{:,}".format(alt.saving_year) }} บาท</div>
-      {% else %}<div class="lb">จ่ายรายปีประหยัด {{ "{:,}".format(alt.saving_year) }} บาท</div><div class="why">รายปี {{ "{:,}".format(alt.period_total) }} บาท (เทียบ {{ "{:,}".format(alt.net) }} บาท/เดือน · ลด {{ "%g"|format(yearly_pct) }}%{% if q.setup %} · GEO Setup ฟรี{% endif %}) · คืนเงินเต็มได้ภายใน 7 วันแรก</div>{% endif %}</div>
+      {% else %}<div class="lb">จ่ายรายปีประหยัด {{ "{:,}".format(alt.saving_year) }} บาท</div><div class="why">รายปี {{ "{:,}".format(alt.period_total) }} บาท (เทียบ {{ "{:,}".format(alt.net) }} บาท/เดือน · ลด {{ "%g"|format(yearly_pct) }}%{% if q.setup %} · GEO Setup ฟรี{% endif %}){% if refund_days %} · คืนเงินเต็มได้ภายใน {{ refund_days }} วันแรก{% endif %}</div>{% endif %}</div>
     <form method="post" action="/q/{{ q.token }}/cycle"><input type="hidden" name="cycle" value="{{ 'month' if yearly else 'year' }}"><input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
       <button type="submit" style="background:#fff;color:var(--primary);border:1px solid var(--hairline)">{{ 'เปลี่ยนเป็นรายเดือน' if yearly else 'เปลี่ยนเป็นรายปี' }}</button></form>
   </div>
@@ -131,7 +131,7 @@
       {% if stripe_ready %}
       <div class="cta" style="margin-top:14px">
         <h2>ชำระด้วยบัตรเครดิต/เดบิต</h2>
-        <p>{% if yearly %}ชำระครั้งเดียว {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ · คืนเงินเต็มภายใน 7 วันแรก{% else %}งวดแรก {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} จากนั้น {{ baht(q.net * (1 + vat / 100)) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
+        <p>{% if yearly %}ชำระครั้งเดียว {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} ใช้ได้ 12 เดือน ต่ออายุรายปีอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ{% if refund_days %} · คืนเงินเต็มภายใน {{ refund_days }} วันแรก{% else %} · ชำระแล้วไม่คืนเงิน{% endif %}{% else %}งวดแรก {{ baht(payable) }} บาท{{ ' (รวม VAT)' if vat }} จากนั้น {{ baht(q.net * (1 + vat / 100)) }} บาท/เดือน ต่ออายุอัตโนมัติ ยกเลิกได้ทุกเมื่อ{% endif %} · บัญชีเปิดให้ทันทีเมื่อชำระสำเร็จ{% if stripe_mode == 'test' %} (โหมดทดสอบ){% endif %}</p>
         <form method="post" action="/q/{{ q.token }}/stripe">{% if error %}<div class="err">{{ error }}</div>{% endif %}<button type="submit">ชำระผ่าน Stripe</button></form>
       </div>
       <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--slate)">หรือโอนผ่าน PromptPay แล้วแนบสลิป (ทีมงานตรวจยอดก่อนเปิดบัญชี)</summary>

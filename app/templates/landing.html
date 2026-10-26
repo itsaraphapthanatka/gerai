@@ -462,7 +462,7 @@
     <div class="pay-row">
       <div class="pay-i"><b>จ่ายรายปี <span class="hl">ลด {{ "%g"|format(yearly_pct) }}%</span></b>จ่ายครั้งเดียวทั้งปี และได้ GEO Setup ฟรี (ปกติ ฿9,900) · รายเดือนยังยกเลิกได้ทุกเมื่อ</div>
       <div class="pay-i"><b>{{ 'บัตรเครดิต หรือ PromptPay' if stripe_on else 'PromptPay / โอนเงิน' }}</b>{% if stripe_on %}จ่ายด้วยบัตรผ่าน Stripe เปิดบัญชีให้ทันที หรือสแกน PromptPay แล้วแนบสลิป{% else %}สแกน PromptPay แล้วแนบสลิป ทีมงานยืนยันยอดและเปิดบัญชีให้{% endif %}</div>
-      <div class="pay-i"><b>ใบเสร็จส่งให้อัตโนมัติ</b>ทุกครั้งที่ชำระ ส่งทางอีเมลพร้อม PDF · ไม่พอใจภายใน {{ refund_days }} วันแรก คืนเงินเต็มจำนวน</div>
+      <div class="pay-i"><b>ใบเสร็จส่งให้อัตโนมัติ</b>ทุกครั้งที่ชำระ ส่งทางอีเมลพร้อม PDF{% if refund_days %} · ไม่พอใจภายใน {{ refund_days }} วันแรก คืนเงินเต็มจำนวน{% endif %}</div>
     </div>
   </div>
 </section>

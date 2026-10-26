@@ -167,7 +167,7 @@ def call_list(now: dt.datetime | None = None, limit: int = 20) -> list[dict]:
 # ---------- บทโทร ----------
 OBJECTIONS = [
     ("แพงไป / ขอลดได้ไหม", "เทียบกับค่าโฆษณาต่อเดือน: นี่คือการทำให้เว็บถูกหาเจอเองทุกวันโดยไม่ต้องจ่ายต่อคลิก "
-     "ทางเลือกแรก: จ่ายรายปีลด {yd}% และ GEO Setup ฟรี (คืนเงินได้ภายใน 7 วันแรก) · "
+     "ทางเลือกแรก: จ่ายรายปีลด {yd}% และ GEO Setup ฟรี{refund} · "
      "ถ้ายังติดราคา ลดได้ไม่เกิน {disc}% เฉพาะปิดในสายนี้ — เกินกว่านั้นต้องให้ผู้บริหารอนุมัติ"),
     ("เดี๋ยวให้ทีมเว็บแก้เอง", "ได้เลยครับ รายงานมีวิธีแก้ทีละข้ออยู่แล้ว ส่วนที่ทีมเว็บทำเองยาก คือการเขียนคำตอบให้ AI ทุกสัปดาห์และวัดผลซ้ำ ซึ่งเป็นงานหลักของเรา"),
     ("ไม่แน่ใจว่าจะได้ผลไหม", "เราไม่รับประกันอันดับครับ แต่วัดให้เห็นทุกเดือนจากการถาม AI จริงและ Search Console — เดือนแรกคุณจะเห็นว่าอะไรเปลี่ยน ถ้าไม่เห็นค่าก็ยกเลิกได้"),
@@ -195,7 +195,7 @@ def script(lead) -> dict:
     disc = execs.MANDATE["max_discount_pct"]
     yearly = bool(q) and Q.cycle_of(q) == "year"
     price = (f"แพ็กเกจ {q['package'].capitalize()} รายปี {Q.period_total(q):,} บาท (เทียบ {q['net']:,} บาท/เดือน ลด {Q.yearly_discount():.0f}%"
-             + (" · GEO Setup ฟรี" if q["setup"] else "") + f") · คืนเงินได้ภายใน 7 วันแรก · ถ้าอยากเริ่มเบา ๆ มีรายเดือน {Q.alternative(q)['net']:,} บาท/เดือน") if yearly else \
+             + (" · GEO Setup ฟรี" if q["setup"] else "") + ")" + (f" · คืนเงินได้ภายใน {Q.refund_days(q)} วันแรก" if Q.refund_days(q) else "") + f" · ถ้าอยากเริ่มเบา ๆ มีรายเดือน {Q.alternative(q)['net']:,} บาท/เดือน") if yearly else \
             (f"แพ็กเกจ {q['package'].capitalize()} {q['net']:,} บาท/เดือน" + (f" + GEO Setup {q['setup_price']:,} บาท (ครั้งเดียว)" if q["setup"] else "")
              + f" · งวดแรก {Q.baht(Q.payable(q))} บาท" + (" รวม VAT" if Q.vat_pct(q) else "") + (f" (ลดแล้ว {q['discount_pct']:.0f}%)" if q["discount_pct"] else "")
              + f" · เสนอรายปีได้ ประหยัด {Q.alternative(q)['saving_year']:,} บาท (Setup ฟรี)") if q else \
@@ -233,7 +233,7 @@ def script(lead) -> dict:
     if any(e["kind"] == "cs_kickoff" for e in evs) and not any(x["status"] == "paid" for x in db.list_quotes(lead["id"])):
         notes.append("ลูกค้าได้รับอีเมลต้อนรับ/แผน 30 วันไปก่อนชำระ (ระบบเปิดบัญชีให้ผิดจังหวะ) — ถ้าเขาถาม ขอโทษสั้น ๆ และบอกว่างานจะเริ่มจริงเมื่อชำระ")
     return {"trigger": t, "opener": opener, "points": points[:4], "context": context, "price": price, "max_discount": disc,
-            "objections": [(o, a.format(disc=disc, yd="%g" % Q.yearly_discount())) for o, a in OBJECTIONS], "close": close, "report_url": report_url, "pay_url": pay_url,
+            "objections": [(o, a.format(disc=disc, yd="%g" % Q.yearly_discount(), refund=(f" (คืนเงินได้ภายใน {Q.refund_days(q)} วันแรก)" if Q.refund_days(q) else ""))) for o, a in OBJECTIONS], "close": close, "report_url": report_url, "pay_url": pay_url,
             "history": hist, "notes": notes, "rules": "ห้ามการันตีอันดับหรือผลลัพธ์ · ห้ามลดเกินกรอบ · จดผลทันทีหลังวางสาย"}
 
 

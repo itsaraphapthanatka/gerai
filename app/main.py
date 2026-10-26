@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import json
+import re
 import secrets
 from pathlib import Path
 from urllib.parse import quote
@@ -67,6 +68,7 @@ templates.env.globals["trial_of"] = lambda req: (
 )
 templates.env.globals["trial_fn"] = billing.trial
 templates.env.globals["q_payable"] = lambda q: quotes.baht(quotes.payable(q))
+templates.env.globals["refund_days"] = lambda: int(execs.MANDATE["refund_days"] or 0)   # 0 = ไม่คืนเงิน
 templates.env.globals["chat_on"] = lambda: (db.get_setting("salesbot_web") or "1") == "1"
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
@@ -354,15 +356,122 @@ def logout(request: Request):
 
 
 # ---------- landing (public) ----------
+def _landing_ctx() -> dict:
+    from . import partners as _pt
+    return {"plans": {k: v for k, v in billing.PLANS.items() if k != "free" or billing.free_open()},
+            "free_open": billing.free_open(), "addons": billing.ADDONS, "ai_live": _ai_live(),
+            "yearly_pct": quotes.yearly_discount(), "refund_days": execs.MANDATE["refund_days"],
+            "partner_pct": _pt.pct(), "partner_months": _pt.months(),
+            "stripe_on": stripe_pay.available()}
+
+
+def _landing_page(request: Request, lang: str):
+    """หน้าแรก 5 ภาษา — template เดียว ข้อความจาก landing_i18n · ตัวเลข/ราคา/ผลจริงจากระบบเหมือนกันทุกภาษา"""
+    from . import landing_i18n as L
+    ctx = _landing_ctx()
+    t = L.T[lang]
+    live = ctx["ai_live"]
+    base = str(request.base_url).rstrip("/")
+    ctx.update(T=t, lang=lang, html_lang=L.HTML_LANG[lang], og_locale=L.OG_LOCALE[lang],
+               font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
+               langs=[{"code": c, "name": L.NAMES[c], "href": L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
+               canonical=base + L.PATHS[lang], base=base, src="home" if lang == "th" else f"home-{lang}",
+               proof=_proof_view(_landing_proof(), lang), plan_rows=_plan_rows(ctx["plans"], lang), preview=False)
+    return templates.TemplateResponse(request, "landing_v2.html", ctx)
+
+
 @app.get("/")
 def landing(request: Request):
-    from . import partners as _pt
-    return templates.TemplateResponse(request, "landing.html",
-                                      {"plans": {k: v for k, v in billing.PLANS.items() if k != "free" or billing.free_open()},
-                                       "free_open": billing.free_open(), "addons": billing.ADDONS, "ai_live": _ai_live(),
-                                       "yearly_pct": quotes.yearly_discount(), "refund_days": execs.MANDATE["refund_days"],
-                                       "partner_pct": _pt.pct(), "partner_months": _pt.months(),
-                                       "stripe_on": stripe_pay.available()})
+    return _landing_page(request, "th")
+
+
+@app.get("/en")
+def landing_en(request: Request):
+    return _landing_page(request, "en")
+
+
+@app.get("/zh")
+def landing_zh(request: Request):
+    return _landing_page(request, "zh")
+
+
+@app.get("/ja")
+def landing_ja(request: Request):
+    return _landing_page(request, "ja")
+
+
+@app.get("/ko")
+def landing_ko(request: Request):
+    return _landing_page(request, "ko")
+
+
+# หน้าแรกแบบเดิม — เก็บไว้เผื่อย้อนกลับ (ไม่ให้ Google เก็บ)
+@app.get("/preview/landing-old")
+def landing_old(request: Request):
+    r = templates.TemplateResponse(request, "landing.html", _landing_ctx())
+    r.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return r
+
+
+_PROOF = {"ts": 0.0, "val": None}
+
+
+def _landing_proof() -> dict | None:
+    """ผลจริงบนหน้าแรก: ลูกค้าที่อนุญาตใช้ชื่อ และผลถาม AI ดีขึ้นมากที่สุด (รอบแรก → ล่าสุด ชุดคำถามเดียวกัน)
+    ไม่มีใครเข้าเกณฑ์ = ไม่โชว์ส่วนนี้ · ตัวเลขมาจาก ai_trend เท่านั้น ไม่มีตัวเลขในโค้ด · แคช 10 นาที
+    เก็บเป็นข้อมูลดิบ (วันที่ ISO · เอนจินที่ขยับเป็นตัวเลข) แล้วค่อยแปลงตามภาษาใน _proof_view"""
+    import time
+    from . import marketing, results as RS
+    if time.time() - _PROOF["ts"] < 600:
+        return _PROOF["val"]
+    best = None
+    try:
+        for b in RS.brands():
+            if not b["case_study_ok"]:
+                continue
+            t = marketing.ai_trend(b["id"])
+            if t and (best is None or t["last"]["hits"] - t["first"]["hits"] > best["last"] - best["first"]):
+                fe, le = t["first"].get("eng") or {}, t["last"].get("eng") or {}
+                moved = [(marketing.ENGINE_TH.get(k, k), fe.get(k, [0, 0])[0], v[0], v[1])
+                         for k, v in le.items() if v[0] > fe.get(k, [0, 0])[0]]
+                best = {"name": b["name"], "domain": RS._apex(b["domain"] or ""), "asked": t["asked"],
+                        "first": t["first"]["hits"], "last": t["last"]["hits"],
+                        "first_iso": t["first"]["at"], "last_iso": t["last"]["at"], "engines": t["engines"], "moved": moved[:3]}
+    except Exception:
+        best = None
+    _PROOF.update(ts=time.time(), val=best)
+    return best
+
+
+def _proof_view(p: dict | None, lang: str) -> dict | None:
+    """ผลจริงในภาษาของหน้า · ภาษาอื่นเรียกลูกค้าด้วยโดเมน (ชื่อบริษัทเป็นภาษาไทย)"""
+    from . import landing_i18n as L
+    if not p:
+        return None
+    t = L.T[lang]
+    return {**p, "who": p["name"] if lang == "th" or not p["domain"] else p["domain"],
+            "first_at": L.date(p["first_iso"], lang), "last_at": L.date(p["last_iso"], lang),
+            "moved": [t["moved"].format(e=e, a=a, b=b, n=n) for e, a, b, n in p["moved"]]}
+
+
+def _plan_rows(plans: dict, lang: str = "th") -> list[dict]:
+    """แพ็กเกจสำหรับหน้าแรก: ราคารายเดือน + รายปี (เฉลี่ยต่อเดือนและยอดทั้งปี) จากตัวคิดราคาจริง · แปลชื่อ/จุดเด่นตามภาษา"""
+    from . import landing_i18n as L
+    rows = []
+    for k, p in plans.items():
+        perks = [re.sub(r"^[^\w\u0e00-\u0e7f]+", "", f).strip() for f in p.get("perks", [])]
+        r = {"key": k, **p, "tagline": L.plan_text(p.get("tagline", ""), lang), "perks": [L.plan_text(f, lang) for f in perks]}
+        if p.get("price") and k in quotes.PACKAGES:
+            y = quotes.price_for(k, cycle="year")
+            r.update(year_net=y["net"], year_total=y["period_total"])
+        rows.append(r)
+    return rows
+
+
+# หน้าแรกแบบใหม่ขึ้นเป็นหน้าแรกจริงแล้ว (25 ต.ค. 2569) — ลิงก์ทดลองเดิมพาไปหน้าแรก
+@app.get("/preview/landing")
+def landing_preview(request: Request):
+    return _redirect("/")
 
 
 @app.post("/api/contact")
@@ -679,7 +788,7 @@ def _company() -> dict:
 def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
     report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {"checks": []}
     ppid, ppname = _promptpay_config()
-    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q),
+    return {"q": dict(q), "lead": dict(lead), "plan": billing.PLANS[q["package"]], "setup": quotes.setup_addon(), "terms": quotes.terms_for(q), "refund_days": quotes.refund_days(q),
             "yearly": quotes.cycle_of(q) == "year", "period_total": quotes.period_total(q), "yearly_pct": quotes.yearly_discount(),
             "alt": quotes.alternative(q),
             "summary": leads.public_summary(report), "company": _company(),
@@ -693,7 +802,7 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False) -> dict:
 
 def _contract_ctx(q, lead, pdf: bool = False) -> dict:
     co = _company()
-    return {"q": dict(q), "lead": dict(lead), "company": co, "pdf": pdf, "base": _public_base(),
+    return {"q": dict(q), "lead": dict(lead), "company": co, "pdf": pdf, "base": _public_base(), "refund_days": quotes.refund_days(q),
             "sections": quotes.contract_sections(co, {"name": lead["name"], "domain": lead["domain"], "email": lead["email"]}, q)}
 
 

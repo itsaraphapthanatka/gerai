@@ -1,4 +1,4 @@
-"""ทดสอบรายปี: ลด 17% จาก 12 เดือน (ส่วนลดพิเศษซ้อนได้) · GEO Setup ฟรี · คืนเงินเฉพาะ 7 วันแรก · CFO ไม่นับ 17% เป็นส่วนลดของดีล
+"""ทดสอบรายปี: ลด 17% จาก 12 เดือน (ส่วนลดพิเศษซ้อนได้) · GEO Setup ฟรี · ไม่คืนเงิน (ใบที่ออกก่อน 25 ต.ค. 2569 คืนได้ 7 วันตามเดิม) · CFO ไม่นับ 17% เป็นส่วนลดของดีล
 · Stripe ราคารายปี (interval year) ไม่มีบรรทัด Setup · หน้าใบเสนอราคา/สัญญา/ฟอร์มแอดมิน · CEO เสนอรายปีเมื่อลูกค้าเอ่ยถึง
 · บทโทร · แจ้งต่ออายุล่วงหน้า 30 วัน · รายเดือนเดิมไม่เปลี่ยน"""
 import os, tempfile, json, re, datetime as dt
@@ -49,14 +49,17 @@ q = P.create_quote(lead, "pro", 0, True, created_by="admin", cycle="year")
 assert q["cycle"] == "year" and q["period_total"] == 98604 and q["first_total"] == 98604 and q["setup_price"] == 0 and q["setup"]
 assert db.get_lead(lid)["monthly_thb"] == 8217
 txt = Q.summary_text(q, "year.co.th"); assert "98,604 บาท/ปี" in txt and "ฟรีเมื่อจ่ายรายปี" in txt and "ครั้งเดียวทั้งปี" in txt, txt
-terms = Q.terms_for(q); assert "รายปี" in terms[0] and "7 วัน" in terms[1] and "ไม่คืนเงินส่วนที่เหลือ" in terms[1]
+terms = Q.terms_for(q); assert "รายปี" in terms[0] and "ไม่คืนเงิน" in terms[1] and "คืนเงินเต็ม" not in " ".join(terms)   # เลิกคืนเงิน 25 ต.ค. 2569
+old = {**dict(q), "created_at": "2026-10-22T10:00:00"}                       # ใบที่ออกก่อนเลิกนโยบาย → เงื่อนไขเดิม 7 วัน
+assert Q.refund_days(old) == 7 and "7 วัน" in Q.terms_for(old)[1] and "ไม่คืนเงินส่วนที่เหลือ" in Q.terms_for(old)[1]
+assert "ไม่คืนค่าบริการส่วนที่เหลือของปี" in json.dumps(Q.contract_sections({"name": "เจอ.AI"}, {"name": "ลูกค้า"}, old), ensure_ascii=False)
 sec = json.dumps(Q.contract_sections({"name": "เจอ.AI"}, {"name": "ลูกค้า"}, q), ensure_ascii=False)
-assert "98,604 บาทต่อปี" in sec and "หนึ่งปี" in sec and "ไม่คืนค่าบริการส่วนที่เหลือของปี" in sec and "ปีสัญญาปัจจุบัน" in sec and "สามเดือน" not in sec
+assert "98,604 บาทต่อปี" in sec and "หนึ่งปี" in sec and "ไม่คืนเงิน รวมถึงค่าบริการส่วนที่เหลือของปี" in sec and "คืนเงินเต็ม" not in sec and "ปีสัญญาปัจจุบัน" in sec and "สามเดือน" not in sec
 qm = P.create_quote(lead, "pro", 0, True, created_by="admin")
-assert qm["cycle"] == "month" and Q.terms_for(qm) == Q.TERMS and "บาท/เดือน" in Q.summary_text(qm, "year.co.th")
+assert qm["cycle"] == "month" and Q.terms_for(qm)[1] == "ค่าบริการที่ชำระแล้วไม่คืนเงิน" and "บาท/เดือน" in Q.summary_text(qm, "year.co.th")
 sm = json.dumps(Q.contract_sections({"name": "เจอ.AI"}, {"name": "ลูกค้า"}, qm), ensure_ascii=False); assert "บาทต่อเดือน" in sm and "สามเดือน" in sm
 db.update_quote(qm["id"], status="cancelled")
-print("quote: เก็บรอบบิล · สรุป · เงื่อนไข · สัญญารายปี (ต่อปี · คืนเงิน 7 วัน · จำกัดความรับผิดต่อปี) · รายเดือนเดิม OK")
+print("quote: เก็บรอบบิล · สรุป · เงื่อนไข · สัญญารายปี (ต่อปี · ไม่คืนเงิน · ใบเก่าคืนเงิน 7 วันตามเดิม · จำกัดความรับผิดต่อปี) · รายเดือนเดิม OK")
 
 # ---- หน้าเว็บ ----
 c = TestClient(app)
@@ -123,7 +126,7 @@ r = C.handle("ยืนยัน"); qq = db.list_quotes(lid2)[0]; assert qq["cyc
 print("ceo: ลูกค้าเอ่ยรายปี → เสนอรายปี · เจ้าของสั่ง \"รายปี\" ในแชต OK")
 
 # ---- บทโทร ----
-sc = CL.script(db.get_lead(lid4)); assert "รายปี 98,604" in sc["price"] and "7 วันแรก" in sc["price"], sc["price"]
+sc = CL.script(db.get_lead(lid4)); assert "รายปี 98,604" in sc["price"] and "คืนเงิน" not in sc["price"], sc["price"]   # ใบใหม่ไม่คืนเงิน
 assert any("รายปีลด 17%" in a_ for o_, a_ in sc["objections"])
 print("closer: บทโทรบอกราคารายปี · ข้อโต้แย้งราคาเสนอรายปีก่อนลด OK")
 
