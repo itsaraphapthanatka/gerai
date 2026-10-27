@@ -1,0 +1,13 @@
+{# ลูกค้าที่ทีมดูแลให้ (โหมดเอเจนซี — managed()): ทีมงานตั้งค่าและลงมือทำให้ ลูกค้าดูผลอย่างเดียว
+   ใช้: {% from "_managed.html" import note, contacts with context %} แล้ว {{ note() }} แทนปุ่ม/ฟอร์มที่ซ่อนไว้ #}
+{% macro contacts() -%}
+{%- set _tc = team_contact() -%}
+{%- if _tc %}{% for c in _tc %}<a class="link" href="{{ c.href }}">{{ c.label }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+{%- else %}<a class="link" href="/notifications">{{ _("ติดต่อทีมงาน") }}</a>{% endif -%}
+{%- endmacro %}
+{% macro note(msg=None) -%}
+<div class="managed-note" style="display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap;margin:12px 0 14px;padding:12px 16px;border-radius:14px;background:var(--purple-tint);color:var(--purple-dark);font-size:13.5px;line-height:1.55">
+  <span>🤝 {{ msg or _("ทีมเจอ.AI ดูแลส่วนนี้ให้ — อยากเปลี่ยนอะไร ทักทีมงานได้") }}</span>
+  <span>{{ contacts() }}</span>
+</div>
+{%- endmacro %}

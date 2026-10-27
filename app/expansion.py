@@ -64,10 +64,12 @@ def signals(c: dict, now: dt.datetime | None = None) -> dict:
 def opportunities(c: dict, now: dt.datetime | None = None) -> list[str]:
     s = signals(c, now)
     out = []
-    if s["cycle"] == "month" and s["days"] >= YEARLY_AFTER_DAYS and s["installed"] and s["days_to_bill"] is not None and 0 <= s["days_to_bill"] <= YEARLY_WINDOW_DAYS:
+    from . import quotes as Q
+    custom = Q.is_custom(c["quote"])                    # ราคาที่เจ้าของตั้งเองต่อลูกค้า → ไม่เสนอรายปี/Agency ราคาตาราง (เจ้าของคุยเอง)
+    if not custom and s["cycle"] == "month" and s["days"] >= YEARLY_AFTER_DAYS and s["installed"] and s["days_to_bill"] is not None and 0 <= s["days_to_bill"] <= YEARLY_WINDOW_DAYS:
         out.append("yearly")
     near = (s["brands"] >= s["brands_cap"] * USAGE_PCT and s["brands_cap"] > 1) or s["content_month"] >= s["content_cap"] * USAGE_PCT or s["runs_month"] >= s["runs_cap"] * USAGE_PCT
-    if s["package"] == "pro" and near and s["days"] >= 14:
+    if s["package"] == "pro" and near and s["days"] >= 14 and not custom:
         out.append("agency")
     elif s["content_month"] >= s["content_cap"] and s["package"] != "unlimited":
         out.append("content")

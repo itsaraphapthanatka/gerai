@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("อันดับ Google") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>{{ _("อันดับ Google") }}</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("เช็คว่าเว็บติด {pages} หน้าแรกของ Google (~{limit} อันดับ) ของคำถามเป้าหมายหรือยัง", pages=rank_pages, limit=rank_limit) }}</p>
@@ -20,10 +21,10 @@
 </div>
 {% endif %}
 
-<form method="post" action="/brands/{{ brand['id'] }}/rank/run" style="margin:14px 0">
+{% if managed() %}{{ note() }}{% else %}<form method="post" action="/brands/{{ brand['id'] }}/rank/run" style="margin:14px 0">
   <button class="btn" type="submit">{{ _("เช็คอันดับตอนนี้") }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ใช้โควตาเดียวกับการมอนิเตอร์") }}</span>
-</form>
+</form>{% endif %}
 
 {% if not delta %}
 <div class="card"><p class="muted">{{ _("ยังไม่เคยเช็คอันดับ — กดปุ่มด้านบนเพื่อเริ่ม (ต้องมีคำถามเป้าหมายอย่างน้อย 1 ข้อ)") }}</p></div>

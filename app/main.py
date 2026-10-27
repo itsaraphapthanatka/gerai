@@ -102,6 +102,9 @@ templates.env.globals["trial_fn"] = billing.trial
 templates.env.globals["q_payable"] = lambda q: quotes.baht(quotes.payable(q))
 templates.env.globals["refund_days"] = lambda: int(execs.MANDATE["refund_days"] or 0)   # 0 = ไม่คืนเงิน
 templates.env.globals["chat_on"] = lambda: (db.get_setting("salesbot_web") or "1") == "1"
+from jinja2 import pass_context as _pass_ctx
+templates.env.globals["managed"] = _pass_ctx(lambda ctx: ctx.get("request") is not None and _managed(ctx["request"]))   # ลูกค้า managed: ซ่อนปุ่มลงมือทำ
+templates.env.globals["team_contact"] = lambda: _team_contact()
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
 )
@@ -110,6 +113,8 @@ templates.env.globals["new_contacts_count"] = lambda req: (
 @app.on_event("startup")
 def _startup():
     db.init_db()
+    if db.get_setting("agency_mode") is None:      # ค่าเริ่มต้นของ production = โหมดเอเจนซี (แอดมินปิดได้ที่ /admin แล้วค่านี้คงอยู่)
+        db.set_setting("agency_mode", "1")
     _maybe_start_scheduler()
 
 
@@ -264,6 +269,51 @@ def _is_admin(request: Request) -> bool:
     return bool(request.session.get("is_admin"))
 
 
+def agency_mode() -> bool:
+    """โหมดเอเจนซี: ทีมเราตั้งค่าและลงมือทำให้ ลูกค้าดูผลอย่างเดียว · สลับที่ /admin
+    ไม่มีแถว setting = ปิด (สเมอก์เทสต์เดิม) · production: _startup ใส่ค่าเริ่มต้น "1" ให้ครั้งแรก"""
+    return (db.get_setting("agency_mode") or "0") == "1"
+
+
+def _managed(request: Request) -> bool:
+    """ลูกค้าที่ทีมดูแลให้ (ไม่ใช่แอดมิน + โหมดเอเจนซีเปิด) — ดูผลได้ แต่ตั้งค่า/สั่งรัน/แก้คอนเทนต์เองไม่ได้"""
+    if not _tid(request) or _is_admin(request):
+        return False
+    if getattr(request.state, "agency_mode", None) is None:   # หน้าเดียวเรียกหลายครั้ง (เทมเพลต) — อ่าน DB ครั้งเดียวต่อคำขอ
+        # เอเจนซี/พันธมิตรที่ซื้อแพ็กเกจ Agency (หรือที่เจ้าของตั้งให้ใช้เอง) ดูแลเว็บลูกค้าของเขาเองได้เต็ม
+        request.state.agency_mode = agency_mode() and not db.tenant_self_serve(db.get_tenant(_tid(request)))
+    return request.state.agency_mode
+
+
+def _managed_block(request: Request, back: str):
+    """เรียกต้น route ที่เปลี่ยนข้อมูล: ลูกค้า managed → กลับหน้าเดิมพร้อมป้าย (?managed=1) · คนอื่น = None ทำต่อตามปกติ"""
+    if not _managed(request):
+        return None
+    return _redirect(back + ("&" if "?" in back else "?") + "managed=1")
+
+
+def _team_contact() -> list[dict]:
+    """ช่องทางคุยกับทีม (อีเมล/โทรจากข้อมูลบริษัทใน /admin/settings) · ว่าง = เทมเพลตใช้หน้าแจ้งเตือนแทน"""
+    out = []
+    email = (db.get_setting("company_email") or "").strip()
+    phone = (db.get_setting("company_phone") or "").strip()
+    if email:
+        out.append({"href": "mailto:" + email, "label": email})
+    if phone:
+        out.append({"href": "tel:" + re.sub(r"[^0-9+]", "", phone), "label": phone})
+    return out
+
+
+def _managed_stats(brand_id: int) -> dict:
+    """ตัวเลขหลักต่อแบรนด์สำหรับแดชบอร์ดลูกค้า managed"""
+    items = db.list_content(brand_id)
+    ai = db.last_ai_visibility(brand_id)
+    h = db.last_health_check(brand_id)
+    return {"content": len(items), "published": sum(1 for i in items if i["status"] == "published"),
+            "ai_rate": ai["rate"] if ai and ai["asked"] else None,
+            "health": None if not h else (0 if h["ok"] else (h["n_fail"] or 0))}
+
+
 def _brand_for(request: Request, brand_id: int):
     """แบรนด์ที่ผู้ใช้มีสิทธิ์ดู: เจ้าของเห็นของตัวเอง, admin เห็นทุกอัน."""
     tid = _tid(request)
@@ -278,6 +328,7 @@ def _dashboard_ctx(request: Request, error=None):
     brands = db.list_brands(tid)
     brand_gaps = {b["id"]: db.get_content_gaps(b["id"]) for b in brands}
     return {"brands": brands, "brand_gaps": brand_gaps, "name": request.session.get("name"),
+            "brand_stats": {b["id"]: _managed_stats(b["id"]) for b in brands} if _managed(request) else {},
             "plan": billing.plan_of(tenant), "usage": billing.usage(tid), "error": error,
             "is_admin": bool(tenant and tenant["is_admin"])}
 
@@ -394,7 +445,8 @@ def _landing_ctx() -> dict:
             "free_open": billing.free_open(), "addons": billing.ADDONS, "ai_live": _ai_live(),
             "yearly_pct": quotes.yearly_discount(), "refund_days": execs.MANDATE["refund_days"],
             "partner_pct": _pt.pct(), "partner_months": _pt.months(),
-            "stripe_on": stripe_pay.available()}
+            "stripe_on": stripe_pay.available(),
+            "start_price": f"{billing.PLANS['pro']['price']:,}", "vat_pct": f"{quotes.VAT_RATE:g}"}   # หน้าแรกแบบเอเจนซี: ราคาเริ่มต้นจากระบบ
 
 
 def _landing_page(request: Request, lang: str):
@@ -408,7 +460,7 @@ def _landing_page(request: Request, lang: str):
                font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
                langs=[{"code": c, "name": L.NAMES[c], "path": L.PATHS[c], "href": "/?lang=th" if c == "th" else L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
                canonical=base + L.PATHS[lang], base=base, src="home" if lang == "th" else f"home-{lang}",
-               proof=_proof_view(_landing_proof(), lang), plan_rows=_plan_rows(ctx["plans"], lang), preview=False)
+               proof=_proof_view(_landing_proof(), lang), call_plan=L.CALL_PLAN, preview=False)
     resp = templates.TemplateResponse(request, "landing_v2.html", ctx)
     from . import i18n
     if request.cookies.get(i18n.COOKIE) != lang and (lang != "th" or i18n.valid(request.query_params.get("lang"))):
@@ -492,20 +544,6 @@ def _proof_view(p: dict | None, lang: str) -> dict | None:
     return {**p, "who": p["name"] if lang == "th" or not p["domain"] else p["domain"],
             "first_at": L.date(p["first_iso"], lang), "last_at": L.date(p["last_iso"], lang),
             "moved": [t["moved"].format(e=e, a=a, b=b, n=n) for e, a, b, n in p["moved"]]}
-
-
-def _plan_rows(plans: dict, lang: str = "th") -> list[dict]:
-    """แพ็กเกจสำหรับหน้าแรก: ราคารายเดือน + รายปี (เฉลี่ยต่อเดือนและยอดทั้งปี) จากตัวคิดราคาจริง · แปลชื่อ/จุดเด่นตามภาษา"""
-    from . import landing_i18n as L
-    rows = []
-    for k, p in plans.items():
-        perks = [re.sub(r"^[^\w\u0e00-\u0e7f]+", "", f).strip() for f in p.get("perks", [])]
-        r = {"key": k, **p, "tagline": L.plan_text(p.get("tagline", ""), lang), "perks": [L.plan_text(f, lang) for f in perks]}
-        if p.get("price") and k in quotes.PACKAGES:
-            y = quotes.price_for(k, cycle="year")
-            r.update(year_net=y["net"], year_total=y["period_total"])
-        rows.append(r)
-    return rows
 
 
 # หน้าแรกแบบใหม่ขึ้นเป็นหน้าแรกจริงแล้ว (25 ต.ค. 2569) — ลิงก์ทดลองเดิมพาไปหน้าแรก
@@ -851,7 +889,8 @@ def _quote_ctx(q, lead, error: str = "", pdf: bool = False, lang: str = "th") ->
             "qr": promptpay.qr_data_uri(ppid, quotes.payable(q)) if (ppid and q["status"] == "accepted" and not pdf) else None,
             "vat": quotes.vat_pct(q), "payable": quotes.payable(q), "baht": quotes.baht,
             "stripe_ready": stripe_pay.available() and not pdf, "stripe_mode": stripe_pay.mode(),
-            "error": error, "pdf": pdf, "base": _public_base(), "lang": lang}
+            "error": error, "pdf": pdf, "base": _public_base(), "lang": lang,
+            "custom": quotes.is_custom(q), "scope": quotes.scope_lines(q), "label": quotes.label_of(q, lang)}   # ใบราคาที่เจ้าของตั้งเอง
 
 
 def _contract_ctx(q, lead, pdf: bool = False, lang: str = "th") -> dict:
@@ -871,7 +910,8 @@ def _render_pdf(request: Request, template: str, ctx: dict, filename: str):
 
 @app.post("/audit/{token}/reply")
 def audit_reply(request: Request, token: str, message: str = Form(""), website: str = Form("")):
-    """ลูกค้ากด 'ขอใบเสนอราคา' บนหน้าผลตรวจ (ต้องให้ช่องทางติดต่อ+ยินยอมก่อน) → CEO เสนอใบเสนอราคา"""
+    """ลูกค้ากด 'นัดคุย 30 นาทีกับทีมเรา' บนหน้าผลตรวจ (ต้องให้ช่องทางติดต่อ+ยินยอมก่อน) → แจ้งเจ้าของนัดโทร + ขึ้นบนสุดของรายการโทร
+    (ไม่สร้าง/ส่งใบเสนอราคาเอง — เจ้าของคุยแล้วตั้งราคาและส่งเอง) · หน้าผลตรวจตอบรับในภาษาของลูกค้า"""
     lead = db.get_lead_by_token(token)
     if not lead or website.strip():
         return _redirect("/audit")
@@ -1071,7 +1111,9 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             "statuses": leads.STATUSES, "sources": leads.SOURCES, "kinds": execs.KINDS, "packages": quotes.PACKAGES,
             "plans": billing.PLANS, "setup_price": quotes.setup_addon()["price"], "yearly_pct": "%g" % quotes.yearly_discount(),
             "needs_setup": quotes.needs_setup(rep) if rep else False, "mandate": execs.MANDATE, "notice": notice,
-            "default_cycle": quotes.default_cycle()}
+            "default_cycle": quotes.default_cycle(),
+            "wants_call": pipeline.wants_call_pending(lead["id"]), "custom_label": quotes.CUSTOM_LABEL,   # โหมดเอเจนซี: ลีดขอนัดคุย · ใบราคาตั้งเอง
+            "is_custom": quotes.is_custom, "scope_of": quotes.scope_lines, "label_of": quotes.label_of}
 
 
 @app.get("/admin/leads/{lead_id}")
@@ -1136,8 +1178,11 @@ def admin_lead_mark_contacted(request: Request, lead_id: int, via: str = Form("L
 
 @app.post("/admin/leads/{lead_id}/quote")
 def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"), discount_pct: str = Form("0"),
-                     setup: str = Form(""), send: str = Form(""), cycle: str = Form("")):
-    """แอดมินสร้างใบเสนอราคาเอง = การตัดสินใจของเจ้าของ ส่งได้ทันที (CFO ยังบอกว่าอยู่ในกรอบไหม)"""
+                     setup: str = Form(""), send: str = Form(""), cycle: str = Form(""), price: str = Form(""),
+                     year_total: str = Form(""), setup_amount: str = Form(""), scope: str = Form(""), pricing: str = Form("")):
+    """แอดมินสร้างใบเสนอราคาเอง = การตัดสินใจของเจ้าของ ส่งได้ทันที (CFO ยังบอกว่าอยู่ในกรอบไหม)
+    · price = ราคา/เดือนที่เจ้าของตั้งเอง (โหมดเอเจนซี ≥ 0 ไม่ผูกตาราง/เพดานส่วนลด — CFO เตือนอย่างเดียว) · year_total = ยอดทั้งปีที่ใส่เอง
+    · setup_amount = ค่า GEO Setup · scope = ขอบเขตงานบรรทัดละข้อ · package "custom" = แบบกำหนดเอง · price ว่าง = ราคาตารางแบบเดิม"""
     if not _is_admin(request):
         return _redirect("/login")
     lead = db.get_lead(lead_id)
@@ -1150,12 +1195,26 @@ def admin_lead_quote(request: Request, lead_id: int, package: str = Form("pro"),
     except ValueError:
         disc = 0.0
     who = request.session.get("email") or "admin"
+    cyc = cycle if cycle in quotes.CYCLES else quotes.default_cycle()
+    if pricing == "package":                     # เลือกแพ็กเกจมาตรฐาน = ราคาตาราง ไม่สนช่องราคาตั้งเอง
+        price = year_total = setup_amount = scope = ""
+        package = package if package in quotes.PACKAGES else "pro"
+    custom = package == "custom" or price.replace(",", "").strip() != ""
     try:
-        q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who, cycle=cycle if cycle in quotes.CYCLES else quotes.default_cycle())
+        if custom:
+            num = lambda v: float(v.replace(",", "").strip()) if v and v.replace(",", "").strip() else None
+            if num(price) is None:
+                raise ValueError("ใส่ราคาต่อเดือน (แบบกำหนดเองต้องตั้งราคาเอง)")
+            q = pipeline.create_quote(lead, quotes.CUSTOM_BASE if package == "custom" else package, created_by=who, cycle=cyc,
+                                      custom=num(price), custom_setup=num(setup_amount) or 0, custom_year=num(year_total) if cyc == "year" else None,
+                                      custom_label=quotes.CUSTOM_LABEL if package == "custom" else None, scope=quotes.parse_scope(scope))
+        else:
+            q = pipeline.create_quote(lead, package, disc, bool(setup), created_by=who, cycle=cyc)
     except ValueError as e:
         return _redirect(f"/admin/leads/{lead_id}?notice={e}")
-    cfo = execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": quotes.cycle_of(q)})
-    note = (pipeline.send_quote(q, who) if send else f"สร้าง {q['number']} เป็นร่างแล้ว") + f" · CFO: {cfo['note']}"
+    cfo = (execs.cfo_custom(q["net"]) if custom else
+           execs.cfo_check({"price": q["price"], "discount_pct": q["discount_pct"], "cycle": quotes.cycle_of(q)}))
+    note = (pipeline.send_quote(q, who) if send else f"สร้าง {q['number']} เป็นร่างแล้ว — เปิดดูแล้วกดส่งเมื่อพร้อม") + f" · CFO: {cfo['note']}"
     return _redirect(f"/admin/leads/{lead_id}?notice={note}")
 
 
@@ -1441,6 +1500,8 @@ def _promptpay_config():
 def pay_page(request: Request, item: str):
     if not _tid(request):
         return _redirect("/login")
+    if _managed(request) and item != billing.plan_key(db.get_tenant(_tid(request))):
+        return _redirect("/upgrade?managed=1")   # ทีมงานปรับแพ็กเกจให้ — จ่ายเองได้เฉพาะค่าแผนปัจจุบัน
     it = _pay_item(item)
     if not it:
         return _redirect("/upgrade")
@@ -1457,6 +1518,8 @@ async def pay_submit(request: Request, item: str, slip: UploadFile = File(None))
     tid = _tid(request)
     if not tid:
         return _redirect("/login")
+    if _managed(request) and item != billing.plan_key(db.get_tenant(_tid(request))):
+        return _redirect("/upgrade?managed=1")   # ทีมงานปรับแพ็กเกจให้ — จ่ายเองได้เฉพาะค่าแผนปัจจุบัน
     it = _pay_item(item)
     if not it:
         return _redirect("/upgrade")
@@ -1489,6 +1552,8 @@ async def pay_submit(request: Request, item: str, slip: UploadFile = File(None))
 
 @app.post("/upgrade")
 def upgrade_request(request: Request, plan: str = Form(...)):
+    if blk := _managed_block(request, "/upgrade"):
+        return blk
     if not _tid(request):
         return _redirect("/login")
     notice = None
@@ -1505,6 +1570,8 @@ def upgrade_request(request: Request, plan: str = Form(...)):
 async def api_classify_market(request: Request):
     if not _tid(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if _managed(request):
+        return JSONResponse({"error": "managed"}, status_code=403)
     try:
         body = await request.json()
     except Exception:
@@ -1524,6 +1591,8 @@ async def api_classify_market(request: Request):
 
 @app.post("/brands")
 def create_brand(request: Request, name: str = Form(...), domain: str = Form(...), market: str = Form("")):
+    if blk := _managed_block(request, "/app"):
+        return blk
     tid = _tid(request)
     if not tid:
         return _redirect("/login")
@@ -1536,6 +1605,8 @@ def create_brand(request: Request, name: str = Form(...), domain: str = Form(...
 
 @app.post("/seed-demo")
 def seed_demo(request: Request, industry: str = Form("property")):
+    if blk := _managed_block(request, "/app"):
+        return blk
     tid = _tid(request)
     if not tid:
         return _redirect("/login")
@@ -1679,6 +1750,8 @@ AUTO_PUBLISH_CHOICES = [(-1, "ร่างเท่านั้น (review เ�
 
 @app.post("/brands/{brand_id}/auto-content")
 def set_auto_content(request: Request, brand_id: int, weekly: int = Form(0)):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     allowed = {n for n, _ in AUTO_CONTENT_CHOICES}
@@ -1688,6 +1761,8 @@ def set_auto_content(request: Request, brand_id: int, weekly: int = Form(0)):
 
 @app.post("/brands/{brand_id}/auto-publish")
 def set_auto_publish(request: Request, brand_id: int, days: int = Form(-1)):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     allowed = {n for n, _ in AUTO_PUBLISH_CHOICES}
@@ -1697,6 +1772,8 @@ def set_auto_publish(request: Request, brand_id: int, days: int = Form(-1)):
 
 @app.post("/brands/{brand_id}/auto-image")
 def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -1709,6 +1786,8 @@ def set_auto_image(request: Request, brand_id: int, on: int = Form(0)):
 @app.post("/brands/{brand_id}/schema-type")
 def save_schema_type(request: Request, brand_id: int, schema_type: str = Form("")):
     """เลือก schema.org @type ขององค์กร — ว่าง = ให้ระบบเดาจากชื่อ/ตลาด"""
+    if blk := _managed_block(request, f"/brands/{brand_id}/assets"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     t = (schema_type or "").strip()
@@ -1718,6 +1797,8 @@ def save_schema_type(request: Request, brand_id: int, schema_type: str = Form(""
 
 @app.post("/brands/{brand_id}/facts")
 def save_brand_facts(request: Request, brand_id: int, facts: str = Form(""), refresh_site: str = Form("")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -1745,6 +1826,8 @@ def _valid_hm(t: str) -> str:
 
 @app.post("/brands/{brand_id}/schedule")
 def set_schedule(request: Request, brand_id: int, auto_run_days: int = Form(...), auto_run_time: str = Form("08:00")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/monitor"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     allowed = {d for d, _ in SCHEDULE_CHOICES}
@@ -1818,6 +1901,8 @@ def brand_wp(request: Request, brand_id: int):
 
 @app.post("/brands/{brand_id}/delete")
 def delete_brand(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/app" if _tid(request) else "/login")
@@ -1827,6 +1912,8 @@ def delete_brand(request: Request, brand_id: int):
 
 @app.post("/brands/{brand_id}/questions")
 def add_question(request: Request, brand_id: int, question: str = Form(...), lang: str = Form("th")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/questions"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     if question.strip():
@@ -1836,6 +1923,8 @@ def add_question(request: Request, brand_id: int, question: str = Form(...), lan
 
 @app.post("/brands/{brand_id}/questions/generate")
 def generate_questions(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/questions"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -1855,6 +1944,8 @@ def generate_questions(request: Request, brand_id: int):
 
 @app.post("/questions/{qid}/delete")
 def del_question(request: Request, qid: int, brand_id: int = Form(...)):
+    if blk := _managed_block(request, f"/brands/{brand_id}/questions"):
+        return blk
     if _brand_for(request, brand_id):
         db.delete_question(qid)
     return _redirect(f"/brands/{brand_id}/questions")
@@ -1863,6 +1954,8 @@ def del_question(request: Request, qid: int, brand_id: int = Form(...)):
 # sync def -> Starlette runs it in a threadpool (ddgs is blocking)
 @app.post("/brands/{brand_id}/run")
 def run_brand(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2079,6 +2172,8 @@ def run_uptime_check(brand_id: int, notify_tenant: int | None = None) -> dict:
 
 @app.post("/brands/{brand_id}/health/run")
 def run_brand_health(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/health"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2124,6 +2219,8 @@ def _ai_worker(brand_id: int):
 
 @app.post("/brands/{brand_id}/ai/run")
 def run_brand_ai(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/ai"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2221,6 +2318,8 @@ def _gsc_worker(brand_id: int):
 
 @app.post("/brands/{brand_id}/gsc/run")
 def run_brand_gsc(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/gsc"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2270,6 +2369,8 @@ def _speed_worker(brand_id: int):
 
 @app.post("/brands/{brand_id}/speed/run")
 def run_brand_speed(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/speed"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2317,6 +2418,8 @@ def _aiserp_worker(brand_id: int):
 
 @app.post("/brands/{brand_id}/ai-serp/run")
 def run_brand_ai_serp(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/ai-serp"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2330,6 +2433,8 @@ def run_brand_ai_serp(request: Request, brand_id: int):
 @app.post("/brands/{brand_id}/ai-serp/auto")
 def set_brand_ai_serp_auto(request: Request, brand_id: int, on: str = Form("")):
     """เปิด/ปิดเช็ค Google AI อัตโนมัติรายแบรนด์ — ทุกคำถามกินโควตา SerpApi จึงไม่เปิดให้ทุกแบรนด์โดยอัตโนมัติ"""
+    if blk := _managed_block(request, f"/brands/{brand_id}/ai-serp"):
+        return blk
     if not _brand_for(request, brand_id):
         return _redirect("/login")
     db.set_aiserp_auto(brand_id, bool(on))
@@ -2557,6 +2662,8 @@ def _autopilot_worker(brand_id: int):
 
 @app.post("/brands/{brand_id}/autopilot/run")
 def run_brand_autopilot(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/autopilot"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2569,6 +2676,8 @@ def run_brand_autopilot(request: Request, brand_id: int):
 
 @app.post("/brands/{brand_id}/autopilot/settings")
 def save_autopilot(request: Request, brand_id: int, on: str = Form(""), mode: str = Form("draft"), content_n: int = Form(1)):
+    if blk := _managed_block(request, f"/brands/{brand_id}/autopilot"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2594,6 +2703,8 @@ def brand_autopilot(request: Request, brand_id: int):
 # ---------- Google rank tracking ----------
 @app.post("/brands/{brand_id}/rank/run")
 def run_rank(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/rank"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2654,6 +2765,8 @@ def brand_rank(request: Request, brand_id: int):
 @app.post("/brands/{brand_id}/content")
 def gen_content(request: Request, brand_id: int, question_id: int = Form(...), lang: str = Form("th"),
                 ctype: str = Form("qa")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2720,6 +2833,8 @@ def _fix_all_worker(brand_id: int, tenant_id: int, publish_drafts: bool):
 
 @app.post("/brands/{brand_id}/content/fix-all")
 def fix_all_content(request: Request, brand_id: int, publish_drafts: str = Form("")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/content"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/app" if _tid(request) else "/login")
@@ -2734,6 +2849,8 @@ def fix_all_content(request: Request, brand_id: int, publish_drafts: str = Form(
 
 @app.post("/content/{content_id}/regenerate")
 def regenerate_content(request: Request, content_id: int):
+    if blk := _managed_block(request, f"/content/{content_id}"):
+        return blk
     item = db.get_content(content_id)
     if not item:
         return _redirect("/app")
@@ -2779,6 +2896,8 @@ def view_content(request: Request, content_id: int):
 
 @app.post("/content/{content_id}/delete")
 def del_content(request: Request, content_id: int):
+    if blk := _managed_block(request, f"/content/{content_id}"):
+        return blk
     item = db.get_content(content_id)
     if item and _brand_for(request, item["brand_id"]):
         db.delete_content(content_id)
@@ -2812,6 +2931,8 @@ def brand_assets(request: Request, brand_id: int):
 # ---------- WordPress publish (execution layer — Phase B) ----------
 @app.post("/brands/{brand_id}/wp")
 def save_wp(request: Request, brand_id: int, site_url: str = Form(...), user: str = Form(""), app_password: str = Form(""), api_key: str = Form("")):
+    if blk := _managed_block(request, f"/brands/{brand_id}/wp"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2841,6 +2962,8 @@ def save_wp(request: Request, brand_id: int, site_url: str = Form(...), user: st
 
 @app.post("/brands/{brand_id}/wp/delete")
 def del_wp(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/wp"):
+        return blk
     if _brand_for(request, brand_id):
         db.delete_wp_connection(brand_id)
     return _redirect(f"/brands/{brand_id}/wp")
@@ -2849,6 +2972,8 @@ def del_wp(request: Request, brand_id: int):
 @app.post("/brands/{brand_id}/wp/sync")
 def sync_wp(request: Request, brand_id: int):
     """ซิงค์ org schema + llms.txt เข้าปลั๊กอินอีกครั้ง + re-ping อัปเดตเวอร์ชัน โดยใช้ API key ที่เก็บไว้"""
+    if blk := _managed_block(request, f"/brands/{brand_id}/wp"):
+        return blk
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/login")
@@ -2879,6 +3004,8 @@ def sync_wp(request: Request, brand_id: int):
 
 @app.post("/content/{content_id}/publish")
 def publish_content(request: Request, content_id: int, status: str = Form("draft")):
+    if blk := _managed_block(request, f"/content/{content_id}"):
+        return blk
     item = db.get_content(content_id)
     if not item:
         return _redirect("/app")
@@ -3162,7 +3289,7 @@ def _admin_ctx(error=None):
         addon_summary[tid] = [f"{addon_labels.get(k, k)}{(' ×' + str(n)) if n > 1 else ''}"
                               for k, n in Counter(keys).items()]
     return {
-        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error, "trial_days": billing.TRIAL_DAYS, "free_open": billing.free_open(),
+        "tenants": tenants, "all_brands": all_brands, "plans": billing.PLANS, "error": error, "trial_days": billing.TRIAL_DAYS, "free_open": billing.free_open(), "agency_mode": agency_mode(),
         "pending_payments": db.list_pending_payments(),
         "addon_labels": addon_labels, "addon_summary": addon_summary,
         "stats": {
@@ -3244,6 +3371,15 @@ def admin_free_plan(request: Request, on: str = Form("")):
     return _redirect("/admin")
 
 
+@app.post("/admin/agency-mode")
+def admin_agency_mode(request: Request, on: str = Form("")):
+    """เปิด = ลูกค้าดูผลอย่างเดียว ทีมตั้งค่า/ลงมือทำให้ · ปิด = ลูกค้าใช้เครื่องมือเองแบบ SaaS"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_setting("agency_mode", "1" if on else "0")
+    return _redirect("/admin")
+
+
 @app.post("/admin/tenants/{tid}/trial")
 def admin_extend_trial(request: Request, tid: int, days: int = Form(14)):
     """ต่อเวลาทดลองใช้แผนฟรี — นับต่อจากวันหมดเดิม (หรือจากวันนี้ถ้าหมดไปแล้ว)"""
@@ -3259,6 +3395,15 @@ def admin_extend_trial(request: Request, tid: int, days: int = Form(14)):
     db.set_trial_until(tid, new.isoformat())
     db.add_notification(tid, f"ต่อเวลาทดลองใช้ฟรีถึง {new.strftime('%d/%m/')}{new.year + 543} แล้ว", "/upgrade", "plan")
     return _redirect("/admin")
+
+
+@app.post("/admin/tenants/{tid}/self-serve")
+def admin_set_self_serve(request: Request, tid: int, mode: str = Form("auto")):
+    """โหมดเอเจนซี: บัญชีนี้ใช้แอปเอง (เอเจนซี/พันธมิตร) หรือทีมดูแลให้ (ดูผลอย่างเดียว) · auto = ตามแผน"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    db.set_tenant_self_serve(tid, {"self": True, "managed": False}.get(mode))
+    return _redirect("/admin?notice=" + quote("อัปเดตการใช้งานของบัญชีแล้ว"))
 
 
 @app.post("/admin/tenants/{tid}/plan")

@@ -68,9 +68,10 @@ def set_mandate(key: str, value) -> None:
 AGENTS = {"ceo": "CEO", "cfo": "CFO", "cto": "CTO", "cmo": "CMO", "sdr": "SDR", "partner": "พันธมิตร", "expand": "ขยายบัญชี", "salesbot": "ตอบแชตขาย"}
 KINDS = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล", "reply": "ตอบอีเมลลูกค้า", "digest": "สรุปเช้า",
          "partner_outreach": "ชวนพันธมิตร", "partner_apply": "รับพันธมิตร", "expansion": "ขยายบัญชีลูกค้า"}
-# สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง) · ใบเสนอราคาอยู่ในกรอบ CFO (ราคาตามตาราง ส่วนลด ≤ 10%)
-# ส่วน "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร · ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
-AUTO_ELIGIBLE = {"lead_review", "outreach", "quote", "post", "followup", "reply"}
+# สลับเป็น "ตัดสินเองในกรอบ" ได้ทีละเรื่อง เมื่อมีหลักฐานพอ (หรือเจ้าของปลดล็อกเอง)
+# "ใบเสนอราคา" ต้องเป็นคนเสมอ (โหมดเอเจนซี: เจ้าของคุยกับลูกค้า ตั้งราคาเอง และกดส่งเอง) · "ยืนยันยอดเข้า" ต้องเป็นคนเสมอ เพราะระบบมองไม่เห็นบัญชีธนาคาร
+# ข้อเสนอที่นอกกรอบ (escalate) ไม่ทำเองไม่ว่าโหมดไหน
+AUTO_ELIGIBLE = {"lead_review", "outreach", "post", "followup", "reply"}
 AUTO_MIN_DECIDED = 20
 AUTO_MIN_AGREEMENT = 95
 PLAN_START = "2026-10-22"            # วันเริ่มแผน 45 วัน — ใช้นับ "ลูกค้าใหม่ที่จ่ายเงินสะสม"
@@ -109,6 +110,11 @@ def _lead_lang(lead) -> str:
     return db.row_lang(lead)
 
 
+# ประโยคปิดอีเมลทัก (โหมดเอเจนซี): ชวนตอบกลับเพื่อนัดคุยพาดูรายงาน แทนการขอใบเสนอราคา/เลือกแพ็กเกจ
+# ไม่บอกจำนวนนาทีในอีเมลทัก/ติดตาม — ทดสอบกล่องจริง 25 ต.ค. "ชวนนัด 15 นาที" ตกแท็บโปรโมชัน (deliverability._BULKY) · ช่องทางที่ลีดสนใจแล้วใช้ "30 นาที" ได้
+CALL_ASK = "ถ้าสะดวกให้ผมโทรไปพาดูรายงานนี้และวิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"
+
+
 def outreach_template(lead, summary: list[dict], result_url: str, style: dict | None = None) -> dict:
     """แม่แบบสำรองเมื่อโมเดลร่างไม่ได้ — แบบคนเขียน: ปัญหาข้อเดียวเป็นประโยค + ลิงก์รายงาน + ลงชื่อคน (ผ่านกล่องหลักในการทดสอบจริง)
     · ภาษาตามที่ลีดเลือกบนเว็บ (ลีดที่หาเอง/นำเข้า = ไทย ข้อความเดิมทุกตัวอักษร)"""
@@ -122,10 +128,10 @@ def outreach_template(lead, summary: list[dict], result_url: str, style: dict | 
                t("พื้นฐานของเว็บผ่านแล้ว ขั้นต่อไปคือทำให้ ChatGPT และ Google AI เอ่ยชื่อธุรกิจคุณเวลาลูกค้าถาม"))
     if tpl.get("opener"):
         body = (t("สวัสดีครับ") + "\n\n" + t("เว็บ {dom} ตอนนี้{finding}", dom=dom, finding=finding) + "\n\n"
-                + t("ผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {url}", url=result_url) + "\n\n" + t("ถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"))
+                + t("ผมลองตรวจให้แล้ว รายงานเต็มอยู่ที่ {url}", url=result_url) + "\n\n" + t(CALL_ASK))
     else:
         body = (t("สวัสดีครับ") + "\n\n" + t("ผมลองตรวจเว็บ {dom} แล้วเจอว่า{finding}", dom=dom, finding=finding) + "\n\n"
-                + t("รายงานเต็ม:") + f" {result_url}\n\n" + t("ถ้าอยากรู้วิธีแก้ ตอบกลับอีเมลนี้ได้เลยครับ"))
+                + t("รายงานเต็ม:") + f" {result_url}\n\n" + t(CALL_ASK))
     subject = t(tpl["subject"], dom=dom) if tpl.get("subject") else t("เรื่องเว็บ {dom}", dom=dom)
     return {"subject": subject, "body": D.sign(body), "source": "template"}
 
@@ -153,7 +159,8 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
 {bullets}
 ลิงก์ผลตรวจเต็ม: {result_url}
 
-กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน
+กติกา: ห้ามคำว่า "การันตี" หรือรับประกันอันดับ/ผลลัพธ์ · ห้ามบอกราคา · ห้ามกดดัน · ห้ามชวนขอใบเสนอราคาหรือเลือกแพ็กเกจ
+ประโยคชวนตอบกลับ: ให้ตอบกลับอีเมลนี้ถ้าอยากให้เราโทรไปพาดูรายงานและวิธีแก้ (ไม่ต้องบอกจำนวนนาที)
 รูปแบบ (สำคัญมาก ไม่งั้นตกแท็บโปรโมชัน): {D.PERSONAL_RULES} · ไม่ต้องลงชื่อ ระบบลงชื่อให้ · หัวข้ออีเมลสั้นแบบคนเขียน ไม่มีตัวเลข
 {("แนวเขียนเพิ่ม (ทำตามทุกข้อ):" + chr(10) + style["prompt"] + chr(10)) if style and style.get("prompt") else ""}ตอบเป็น JSON เท่านั้น: {{"subject": "หัวข้ออีเมลสั้น ๆ", "body": "เนื้ออีเมล ขึ้นบรรทัดใหม่ด้วย \\n"}}"""
     prompt += D.write_in(lang)                                       # ลีดภาษาอื่น: เขียนเป็นภาษานั้นทั้งฉบับ (ไทย = prompt เดิม)
@@ -225,6 +232,21 @@ def cfo_check(payload: dict) -> dict:
     return {"ok": ok, "net": net, "margin_pct": margin, "note": note}
 
 
+def cfo_custom(net_month: float) -> dict:
+    """CFO ดูราคาที่เจ้าของตั้งเอง (เทียบต่อเดือน) — เตือนเท่านั้น ไม่บล็อก (เจ้าของเป็นผู้ตัดสิน)
+    · ต่ำกว่าต้นทุน AI ต่อลูกค้า หรือกำไรขั้นต้นต่ำกว่ากรอบ = ⚠️"""
+    net = int(round(float(net_month or 0)))
+    cost = MANDATE["ai_cost_cap_thb"]
+    margin = round((net - cost) / net * 100) if net else -100
+    note = f"ราคา {net:,} บาท/เดือน (เทียบ) กำไรขั้นต้นราว {margin}% (ต้นทุน AI ไม่เกิน {cost:,} บาท)"
+    warn = ""
+    if net < cost:
+        warn = f"⚠️ ต่ำกว่าต้นทุน AI ต่อลูกค้า ({cost:,} บาท/เดือน) — ขาดทุนทุกเดือน"
+    elif margin < MANDATE["min_margin_pct"]:
+        warn = f"⚠️ กำไรขั้นต้นต่ำกว่ากรอบ {MANDATE['min_margin_pct']}%"
+    return {"ok": not warn, "net": net, "margin_pct": margin, "warn": warn, "note": note + (f" — {warn} (เตือนเท่านั้น คุณตัดสินเอง)" if warn else "")}
+
+
 def cto_status() -> dict:
     """CTO รายงานสภาพระบบจากของที่มีอยู่: แบรนด์ที่สุขภาพเว็บไม่ผ่าน · โมเดลที่ถอยกลับ · โมเดลรูป"""
     from . import ai_client, db, image_finder
@@ -272,7 +294,8 @@ def auto_gate(kind: str) -> dict:
     enough = passed or override
     on = raw_on == "1"
     if not eligible:
-        reason = "ต้องเป็นคนเสมอ — ระบบมองไม่เห็นบัญชีธนาคาร" if kind == "payment" else "เรื่องนี้ยังต้องเป็นคน"
+        reason = {"payment": "ต้องเป็นคนเสมอ — ระบบมองไม่เห็นบัญชีธนาคาร",
+                  "quote": "ต้องเป็นคนเสมอ — เจ้าของคุยกับลูกค้า ตั้งราคา และกดส่งใบเสนอราคาเอง (โหมดเอเจนซี)"}.get(kind, "เรื่องนี้ยังต้องเป็นคน")
     elif not enough:
         reason = (f"ต้องตัดสินแล้ว ≥ {AUTO_MIN_DECIDED} เรื่องและตรงกัน ≥ {AUTO_MIN_AGREEMENT}% "
                   f"(ตอนนี้ {st['decided']} เรื่อง · {st['agreement_pct'] if st['agreement_pct'] is not None else '—'}%)")

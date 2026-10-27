@@ -173,6 +173,11 @@ def _items(q, first: bool) -> list[dict]:
     label = billing.PLANS[q["package"]]["label"]
     yearly = Q.cycle_of(q) == "year"
     disc = f" ลดพิเศษ {q['discount_pct']:.0f}%" if q["discount_pct"] else ""
+    if Q.is_custom(q):                                   # ราคาที่เจ้าของตั้งเอง: ตามขอบเขตงานที่ตกลง (ไม่มีส่วนลดตาราง)
+        items = [{"desc": f"ค่าบริการเจอ.AI {Q.label_of(q)} ตามขอบเขตงานที่ตกลง {'รายปี' if yearly else 'รายเดือน'}", "amount": float(Q.period_total(q))}]
+        if first and q["setup"] and q["setup_price"]:
+            items.append({"desc": "GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว", "amount": float(q["setup_price"])})
+        return items
     if yearly:
         items = [{"desc": f"ค่าบริการเจอ.AI แพ็กเกจ {label} รายปี (ลด {Q.yearly_discount():.0f}%{disc})", "amount": float(Q.period_total(q))}]
         if first and q["setup"]:

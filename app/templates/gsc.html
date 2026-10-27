@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Search Console — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>Google Search Console</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("ข้อมูลจาก Google โดยตรง: หน้าคอนเทนต์หน้าไหนอยู่ใน index จริง sitemap ถูกรับไหม และคนค้นเจอเราด้วยคำว่าอะไร") }}</p>
@@ -21,10 +22,10 @@
 </div>
 {% endif %}
 
-<form method="post" action="/brands/{{ brand['id'] }}/gsc/run" style="margin:14px 0">
+{% if managed() %}{{ note() }}{% else %}<form method="post" action="/brands/{{ brand['id'] }}/gsc/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running or not info }}>{{ _('กำลังซิงค์…') if running else _('ซิงค์ Search Console ตอนนี้') }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ส่ง sitemap ให้ถ้ายังไม่ได้ส่ง · ตรวจ index รายหน้า · ดึงคลิก 28 วัน — ไม่มีค่าใช้จ่าย ใช้เวลาราวหนึ่งนาที") }}</span>
-</form>
+</form>{% endif %}
 
 {% if running and not report %}
 <div class="card"><p class="muted">{{ _("กำลังซิงค์ — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>

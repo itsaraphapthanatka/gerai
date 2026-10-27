@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ _("หน้าหลัก") }} — เจอ.AI{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
+{% set _mg = managed() %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <h1 style="margin:0">{{ _("แบรนด์ของคุณ") }}</h1>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -13,6 +15,7 @@
     {% endif %}
   </div>
 </div>
+{% if _mg %}<p class="muted" style="margin:-8px 0 16px">{{ _("ทีมเจอ.AI ดูแลการวัดผลและคอนเทนต์ให้ — ดูผลและรายงานล่าสุดได้ที่นี่") }}</p>{% endif %}
 {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
 
 <!-- รายการแบรนด์ -->
@@ -29,8 +32,15 @@
     {% else %}
       <div class="muted" style="font-size:12px">{{ _("ยังไม่ได้รัน") }}</div>
     {% endif %}
+    {% if _mg %}{% set st = brand_stats[b['id']] %}
+      <div class="muted" style="font-size:12px;margin-top:10px;line-height:1.75">
+        📝 {{ _("เผยแพร่แล้ว {n}/{total} ชิ้น", n=st.published, total=st.content) }}
+        {% if st.ai_rate is not none %}<br>🤖 {{ _("ถูกพูดถึง {rate}%", rate=st.ai_rate) }}{% endif %}
+        {% if st.health is not none %}<br>🩺 {{ _("สุขภาพเว็บ") }}: {{ _("ผ่านทั้งหมด") if st.health == 0 else _("{n} ปัญหา", n=st.health) }}{% endif %}
+      </div>
+    {% endif %}
     {% set bg = brand_gaps[b['id']] %}
-    {% if bg.critical > 0 %}
+    {% if bg.critical > 0 and not _mg %}
       <div style="margin-top:10px;font-size:11px;font-weight:600;color:#b42318;background:#fdecec;border-radius:8px;padding:5px 9px;display:inline-block">🎯 {{ _("{n} คำถามควรเขียน", n=bg.critical) }}</div>
     {% elif bg.has_run and bg.total_gaps == 0 %}
       <div style="margin-top:10px;font-size:11px;font-weight:600;color:#149e61;background:#f0fdf4;border-radius:8px;padding:5px 9px;display:inline-block">✓ {{ _("ครอบคลุมครบ") }}</div>
@@ -41,9 +51,27 @@
 {% else %}
 <div class="card" style="text-align:center;padding:32px 20px;margin-bottom:20px">
   <p style="font-size:16px;font-weight:600;margin:0 0 6px">{{ _("ยังไม่มีแบรนด์") }}</p>
-  <p class="muted">{{ _("เพิ่มแบรนด์แรก หรือลองใส่ข้อมูลตัวอย่างเพื่อดูว่าระบบทำงานอย่างไร") }}</p>
+  <p class="muted">{{ _("ทีมงานกำลังตั้งค่าแบรนด์ของคุณ — จะแจ้งเตือนเมื่อพร้อม") if _mg else _("เพิ่มแบรนด์แรก หรือลองใส่ข้อมูลตัวอย่างเพื่อดูว่าระบบทำงานอย่างไร") }}</p>
 </div>
 {% endif %}
+
+{% if _mg %}
+{% if brands %}
+<!-- รายงานล่าสุดของแต่ละแบรนด์ (ลูกค้าที่ทีมดูแลให้) -->
+<div class="card">
+  <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:16px">📄 {{ _("รายงานล่าสุด") }}</h2>
+  {% for b in brands %}
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;{{ 'border-top:1px solid var(--border)' if not loop.first }}">
+    <div style="flex:1;min-width:180px"><b>{{ b['name'] }}</b>
+      <div class="muted" style="font-size:12px">{{ _("วัดล่าสุด {date}", date=b['last_run_at'][:10]) if b['last_run_at'] else _("ยังไม่มีผลวัด") }}</div></div>
+    <a class="btn ghost sm" href="/brands/{{ b['id'] }}/report">{{ _("ดูรายงาน") }}</a>
+    <a class="btn ghost sm" href="/brands/{{ b['id'] }}/report.pdf">{{ _("ดาวน์โหลด PDF") }}</a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{{ note() }}
+{% else %}
 
 <!-- เพิ่มแบรนด์ -->
 <div class="card">
@@ -117,4 +145,5 @@ function aiClassifyMarket(){
   </div>
   <p class="muted" style="margin:10px 0 0;font-size:12px">{{ _("สร้างแบรนด์ตัวอย่างพร้อมคำถามสำเร็จรูป — ลบได้ทีหลัง") }}</p>
 </div>
+{% endif %}
 {% endblock %}

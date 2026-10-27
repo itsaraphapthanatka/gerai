@@ -201,7 +201,7 @@
   <nav>
     <span class="section-label">{{ _("หลัก") }}</span>
     <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> {{ _("หน้าหลัก") }}</a>
-    <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> {{ _("อัปเกรดแผน", _ns="app") }}</a>
+    <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> {{ _("แพ็กเกจและการชำระเงิน") if managed() else _("อัปเกรดแผน", _ns="app") }}</a>
     <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> {{ _("รหัสผ่าน") }}</a>
     {% if request.session.get('is_admin') %}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> {{ _("ผู้ดูแลระบบ") }}</a>
@@ -239,13 +239,13 @@
           <a href="/brands/{{ b['id'] }}/questions" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/questions' }}"><span class="icon">❓</span> {{ _("คำถาม", _ns="app") }}</a>
           <a href="/brands/{{ b['id'] }}/monitor" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/monitor' }}"><span class="icon">📡</span> {{ _("มอนิเตอร์") }}</a>
           <a href="/brands/{{ b['id'] }}/content" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/content' }}"><span class="icon">📝</span> {{ _("คอนเทนต์") }}</a>
-          <a href="/brands/{{ b['id'] }}/wp" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/wp' }}"><span class="icon">🔗</span> WordPress</a>
+          {% if not managed() %}<a href="/brands/{{ b['id'] }}/wp" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/wp' }}"><span class="icon">🔗</span> WordPress</a>{% endif %}
           <a href="/brands/{{ b['id'] }}/impact" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/impact' }}"><span class="icon">📊</span> SoV Impact</a>
-          <a href="/brands/{{ b['id'] }}/assets" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/assets' }}"><span class="icon">🛡️</span> {{ _("ชุดติดตั้ง") }}</a>
+          {% if not managed() %}<a href="/brands/{{ b['id'] }}/assets" class="{{ 'active' if _path == '/brands/' ~ _bid ~ '/assets' }}"><span class="icon">🛡️</span> {{ _("ชุดติดตั้ง") }}</a>{% endif %}
         </div>
         {% endif %}
       {% endfor %}
-    {% else %}
+    {% elif not managed() %}
       <a href="/app" style="opacity:.5;font-size:13px"><span class="icon">＋</span> {{ _("เพิ่มแบรนด์") }}</a>
     {% endif %}
   </nav>
@@ -265,6 +265,7 @@
   <span>{% if _tr.expired %}<b>{{ _("ช่วงทดลองใช้ฟรี 14 วันหมดแล้ว") }}</b> {{ _("— ระบบหยุดมอนิเตอร์และสร้างคอนเทนต์ให้ ข้อมูลเดิมยังอยู่ครบ") }}{% else %}{% set _end = (_tr.ends[8:10] ~ "/" ~ _tr.ends[5:7] ~ "/" ~ (_tr.ends[:4]|int + 543)) if ui_lang() == "th" else _tr.ends %}<b>{{ _("ทดลองใช้ฟรี เหลือ {n} วัน", n=_tr.days_left) }}</b> {{ _("(ถึง {date}) — อัปเกรดเพื่อใช้ต่อโดยไม่สะดุด", date=_end) }}{% endif %}</span>
   <a href="/upgrade" class="btn sm" style="text-decoration:none">{{ _("ดูแผน →") }}</a></div>
 {% endif %}
+{% if request.query_params.get('managed') and managed() %}{% from "_managed.html" import note with context %}{{ note() }}{% endif %}
 <main>{% block content %}{% endblock %}</main>
 </div>
 

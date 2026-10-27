@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ _("ความเร็วเว็บ") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>{{ _("ความเร็วเว็บ") }}</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("คะแนนจาก Google PageSpeed Insights (Lighthouse) ทั้งมือถือและเดสก์ท็อป ความเร็วเป็นสัญญาณอันดับของ Google และหน้าที่ช้ามากบอทอ่านได้ไม่ครบ") }}</p>
 
-<form method="post" action="/brands/{{ brand['id'] }}/speed/run" style="margin:14px 0">
+{% if managed() %}{{ note() }}{% else %}<form method="post" action="/brands/{{ brand['id'] }}/speed/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running }}>{{ _('กำลังสแกน…') if running else _('สแกนตอนนี้') }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">{{ _("Google รัน Lighthouse ให้ 2 รอบ (มือถือ/เดสก์ท็อป) ใช้เวลาราว 1–2 นาที · ไม่มีค่าใช้จ่าย") }}</span>
-</form>
+</form>{% endif %}
 
 {% if running and not report %}
 <div class="card"><p class="muted">{{ _("กำลังสแกน — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>

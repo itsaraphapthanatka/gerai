@@ -87,7 +87,22 @@
   <table>
     <thead><tr><th>{{ _("บริการ") }}</th><th>{{ _("รอบ") }}</th><th class="num">{{ _("บาท") }}</th></tr></thead>
     <tbody>
+      {% if custom %}
+      {% set first_label = _("ยอดชำระงวดแรก") if (q.setup and q.setup_price) or not yearly else _("ยอดชำระครั้งเดียวทั้งปี") %}
       {% if yearly %}
+      {% set list_year = q.price * 12 %}
+      <tr><td>{{ label }} — {{ _("ตามขอบเขตงานที่ตกลง") }}{% if period_total <= list_year %}<div class="why" style="color:var(--slate);font-size:13px">{{ _("{price} บาท × 12 เดือน", price="{:,}".format(q.price)) }}</div>{% endif %}</td><td>{{ _("รายปี") }}</td><td class="num">{{ "{:,}".format(list_year if period_total <= list_year else period_total) }}</td></tr>
+      {% if period_total < list_year %}<tr><td>{{ _("ส่วนลดจ่ายรายปี") }}</td><td></td><td class="num">−{{ "{:,}".format(list_year - period_total) }}</td></tr>{% endif %}
+      {% else %}
+      <tr><td>{{ label }} — {{ _("ตามขอบเขตงานที่ตกลง") }}</td><td>{{ _("รายเดือน") }}</td><td class="num">{{ "{:,}".format(q.price) }}</td></tr>
+      {% endif %}
+      {% if q.setup and q.setup_price %}<tr><td>{{ setup.label|tr }}<div class="why" style="color:var(--slate);font-size:13px">{{ setup.desc|tr }}</div></td><td>{{ _("ครั้งเดียว") }}</td><td class="num">{{ "{:,}".format(q.setup_price) }}</td></tr>{% endif %}
+      {% if yearly %}<tr><td>{{ _("เทียบเป็นต่อเดือน") }}</td><td>{{ _("เฉลี่ย") }}</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>
+      {% else %}<tr><td>{{ _("ค่าบริการสุทธิต่อเดือน (รอบถัดไป)") }}</td><td>{{ _("รายเดือน") }}</td><td class="num">{{ "{:,}".format(q.net) }}</td></tr>{% endif %}
+      <tr class="{{ '' if vat else 'total' }}"><td>{{ first_label }}{% if vat %} {{ _("(ก่อน VAT)") }}{% endif %}</td><td></td><td class="num">{{ "{:,}".format(q.first_total) }}</td></tr>
+      {% if vat %}<tr><td>{{ _("ภาษีมูลค่าเพิ่ม {v}%", v="%g"|format(vat)) }}</td><td></td><td class="num">{{ baht(payable - q.first_total) }}</td></tr>
+      <tr class="total"><td>{{ first_label }} {{ _("(รวม VAT)") }}</td><td></td><td class="num">{{ baht(payable) }}</td></tr>{% endif %}
+      {% elif yearly %}
       {% set list_year = q.price * 12 %}{% set after_y = (list_year * (100 - yearly_pct) / 100)|round|int %}
       <tr><td>{{ _("แพ็กเกจ {label}", label=plan.label) }} — {{ plan.tagline|tr }}<div class="why" style="color:var(--slate);font-size:13px">{{ _("{price} บาท × 12 เดือน", price="{:,}".format(q.price)) }}</div></td><td>{{ _("รายปี") }}</td><td class="num">{{ "{:,}".format(list_year) }}</td></tr>
       <tr><td>{{ _("ส่วนลดจ่ายรายปี {pct}%", pct="%g"|format(yearly_pct)) }}</td><td></td><td class="num">−{{ "{:,}".format(list_year - after_y) }}</td></tr>
@@ -118,8 +133,14 @@
   </div>
   {% endif %}
 
+  {% if custom and scope %}
+  <h2>{{ _("ขอบเขตงาน") }}</h2>
+  <ul class="perks" style="columns:1">{% for p in scope %}<li>{{ p }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if not (custom and q.custom_label and scope) %}
   <h2>{{ _("สิ่งที่รวมอยู่ในแพ็กเกจ {label}", label=plan.label) }}</h2>
   <ul class="perks">{% for p in plan.perks %}<li>{{ p|tr }}</li>{% endfor %}</ul>
+  {% endif %}
 
   <h2>{{ _("เงื่อนไขหลัก") }}</h2>
   <ol class="terms">{% for t in terms %}<li>{{ t }}</li>{% endfor %}</ol>
@@ -183,7 +204,7 @@
     {% endif %}
   {% endif %}
 
-  <p class="foot">{{ _("เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน") }} · {{ _("ใบเสนอราคานี้สร้างจากระบบอัตโนมัติ ราคาตามตารางแพ็กเกจมาตรฐาน") }}{% if not pdf %} · <a href="{{ base }}/audit/{{ lead.token }}{{ lq }}">{{ _("ดูผลตรวจเว็บ") }}</a>{% endif %}</p>
+  <p class="foot">{{ _("เจอ.AI ไม่รับประกันอันดับหรือผลลัพธ์ แต่วัดและรายงานตัวเลขจริงทุกเดือน") }} · {% if custom %}{{ _("ราคาและขอบเขตงานตามที่ตกลงกับทีมเจอ.AI") }}{% else %}{{ _("ใบเสนอราคานี้สร้างจากระบบอัตโนมัติ ราคาตามตารางแพ็กเกจมาตรฐาน") }}{% endif %}{% if not pdf %} · <a href="{{ base }}/audit/{{ lead.token }}{{ lq }}">{{ _("ดูผลตรวจเว็บ") }}</a>{% endif %}</p>
 </div>
 </body>
 </html>

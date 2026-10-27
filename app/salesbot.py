@@ -21,6 +21,15 @@ ESCALATE = [
     ("ชำระเงินมีปัญหา", re.compile(r"จ่ายไม่ได้|ตัดบัตรไม่ผ่าน|โอนแล้ว|ชำระแล้ว|ใบกำกับ.*ผิด|ใบเสร็จ.*ผิด|เงินเข้า", re.I)),
 ]
 HOLD = "รับเรื่องแล้วครับ เรื่องนี้ขอให้ผู้ดูแลตอบเองเพื่อความถูกต้อง จะติดต่อกลับภายในวันทำการนี้"
+# สัญญาณซื้อ (โหมดเอเจนซี): สนใจ/ถามราคา/อยากเริ่ม/ขอนัด → ตอบคำถาม + บอกว่าทีมจะติดต่อไปนัดคุย 30 นาที · แจ้งเจ้าของทันที · ขึ้นบนสุดของรายการโทร
+BUY_RE = re.compile(r"(?<!ไม่)(?<!ไม่ )สนใจ|ราคา|ค่าบริการ|ใบเสนอ|สมัคร|อยากใช้|เริ่มใช้|อยากเริ่ม|ซื้อ|นัดคุย|อยากคุย|คุยต่อ|โทรกลับ|เอาเลย|ทำเลย"
+                    r"|(?<!not )(?<!n't )\binterested\b|\bpric(?:e|es|ing)\b|how much|\bquote\b|sign ?up|\bsubscribe\b|\bbuy\b|purchase|get started|book a call|schedule a call|call me"
+                    r"|感兴趣|报价|价格|多少钱|购买|签约|预约|興味|見積|料金|価格|申し込|購入|관심|견적|가격|비용|구매|신청", re.I)
+WANTS_HUMAN = "ขอคุยกับคน"
+
+
+def buying_intent(text: str) -> bool:
+    return bool(BUY_RE.search(text or ""))
 
 
 def enabled(channel: str) -> bool:
@@ -36,21 +45,17 @@ def knowledge(lead=None) -> list[str]:
     from . import billing, quotes as Q, execs, leads as L, pipeline, marketing
     vat = Q.vat_rate_now()
     fx = lambda x: f"{x:,.0f}"
-    pro, ag = billing.PLANS["pro"], billing.PLANS["agency"]
-    py = Q.price_for("pro", 0, False, "year")
-    ay = Q.price_for("agency", 0, False, "year")
-    setup = Q.setup_addon()
+    pro = billing.PLANS["pro"]
     facts = [
         "เจอ.AI คือบริการทำให้เว็บธุรกิจถูก Google และผู้ช่วย AI (ChatGPT · Gemini · Perplexity · Google AI Overview) หยิบไปตอบและแนะนำ: "
         "ตรวจเว็บ · เขียนคำตอบคำถามที่ลูกค้าถามจริงลงเว็บของลูกค้าเอง · ใส่ schema และ llms.txt · วัดผลทุกสัปดาห์ด้วยการถาม AI จริง",
-        f"แพ็กเกจ Pro {fx(pro['price'])} บาท/เดือน: " + " · ".join(pro["perks"]),
-        f"แพ็กเกจ Agency {fx(ag['price'])} บาท/เดือน: " + " · ".join(ag["perks"]),
-        f"จ่ายรายปีลด {Q.yearly_discount():g}%: Pro {fx(py['period_total'])} บาท/ปี (เทียบ {fx(py['net'])} บาท/เดือน) · Agency {fx(ay['period_total'])} บาท/ปี · รายปีได้ GEO Setup ฟรี",
-        (f"ราคายังไม่รวม VAT {vat:g}% (Pro รายเดือนจ่ายจริง {Q.baht(Q.with_vat(pro['price'], vat))} บาท)" if vat else "ราคาไม่มี VAT เพิ่ม"),
-        f"{setup['label']} {fx(setup['price'])} บาท ครั้งเดียว — เมื่อเว็บต้องแก้โครงสร้าง (เช่น บอทอ่านเนื้อหาไม่ออก) · รายปีได้ฟรี",
-        "แพ็กเสริม: " + " · ".join(f"{a['label']} {fx(a['price'])} บาท {a['period']}" for a in billing.ADDONS if a["key"] != "setup"),
+        # โหมดเอเจนซี: ไม่มีเมนูแพ็กเกจให้เลือก — บอกราคาเริ่มต้น แล้วราคาสุดท้ายตามขอบเขตงานหลังคุยกัน
+        f"ราคาเริ่มต้น {fx(pro['price'])} บาท/เดือน — ราคาสุดท้ายขึ้นกับขอบเขตงานของแต่ละธุรกิจ ทีมเราสรุปราคาและขอบเขตงานให้หลังคุยกัน 30 นาที",
+        "ขั้นตอน: ตรวจเว็บฟรี → นัดคุย 30 นาทีกับทีมเรา พาดูรายงานของคุณ → ทีมเราส่งใบเสนอราคาพร้อมขอบเขตงานและสัญญา → ชำระ → เริ่มงาน",
+        (f"ราคายังไม่รวม VAT {vat:g}%" if vat else "ราคาไม่มี VAT เพิ่ม"),
+        f"จ่ายรายปีได้ส่วนลด {Q.yearly_discount():g}% จากราคารายเดือนที่ตกลงกัน",
         (f"ทดลองใช้ฟรี {billing.TRIAL_DAYS} วัน (1 แบรนด์ · มอนิเตอร์ 4 ครั้ง · สร้างคอนเทนต์ 3 ชิ้น)" if billing.free_open()
-         else "ตอนนี้ไม่มีแผนทดลองใช้ฟรี — เริ่มได้จากตรวจเว็บฟรี แล้วขอใบเสนอราคาแพ็กเกจ Pro หรือ Agency"),
+         else "ตอนนี้ไม่มีแผนทดลองใช้ฟรี — เริ่มได้จากตรวจเว็บฟรี แล้วนัดคุย 30 นาทีกับทีมเรา"),
         (f"คืนเงินเต็มได้ภายใน {execs.MANDATE['refund_days']} วันแรก · รายเดือนยกเลิกได้ทุกเมื่อ · รายปีหลัง {execs.MANDATE['refund_days']} วันไม่คืนส่วนที่เหลือแต่ใช้ได้จนครบปี"
          if execs.MANDATE["refund_days"] else "ค่าบริการที่ชำระแล้วไม่คืนเงิน · รายเดือนยกเลิกได้ทุกเมื่อ มีผลสิ้นรอบที่ชำระแล้ว · รายปีใช้บริการได้จนครบปี"),
         "ชำระด้วยบัตรผ่าน Stripe (ต่ออายุอัตโนมัติ) หรือโอน PromptPay · ออกใบเสร็จ/ใบกำกับภาษีทุกครั้ง · นิติบุคคลหัก ณ ที่จ่าย 3% ได้",
@@ -76,7 +81,7 @@ def knowledge(lead=None) -> list[str]:
         qs = [q for q in db.list_quotes(lead["id"]) if q["status"] in Q.OPEN]
         if qs:
             q = qs[0]
-            facts.append(f"ใบเสนอราคาที่เปิดอยู่: {q['number']} แพ็กเกจ {q['package'].capitalize()} {Q.CYCLES[Q.cycle_of(q)]} "
+            facts.append(f"ใบเสนอราคาที่เปิดอยู่: {q['number']} {Q.label_of(q)} {Q.CYCLES[Q.cycle_of(q)]} "
                          f"ยอดชำระ {Q.baht(Q.payable(q))} บาท · สถานะ {Q.STATUS_LABEL.get(q['status'], q['status'])} · ดู/ยืนยันที่ {pipeline.quote_url(q)}")
     return facts
 
@@ -98,8 +103,9 @@ def escalation(text: str) -> str | None:
     return None
 
 
-def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str | None = None) -> dict:
-    """คืน {answer, escalate (เหตุผล|None), source} — เรื่องนอกกรอบ = HOLD + escalate · ตัวเลขนอกคลัง = ไม่ใช้คำตอบโมเดล
+def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str | None = None, add_call: bool = True) -> dict:
+    """คืน {answer, escalate (เหตุผล|None), source, intent} — เรื่องนอกกรอบ = HOLD + escalate · ตัวเลขนอกคลัง = ไม่ใช้คำตอบโมเดล
+    · intent = สัญญาณซื้อ (ต่อท้ายคำตอบด้วยการชวนนัดคุย 30 นาที เว้น add_call=False เมื่อผู้เรียกบอกเองแล้ว) · ขอคุยกับคน = ข้อความนัดคุย
     · lang = ภาษาที่ตอบ (None = ภาษาที่ลีดเลือกบนเว็บ · ไม่มีลีด = ไทย) · ไทย = prompt/ข้อความเดิมทุกตัวอักษร"""
     from . import execs, i18n
     if not i18n.valid(lang):
@@ -107,9 +113,13 @@ def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str 
     t = lambda x: i18n.tr(x, lang)
     q = (question or "").strip()[:1500]
     why = escalation(q)
+    intent = buying_intent(q) or why == WANTS_HUMAN
     facts = knowledge(lead)
+    if why == WANTS_HUMAN:                                              # ขอคุยกับคน = อยากนัดคุย → บอกว่าจะติดต่อไปนัด 30 นาที + ส่งต่อเจ้าของ
+        from . import pipeline
+        return {"answer": pipeline.call_reply(lead, lang), "escalate": why, "source": "rule", "intent": True}
     if why and why != "ต่อรองราคา/ขอส่วนลด":
-        return {"answer": t(HOLD), "escalate": why, "source": "rule"}
+        return {"answer": t(HOLD), "escalate": why, "source": "rule", "intent": intent}
     llm = llm or LLM
     if llm is None:
         from . import ai_client
@@ -120,6 +130,7 @@ def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str 
     prompt = ("คุณคือผู้ช่วยขายของ เจอ.AI ตอบคำถามลูกค้าเป็นภาษาไทย (ถ้าลูกค้าถามภาษาอื่นให้ตอบภาษานั้น) แบบ" + style + "\n"
               "ใช้ได้เฉพาะข้อเท็จจริงด้านล่าง ห้ามเพิ่มตัวเลข ราคา ระยะเวลา หรือผลลัพธ์อื่น ห้ามคำว่า การันตี/รับประกัน ถ้าข้อเท็จจริงไม่พอตอบ ให้ needs_human=true\n"
               "ข้อเท็จจริง:\n- " + "\n- ".join(facts)
+              + "\nอย่าเสนอเมนูแพ็กเกจให้เลือก ถ้าถามราคา บอกราคาเริ่มต้นและว่าราคาสุดท้ายขึ้นกับขอบเขตงาน ทีมเราสรุปให้หลังคุยกัน 30 นาที"
               + ("\nลูกค้าขอส่วนลด: บอกส่วนลดรายปีตามข้อเท็จจริง และบอกว่าส่วนลดอื่นต้องให้ผู้ดูแลพิจารณา" if why else "")
               + f"\n\nคำถามลูกค้า: {q}\n"
               'ตอบ JSON {"answer": "...", "needs_human": false}') + D.write_in(lang).replace("หัวข้อและเนื้อหา", "คำตอบ").replace("the subject and body", "the answer")
@@ -135,12 +146,15 @@ def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str 
         if D.wrong_language(ans, lang):
             raise ValueError("ไม่ได้ตอบเป็นภาษาของลูกค้า")
         if need:
-            return {"answer": ans + ("\n\n" if ans else "") + t("เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้"), "escalate": "ข้อมูลไม่พอตอบ", "source": "llm"}
+            return {"answer": ans + ("\n\n" if ans else "") + t("เรื่องนี้ขอให้ผู้ดูแลตอบเพิ่ม จะติดต่อกลับภายในวันทำการนี้"), "escalate": "ข้อมูลไม่พอตอบ", "source": "llm", "intent": intent}
+        if intent and add_call:
+            from . import pipeline
+            ans = ans[:1200] + "\n\n" + pipeline.call_reply(lead, lang)          # สัญญาณซื้อ → ชวนนัดคุย 30 นาที (ไม่เสนอแพ็กเกจ/ใบเสนอราคา)
         if channel == "email":
             ans = D.sign(ans)
-        return {"answer": ans[:1500], "escalate": why, "source": "llm"}
+        return {"answer": ans[:1500], "escalate": why, "source": "llm", "intent": intent}
     except Exception as e:
-        return {"answer": t(HOLD), "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback"}
+        return {"answer": t(HOLD), "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback", "intent": intent}
 
 
 LLM = None   # เทสต์ฉีดได้
@@ -169,23 +183,41 @@ def _escalate(channel: str, lead, q: str, res: dict, contact: str = "") -> None:
     from . import pipeline
     who = lead["domain"] if lead else ("ผู้เยี่ยมชมเว็บ" if channel == "web" else "ผู้ใช้ LINE")
     link = f"/admin/leads/{lead['id']}" if lead else "/admin/salesbot"
+    if res.get("intent") and res["escalate"] in (WANTS_HUMAN, WANTS_CALL):
+        pipeline.alert_admins(f"🔥 {who} อยากคุย — นัดโทรภายในวันนี้: {q[:160]}" + (f" · ติดต่อกลับ: {contact}" if contact else ""), link, "lead",
+                              subject=f"🔥 {who} อยากคุย — นัดโทรภายในวันนี้")
+        return
     pipeline.alert_admins(f"💬 {who} ถาม ({res['escalate']}) — ต้องให้คุณตอบ: {q[:160]}" + (f" · ติดต่อกลับ: {contact}" if contact else ""), link, "lead")
 
 
+WANTS_CALL = "สนใจซื้อ/อยากคุย"
+
+
 @office.track("salesbot", "ตอบแชตลูกค้า")
-def handle(channel: str, user_ref: str, text: str, lead=None, contact: str = "", llm=None, lang: str | None = None) -> dict:
-    """คำถามหนึ่งข้อ → คำตอบ + บันทึก + แจ้งเจ้าของเมื่อต้องส่งต่อ · คืน {answer, escalate, id} · lang = ภาษาของหน้าที่ถาม (แชตบนเว็บ)"""
+def handle(channel: str, user_ref: str, text: str, lead=None, contact: str = "", llm=None, lang: str | None = None, noted: bool = False) -> dict:
+    """คำถามหนึ่งข้อ → คำตอบ + บันทึก + แจ้งเจ้าของเมื่อต้องส่งต่อ · คืน {answer, escalate, id} · lang = ภาษาของหน้าที่ถาม (แชตบนเว็บ)
+    · สัญญาณซื้อ: มีลีด → pipeline.lead_replied (แจ้งเจ้าของ "นัดโทรภายในวันนี้" + ขึ้นบนสุดของรายการโทร) · ยังไม่มีลีด → ส่งต่อเจ้าของ + ขอช่องทางติดต่อ
+    · noted = ผู้เรียกบันทึกความสนใจและบอกลูกค้าเรื่องนัดคุยเองแล้ว (LINE พิมพ์ "สนใจ")"""
     from . import i18n
     q = (text or "").strip()
     if _count_today(channel, user_ref) >= DAILY_PER_USER:
         lg = i18n.valid(lang) or (db.row_lang(lead) if lead is not None else "th")
         return {"answer": i18n.tr("วันนี้ถามได้ครบแล้วครับ ทิ้งคำถามไว้ทางอีเมลได้ ทีมงานจะตอบให้", lg), "escalate": None, "id": None, "limited": True}
-    res = answer(q, lead, channel, llm, **({"lang": lang} if i18n.valid(lang) else {}))
+    res = answer(q, lead, channel, llm, **({"lang": lang} if i18n.valid(lang) else {}), add_call=not noted)
+    if res.get("intent") and not noted and lead is None and not res.get("escalate"):
+        res = {**res, "escalate": WANTS_CALL}                         # คนที่ยังไม่มีลีดสนใจ → ส่งต่อเจ้าของ (กล่องแชตบนเว็บจะขอช่องทางติดต่อ)
     cid = _log(channel, user_ref, lead, q, res, contact, lang)
     if lead:
         from . import pipeline
         pipeline.record(lead["id"], "chat", f"ถามทาง{ {'line': 'LINE', 'web': 'แชตบนเว็บ', 'email': 'อีเมล'}.get(channel, channel)}: {q[:150]}"
                         + (f" · ส่งต่อเจ้าของ ({res['escalate']})" if res.get("escalate") else " · ตัวตอบแชตตอบแล้ว"), "salesbot")
+        if res.get("intent") and not noted:
+            try:
+                pipeline.lead_replied(lead, q, via={"line": "LINE", "web": "แชตบนเว็บ", "email": "อีเมล"}.get(channel, channel), actor="customer")
+            except Exception:
+                pass
+            if res.get("escalate") in (WANTS_HUMAN, WANTS_CALL):
+                return {**res, "id": cid}                             # แจ้งเจ้าของแล้วใน lead_replied ไม่แจ้งซ้ำ
     if res.get("escalate"):
         try:
             _escalate(channel, lead, q, res, contact)

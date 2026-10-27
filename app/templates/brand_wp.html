@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}WordPress — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 {# แปลข้อความที่ระบบเก็บไว้เป็นไทย · ไม่มีคำแปลทั้งก้อน → แปลทีละท่อนที่คั่นด้วย " · " #}
 {% macro trx(s) %}{% set t = (s or '')|tr %}{% if t == s and ' · ' in (s or '') %}{{ s.split(' · ')|map('tr')|join(' · ') }}{% else %}{{ t }}{% endif %}{% endmacro %}
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
@@ -31,6 +32,7 @@
     </div>
     <div class="muted" style="margin-top:6px;line-height:1.6"><b>{{ _("สถานะ:") }}</b> {{ trx(wp['status']) }}</div>
   </div>
+  {% if not managed() %}
   <div style="display:flex;flex-direction:column;gap:8px">
     {% if wp['mode'] == 'connector' %}
     <form method="post" action="/brands/{{ brand['id'] }}/wp/sync">
@@ -41,10 +43,13 @@
       <button class="danger" type="submit" style="width:100%">{{ _("ยกเลิกการเชื่อมต่อ") }}</button>
     </form>
   </div>
+  {% endif %}
 </div>
 {% endif %}
 
-{% if not wp_ok %}
+{% if managed() %}
+{{ note() }}
+{% elif not wp_ok %}
 <!-- ฟอร์มเชื่อมต่อ (แสดงเฉพาะตอนยังไม่เชื่อมต่อสำเร็จ) -->
 <div class="card" style="margin-top:8px">
   <h2 style="margin-top:0;border:none;padding:0 0 14px;font-size:15px">

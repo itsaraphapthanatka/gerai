@@ -53,8 +53,8 @@ o = TestClient(app); o.post("/login", data={"email": "old@test.local", "password
 assert "ช่วงทดลองใช้ฟรี 14 วันหมดแล้ว" in o.get("/upgrade").text
 p = TestClient(app); p.post("/login", data={"email": "paid@test.local", "password": "pw123456"}); pt = p.get("/upgrade").text
 assert "ทดลองใช้ฟรี เหลือ" not in pt and "ช่วงทดลองใช้ฟรี 14 วันหมดแล้ว" not in pt
-home = TestClient(app).get("/").text; assert "ทดลองใช้ฟรี 14 วัน" in home and "ทดลองฟรี 14 วัน" in home and "14 วัน" in home
-print("ui: แบนเนอร์เหลือกี่วัน/หมดแล้ว · แผนเสียเงินไม่เห็น · หน้าแรกบอก 14 วัน OK")
+home = TestClient(app).get("/").text; assert "ทดลองฟรี 14 วัน" not in home and "นัดคุย 30 นาที" in home   # หน้าแรกแบบเอเจนซี่ (27 ต.ค.) ไม่มีการ์ดแพ็กเกจ/ทดลองใช้เอง
+print("ui: แบนเนอร์เหลือกี่วัน/หมดแล้ว · แผนเสียเงินไม่เห็น · หน้าแรกแบบเอเจนซี่ไม่ขายทดลองใช้เอง OK")
 print("\ntrial_smoke: ผ่านทั้งหมด")
 
 # ---- ปิดแผน Free (เจ้าของสั่ง 25 ต.ค.) ----
@@ -65,8 +65,8 @@ db.set_setting("free_plan_on", "0")
 assert not billing.free_open()
 _c = _TC(_app)
 _t = _c.get("/").text
-assert "ทดลองฟรี 14 วัน" not in _t and "เริ่มจากตรวจเว็บฟรี" in _t and "฿9,900" in _t
+assert "ทดลองฟรี 14 วัน" not in _t and "฿9,900" in _t
 assert "ไม่มีแผนทดลองใช้ฟรี" in " ".join(_SB.knowledge()) and "ทดลองใช้ฟรี 14 วัน (" not in " ".join(_SB.knowledge())
 db.set_setting("free_plan_on", "1")
-assert billing.free_open() and "ทดลองฟรี 14 วัน" in _c.get("/").text
+assert billing.free_open() and "ทดลองฟรี 14 วัน" not in _c.get("/").text   # หน้าแรกเอเจนซี่ไม่ขายแผนเอง ไม่ว่าเปิดแผน Free หรือไม่
 print("free-plan: ปิด = หน้าแรกไม่เสนอ · ตัวตอบแชตไม่เสนอ · เปิดคืนได้ OK")

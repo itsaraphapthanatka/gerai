@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("ประวัติมอนิเตอร์") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
@@ -8,12 +9,20 @@
   </div>
   <div style="display:flex;gap:8px">
     <a href="/brands/{{ brand['id'] }}/impact" class="btn outline sm">📊 SoV Impact</a>
+    {% if not managed() %}
     <form method="post" action="/brands/{{ brand['id'] }}/run">
       <button class="alt sm" type="submit">▶ {{ _("รันมอนิเตอร์") }}</button>
     </form>
+    {% endif %}
   </div>
 </div>
 
+{% if managed() %}
+{% set cur = brand['auto_run_days'] if brand['auto_run_days'] is not none else 7 %}
+<div class="card" style="margin-bottom:12px;font-size:13.5px">⏰ {{ _("รอบวัดอัตโนมัติ") }}:
+  <b>{% for days, label in schedule_choices if days == cur %}{{ label|tr }}{% endfor %}</b>{% if cur %} · {{ brand['auto_run_time'] or '08:00' }} {{ _("น. (ไทย)") }}{% endif %}</div>
+{{ note() }}
+{% else %}
 <!-- ตั้งเวลา auto-run -->
 <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
   <div style="flex:1;min-width:200px">
@@ -34,6 +43,7 @@
     <button type="submit" class="sm">{{ _("บันทึก") }}</button>
   </form>
 </div>
+{% endif %}
 
 {% if runs %}
 <div class="card" style="padding:0;overflow:hidden">
@@ -71,10 +81,14 @@
 </div>
 {% else %}
 <div class="card" style="text-align:center;padding:40px">
+  {% if managed() %}
+  <p class="muted">{{ _("ยังไม่มีผลวัด — ทีมงานจะเริ่มวัดให้เร็ว ๆ นี้") }}</p>
+  {% else %}
   <p class="muted">{{ _('ยังไม่เคยรัน — กด "รันมอนิเตอร์" เพื่อเริ่มวัด SoV') }}</p>
   <form method="post" action="/brands/{{ brand['id'] }}/run" style="margin-top:14px">
     <button class="alt" type="submit">▶ {{ _("รันมอนิเตอร์ตอนนี้") }}</button>
   </form>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

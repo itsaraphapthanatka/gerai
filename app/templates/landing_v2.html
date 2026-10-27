@@ -60,6 +60,8 @@
   .nav-cta{display:flex;gap:20px;align-items:center}
   .nav-cta .lnk{font-size:14.5px;color:rgba(255,255,255,.72)}
   @media(max-width:900px){.nav-links,.nav-cta .lnk{display:none}}
+  .nav-cta .call{color:#fff;border-color:rgba(255,255,255,.34)}.nav-cta .call:hover{border-color:#fff}
+  @media(max-width:640px){.nav-cta .call{display:none}}
 
   /* ---------- cinematic hero ---------- */
   .cine{position:relative;height:100svh;min-height:680px;max-height:1100px;background:var(--ink);color:#fff;overflow:hidden;isolation:isolate}
@@ -174,30 +176,35 @@
   .rmock .foot{font-size:12px;color:var(--steel);margin-top:16px}
   @media(max-width:900px){.rep-grid{grid-template-columns:1fr;gap:44px}.rmock{--rx:6deg;--ry:0deg}}
 
-  /* ---------- pricing ---------- */
-  .pr-head{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
-  .cycle{display:inline-flex;background:var(--soft);border-radius:9999px;padding:4px}
-  .cycle button{font-family:var(--font);font-size:14px;font-weight:600;border:0;background:transparent;color:var(--steel);padding:9px 18px;border-radius:9999px;cursor:pointer}
-  .cycle button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  .cycle .save{color:var(--coral);font-weight:600}
-  .plans{display:grid;grid-template-columns:repeat(var(--n,3),1fr);gap:20px;margin-top:52px;align-items:stretch}
-  .plan{border:1px solid var(--hair);border-radius:28px;padding:32px 28px;display:flex;flex-direction:column;background:#fff;position:relative;transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
-  .plan:hover{transform:translateY(-6px);box-shadow:0 30px 60px -30px rgba(10,10,10,.25)}
-  .plan.dark{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 40px 80px -36px rgba(255,85,48,.45)}
-  .plan .badge{position:absolute;top:24px;right:24px;font-size:12px;font-weight:600;background:var(--coral);color:#fff;border-radius:9999px;padding:4px 12px}
-  .plan .nm{font-size:20px;font-weight:700}
-  .plan .tg{font-size:14px;color:var(--steel);margin-top:4px}
-  .plan.dark .tg{color:rgba(255,255,255,.6)}
-  .plan .price{font-family:var(--display);font-size:46px;font-weight:700;letter-spacing:-.02em;margin-top:26px;line-height:1.1}
-  .plan .price .per{font-size:15px;font-weight:500;color:var(--steel);letter-spacing:0}
-  .plan .yr{font-size:13px;color:var(--coral);margin-top:6px;min-height:20px}
-  .plan ul{list-style:none;margin:24px 0 28px;display:flex;flex-direction:column;gap:11px;flex:1}
-  .plan li{font-size:14.5px;padding-left:24px;position:relative;line-height:1.5;color:var(--slate)}
-  .plan.dark li{color:rgba(255,255,255,.78)}
-  .plan li::before{content:"";position:absolute;left:2px;top:8px;width:8px;height:8px;border-radius:9999px;background:var(--coral)}
-  .plan .btn{width:100%}
-  .pr-foot{font-size:13.5px;color:var(--steel);margin-top:22px;line-height:1.7}
-  @media(max-width:960px){.plans{grid-template-columns:1fr}}
+  /* ---------- work with us (เอเจนซี: แทนตารางแพ็กเกจ) ---------- */
+  .wk-head{display:flex;justify-content:space-between;gap:48px;align-items:flex-end;flex-wrap:wrap}
+  .wk-head .lede{max-width:46ch;margin:0;text-wrap:balance}
+  .wsteps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:56px;counter-reset:w}
+  .wstep{background:var(--surface);border-radius:24px;padding:28px 26px 30px;display:flex;flex-direction:column}
+  .wstep .n{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--coral)}
+  .wstep h3{font-family:var(--display);font-size:20px;font-weight:600;margin-top:12px;line-height:1.35;text-wrap:balance}
+  .wstep p{font-size:15px;color:var(--steel);line-height:1.7;margin-top:10px;flex:1;text-wrap:pretty}
+  .wstep .go{margin-top:18px;align-self:flex-start;font-family:var(--font);font-size:14.5px;font-weight:600;color:var(--ink);background:none;border:0;padding:0;cursor:pointer;border-bottom:1.5px solid var(--coral);line-height:1.6}
+  .wstep .go:hover{color:var(--coral-deep)}
+  .wprice{margin-top:24px;background:var(--ink);color:#fff;border-radius:28px;padding:30px 34px;display:flex;justify-content:space-between;align-items:center;gap:28px;flex-wrap:wrap;
+    box-shadow:0 40px 80px -40px rgba(255,85,48,.45)}
+  .wprice .pl{font-family:var(--display);font-size:19px;line-height:1.55;color:rgba(255,255,255,.82);max-width:62ch}
+  .wprice .pl span{display:inline-block}   /* ราคา · ขอบเขตงาน ขึ้นบรรทัดใหม่ทั้งก้อน ไม่ตัดกลางวลี */
+  .wprice .pl .sep{font-style:normal}
+  .wprice .pl b{font-family:'DM Sans',sans-serif;font-size:30px;font-weight:600;color:#fff;letter-spacing:-.02em}
+  .wprice .pn{font-size:13.5px;color:rgba(255,255,255,.58);margin-top:6px;text-wrap:pretty}
+  .wprice .acts{display:flex;gap:12px;flex-wrap:wrap}
+  .btn-line{background:transparent;color:#fff;border-color:rgba(255,255,255,.34)}.btn-line:hover{border-color:#fff}
+  @media(max-width:1060px){.wsteps{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:620px){.wsteps{grid-template-columns:1fr;gap:14px;margin-top:40px}.wprice{padding:26px 22px}.wprice .acts,.wprice .acts .btn{width:100%}.wprice .pl{font-size:17px}.wprice .pl b{font-size:26px}.wprice .pl span{display:block}.wprice .pl .sep{display:none}}
+
+  /* ญี่ปุ่นไม่มีเว้นวรรค: keep-all ทั้งหน้าทำให้ตัดบรรทัดกลางคำ/ขึ้นบรรทัดด้วย 。 — ส่วนนี้ใช้การตัดคำแบบญี่ปุ่นปกติ */
+  html[lang=ja] #pricing{word-break:normal;overflow-wrap:normal;line-break:strict}
+  html[lang=ja] #pricing h3{word-break:keep-all;overflow-wrap:anywhere}   /* หัวข้อการ์ดสั้น: ตัดที่ 、 เท่านั้น */
+
+  /* ปุ่มนัดคุย (รอง) ใต้ช่องตรวจเว็บ */
+  .alt{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;font-size:14.5px;color:rgba(255,255,255,.66)}
+  .final .alt{justify-content:center;margin-top:22px}
 
   /* ---------- faq ---------- */
   .faq{background:var(--surface)}
@@ -296,6 +303,7 @@
       <a href="/app" class="btn btn-white btn-sm">{{ T.nav_dash }}</a>
       {% else %}
       <a href="/login" class="lnk">{{ T.nav_login }}</a>
+      <button type="button" class="btn btn-ghost btn-sm call" onclick="openCall()">{{ T.btn_call }}</button>
       <a href="/audit?src={{ src }}" class="btn btn-white btn-sm">{{ T.nav_audit }}</a>
       {% endif %}
     </div>
@@ -320,6 +328,7 @@
         <button class="btn btn-coral" type="submit">{{ T.btn_audit }}</button>
       </form>
       <div class="note in-5">{{ T.note }}</div>
+      <div class="alt in-5"><span>{{ T.call_q }}</span><button type="button" class="btn btn-line btn-sm" onclick="openCall()">{{ T.btn_call }}</button></div>
     </div>
   </div>
   {% if ai_live.n %}
@@ -392,39 +401,26 @@
 
 <section id="pricing">
   <div class="wrap">
-    <div class="pr-head rv">
-      <div><div class="kicker">{{ T.pr_kicker }}</div><h2>{{ T.pr_h|safe }}</h2></div>
-      <div class="cycle" role="group" aria-label="{{ T.cycle_aria }}">
-        <button type="button" class="on" data-cycle="month">{{ T.monthly }}</button>
-        <button type="button" data-cycle="year">{{ T.yearly }} <span class="save">{{ T.save.format(pct="%g"|format(yearly_pct)) }}</span></button>
+    <div class="wk-head rv">
+      <div><div class="kicker">{{ T.wk_kicker }}</div><h2>{{ T.wk_h|safe }}</h2></div>
+      <p class="lede">{{ T.wk_lede }}</p>
+    </div>
+    <div class="wsteps">
+      <div class="wstep rv" style="--d:.05s"><div class="n">01</div><h3>{{ T.w1_h }}</h3><p>{{ T.w1_p }}</p><a class="go" href="/audit?src={{ src }}">{{ T.w1_link }}</a></div>
+      <div class="wstep rv" style="--d:.12s"><div class="n">02</div><h3>{{ T.w2_h }}</h3><p>{{ T.w2_p }}</p><button type="button" class="go" onclick="openCall()">{{ T.btn_call }} →</button></div>
+      <div class="wstep rv" style="--d:.19s"><div class="n">03</div><h3>{{ T.w3_h }}</h3><p>{{ T.w3_p }}</p></div>
+      <div class="wstep rv" style="--d:.26s"><div class="n">04</div><h3>{{ T.w4_h }}</h3><p>{{ T.w4_p }}</p></div>
+    </div>
+    <div class="wprice rv" style="--d:.1s">
+      <div>
+        <p class="pl" id="start-price"><span>{{ T.price_line.format(price=start_price, vat=vat_pct)|safe }}<i class="sep"> · </i></span><span>{{ T.price_scope }}</span></p>
+        <p class="pn">{{ T.price_note }}</p>
+      </div>
+      <div class="acts">
+        <a href="/audit?src={{ src }}" class="btn btn-coral">{{ T.nav_audit }}</a>
+        <button type="button" class="btn btn-line" onclick="openCall()">{{ T.btn_call }}</button>
       </div>
     </div>
-    {% set logged_in = request.session.get('tenant_id') %}
-    <div class="plans" style="--n:{{ plan_rows|length }}">
-      {% for p in plan_rows %}
-      <div class="plan rv {{ 'dark' if p.key=='pro' }}" style="--d:{{ loop.index0 * 0.1 }}s">
-        {% if p.key=='pro' %}<span class="badge">{{ T.badge }}</span>{% endif %}
-        <div class="nm">{{ p.label if not p.get('hidden') else T.ent_name }}</div>
-        <div class="tg">{{ p.tagline }}</div>
-        {% if p.get('hidden') %}
-          <div class="price">{{ T.ent_price }}</div><div class="yr"></div>
-        {% elif p.price %}
-          <div class="price"><span class="m">฿{{ '{:,}'.format(p.price) }}</span>{% if p.year_net %}<span class="y" hidden>฿{{ '{:,}'.format(p.year_net) }}</span>{% endif %}<span class="per">{{ T.per_month }}</span></div>
-          <div class="yr">{% if p.year_total %}<span class="y" hidden>{{ T.yr_line.format(total='{:,}'.format(p.year_total)) }}</span>{% endif %}</div>
-        {% else %}
-          <div class="price">{{ T.free }}<span class="per">{{ T.free_period }}</span></div><div class="yr"></div>
-        {% endif %}
-        <ul>{% for f in p.perks %}<li>{{ f }}</li>{% endfor %}</ul>
-        {% set lbl = T.btn_ent if p.get('hidden') else (T.btn_free if p.key=='free' else T.btn_plan) %}
-        {% if logged_in %}
-        <a href="/upgrade" class="btn {{ 'btn-coral' if p.key=='pro' else 'btn-ghost' }}">{{ lbl }}</a>
-        {% else %}
-        <button type="button" onclick="openContact('{{ p.label if not p.get('hidden') else T.ent_name }}')" class="btn {{ 'btn-coral' if p.key=='pro' else 'btn-ghost' }}">{{ lbl }}</button>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-    <p class="pr-foot">{{ T.pr_foot.format(pay=(T.pay_stripe if stripe_on else T.pay_pp)) }}</p>
   </div>
 </section>
 
@@ -433,7 +429,7 @@
     <div class="rv"><div class="kicker">{{ T.faq_kicker }}</div><h2>{{ T.faq_h|safe }}</h2></div>
     <div class="rv" style="--d:.1s">
       {% for q, a in T.faq %}
-      <details{% if loop.first %} open{% endif %}><summary>{{ q }}</summary><p>{{ a }}</p></details>
+      <details{% if loop.first %} open{% endif %}><summary>{{ q }}</summary><p>{{ a.format(price=start_price, vat=vat_pct) }}</p></details>
       {% endfor %}
     </div>
   </div>
@@ -450,6 +446,7 @@
       <input type="hidden" name="src" value="{{ src }}">
       <button class="btn btn-coral" type="submit">{{ T.btn_audit }}</button>
     </form>
+    <div class="alt rv" style="--d:.25s"><span>{{ T.call_q }}</span><button type="button" class="btn btn-line btn-sm" onclick="openCall()">{{ T.btn_call }}</button></div>
     <div class="partner rv" style="--d:.3s">{{ T.partner.format(pct="%g"|format(partner_pct), months=partner_months) }} · <a href="/partners?src={{ src }}">{{ T.partner_link }}</a></div>
   </div>
 </section>
@@ -467,7 +464,7 @@
   <div class="cmodal-box">
     <button class="cmodal-x" onclick="closeContact()" aria-label="{{ T.m_close }}">✕</button>
     <div id="cm-form">
-      <div class="cmodal-h">{{ T.m_h }} <span id="cm-plan" style="color:var(--coral)"></span></div>
+      <div class="cmodal-h" id="cm-h">{{ T.m_h }}</div>
       <p class="cmodal-sub">{{ T.m_sub }}</p>
       <input id="cm-name" class="cinput" placeholder="{{ T.m_name }}" autocomplete="name">
       <input id="cm-contact" class="cinput" placeholder="{{ T.m_contact }}" autocomplete="tel">
@@ -484,18 +481,20 @@
   </div>
 </div>
 
-<script>window.LP={{ {"lang": lang, "req": T.m_req, "sending": T.m_sending, "fail": T.m_fail, "net": T.m_net}|tojson }};</script>
+<script>window.LP={{ {"lang": lang, "req": T.m_req, "sending": T.m_sending, "fail": T.m_fail, "net": T.m_net, "call": call_plan}|tojson }};</script>
 <script>
+var cmPlan='';
 function openContact(plan){
-  document.getElementById('cm-plan').textContent = plan || '';
+  cmPlan = plan || '';
   document.getElementById('cm-form').style.display='block';
   document.getElementById('cm-done').style.display='none';
   document.getElementById('cm-err').textContent='';
   document.getElementById('contact-modal').classList.add('open');
 }
+function openCall(){ openContact(LP.call); }
 function closeContact(){ document.getElementById('contact-modal').classList.remove('open'); }
 function submitContact(){
-  var plan=document.getElementById('cm-plan').textContent;
+  var plan=cmPlan;
   var name=document.getElementById('cm-name').value.trim();
   var contact=document.getElementById('cm-contact').value.trim();
   var message=document.getElementById('cm-msg').value.trim();
@@ -516,16 +515,6 @@ function submitContact(){
 document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeContact(); });
 
 if(innerWidth<480) document.querySelectorAll('[data-short]').forEach(function(i){i.placeholder=i.dataset.short;});
-/* รอบบิล รายเดือน/รายปี */
-document.querySelectorAll('.cycle button').forEach(function(b){
-  b.addEventListener('click',function(){
-    var y=b.dataset.cycle==='year';
-    document.querySelectorAll('.cycle button').forEach(function(x){x.classList.toggle('on',x===b);});
-    document.querySelectorAll('.plan .m').forEach(function(e){e.hidden=y && !!e.parentNode.querySelector('.y');});
-    document.querySelectorAll('.plan .y').forEach(function(e){e.hidden=!y;});
-  });
-});
-
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var nav=document.getElementById('nav'), hero=document.querySelector('.cine'), cam=document.getElementById('cam'), body=document.getElementById('cbody');

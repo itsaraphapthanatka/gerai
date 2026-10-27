@@ -1,15 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ _("คำถามเป้าหมาย") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="/brands/{{ brand['id'] }}" class="btn ghost sm">← {{ brand['name'] }}</a>
     <h1 style="margin:0">{{ _("คำถามเป้าหมาย") }}</h1>
   </div>
+  {% if not managed() %}
   <form method="post" action="/brands/{{ brand['id'] }}/questions/generate"
         data-loading="{{ _("⏳ กำลัง Generate คำถามด้วย AI…") }}">
     <button class="outline sm" type="submit">✨ {{ _("Generate ด้วย AI") }}</button>
   </form>
+  {% endif %}
 </div>
 <p class="muted">{{ _("คำถามที่ลูกค้ามักถาม AI — ระบบจะวัดว่าแบรนด์ปรากฏในคำตอบบ้างไหม") }}</p>
 {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
@@ -25,20 +28,25 @@
       <td>{{ q['question'] }}{% if q['source'] == 'auto' %} <span class="pill" style="font-size:10px;vertical-align:middle" title="{{ _('ระบบคิดเพิ่มให้เองเมื่อคำถามเดิมมีคอนเทนต์ครบแล้ว') }}{% if q['created_at'] %} · {{ q['created_at'][:10] }}{% endif %} — {{ _('ลบได้ถ้าไม่ตรง') }}">🤖 {{ _("ระบบเพิ่ม") }}</span>{% endif %}</td>
       <td class="muted">{{ _('ไทย') if q['lang'] == 'th' else 'English' }}</td>
       <td>
+        {% if not managed() %}
         <form method="post" action="/questions/{{ q['id'] }}/delete">
           <input type="hidden" name="brand_id" value="{{ brand['id'] }}">
           <button class="danger" type="submit">{{ _("ลบ") }}</button>
         </form>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="muted" style="text-align:center;padding:20px 0">{{ _("ยังไม่มีคำถาม — เพิ่มด้านล่างได้เลย") }}</p>
+  <p class="muted" style="text-align:center;padding:20px 0">{{ _("ยังไม่มีคำถาม") if managed() else _("ยังไม่มีคำถาม — เพิ่มด้านล่างได้เลย") }}</p>
   {% endif %}
 </div>
 
+{% if managed() %}
+{{ note() }}
+{% else %}
 <div class="card">
   <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ {{ _("เพิ่มคำถามใหม่") }}</h2>
   <form method="post" action="/brands/{{ brand['id'] }}/questions">
@@ -58,4 +66,5 @@
     <div style="margin-top:14px"><button type="submit">＋ {{ _("เพิ่มคำถาม") }}</button></div>
   </form>
 </div>
+{% endif %}
 {% endblock %}

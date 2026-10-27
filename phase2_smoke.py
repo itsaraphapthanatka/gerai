@@ -1,4 +1,4 @@
-"""ทดสอบเฟส 2: ทัก → ลูกค้าเปิดอ่าน/ตอบกลับ → CEO เสนอใบเสนอราคา → ส่ง → ลูกค้ายืนยัน → แจ้งชำระ → CFO เสนอยืนยันยอด → เปิดบัญชี+แบรนด์
+"""ทดสอบเฟส 2: ทัก → ลูกค้าเปิดอ่าน/ขอนัดคุย (ไม่มีใบเสนอราคาเอง — โหมดเอเจนซี) → เจ้าของสร้าง+ส่งใบเสนอราคา → ลูกค้ายืนยัน → แจ้งชำระ → CFO เสนอยืนยันยอด → เปิดบัญชี+แบรนด์
 + ขอไม่รับการติดต่อ · ด่านสลับโหมดตัดสินเอง (≥20 เรื่อง ≥95%) · หยุดฉุกเฉิน · LINE webhook (ลายเซ็น, ตรวจเว็บในแชต, สนใจ, ผูกเจ้าของ) · KPI ด่าน
 ไม่ยิงเครือข่าย: ตัวตรวจเว็บ/โมเดล/อีเมล/LINE/PDF เป็นของปลอม · DB ชั่วคราว"""
 import os, tempfile, json, re, base64, hmac, hashlib
@@ -45,19 +45,19 @@ assert sent[-1][0] == "owner@shop.co.th" and f"/u/{token}" in sent[-1][2] and f"
 assert db.get_lead(lead["id"])["status"] == "contacted" and {"audit", "contacted"} <= set(kinds(lead["id"]))
 print("outreach: ส่งอีเมลพร้อมลิงก์ติดตาม + ลิงก์ขอไม่รับการติดต่อ OK")
 
-# ---- 2) ลูกค้าเปิดจากอีเมล → ตอบกลับ → CEO เสนอใบเสนอราคา (ใบเดียว ไม่ซ้ำ) ----
+# ---- 2) ลูกค้าเปิดจากอีเมล → กดนัดคุย → แจ้งเจ้าของนัดโทร (ไม่มีใบเสนอราคาเอง) → เจ้าของสร้างใบเอง ----
 c.get(f"/audit/{token}?via=mail"); assert "opened" in kinds(lead["id"])
-r = c.post(f"/audit/{token}/reply", data={"message": "สนใจครับ"}); assert "กำลังจัดทำใบเสนอราคา" in r.text
-assert db.get_lead(lead["id"])["status"] == "replied"
-qd = [d for d in db.list_decisions("proposed") if d["kind"] == "quote"]; assert len(qd) == 1 and qd[0]["agent"] == "ceo"
+r = c.post(f"/audit/{token}/reply", data={"message": "สนใจครับ"}); assert "นัดคุย 30 นาที" in r.text and "ใบเสนอราคา" not in r.text.split("รับเรื่องแล้ว", 1)[-1][:200]
+assert db.get_lead(lead["id"])["status"] == "replied" and "wants_call" in kinds(lead["id"])
+assert not [d for d in db.list_decisions(None, 100) if d["kind"] == "quote"] and not db.list_quotes(lead["id"])      # ไม่มีใบเสนอราคา/ข้อเสนอเอง
+a.post(f"/admin/leads/{lead['id']}/quote", data={"package": "pro", "cycle": "year", "setup": "1"})      # เจ้าของคุยแล้วสร้างเอง (ราคาตาราง · ร่าง)
 q = db.list_quotes(lead["id"])[0]
-assert q["status"] == "draft" and q["package"] == "pro" and q["setup"] == 1 and q["cycle"] == "year" and q["first_total"] == 98604 and q["setup_price"] == 0 and q["number"].startswith("Q"), dict(q)   # เสนอรายปีก่อน (Setup ฟรี)
-c.post(f"/audit/{token}/reply", data={}); assert len(db.list_quotes(lead["id"])) == 1                # ใบเดิมยังเดินอยู่ ไม่สร้างใบใหม่
+assert q["status"] == "draft" and q["package"] == "pro" and q["setup"] == 1 and q["cycle"] == "year" and q["first_total"] == 98604 and q["setup_price"] == 0 and q["number"].startswith("Q"), dict(q)   # รายปี (Setup ฟรี)
 assert c.get(f"/q/{q['token']}", follow_redirects=False).status_code == 303                           # ร่างยังไม่เปิดสาธารณะ
-print("reply: เปิดอ่าน → ตอบกลับ → CEO เสนอใบเสนอราคา (Pro + GEO Setup เพราะตกข้อโครงสร้าง) OK")
+print("reply: เปิดอ่าน → ขอนัดคุย (ไม่มีใบเอง) → เจ้าของสร้างใบเป็นร่าง (Pro + GEO Setup) OK")
 
-# ---- 3) อนุมัติ → ส่งใบเสนอราคา → ลูกค้าเปิดดู/ยืนยัน → สัญญา + PDF ----
-sent.clear(); a.post(f"/admin/decisions/{qd[0]['id']}/approve")
+# ---- 3) เจ้าของกดส่ง → ลูกค้าเปิดดู/ยืนยัน → สัญญา + PDF ----
+sent.clear(); a.post(f"/admin/quotes/{q['id']}/send")
 assert sent and f"/q/{q['token']}" in sent[-1][2] and db.get_quote(q["id"])["status"] == "sent" and db.get_lead(lead["id"])["status"] == "quoted"
 r = c.get(f"/q/{q['token']}"); assert r.status_code == 200 and "ยืนยันรับข้อเสนอ" in r.text and "98,604" in r.text and "เปลี่ยนเป็นรายเดือน" in r.text and db.get_quote(q["id"])["status"] == "viewed"
 assert "ติ๊กยอมรับ" in c.post(f"/q/{q['token']}/accept", data={"name": "คุณเอ"}).text
@@ -111,7 +111,7 @@ r = c.post("/audit", data={"url": "five.co.th"}); t5 = str(r.url).rsplit("/", 1)
 c.post(f"/audit/{t5}/contact", data={"email": "hi@five.co.th", "consent": "1"})
 l5 = db.get_lead_by_token(t5); d5 = [d for d in db.list_decisions("proposed") if d["lead_id"] == l5["id"] and d["kind"] == "outreach"]; assert len(d5) == 1
 c.post(f"/audit/{t5}/reply", data={})
-assert db.get_decision(d5[0]["id"])["status"] == "cancelled" and any(d["kind"] == "quote" and d["lead_id"] == l5["id"] for d in db.list_decisions("proposed"))
+assert db.get_decision(d5[0]["id"])["status"] == "cancelled" and "wants_call" in kinds(l5["id"]) and not db.list_quotes(l5["id"])
 assert "ไม่ส่ง" in P.execute_decision(d2[0], "admin") and db.get_lead(l2["id"])["status"] == "unsubscribed"
 st = db.decision_stats(); assert st["rejected"] == 0
 print("unsubscribe: ปิดช่องทาง · ยกเลิกข้อเสนอค้าง · ไม่ทักซ้ำ OK")
@@ -125,32 +125,21 @@ print("no-channel: ข้อเสนอเตือน · อนุมัติ
 
 # ---- 7) สลับโหมดตัดสินเอง: ด่านในโค้ด · เรื่องเงินห้าม · หยุดฉุกเฉิน ----
 g = X.auto_gate("outreach"); assert not g["allowed"] and "20" in g["reason"]
-assert not X.set_auto("outreach", True)[0] and not X.set_auto("quote", True)[0] and not X.set_auto("payment", True)[0]   # ยังไม่ผ่านด่าน/ยอดเข้าห้าม
+assert not X.set_auto("outreach", True)[0] and not X.set_auto("quote", True)[0] and not X.set_auto("payment", True)[0]   # ยังไม่ผ่านด่าน/ใบเสนอราคา/ยอดเข้าห้าม
 # เจ้าของปลดล็อกเองโดยไม่รอด่าน (เฉพาะเรื่องที่ไม่ใช่เงิน) · ปิดแล้วปลดล็อกหาย
 assert X.set_auto("outreach", True, override=True)[0] and X.auto_enabled("outreach") and X.auto_gate("outreach")["override"] and not X.auto_gate("outreach")["passed"]
 assert not X.set_auto("payment", True, override=True)[0]                                     # ยืนยันยอดเข้าปลดล็อกไม่ได้
-# ใบเสนอราคาปลดล็อกได้: ลูกค้าตอบกลับ → CEO ส่งใบเสนอราคาเองทันที · ส่วนลดเกินกรอบ (นอกกรอบ CFO) ยังรอคน
-assert X.set_auto("quote", True, override=True)[0] and X.auto_enabled("quote")
+# ใบเสนอราคาปลดล็อกไม่ได้ (โหมดเอเจนซี: เจ้าของตั้งราคาและกดส่งเอง) · แม้ค่าเก่าในฐานข้อมูลเคยเปิดไว้ ก็ไม่ส่งเอง
+assert not X.set_auto("quote", True, override=True)[0] and not X.auto_enabled("quote") and "เจ้าของ" in X.auto_gate("quote")["reason"]
+db.set_setting("auto_quote", "1"); db.set_setting("auto_override_quote", "1"); assert not X.auto_enabled("quote")
 r = c.post("/audit", data={"url": "seven.co.th"}); t7 = str(r.url).rsplit("/", 1)[-1]
 c.post(f"/audit/{t7}/contact", data={"email": "hi@seven.co.th", "consent": "1"})
 sent.clear(); c.post(f"/audit/{t7}/reply", data={})
-l7 = db.get_lead_by_token(t7); q7 = db.list_quotes(l7["id"])[0]
-assert q7["status"] == "sent" and l7["status"] == "quoted" and sent and f"/q/{q7['token']}" in sent[-1][2], (dict(q7), l7["status"])
-d7 = [d for d in db.list_decisions(None, 20) if d["lead_id"] == l7["id"] and d["kind"] == "quote"][0]; assert d7["status"] == "auto"
-db.update_quote(q7["id"], status="cancelled")
-did_big = P.propose_quote(db.get_lead(l7["id"]), discount_pct=15); assert db.get_decision(did_big)["status"] == "proposed"   # นอกกรอบ → รอคน
-X.set_auto("quote", False); assert not X.auto_enabled("quote")
-# ข้อเสนอที่ค้างก่อนสลับโหมด: เปิดโหมดผ่านหน้าแอดมิน → ทำให้เลย (รายที่นอกกรอบยังค้าง)
-r = c.post("/audit", data={"url": "eight.co.th"}); t8 = str(r.url).rsplit("/", 1)[-1]
-c.post(f"/audit/{t8}/contact", data={"email": "hi@eight.co.th", "consent": "1"}); c.post(f"/audit/{t8}/reply", data={})
-l8 = db.get_lead_by_token(t8); d8 = [d for d in db.list_decisions("proposed") if d["lead_id"] == l8["id"] and d["kind"] == "quote"]; assert len(d8) == 1
-sent.clear(); r = a.post("/admin/decisions/auto", data={"kind": "quote", "on": "1", "override": "1"})
-_d8 = db.get_decision(d8[0]["id"]); _q8 = db.list_quotes(l8["id"])[0]
-assert _d8["status"] == "auto", (dict(_d8), X.auto_gate("quote"))
-assert _q8["status"] == "sent" and sent, dict(_q8)
-assert "ทำข้อเสนอที่ค้าง" in r.text, [m for m in r.text.split("\n") if "notice" in m or "ok-banner" in m][:3]
-assert db.get_decision(did_big)["status"] == "proposed"                                            # นอกกรอบยังรอคน
-X.set_auto("quote", False)
+l7 = db.get_lead_by_token(t7); assert not db.list_quotes(l7["id"]) and l7["status"] == "replied" and not any("/q/" in m[2] for m in sent)
+did_q = P.propose_quote(db.get_lead(l7["id"])); assert db.get_decision(did_q)["status"] == "proposed"      # ร่างที่ CEO ทำ (เมื่อสั่ง) รอเจ้าของกดส่งเสมอ
+assert P.run_pending_auto("quote") == 0 and db.get_decision(did_q)["status"] == "proposed" and db.list_quotes(l7["id"])[0]["status"] == "draft"
+r = a.post("/admin/decisions/auto", data={"kind": "quote", "on": "1", "override": "1"}); assert "สลับไม่ได้" in r.text
+db.set_setting("auto_quote", "0"); db.set_setting("auto_override_quote", "0")
 X.set_auto("outreach", False); assert not X.auto_enabled("outreach") and not X.auto_gate("outreach")["override"]
 assert "ปลดล็อกเลยไม่รอด่าน" in a.get("/admin/decisions").text
 assert "ปลดล็อกโดยเจ้าของ" in a.post("/admin/decisions/auto", data={"kind": "lead_review", "on": "1", "override": "1"}).text and X.auto_enabled("lead_review")
@@ -158,7 +147,7 @@ X.set_auto("lead_review", False)
 for i in range(20):
     did = db.add_decision("ceo", "outreach", f"t{i}", "p", {}); db.set_decision(did, "executed", "admin", "ok")
 assert X.auto_gate("outreach")["allowed"] and X.set_auto("outreach", True)[0] and X.auto_enabled("outreach")
-assert not X.auto_gate("payment")["eligible"] and X.auto_gate("quote")["eligible"]
+assert not X.auto_gate("payment")["eligible"] and not X.auto_gate("quote")["eligible"]
 r = c.post("/audit", data={"url": "three.co.th"}); t3 = str(r.url).rsplit("/", 1)[-1]
 sent.clear(); c.post(f"/audit/{t3}/contact", data={"email": "hi@three.co.th", "consent": "1"})
 l3 = db.get_lead_by_token(t3); d3 = [d for d in db.list_decisions(None, 50) if d["lead_id"] == l3["id"]]
@@ -170,7 +159,7 @@ assert "สลับไม่ได้" in a.post("/admin/decisions/auto", data=
 a.post("/admin/agents/pause", data={"on": "1"}); assert X.paused(); a.post("/admin/agents/pause", data={"on": "0"}); assert not X.paused()
 print("auto-mode: ด่าน 20 เรื่อง/95% · เรื่องเงินห้าม · ทำเองเมื่อเปิด · หยุดฉุกเฉิน OK")
 
-# ---- 8) LINE: ลายเซ็น · ตรวจเว็บในแชต · 'สนใจ' → ใบเสนอราคา · ผูกเจ้าของ · สรุปเช้าทาง LINE ----
+# ---- 8) LINE: ลายเซ็น · ตรวจเว็บในแชต · 'สนใจ' → นัดคุย 30 นาที (ไม่มีใบเสนอราคาเอง) · ผูกเจ้าของ · สรุปเช้าทาง LINE ----
 LO.save_config("tok", "sec"); assert LO.available() and LO.status() == "พร้อม (ยังไม่ผูกเจ้าของ)"
 assert LO.bot_name() == "เจอ.AI"; db.set_setting("line_bot_name", "Hop"); assert LO.bot_name() == "Hop"      # ชื่อตาม OA ที่ผูก
 sign = lambda body: base64.b64encode(hmac.new(b"sec", body, hashlib.sha256).digest()).decode()
@@ -187,14 +176,14 @@ l4 = db.find_lead_by_domain("four.co.th"); assert l4["source"] == "line" and l4[
 assert any(p[0] == "/message/reply" for p in pushes) and any(p[0] == "/message/push" and "ผลตรวจ four.co.th" in p[1]["messages"][0]["text"] for p in pushes), pushes
 body = ev("four.co.th"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["cached"]
 body = ev("สนใจครับ"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["replied"]
-assert "ทีม Hop จะส่งใบเสนอราคา" in pushes[-1][1]["messages"][0]["text"]
-l4 = db.get_lead(l4["id"]); assert l4["status"] == "replied" and l4["consent"] == 1
-assert any(d["kind"] == "quote" and d["lead_id"] == l4["id"] for d in db.list_decisions("proposed"))
+assert "30 นาที" in pushes[-1][1]["messages"][0]["text"] and "ใบเสนอราคา" not in pushes[-1][1]["messages"][0]["text"]
+l4 = db.get_lead(l4["id"]); assert l4["status"] == "replied" and l4["consent"] == 1 and "wants_call" in kinds(l4["id"])
+assert not any(d["kind"] == "quote" and d["lead_id"] == l4["id"] for d in db.list_decisions(None, 200)) and not db.list_quotes(l4["id"])
 body = ev("สวัสดี"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["help"]
 code = LO.link_code(); body = ev(code, uid="UOWNER")
 assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["owner_linked"] and LO.owner_id() == "UOWNER" and LO.link_code() != code
 pushes.clear(); res = X.morning_digest("https://x")
 assert "LINE" in res["sent_to"] and "ด่านเฟส 2" in res["text"] and any(p[1].get("to") == "UOWNER" for p in pushes)
 r = a.get("/admin/settings"); assert "พร้อม" in r.text and "UOWN" in r.text
-print("line: ลายเซ็น · follow · ตรวจเว็บในแชต (ลูกค้าเป้าหมายแหล่ง LINE) · ผลเดิม · สนใจ → ใบเสนอราคา · ผูกเจ้าของ · สรุปเช้าทาง LINE OK")
+print("line: ลายเซ็น · follow · ตรวจเว็บในแชต (ลูกค้าเป้าหมายแหล่ง LINE) · ผลเดิม · สนใจ → นัดคุย · ผูกเจ้าของ · สรุปเช้าทาง LINE OK")
 print("\nphase2_smoke: ผ่านทั้งหมด")

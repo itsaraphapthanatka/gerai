@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("สุขภาพเว็บ") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>{{ _("สุขภาพเว็บ") }}</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("ตรวจว่ามีอะไรบนเว็บขวางไม่ให้ GEO ได้ผล") }}</p>
@@ -30,10 +31,10 @@
 </div>
 {% endif %}
 
-<form method="post" action="/brands/{{ brand['id'] }}/health/run" style="margin:14px 0">
+{% if managed() %}{{ note() }}{% else %}<form method="post" action="/brands/{{ brand['id'] }}/health/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running }}>{{ _('กำลังตรวจ…') if running else _('ตรวจตอนนี้') }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ดึงเว็บจริงมาตรวจ ใช้เวลาราวครึ่งนาที") }}</span>
-</form>
+</form>{% endif %}
 
 {% if running and not report %}
 <div class="card"><p class="muted">{{ _("กำลังตรวจ — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>

@@ -529,6 +529,8 @@ def init_db() -> None:
         _ensure_column(c, "leads", "partner_id", "INTEGER")                  # ลีดที่พันธมิตรแนะนำมา (ลิงก์ /p/<code> หรือส่งผ่านแดชบอร์ดพันธมิตร)                     # การทดลองข้อความทัก "<exp>:<A|B>" ตอนส่งจริง
         _ensure_column(c, "quotes", "cycle", "TEXT DEFAULT 'month'")     # รอบบิล month | year
         _ensure_column(c, "quotes", "period_total", "INTEGER")           # ยอดต่อรอบบิล (รายปี = ทั้งปี)
+        for col, ddl in (("custom_price", "INTEGER"), ("custom_setup", "INTEGER"), ("custom_year", "INTEGER"), ("custom_label", "TEXT"), ("scope_json", "TEXT")):
+            _ensure_column(c, "quotes", col, ddl)    # โหมดเอเจนซี: ราคา/เดือนที่เจ้าของตั้งเอง · Setup · ยอดรายปีที่ใส่เอง · ชื่อบริการ · ขอบเขตงาน (ว่าง = ใบแบบตาราง)
         _ensure_column(c, "posts", "image", "TEXT")                    # การ์ดรูปของโพสต์ (URL ใต้ /static/gen/posts)
         _ensure_column(c, "leads", "call_json", "TEXT")                # บทโทรปิดดีล: เบอร์ที่หาได้ + ผลโทรแต่ละครั้ง
         _ensure_column(c, "brands", "case_study_ok", "INTEGER DEFAULT 0")   # อนุญาตให้ใช้ชื่อแบรนด์ในเคสศึกษาของเจอ.AI
@@ -538,7 +540,8 @@ def init_db() -> None:
         _ensure_column(c, "target_questions", "created_at", "TEXT")                # ของเดิมก่อนมีคอลัมน์นี้ = NULL
         _ensure_column(c, "content_items", "image_note", "TEXT")                   # ผลการหารูป: ได้จากไหน / ไม่ได้เพราะอะไร (ไม่เงียบ)
         for t in ("leads", "tenants", "partners", "contacts", "sales_chats"):
-            _ensure_column(c, t, "lang", "TEXT DEFAULT 'th'")                     # ภาษาที่ลูกค้าเลือกบนเว็บ (th en zh ja ko) — อีเมลถึงเขาใช้ภาษานี้
+            _ensure_column(c, t, "lang", "TEXT DEFAULT 'th'")
+        _ensure_column(c, "tenants", "self_serve", "INTEGER")   # ใช้แอปเองได้ไหมในโหมดเอเจนซี: NULL = ตามแผน (Agency/ไม่จำกัด ใช้เอง) · 1 ใช้เอง · 0 ทีมดูแล                     # ภาษาที่ลูกค้าเลือกบนเว็บ (th en zh ja ko) — อีเมลถึงเขาใช้ภาษานี้
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -604,6 +607,33 @@ def set_tenant_lang(tenant_id: int, lang: str) -> None:
     if i18n.valid(lang):
         with get_conn() as c:
             c.execute(q("UPDATE tenants SET lang=? WHERE id=?"), (i18n.valid(lang), tenant_id))
+
+
+def set_tenant_self_serve(tenant_id: int, value) -> None:
+    """None = ตามแผน · True/1 = ใช้แอปเอง (เอเจนซี/พันธมิตร) · False/0 = ทีมเจอ.AI ดูแลให้ ลูกค้าดูผลอย่างเดียว"""
+    v = None if value is None else (1 if value else 0)
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET self_serve=? WHERE id=?"), (v, tenant_id))
+
+
+SELF_SERVE_PLANS = ("agency", "unlimited")      # แพ็กเกจที่ขายให้เอเจนซี/พันธมิตรไว้ดูแลเว็บลูกค้าของเขาเอง
+
+
+def tenant_self_serve(t) -> bool:
+    """ใช้แอปเองได้ไหม (ตอนโหมดเอเจนซีเปิด) · ตั้งรายบัญชีไว้ = ตามนั้น · ไม่ได้ตั้ง = แผน Agency/ไม่จำกัดใช้เอง แผนอื่นทีมดูแล"""
+    if not t:
+        return False
+    try:
+        v = t["self_serve"]
+    except (KeyError, IndexError):
+        v = None
+    if v is not None:
+        return bool(v)
+    try:
+        plan = t["plan"] or "free"
+    except (KeyError, IndexError):
+        plan = "free"
+    return plan in SELF_SERVE_PLANS
 
 
 def row_lang(row) -> str:
@@ -1498,7 +1528,8 @@ QUOTE_FIELDS = {"status", "sent_at", "viewed_at", "accepted_at", "accepted_name"
                 "stripe_session_id", "stripe_customer_id", "stripe_subscription_id", "paid_via",
                 "buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address",
                 "cycle", "period_total", "net", "setup_price", "first_total",        # เปลี่ยนรอบบิลก่อนยืนยัน
-                "package", "price", "discount_pct", "setup", "vat_pct"}                          # เจ้าของสั่งปรับใบเดิม
+                "package", "price", "discount_pct", "setup", "vat_pct",                          # เจ้าของสั่งปรับใบเดิม
+                "custom_price", "custom_setup", "custom_year", "custom_label", "scope_json"}     # ราคาที่เจ้าของตั้งเอง (โหมดเอเจนซี)
 
 
 def add_quote(lead_id: int, number: str, token: str, package: str, price: int, discount_pct: float, net: int,

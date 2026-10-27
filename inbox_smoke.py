@@ -32,9 +32,11 @@ def raw(frm, subj, body, to="report@appreview.cloud", mid=None, extra=""):
 m = I.parse_raw(raw("Khun A <info@a.co.th>", "Re: ผลตรวจเว็บ a.co.th", "สนใจครับ ขอใบเสนอราคาหน่อย\n\nOn Mon, เจอ.AI wrote:\n> ผลตรวจ https://x/audit/tokacothxx"))
 assert m["body"] == "สนใจครับ ขอใบเสนอราคาหน่อย" and m["from"] == "info@a.co.th"
 r = I.process(m); assert r["category"] == "interested" and db.get_lead(A)["status"] == "replied" and F.history(A)["replied"]
-assert any(d["kind"] == "quote" and d["lead_id"] == A for d in db.list_decisions(None, 50))
+assert not any(d["kind"] == "quote" and d["lead_id"] == A for d in db.list_decisions(None, 50)) and not db.list_quotes(A)       # โหมดเอเจนซี: ไม่ทำใบเสนอราคาเอง
+assert any(e["kind"] == "wants_call" for e in db.list_lead_events(A)) and "นัดโทร" in r["action"]
+assert sent and sent[-1][0] == "info@a.co.th" and "30 นาที" in sent[-1][2] and "/u/" in sent[-1][2]                            # ตอบลีดทันทีว่าจะติดต่อไปนัดคุย
 assert I.process(m).get("skip") == "seen"
-print("interested: ตัดส่วนอ้างอิง · ตอบกลับ → CEO เสนอใบเสนอราคา · หยุดติดตามผล · ไม่ซ้ำ OK")
+print("interested: ตัดส่วนอ้างอิง · ตอบกลับ → แจ้งเจ้าของนัดโทร (ไม่มีใบเสนอราคา) · ตอบลีดเรื่องนัดคุย · หยุดติดตามผล · ไม่ซ้ำ OK")
 
 r = I.process(I.parse_raw(raw("someone@gmail.com", "Re: ผลตรวจ", "ใช้กับ Wix ได้ไหมครับ\n> ลิงก์เดิม https://x/u/tokbcothxx")))
 assert r["category"] == "question" and r["lead_id"] == B                                          # จับคู่จากลิงก์ในอีเมลเดิม
@@ -52,13 +54,13 @@ r = I.process(I.parse_raw(raw("sale@e.co.th", "Automatic reply: ผลตรว�
 assert r["category"] == "auto" and db.get_lead(E)["status"] == "contacted" and not F.history(E)["replied"]
 r = I.process(I.parse_raw(raw("MAILER-DAEMON@mx.google.com", "Delivery Status Notification (Failure)", "Your message to info@g.co.th could not be delivered\n\n info@g.co.th")))
 assert r["category"] == "bounce" and db.get_lead(G)["email"] is None
-# ธุรกิจใหม่อีเมลมาเอง → ลีดใหม่ ตรวจเว็บ → CEO เสนอใบเสนอราคา
+# ธุรกิจใหม่อีเมลมาเอง → ลีดใหม่ ตรวจเว็บ → แจ้งเจ้าของนัดโทร (ไม่ทำใบเสนอราคาเอง)
 import app.site_health as sh
 sh.run_checks = lambda site, **kw: {"checks": [{"key": "csr", "status": "fail", "label": "x"}], "ok": False, "n_fail": 1, "n_ok": 0}
 r = I.process(I.parse_raw(raw("Khun Som <som@newbiz.co.th>", "สอบถามบริการ", "สนใจทำให้เว็บขึ้นใน ChatGPT ครับ ราคาเท่าไหร่")))
 nl = db.find_lead_by_domain("newbiz.co.th")
 assert r["category"] == "interested" and nl and nl["source"] == "email" and nl["consent"] == 1 and nl["name"] == "Khun Som" and nl["audit_json"]
-assert "ลีดใหม่จากอีเมล" in r["action"] and any(d["kind"] == "quote" and d["lead_id"] == nl["id"] for d in db.list_decisions(None, 100))
+assert "ลีดใหม่จากอีเมล" in r["action"] and not db.list_quotes(nl["id"]) and any(e["kind"] == "wants_call" for e in db.list_lead_events(nl["id"]))
 assert I.process(I.parse_raw(raw("noreply@shopee.co.th", "Automatic reply", "x", extra="Auto-Submitted: auto-generated\r\n")))["category"] == "unmatched"   # ระบบอัตโนมัติไม่สร้างลีด
 assert I.process(I.parse_raw(raw("news@vendor.co.th", "โปรเดือนนี้", "ลดราคาพิเศษ สนใจคลิก", extra="List-Unsubscribe: <mailto:u@vendor.co.th>\r\n")))["category"] == "unmatched"   # จดหมายข่าว
 assert I.process(I.parse_raw(raw("notifications@tool.co.th", "แจ้งเตือน", "บัญชีของคุณ")))["category"] == "unmatched"           # แจ้งเตือนระบบ

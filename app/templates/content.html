@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("คอนเทนต์") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>{{ item['title'] }}</h1>
 <p class="muted">{{ brand['name'] }} · {{ _("ภาษา {code}", code=item['lang']) }} · {{ _("ที่มา {source}", source=item['source']) }} · {{ item['created_at'] }}</p>
@@ -16,6 +17,7 @@
     <span style="font-size:13px;color:{{ 'var(--cool)' if c.get('info') else ('#1c7a44' if c.ok else '#b4530b') }}">{{ '✓' if c.ok else ('•' if c.get('info') else '✗') }} {{ c.label|tr }}</span>
     {% endfor %}
   </div>
+  {% if not managed() %}
   <form method="post" action="/content/{{ item['id'] }}/regenerate"
         data-loading="⏳ {{ _("กำลังสร้างใหม่ให้ครบ AEO… (~30-60 วิ)") }}"
         onsubmit='return confirm({{ (_("สร้างเนื้อหาชิ้นนี้ใหม่ด้วยฟอร์แมต AEO เต็ม (answer-first + ลิสต์/ตาราง + FAQ + schema)?") ~ "\n\n⚠️ " ~ _("เนื้อหาเดิมจะถูกเขียนทับ"))|tojson }});'
@@ -23,6 +25,7 @@
     <button type="submit" class="btn ghost sm">🔄 {{ _("สร้างใหม่ให้ครบ AEO") }}</button>
     {% if aeo.score < aeo.max %}<span class="muted" style="font-size:12px;margin-left:8px">{{ _("ระบบจะเขียนใหม่ให้ได้ครบ 6/6 (answer-first, ลิสต์, FAQ, schema)") }}</span>{% endif %}
   </form>
+  {% endif %}
 </div>
 {% endif %}
 
@@ -55,7 +58,10 @@
   </p>
   {% endif %}
 
-  {% if wp %}
+  {% if managed() %}
+  {% if item['status'] != 'published' %}<p><span class="pill admin">{{ _("ร่าง") }}</span></p>{% endif %}
+  {{ note() }}
+  {% elif wp %}
   <div class="muted" style="font-size:12.5px;line-height:1.6;margin-bottom:10px">
     💡 <b>{{ _('เพื่อให้ AI เห็น ต้องเป็น "เผยแพร่ (public)"') }}</b> — {{ _('"ร่าง (draft)" ไว้รีวิวใน WordPress ก่อน แต่ AI/Google จะยังมองไม่เห็น') }}
   </div>
@@ -79,7 +85,9 @@
   {% endif %}
 </div>
 
+{% if not managed() %}
 <form method="post" action="/content/{{ item['id'] }}/delete" onsubmit='return confirm({{ _("ลบคอนเทนต์นี้?")|tojson }})' style="margin-top:8px">
   <button class="danger" type="submit">{{ _("ลบคอนเทนต์นี้") }}</button>
 </form>
+{% endif %}
 {% endblock %}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ brand['name'] }} — เจอ.AI{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 {# แปลข้อความที่ระบบเก็บไว้เป็นไทย · ไม่มีคำแปลทั้งก้อน → แปลทีละท่อนที่คั่นด้วย " · " #}
 {% macro trx(s) %}{% set t = (s or '')|tr %}{% if t == s and ' · ' in (s or '') %}{{ s.split(' · ')|map('tr')|join(' · ') }}{% else %}{{ t }}{% endif %}{% endmacro %}
 {% set RUN_ST = {'done': _('เสร็จ'), 'running': _('กำลังรัน')} %}
@@ -10,6 +11,7 @@
     <p class="muted" style="margin:4px 0 0">{{ brand['domain'] }} · {{ brand['market'] }}</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
+    {% if not managed() %}
     <form method="post" action="/brands/{{ brand['id'] }}/run">
       <button class="alt">▶ {{ _("รันมอนิเตอร์") }}</button>
     </form>
@@ -17,6 +19,7 @@
           onsubmit="return confirm({{ (_('ลบแบรนด์ {name} และข้อมูลทั้งหมด?', name=brand['name']) ~ '\n' ~ _('ไม่สามารถกู้คืนได้'))|tojson|forceescape }})">
       <button class="danger" type="submit" style="padding:9px 14px;font-size:13px">{{ _("ลบแบรนด์") }}</button>
     </form>
+    {% endif %}
   </div>
 </div>
 {% if error %}<div class="err">{{ error|tr }}</div>{% endif %}
@@ -39,7 +42,7 @@
 </div>
 {% else %}
 <div class="card" style="text-align:center;padding:32px">
-  <p class="muted">{{ _('ยังไม่เคยรัน — กด "รันมอนิเตอร์ตอนนี้" เพื่อเริ่มวัด SoV') }}</p>
+  <p class="muted">{{ _("ยังไม่มีผลวัด — ทีมงานจะเริ่มวัดให้เร็ว ๆ นี้") if managed() else _('ยังไม่เคยรัน — กด "รันมอนิเตอร์ตอนนี้" เพื่อเริ่มวัด SoV') }}</p>
 </div>
 {% endif %}
 
@@ -61,7 +64,7 @@
         <div style="font-size:13px;font-weight:500">{{ g.question }}</div>
         <div class="muted" style="font-size:11px">{{ g.reason|tr }}</div>
       </div>
-      {% if g.level in ('critical', 'unmeasured') %}
+      {% if g.level in ('critical', 'unmeasured') and not managed() %}
       <form method="post" action="/brands/{{ brand['id'] }}/content" data-loading="{{ _("⏳ กำลังสร้างคอนเทนต์ด้วย AI…") }}">
         <input type="hidden" name="question_id" value="{{ g.question_id }}">
         <input type="hidden" name="lang" value="{{ g.lang }}">
@@ -81,6 +84,9 @@
 </div>
 {% endif %}
 
+{% if managed() %}
+{{ note() }}
+{% else %}
 <!-- Install GEO — 3 ช่องทางตามชนิดเว็บ -->
 <div class="card install" style="margin-top:16px;border-color:var(--purple)">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -252,6 +258,7 @@
   });
 })();
 </script>
+{% endif %}
 
 <!-- Quick links -->
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px">
@@ -270,11 +277,13 @@
     <div class="qc-label">{{ _("คอนเทนต์ GEO") }}</div>
     <div class="qc-count">{{ _("{n} ชิ้น", n=content_count) }}</div>
   </a>
+  {% if not managed() %}
   <a href="/brands/{{ brand['id'] }}/wp" class="quick-card">
     <div class="qc-icon">🔗</div>
     <div class="qc-label">WordPress</div>
     <div class="qc-count">{{ _("ตั้งค่าการเผยแพร่") }}</div>
   </a>
+  {% endif %}
   <a href="/brands/{{ brand['id'] }}/health" class="quick-card">
     <div class="qc-icon">{{ '🩺' if not health else ('✅' if health['ok'] else '🔴') }}</div>
     <div class="qc-label">{{ _("สุขภาพเว็บ") }}</div>
@@ -325,11 +334,13 @@
     <div class="qc-label">SoV Impact</div>
     <div class="qc-count">{{ _("ก่อน vs หลัง") }}</div>
   </a>
+  {% if not managed() %}
   <a href="/brands/{{ brand['id'] }}/assets" class="quick-card">
     <div class="qc-icon">🛡️</div>
     <div class="qc-label">{{ _("ชุดติดตั้ง") }}</div>
     <div class="qc-count">llms.txt · schema</div>
   </a>
+  {% endif %}
 </div>
 
 <style>

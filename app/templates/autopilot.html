@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Autopilot — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>Autopilot</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("ให้ระบบทำงาน GEO ครบวงจรเองทุกสัปดาห์: วัดทุกตัว → เขียนคอนเทนต์ปิดช่องว่าง → ส่งรายงาน แล้วบอกว่าทำอะไรไปบ้าง") }}</p>
@@ -10,6 +11,10 @@
 <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
   <div class="card" style="flex:1;min-width:300px;max-width:520px">
     <h2 style="margin-top:0;font-size:17px">{{ _("ตั้งค่า") }} {% if brand['autopilot'] %}<span class="pill ok" style="font-size:9px">{{ _("เปิดอยู่") }}</span>{% else %}<span class="pill" style="font-size:9px">{{ _("ปิด") }}</span>{% endif %}</h2>
+    {% if managed() %}
+    <p style="font-size:13.5px;margin:0">{{ _("เมื่อเขียนเสร็จ") }}: <b>{{ (modes.get(brand['autopilot_mode'] or 'draft') or '')|tr }}</b></p>
+    {{ note() }}
+    {% else %}
     <form method="post" action="/brands/{{ brand['id'] }}/autopilot/settings">
       <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" name="on" value="1" {% if brand['autopilot'] %}checked{% endif %} style="width:auto"> {{ _("เปิด Autopilot (รันอัตโนมัติทุกคืนวันอังคาร 02:00)") }}</label>
       <label style="margin-top:14px">{{ _("คอนเทนต์ต่อรอบ") }}</label>
@@ -23,6 +28,7 @@
       {% if not can_publish %}<div class="muted" style="font-size:11.5px;margin-top:4px">{{ _('แผนปัจจุบันไม่มี auto เผยแพร่ — เลือก "เผยแพร่เลย" ระบบจะสร้างเป็นร่างแทน') }}</div>{% endif %}
       <div style="margin-top:16px"><button type="submit">{{ _("บันทึก") }}</button></div>
     </form>
+    {% endif %}
   </div>
   <div class="card" style="flex:1;min-width:300px">
     <h2 style="margin-top:0;font-size:17px">{{ _("สิ่งที่ทำในแต่ละรอบ") }}</h2>
@@ -33,10 +39,10 @@
       <li>{{ _("สร้างรายงานสรุป ส่งอีเมลให้เจ้าของแบรนด์") }} <span class="muted">({{ _("ต้องตั้ง SMTP ที่ผู้ดูแล → อีเมล") }})</span> {{ _("และแจ้งเตือนในแอป") }}</li>
     </ol>
     <p class="muted" style="font-size:12px;margin:10px 0 0">{{ _("ตัววัดที่ไม่มีค่าใช้จ่ายข้ามถ้าทำไปไม่ถึง 20 ชม. (cron รายสัปดาห์อาจเพิ่งรัน) · ขั้นไหนล้มขั้นอื่นทำต่อ และบันทึกเหตุผลไว้ด้านล่าง") }}</p>
-    <form method="post" action="/brands/{{ brand['id'] }}/autopilot/run" style="margin-top:12px">
+    {% if not managed() %}<form method="post" action="/brands/{{ brand['id'] }}/autopilot/run" style="margin-top:12px">
       <button class="btn" type="submit" {{ 'disabled' if running }}>{{ _('กำลังรัน…') if running else _('รันตอนนี้') }}</button>
       <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ใช้เวลาหลายนาที — ผลจะขึ้นในตารางด้านล่าง") }}</span>
-    </form>
+    </form>{% endif %}
   </div>
 </div>
 

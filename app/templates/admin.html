@@ -7,6 +7,11 @@
   <input type="hidden" name="on" value="{{ '' if free_open else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 10px">{{ 'ปิดแผน Free' if free_open else 'เปิดแผน Free' }}</button>
   <span class="muted" style="font-size:12px">ปิด = ไม่โชว์ในหน้าแรก/หน้าอัปเกรด และตัวตอบแชตไม่เสนอ · บัญชีที่ทดลองอยู่ใช้ต่อได้จนหมดเวลา</span>
 </form>
+<form method="post" action="/admin/agency-mode" style="display:flex;gap:8px;align-items:center;margin:-4px 0 12px;font-size:13px">
+  <span>โหมดเอเจนซี (ทีมดูแลให้): <b>{{ 'เปิด' if agency_mode else 'ปิด' }}</b></span>
+  <input type="hidden" name="on" value="{{ '' if agency_mode else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 10px">{{ 'ปิดโหมดเอเจนซี' if agency_mode else 'เปิดโหมดเอเจนซี' }}</button>
+  <span class="muted" style="font-size:12px">เปิด = ลูกค้าดูผลและรายงานได้อย่างเดียว ทีมงานตั้งค่า/สั่งรัน/เขียนคอนเทนต์ให้ (แอดมินทำได้ทุกอย่างในแบรนด์ลูกค้า) · ปิด = ลูกค้าใช้เครื่องมือเองแบบเดิม</span>
+</form>
 <p class="muted">มุมมองรวมทุกลูกค้าและแบรนด์ในระบบ</p>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
@@ -85,6 +90,14 @@
             {% for k, p in plans.items() %}<option value="{{ k }}" {% if sel == k %}selected{% endif %}>{{ p.label }}</option>{% endfor %}
           </select>
         </form>
+        {% if agency_mode and not t['is_admin'] %}{% set ss = t['self_serve'] if 'self_serve' in t.keys() else none %}
+        <form method="post" action="/admin/tenants/{{ t['id'] }}/self-serve" style="margin-top:5px" title="โหมดเอเจนซี: ใช้เอง = เอเจนซี/พันธมิตรดูแลเว็บลูกค้าของเขาเองได้เต็ม · ทีมดูแล = ลูกค้าดูผลอย่างเดียว · ตามแผน = Agency/ไม่จำกัดใช้เอง แผนอื่นทีมดูแล">
+          <select name="mode" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px;width:auto">
+            <option value="auto" {% if ss is none %}selected{% endif %}>ตามแผน ({{ 'ใช้เอง' if (t['plan'] or 'free') in ('agency','unlimited') else 'ทีมดูแล' }})</option>
+            <option value="self" {% if ss == 1 %}selected{% endif %}>ใช้แอปเอง</option>
+            <option value="managed" {% if ss == 0 %}selected{% endif %}>ทีมดูแล (ดูผล)</option>
+          </select>
+        </form>{% endif %}
         {% set tr = trial_fn(t) %}{% if tr.on %}<div style="margin-top:5px;font-size:12px" class="{{ '' if tr.expired else 'muted' }}">
           {% if tr.expired %}<span class="pill no">หมดทดลอง {{ tr.ends[8:10] }}/{{ tr.ends[5:7] }}</span>{% else %}ทดลองเหลือ {{ tr.days_left }} วัน (ถึง {{ tr.ends[8:10] }}/{{ tr.ends[5:7] }}){% endif %}
           <form method="post" action="/admin/tenants/{{ t['id'] }}/trial" style="display:inline"><input type="hidden" name="days" value="{{ trial_days }}"><button class="btn ghost sm" type="submit" style="padding:2px 8px">+{{ trial_days }} วัน</button></form></div>{% endif %}

@@ -1,8 +1,14 @@
 {% extends "base.html" %}
-{% block title %}{{ _("อัปเกรดแผน") }} — เจอ.AI{% endblock %}
+{% block title %}{{ _("แพ็กเกจและการชำระเงิน") if managed() else _("อัปเกรดแผน") }} — เจอ.AI{% endblock %}
 {% block content %}
+{% from "_managed.html" import contacts with context %}
+{% set _mg = managed() %}
+{% if _mg %}
+<h1>{{ _("แพ็กเกจและการชำระเงิน") }}</h1>
+{% else %}
 <h1>{{ _("อัปเกรดแผน") }}</h1>
 <p class="muted">{{ _("เลือกแผนที่เหมาะกับธุรกิจคุณ — โควตามากขึ้น ปลดล็อกฟีเจอร์ AI เต็มรูปแบบ") }}</p>
+{% endif %}
 
 {% if notice %}<div class="ok-banner">{{ notice|tr }}</div>{% endif %}
 {% set cur = plans[current] %}
@@ -33,6 +39,22 @@
 </div>
 {% endif %}
 
+{% if _mg %}
+{# ลูกค้าที่ทีมดูแลให้: ไม่มีปุ่มซื้อแผนเอง — จ่ายได้เฉพาะยอดที่ค้าง/ค่าแผนปัจจุบัน ปรับแพ็กเกจคุยกับทีม #}
+{% set _open = acct_docs|selectattr('kind', 'equalto', 'invoice')|selectattr('status', 'equalto', 'open')|list %}
+<div class="card" style="border-color:var(--purple)">
+  {% if _open %}
+  <p style="margin:0 0 10px;font-weight:600">🧾 {{ _("มีใบแจ้งหนี้รอชำระ {n} ใบ", n=_open|length) }}</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    {% for d in _open %}<a class="btn sm" href="/bill/{{ d.token }}">{{ _("ชำระเลย") }} · {{ d.number }} · ฿{{ "{:,.2f}".format(d.total) }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  {% if cur.price and not cur.get('hidden') %}
+  <p style="margin:0 0 10px;font-size:13.5px"><a class="link" href="/upgrade/pay/{{ current }}">{{ _("ชำระค่าบริการรอบใหม่ของแผนนี้ →") }}</a></p>
+  {% endif %}
+  <p style="margin:0;font-size:13.5px">💬 {{ _("ต้องการปรับแพ็กเกจ? คุยกับทีมงาน") }} · {{ contacts() }}</p>
+</div>
+{% else %}
 {# แผน #}
 <div class="plans">
   {% for key, p in plans.items() if key != 'free' or free_open or key == current %}
@@ -82,6 +104,7 @@
 <p class="muted" style="margin-top:18px;font-size:12.5px">
   💡 {{ _('ราคายังไม่รวม VAT · กด "เลือก & ชำระเงิน" หรือ "ซื้อ" → สแกน PromptPay + แนบสลิป → ทีมงานยืนยันและเปิดใช้ให้ (ปกติภายในไม่กี่ชั่วโมง)') }}
 </p>
+{% endif %}
 
 <style>
 .plans { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:16px 0 8px; }

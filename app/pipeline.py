@@ -1,4 +1,5 @@
-"""เส้นทางลูกค้าทั้งสาย (เฟส 2): ตรวจเว็บ → ทัก → ตอบกลับ → ใบเสนอราคา → ยืนยัน → ชำระ → เปิดบัญชี+แบรนด์
+"""เส้นทางลูกค้าทั้งสาย (โหมดเอเจนซี): ตรวจเว็บ → ทัก → ลีดสนใจ → แจ้งเจ้าของนัดโทร 30 นาที → เจ้าของตั้งราคา+ส่งใบเสนอราคาเอง → ยืนยัน → ชำระ → เปิดบัญชี+แบรนด์
+ไม่มีทางไหนสร้าง/ส่งใบเสนอราคาหรือลิงก์ชำระเงินเองเมื่อลีดสนใจ — เอเจนต์เตรียมข้อมูล/บทโทร เจ้าของเป็นคนกดส่ง
 รวมตรรกะที่เคยอยู่ใน main.py ไว้ที่เดียว ให้เส้นทางเว็บ, LINE, หน้าแอดมิน และ cron ใช้ร่วมกัน
 ผู้บริหารเอเจนต์ยังเสนอก่อนทำ เว้นเรื่องที่สลับเป็นตัดสินเองแล้ว (execs.auto_enabled) · ทุกจุดสัมผัสลง lead_events"""
 from __future__ import annotations
@@ -117,6 +118,8 @@ def _maybe_auto(did: int) -> int:
         escalate = False
     if escalate:                                     # นอกกรอบ CFO → รอคนเสมอ ไม่ว่าโหมดไหน
         return did
+    if d["kind"] == "quote":
+        return did                                   # ใบเสนอราคา = เจ้าของตั้งราคาและกดส่งเองเสมอ (โหมดเอเจนซี) แม้ตั้งค่าเก่าเคยเปิดอัตโนมัติไว้
     if d["kind"] == "post" and json.loads(d["payload_json"] or "{}").get("kind") == "case_study":
         return did                                   # เคสศึกษามีชื่อและตัวเลขของลูกค้า → เจ้าของอนุมัติเสมอ แม้เปิดโพสต์อัตโนมัติ
     if d["kind"] in ("outreach", "followup") and d["lead_id"]:
@@ -294,25 +297,72 @@ def mark_opened(lead) -> None:
         record(lead["id"], "opened", "", "customer")
 
 
-def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str = "customer") -> int | None:
-    """ลูกค้ากด 'คุยต่อ/ขอใบเสนอราคา' หรือพิมพ์สนใจทาง LINE → สถานะตอบกลับ → CEO เสนอใบเสนอราคา (ถ้ายังไม่มีใบค้าง)"""
+CALL_MINUTES = 30
+WANTS_CALL_DEDUP_HOURS = 12          # สนใจซ้ำในช่วงนี้ (เช่น LINE แล้วแชตต่อ) = บันทึกเพิ่ม แต่ไม่แจ้งเจ้าของซ้ำ
+
+
+def _has_channel(lead) -> bool:
+    if lead is None:
+        return False
+    if lead["email"] or lead["contact"] or lead["line_user_id"]:
+        return True
+    try:
+        return bool(json.loads(lead["call_json"] or "{}").get("phone")) if "call_json" in lead.keys() and lead["call_json"] else False
+    except Exception:
+        return False
+
+
+def call_reply(lead=None, lang: str | None = None) -> str:
+    """ข้อความตอบลีดที่สนใจ (ภาษาของลีด): ทีมเราจะติดต่อกลับเพื่อนัดคุย 30 นาที · ถามวันเวลาที่สะดวก และช่องทางถ้ายังไม่มี"""
+    lang = lang or (lead_lang(lead) if lead is not None else "th")
+    t = _tl(lang)
+    return (t("ขอบคุณครับ ทีมเจอ.AI จะติดต่อกลับเพื่อนัดคุย 30 นาที พาดูผลตรวจเว็บของคุณและวางแผนที่เหมาะกับธุรกิจ") + " "
+            + (t("สะดวกคุยวันไหน ช่วงเวลาไหนครับ") if _has_channel(lead) else t("สะดวกให้ติดต่อทางไหน (โทร · LINE · อีเมล) และวันเวลาไหนครับ")))
+
+
+def wants_call_pending(lead_id: int) -> dict | None:
+    """ลีดขอนัดคุยแล้วยังไม่ได้โทร (ไม่มีบันทึกผลโทรหลังจากนั้น) → event ล่าสุด · None = ไม่มี"""
+    evs = db.list_lead_events(lead_id, 300)                      # ใหม่ก่อน
+    for e in evs:
+        if e["kind"] == "call":
+            return None
+        if e["kind"] == "wants_call":
+            return e
+    return None
+
+
+def _recent_wants_call(lead_id: int) -> bool:
+    since = (datetime.datetime.now() - datetime.timedelta(hours=WANTS_CALL_DEDUP_HOURS)).isoformat(timespec="seconds")
+    return any(e["kind"] == "wants_call" and (e["created_at"] or "") >= since for e in db.list_lead_events(lead_id, 100))
+
+
+def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str = "customer", wants_call: bool = True) -> None:
+    """ลูกค้าตอบกลับ/สนใจ (กดนัดคุยบนหน้าผลตรวจ · พิมพ์สนใจทาง LINE · ตอบอีเมล · ตัวตอบแชตเจอสัญญาณซื้อ) → สถานะตอบกลับ
+    · wants_call = สนใจซื้อ/อยากคุย → บันทึก + แจ้งเจ้าของ "นัดโทรภายในวันนี้" + ขึ้นบนสุดของรายการโทร (closer)
+    · ไม่สร้าง/ไม่ส่งใบเสนอราคาเอง — เจ้าของคุยแล้วตั้งราคาและส่งเองจากหน้าลูกค้า · คืน None เสมอ (ไม่มีข้อเสนอให้อนุมัติ)"""
     if lead["status"] == "unsubscribed":
         return None
     if lead["status"] in ("new", "contacted", "lost"):
         db.update_lead(lead["id"], status="replied")
-    record(lead["id"], "replied", (message or "").strip()[:500] or f"กดคุยต่อผ่าน{via}", actor)
+    msg = (message or "").strip()
+    record(lead["id"], "replied", msg[:500] or f"กดคุยต่อผ่าน{via}", actor)
     _cancel_pending(lead["id"], {"outreach", "lead_review", "followup"}, "ลูกค้าตอบกลับมาเองแล้ว ไม่ต้องทัก")
-    alert_admins(f"💬 {lead['domain']} ตอบกลับ/ขอใบเสนอราคา ผ่าน{via}" + (f": {message.strip()[:80]}" if message.strip() else ""),
-                 f"/admin/leads/{lead['id']}", "lead", subject=f"💬 {lead['domain']} ตอบกลับ — CEO กำลังเสนอใบเสนอราคา")
+    link = f"/admin/leads/{lead['id']}"
+    if wants_call:
+        fresh = not _recent_wants_call(lead["id"])
+        record(lead["id"], "wants_call", f"ขอนัดคุยผ่าน{via}" + (f": {msg[:200]}" if msg else ""), actor)
+        if fresh:
+            alert_admins(f"🔥 {lead['domain']} อยากคุย — นัดโทรภายในวันนี้" + (f" ({via}: {msg[:80]})" if msg else f" ({via})"),
+                         link, "lead", subject=f"🔥 {lead['domain']} อยากคุย — นัดโทรภายในวันนี้")
+    else:
+        alert_admins(f"💬 {lead['domain']} ตอบกลับผ่าน{via}" + (f": {msg[:80]}" if msg else ""), link, "lead",
+                     subject=f"💬 {lead['domain']} ตอบกลับ")
     try:
         from . import deep_audit
-        deep_audit.start(lead["id"], ai=True)          # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ)
+        deep_audit.start(lead["id"], ai=True)          # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ) — ข้อมูลไว้คุยในสาย
     except Exception:
         pass
-    if any(q["status"] in Q.OPEN for q in db.list_quotes(lead["id"])):
-        return None
-    lead = db.get_lead(lead["id"])
-    return propose_quote(lead) if lead["audit_json"] else None
+    return None
 
 
 def unsubscribe(lead, actor: str = "customer") -> None:
@@ -326,15 +376,26 @@ def unsubscribe(lead, actor: str = "customer") -> None:
 
 # ---------- ใบเสนอราคา ----------
 def create_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None,
-                 created_by: str = "ceo", notes: str = "", cycle: str = "month"):
-    report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
-    if setup is None:
-        setup = Q.needs_setup(report)
-    pr = Q.price_for(package, discount_pct, setup, cycle)
+                 created_by: str = "ceo", notes: str = "", cycle: str = "month", custom: float | None = None,
+                 custom_setup: float = 0, custom_year: float | None = None, custom_label: str | None = None, scope: list | None = None):
+    """custom = ราคา/เดือนที่เจ้าของตั้งเอง (≥ 0 ไม่ผูกตาราง) · custom_setup = ค่า GEO Setup ที่ใส่เอง · custom_year = ยอดทั้งปีที่ใส่เอง (รายปี)
+    · custom_label = ชื่อบริการ (แบบกำหนดเอง) · scope = ขอบเขตงานทีละบรรทัด · ไม่ใส่ custom = ใบแบบตารางเหมือนเดิม"""
+    if custom is not None:
+        pr = Q.custom_price_for(package, custom, cycle, custom_setup, custom_year if cycle == "year" else None)
+    else:
+        report = json.loads(lead["audit_json"] or "{}") if lead["audit_json"] else {}
+        if setup is None:
+            setup = Q.needs_setup(report)
+        pr = Q.price_for(package, discount_pct, setup, cycle)
     ym = db.now()[:7]
     qid = db.add_quote(lead["id"], Q.number(ym, db.count_quotes_month(ym) + 1), leads.new_token(), pr["package"], pr["price"],
                        pr["discount_pct"], pr["net"], pr["setup"], pr["setup_price"], pr["first_total"], Q.valid_until(), created_by, notes,
                        cycle=pr["cycle"], period_total=pr["period_total"], vat_pct=Q.vat_rate_now())
+    if custom is not None:
+        db.update_quote(qid, custom_price=pr["price"], custom_setup=pr["setup_price"],
+                        custom_year=pr["period_total"] if pr.get("year_override") else None,
+                        custom_label=(custom_label or "").strip()[:80] or None,
+                        scope_json=json.dumps([str(x).strip()[:300] for x in (scope or []) if str(x).strip()][:Q.MAX_SCOPE_LINES], ensure_ascii=False) if scope else None)
     db.update_lead(lead["id"], package=package, monthly_thb=pr["net"])
     return db.get_quote(qid)
 
@@ -344,7 +405,8 @@ MONTHLY_RE = re.compile(r"(รายเดือน|จ่ายเดือน|
 
 
 def propose_quote(lead, package: str = "pro", discount_pct: float = 0, setup: bool | None = None, cycle: str | None = None) -> int:
-    """CEO เสนอใบเสนอราคา · CFO ตรวจส่วนลด/วงเงิน · เสนอรายปีก่อน (ค่าเริ่มต้น) ยกเว้นลูกค้าขอรายเดือนเอง · ลูกค้าเปลี่ยนรอบบิลได้ในหน้าใบเสนอราคา"""
+    """ร่างใบเสนอราคาราคาตาราง + ข้อเสนอให้เจ้าของกดส่ง (ไม่ส่งเองไม่ว่าโหมดไหน — โหมดเอเจนซี) · ไม่ถูกเรียกเองเมื่อลีดสนใจแล้ว
+    · CFO ตรวจส่วนลด/วงเงิน · เสนอรายปีก่อน (ค่าเริ่มต้น) ยกเว้นลูกค้าขอรายเดือนเอง"""
     if cycle is None:
         last = next((e["note"] or "" for e in db.list_lead_events(lead["id"], 20) if e["kind"] == "replied"), "")
         cycle = "year" if YEARLY_RE.search(last) else ("month" if MONTHLY_RE.search(last) else Q.default_cycle())
@@ -366,6 +428,8 @@ def change_cycle(q, cycle: str, who: str = "customer") -> str:
         return "ยืนยันข้อเสนอแล้ว เปลี่ยนรอบบิลไม่ได้ — ติดต่อเราเพื่อขอใบใหม่"
     if Q.cycle_of(q) == cycle:
         return ""
+    if Q.is_custom(q):
+        return "ใบนี้ทีมงานตั้งราคาตามที่ตกลงกันไว้ เปลี่ยนรอบบิลเองไม่ได้ — ติดต่อเราเพื่อขอใบใหม่"
     pr = Q.price_for(q["package"], q["discount_pct"], bool(q["setup"]), cycle)
     db.update_quote(q["id"], cycle=cycle, period_total=pr["period_total"], net=pr["net"], setup_price=pr["setup_price"], first_total=pr["first_total"])
     db.update_lead(q["lead_id"], monthly_thb=pr["net"])
@@ -386,7 +450,11 @@ def revise_quote(q, package: str | None = None, discount_pct: float | None = Non
     disc = float(q["discount_pct"] if discount_pct is None else discount_pct)
     setup = bool(q["setup"]) if setup is None else bool(setup)
     cycle = cycle if cycle in Q.CYCLES else Q.cycle_of(q)
-    pr = Q.price_for(package, disc, setup, cycle)
+    if Q.is_custom(q):                               # ราคาที่เจ้าของตั้งเอง: คงราคา/Setup เดิม (ส่วนลดตารางไม่ใช้) · เปลี่ยนได้แค่แพ็กเกจฐาน/รอบบิล
+        pr = Q.requote(q, cycle, package)
+        disc, setup = 0.0, pr["setup"]
+    else:
+        pr = Q.price_for(package, disc, setup, cycle)
     was = f"{q['package']} {Q.CYCLES[Q.cycle_of(q)]} {q['first_total']:,}"
     db.update_quote(q["id"], package=package, price=pr["price"], discount_pct=pr["discount_pct"], setup=1 if setup else 0, cycle=cycle,
                     period_total=pr["period_total"], net=pr["net"], setup_price=pr["setup_price"], first_total=pr["first_total"],
@@ -472,6 +540,10 @@ def provision_customer(q) -> dict:
         db.set_tenant_lang(tid, lead_lang(lead))          # อีเมลถึงลูกค้าหลังเปิดบัญชีใช้ภาษาที่เขาเลือกบนเว็บ
         created = True
     db.set_plan(tid, q["package"])
+    if Q.is_custom(q):                               # ราคาตั้งเอง = บริการแบบเอเจนซีที่ทีมเราดูแล (สิทธิ์เท่า Agency แต่ลูกค้าไม่ต้องทำเอง)
+        db.set_tenant_self_serve(tid, False)
+    elif q["package"] in db.SELF_SERVE_PLANS:        # ซื้อแพ็กเกจ Agency ตามตาราง = เอเจนซี/พันธมิตรที่ใช้แอปดูแลเว็บลูกค้าเอง
+        db.set_tenant_self_serve(tid, True)
     existing = [b for b in db.list_all_brands() if leads.domain_of(b["domain"]) == lead["domain"]]
     if existing:
         bid = existing[0]["id"]
@@ -566,12 +638,12 @@ def line_result_message(lead) -> str:
     lines = [f"ผลตรวจ {lead['domain']}: ผ่าน {sc['n_ok']} ข้อ ต้องแก้ {sc['n_fail']} ข้อ"]
     lines += [f"• {s['label']} — {s['why']}" for s in top]
     lines.append(f"ดูผลเต็ม: {result_url(lead, 'line')}")
-    lines.append("อยากให้ส่งแผนแก้พร้อมราคา พิมพ์ \"สนใจ\" ได้เลยครับ")
+    lines.append("อยากนัดคุย 30 นาทีให้ทีมเราพาดูผลนี้และวางแผนแก้ พิมพ์ \"สนใจ\" ได้เลยครับ")
     return "\n".join(lines)
 
 
 def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
-    """ข้อความจากผู้ใช้ LINE: รหัสผูกเจ้าของ · ที่อยู่เว็บ → ตรวจฟรี · 'สนใจ' → ขอใบเสนอราคา · อื่น ๆ → วิธีใช้ · คืนชื่อกิ่งที่เดิน"""
+    """ข้อความจากผู้ใช้ LINE: รหัสผูกเจ้าของ · ที่อยู่เว็บ → ตรวจฟรี · 'สนใจ' → แจ้งเจ้าของนัดโทร 30 นาที (ไม่ส่งใบเสนอราคาเอง) · อื่น ๆ → วิธีใช้ · คืนชื่อกิ่งที่เดิน"""
     t = (text or "").strip()
     if t and t == line_oa.link_code():
         line_oa.set_owner(user_id)
@@ -583,17 +655,17 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
     if url:
         return line_site_request(user_id, url, reply_token)
     lead = db.get_lead_by_line_user(user_id)
-    if lead and any(k in t for k in ("สนใจ", "ราคา", "ใบเสนอ", "แพ็กเกจ", "คุยต่อ")):
+    if lead and any(k in t for k in ("สนใจ", "ราคา", "ใบเสนอ", "แพ็กเกจ", "คุยต่อ", "นัด", "อยากคุย", "โทรกลับ")) and not re.search(r"ไม่\s*สนใจ", t):
         if not lead["consent"]:
             db.update_lead(lead["id"], consent=1, contact=lead["contact"] or "LINE")
-        did = lead_replied(lead, t, via="LINE")
-        promise = f"ทีม {line_oa.bot_name()} จะส่งใบเสนอราคาสำหรับ {lead['domain']} ให้ภายใน 1 วันทำการ" + (" (รอเจ้าของอนุมัติ)" if did else "")
+        lead_replied(lead, t, via="LINE")                                 # แจ้งเจ้าของนัดโทร · ไม่สร้างใบเสนอราคาเอง
+        promise = call_reply(db.get_lead(lead["id"]))
         from . import salesbot
         if salesbot.enabled("line") and re.search(r"\?|ไหม|มั้ย|เท่าไ|อะไร|ยังไง|อย่างไร|กี่|ได้บ้าง|ต่างจาก|how|what", t, re.I):
-            res = salesbot.handle("line", user_id, t, lead)               # ถามจริง → ตอบก่อน แล้วบอกว่าใบเสนอราคากำลังมา
+            res = salesbot.handle("line", user_id, t, lead, noted=True)  # ถามจริง → ตอบก่อน แล้วบอกว่าเราจะติดต่อไปนัดคุย
             line_oa.reply(reply_token, [(res["answer"] + "\n\n" + promise)[:4900]])
             return "replied_answered"
-        line_oa.reply(reply_token, [f"รับทราบครับ {promise}"])
+        line_oa.reply(reply_token, [promise])
         return "replied"
     from . import salesbot
     if salesbot.enabled("line") and len(t) >= 3 and not re.fullmatch(r"(สวัสดี\S*|hi|hello|ดีครับ|ดีค่ะ|👋|ok|โอเค)", t, re.I):

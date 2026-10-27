@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("ชุดติดตั้ง on-site") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>{{ _("ชุดติดตั้ง on-site") }} (Phase A)</h1>
 <p class="muted">{{ _("ไฟล์/โค้ดสำเร็จรูปสำหรับวางในเว็บลูกค้า — เปิดทางให้ AI เห็นและเข้าใจแบรนด์") }}</p>
@@ -34,6 +35,7 @@
 <h2>{{ _("Schema องค์กร (JSON-LD)") }} <span class="muted">— {{ _("วางใน <head> ทุกหน้า หรือผ่าน Connector") }}</span></h2>
 <div class="card">
   {% if saved %}<p class="pill ok" style="display:inline-block">{{ _("บันทึกแล้ว") }}</p>{% endif %}
+  {% if managed() %}{{ note() }}{% else %}
   <form method="post" action="/brands/{{ brand['id'] }}/schema-type" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
     <label for="schema_type" style="font-size:13px">{{ _("ประเภทธุรกิจ") }}</label>
     <select name="schema_type" id="schema_type" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;max-width:100%">
@@ -43,7 +45,7 @@
     </select>
     <button class="btn sm" type="submit">{{ _("บันทึก") }}</button>
     {% if schema_type_is_guess %}<span class="muted" style="font-size:12px">{{ _("ยังไม่ได้เลือก — ระบบเดาให้เป็น <b>{type}</b> จากชื่อและตลาดของแบรนด์", type=schema_type|e)|safe }}</span>{% endif %}
-  </form>
+  </form>{% endif %}
   <p class="muted" style="font-size:12px;margin:0 0 10px">
     {{ _("บอก Google และ AI ว่าแบรนด์นี้เป็นธุรกิจประเภทไหน — เลือกผิดประเภท entity ของแบรนด์จะเพี้ยน") }}
     {{ _('ถ้าไม่มีอันไหนตรงเลย เลือก "ธุรกิจทั่วไป" ไว้ปลอดภัยกว่าเลือกผิด') }}

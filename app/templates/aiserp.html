@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Google AI Overview / AI Mode — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 <p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
 <h1>Google AI Overview / AI Mode</h1>
 <p class="muted">{{ brand['name'] }} · {{ brand['domain'] }} — {{ _("คำตอบ AI ของ Google เองสำหรับคำถามเป้าหมาย: กล่อง AI Overview เหนือผลค้นหา และแท็บ AI Mode พูดถึงหรืออ้างอิงแบรนด์ไหม") }}</p>
@@ -16,6 +17,7 @@
 
 {% if saved %}<div class="ok-banner">{{ _("บันทึกแล้ว") }}</div>{% endif %}
 {# เลือกเป็นรายแบรนด์ว่าจะให้ cron จันทร์ 10:30 เช็คให้ไหม — ทุกคำถามกินโควตา SerpApi แผนฟรีมีแค่ 100/เดือน #}
+{% if not managed() %}
 <div class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13.5px">
   <form method="post" action="/brands/{{ brand['id'] }}/ai-serp/auto" style="display:flex;gap:8px;align-items:center;margin:0">
     <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0"><input type="checkbox" name="on" value="1" {% if brand['aiserp_auto'] %}checked{% endif %} onchange="this.form.submit()" style="width:auto"> {{ _("เช็คอัตโนมัติทุกจันทร์ 10:30") }}</label>
@@ -24,11 +26,12 @@
   <span class="muted" style="margin-left:auto">{{ _("เปิดอยู่ {n} แบรนด์", n=auto_brands|length) }} ≈ <b>{{ _("{n} search/เดือน", n=auto_month) }}</b>
     {%- if auto_month > 100 %} — {{ _("เกินแผนฟรี SerpApi (100/เดือน) ต้องแผนเสียเงินหรือลดแบรนด์") }}{% elif auto_brands %} — {{ _("อยู่ในแผนฟรี") }}{% endif %}</span>
 </div>
+{% endif %}
 
-<form method="post" action="/brands/{{ brand['id'] }}/ai-serp/run" style="margin:14px 0">
+{% if managed() %}{{ note() }}{% else %}<form method="post" action="/brands/{{ brand['id'] }}/ai-serp/run" style="margin:14px 0">
   <button class="btn" type="submit" {{ 'disabled' if running or not available }}>{{ _('กำลังเช็ค…') if running else _('เช็คตอนนี้') }}</button>
   <span class="muted" style="margin-left:8px;font-size:12px">{{ _("ทุกคำถามเป้าหมาย × 2 แบบ · ใช้โควตา SerpApi ราว 2 search ต่อคำถาม · ใช้เวลาราว 1 นาที") }}</span>
-</form>
+</form>{% endif %}
 
 {% if running and not report %}
 <div class="card"><p class="muted">{{ _("กำลังเช็ค — รอสักครู่แล้วรีเฟรชหน้านี้") }}</p></div>

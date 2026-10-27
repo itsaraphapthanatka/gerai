@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("คอนเทนต์ GEO") }} — {{ brand['name'] }}{% endblock %}
 {% block content %}
+{% from "_managed.html" import note, contacts with context %}
 {# แปลข้อความที่ระบบเก็บไว้เป็นไทย · ไม่มีคำแปลทั้งก้อน → แปลทีละท่อนที่คั่นด้วย " · " #}
 {% macro trx(s) %}{% set t = (s or '')|tr %}{% if t == s and ' · ' in (s or '') %}{{ s.split(' · ')|map('tr')|join(' · ') }}{% else %}{{ t }}{% endif %}{% endmacro %}
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
@@ -11,6 +12,9 @@
 
 {% if limit_msg %}<div class="err">{{ limit_msg|tr }}</div>{% endif %}
 
+{% if managed() %}
+{{ note() }}
+{% else %}
 <!-- auto สร้างร่าง + โหมดเผยแพร่ -->
 <div class="card" style="margin-bottom:12px;border-color:var(--purple)">
   <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 {{ _("auto สร้างคอนเทนต์ปิด gap") }}</div>
@@ -130,6 +134,8 @@
   <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.6">💡 {{ _("ยิ่งใส่ข้อมูลจริง (พื้นที่ ปีก่อตั้ง ใบอนุญาต เคส) AI ยิ่งเขียนเฉพาะเจาะจง น่าเชื่อถือ และถูก AI อ้างอิงง่ายขึ้น — ระบบยังดึงเนื้อหาจากเว็บจริงของคุณมาประกอบให้ด้วย") }}</p>
 </div>
 
+{% endif %}
+
 <!-- รายการคอนเทนต์ -->
 {% if content %}
 {% if request.query_params.get('fixing') %}
@@ -141,7 +147,7 @@
   <span style="font-size:14px">{{ _("เฉลี่ย") }} <b style="color:var(--purple)">{{ aeo_summary.avg }}/{{ aeo_summary.max }}</b></span>
   <span class="pill ok">{{ _("ครบ {n} ชิ้น", n=aeo_summary.full) }}</span>
   {% if aeo_summary.low %}<span class="pill admin" style="background:#fff0e6;color:#b4530b">{{ _("ควรปรับ {n} ชิ้น", n=aeo_summary.low) }}</span>{% endif %}
-  {% if aeo_summary.low %}
+  {% if aeo_summary.low and not managed() %}
   <form method="post" action="/brands/{{ brand['id'] }}/content/fix-all"
         data-loading="{{ _("⏳ กำลังเริ่มซ่อม…") }}"
         onsubmit="return confirm({{ (_('สร้างเนื้อหาที่ยังไม่เต็ม {n} ชิ้นใหม่ทั้งหมด?', n=aeo_summary.low) ~ '\n\n• ' ~ _('เนื้อหาเดิมจะถูกเขียนทับ') ~ '\n• ' ~ _('ชิ้นที่เผยแพร่แล้วจะอัปเดตเวอร์ชัน public ให้อัตโนมัติ') ~ '\n• ' ~ _('ทำเบื้องหลัง จะแจ้งเตือนเมื่อเสร็จ'))|tojson|forceescape }});"
@@ -193,6 +199,6 @@
   </table>
 </div>
 {% else %}
-<p class="muted" style="margin-top:14px">{{ _("ยังไม่มีคอนเทนต์ — สร้างจากฟอร์มด้านบน") }}</p>
+<p class="muted" style="margin-top:14px">{{ _("ยังไม่มีคอนเทนต์ — ทีมงานกำลังเตรียมให้") if managed() else _("ยังไม่มีคอนเทนต์ — สร้างจากฟอร์มด้านบน") }}</p>
 {% endif %}
 {% endblock %}

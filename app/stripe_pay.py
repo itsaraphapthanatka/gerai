@@ -171,8 +171,29 @@ def _cycle(q) -> str:
     return Q.cycle_of(q)
 
 
-def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None) -> dict:
+def satang(amount: float) -> str:
+    return str(int(round(float(amount) * 100)))
+
+
+def custom_items(q, company: str = "เจอ.AI") -> dict:
+    """ใบราคาที่เจ้าของตั้งเอง: ราคาแบบ inline (price_data) ไม่ใช้แคตตาล็อก/คูปอง — ยอดต่อรอบตามใบ (บาท → สตางค์) ต่ออายุตามรอบบิล
+    + GEO Setup ครั้งเดียวในบิลแรก (ถ้ามียอด) · VAT ใส่ทีหลังแบบเดียวกับแคตตาล็อก (tax_rates)"""
+    from . import quotes as Q
+    yearly = _cycle(q) == "year"
+    label = Q.label_of(q)
+    p = {"line_items[0][price_data][currency]": CURRENCY, "line_items[0][price_data][unit_amount]": satang(Q.period_total(q)),
+         "line_items[0][price_data][recurring][interval]": "year" if yearly else "month",
+         "line_items[0][price_data][product_data][name]": f"{company} {label} {'รายปี' if yearly else 'รายเดือน'}"[:250],
+         "line_items[0][price_data][product_data][metadata][geo_kind]": "custom", "line_items[0][quantity]": "1"}
+    if q["setup"] and q["setup_price"]:
+        p.update({"line_items[1][price_data][currency]": CURRENCY, "line_items[1][price_data][unit_amount]": satang(q["setup_price"]),
+                  "line_items[1][price_data][product_data][name]": f"{company} GEO Setup (ครั้งเดียว)", "line_items[1][quantity]": "1"})
+    return p
+
+
+def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None, items: dict | None = None) -> dict:
     """Checkout แบบ subscription จากแคตตาล็อก: แพ็กเกจรายเดือน (+คูปองส่วนลด) + GEO Setup ครั้งเดียวในบิลแรก
+    · items = รายการแบบ inline (ใบราคาตั้งเอง — custom_items) แทนราคาแคตตาล็อก
     เก็บเลขผู้เสียภาษีและที่อยู่ออกบิล (ธุรกิจไทยต้องการใบกำกับ) · Stripe เลือกวิธีจ่ายให้เอง (Link, บัตร)"""
     p = {
         "mode": "subscription",
@@ -181,15 +202,18 @@ def checkout_params(q, lead, base: str, prices: dict, coupon: str | None = None)
         "subscription_data[metadata][quote_id]": str(q["id"]), "subscription_data[metadata][domain]": lead["domain"],
         "subscription_data[billing_mode][type]": "flexible",            # โหมดเรียกเก็บแบบยืดหยุ่น (ค่าแนะนำของ Stripe)
         "success_url": f"{base}/q/{q['token']}?paid=1", "cancel_url": f"{base}/q/{q['token']}", "locale": "th",
-        "line_items[0][price]": prices["plan"], "line_items[0][quantity]": "1",
         "tax_id_collection[enabled]": "true", "billing_address_collection": "required",
     }
-    if q["setup"] and prices.get("setup") and _cycle(q) != "year":      # รายปี Setup ฟรี
-        p["line_items[1][price]"] = prices["setup"]
-        p["line_items[1][quantity]"] = "1"
+    if items:
+        p.update(items)
+    else:
+        p["line_items[0][price]"], p["line_items[0][quantity]"] = prices["plan"], "1"
+        if q["setup"] and prices.get("setup") and _cycle(q) != "year":      # รายปี Setup ฟรี
+            p["line_items[1][price]"] = prices["setup"]
+            p["line_items[1][quantity]"] = "1"
     if prices.get("tax_rate"):                                           # ราคาไม่รวม VAT → Stripe บวก VAT ทุกรายการ (รวมบิลต่ออายุ)
         for i in (0, 1):
-            if f"line_items[{i}][price]" in p:
+            if f"line_items[{i}][price]" in p or f"line_items[{i}][price_data][currency]" in p:
                 p[f"line_items[{i}][tax_rates][0]"] = prices["tax_rate"]
     if coupon:
         p["discounts[0][coupon]"] = coupon
@@ -203,6 +227,12 @@ def create_checkout(q, lead, base: str, company: str = "เจอ.AI") -> str:
     if not available():
         raise RuntimeError("ยังไม่ได้ตั้งค่า Stripe")
     from . import quotes as Q
+    if Q.is_custom(q):                                                   # ราคาตั้งเอง → price_data inline (ยอดตามใบ ไม่สร้างราคาในแคตตาล็อก)
+        prices = {"tax_rate": ensure_tax_rate(Q.vat_pct(q)) if Q.vat_pct(q) else None}
+        resp = _post("/checkout/sessions", checkout_params(q, lead, base, prices, items=custom_items(q, company)),
+                     idem=f"geo-checkout-{q['id']}-{int(time.time()) // 600}")
+        db.update_quote(q["id"], stripe_session_id=resp.get("id"))
+        return resp["url"]
     yearly = _cycle(q) == "year"
     kind = q["package"] + ("_year" if yearly else "")
     plan = ensure_price(kind, company, Q.period_total(q) if yearly else None)        # รายปี: ยอดตามใบ (รวมส่วนลดพิเศษแล้ว) ไม่ใช้คูปอง

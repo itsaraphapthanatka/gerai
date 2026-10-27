@@ -13,7 +13,7 @@ PIPELINE = ["new", "contacted", "replied", "quoted", "won"]      # ลำดั�
 NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
 SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง", "email": "อีเมลเข้ามาเอง"}
 EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
-               "replied": "ตอบกลับ / ขอใบเสนอราคา", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
+               "replied": "ตอบกลับ", "wants_call": "🔥 อยากนัดคุย", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
                "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",
                "provisioned": "เปิดบัญชีและแบรนด์", "won": "ปิดดีล", "lost": "ปิดเป็นไม่สนใจ", "unsubscribed": "ขอไม่รับการติดต่อ",
                "note": "บันทึก", "status": "เปลี่ยนสถานะ", "line": "ข้อความ LINE", "prospect": "พบจากการค้นหา",

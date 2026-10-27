@@ -1,8 +1,11 @@
 """ใบเสนอราคาและสัญญาบริการมาตรฐาน (เฟส 2) — ตรรกะล้วน
-ราคามาจากตารางแพ็กเกจเท่านั้น (ห้ามตั้งราคาพิเศษ) · ส่วนลดเป็นเรื่องของ CFO (กรอบใน execs.MANDATE)
+ราคามาจากตารางแพ็กเกจ (ส่วนลดเป็นเรื่องของ CFO กรอบใน execs.MANDATE) หรือราคาที่เจ้าของตั้งเองต่อลูกค้า (custom_price — โหมดเอเจนซี
+เจ้าของคุยกับลูกค้าแล้วตั้งราคา/ขอบเขตงานเอง ไม่ผูกกับตาราง) · ใบแบบเดิม (custom_price ว่าง) คำนวณเหมือนเดิมทุกอย่าง
 สัญญาเป็น "ร่างมาตรฐาน" จนกว่าทนายจะตรวจ (settings contract_reviewed=1) — หน้าเว็บจะติดป้ายบอกลูกค้าตรง ๆ"""
 from __future__ import annotations
 import datetime
+import json
+import re
 
 from . import billing, i18n
 
@@ -39,10 +42,13 @@ def yearly_discount() -> float:
         return float(YEARLY_DISCOUNT_DEFAULT)
 
 
-def price_for(package: str, discount_pct: float = 0, setup: bool = False, cycle: str = "month") -> dict:
-    """คำนวณจากตารางแพ็กเกจ · รายเดือน: ราคา − ส่วนลด + GEO Setup ครั้งเดียว
+def price_for(package: str, discount_pct: float = 0, setup: bool = False, cycle: str = "month",
+              custom: float | None = None, custom_setup: float = 0, custom_year: float | None = None) -> dict:
+    """custom = ราคาต่อเดือนที่เจ้าของตั้งเอง (ไม่ใช้ตาราง/ส่วนลด) → custom_price_for · ไม่ใส่ = คำนวณจากตารางแพ็กเกจ · รายเดือน: ราคา − ส่วนลด + GEO Setup ครั้งเดียว
     · รายปี: 12 เดือน ลด yearly_discount() % (ส่วนลดพิเศษของดีลซ้อนได้อีก) GEO Setup ฟรี จ่ายครั้งเดียวทั้งปี
     คืน net = เทียบต่อเดือน (ใช้กับ CFO/ลีด/KPI) · period_total = ยอดต่อรอบบิล · first_total = ยอดงวดแรก"""
+    if custom is not None:
+        return custom_price_for(package, custom, cycle, custom_setup, custom_year)
     if package not in PACKAGES:
         raise ValueError("แพ็กเกจไม่ถูกต้อง")
     if cycle not in CYCLES:
@@ -63,6 +69,90 @@ def price_for(package: str, discount_pct: float = 0, setup: bool = False, cycle:
             "cycle": "month", "period_total": net, "list_period": plan["price"], "yearly_discount": 0}
 
 
+# ---------- ราคาที่เจ้าของตั้งเอง (โหมดเอเจนซี) ----------
+CUSTOM_LABEL = "แบบกำหนดเอง"          # แพ็กเกจฐาน "แบบกำหนดเอง" — สิทธิ์ใช้งานในแอปเท่า Agency (CUSTOM_BASE) แต่ชื่อ/รายการบนใบตามขอบเขตงาน
+CUSTOM_BASE = "agency"
+MAX_SCOPE_LINES = 30
+
+
+def _f(q, key, default=None):
+    """ค่าคอลัมน์ของใบ (แถวฐานข้อมูลหรือ dict) · ไม่มีคอลัมน์/ว่าง = default"""
+    try:
+        v = q[key] if key in q.keys() else None
+    except Exception:
+        v = q.get(key) if isinstance(q, dict) else None
+    return default if v is None else v
+
+
+def is_custom(q) -> bool:
+    """ใบที่เจ้าของตั้งราคาเอง (มี custom_price) — ใบแบบเดิม = False"""
+    return _f(q, "custom_price") is not None
+
+
+def parse_scope(text: str) -> list[str]:
+    """ขอบเขตงานที่เจ้าของพิมพ์ (บรรทัดละข้อ) → รายการ · ตัด •/-/เลขข้อนำหน้า · ข้ามบรรทัดว่าง"""
+    out = []
+    for ln in (text or "").splitlines():
+        ln = re.sub(r"^\s*(?:[•\-*▪●]|\d+[.)])\s*", "", ln).strip()
+        if ln:
+            out.append(ln[:300])
+    return out[:MAX_SCOPE_LINES]
+
+
+def scope_lines(q) -> list[str]:
+    raw = _f(q, "scope_json") or ""
+    try:
+        v = json.loads(raw) if raw else []
+    except Exception:
+        v = []
+    return [str(x).strip() for x in v if str(x).strip()][:MAX_SCOPE_LINES] if isinstance(v, list) else []
+
+
+def label_of(q, lang: str = "th") -> str:
+    """ชื่อบริการบนใบ: ชื่อที่เจ้าของตั้ง (แบบกำหนดเอง) หรือชื่อแพ็กเกจ"""
+    lb = _f(q, "custom_label")
+    return i18n.tr(lb, lang) if lb else billing.PLANS[q["package"]]["label"]
+
+
+def custom_price_for(package: str, monthly: float, cycle: str = "month", setup_amount: float = 0, year_total: float | None = None) -> dict:
+    """ราคาที่เจ้าของตั้งเอง (≥ 0 บาท ไม่ผูกตาราง ไม่มีเพดานส่วนลด) · รายปี = 12 × ราคา × (1 − ส่วนลดรายปี) เว้นเจ้าของใส่ยอดทั้งปีเอง
+    · GEO Setup = ยอดที่เจ้าของใส่ (0 = ไม่มี) ชำระครั้งเดียวพร้อมงวดแรกทั้งรายเดือนและรายปี · คืนรูปแบบเดียวกับ price_for"""
+    if package not in PACKAGES:
+        raise ValueError("แพ็กเกจไม่ถูกต้อง")
+    if cycle not in CYCLES:
+        raise ValueError("รอบบิลไม่ถูกต้อง")
+    try:
+        monthly = int(round(float(monthly)))
+        setup_amount = int(round(float(setup_amount or 0)))
+        year_total = None if year_total in (None, "") else int(round(float(year_total)))
+    except (TypeError, ValueError):
+        raise ValueError("ราคาต้องเป็นตัวเลข")
+    if monthly < 0 or setup_amount < 0 or (year_total is not None and year_total < 0):
+        raise ValueError("ราคาต้องไม่ติดลบ")
+    plan = billing.PLANS[package]
+    base = {"package": package, "label": plan["label"], "price": monthly, "discount_pct": 0.0, "setup": setup_amount > 0,
+            "setup_price": setup_amount, "setup_list": setup_amount, "perks": plan["perks"], "custom": True}
+    if cycle == "year":
+        yd = yearly_discount()
+        list_period = monthly * 12
+        period_total = year_total if year_total is not None else round(list_period * (1 - yd / 100))
+        return {**base, "net": round(period_total / 12), "first_total": period_total + setup_amount, "cycle": "year",
+                "period_total": period_total, "list_period": list_period, "yearly_discount": yd if year_total is None else None,
+                "year_override": year_total is not None}
+    return {**base, "net": monthly, "first_total": monthly + setup_amount, "cycle": "month", "period_total": monthly,
+            "list_period": monthly, "yearly_discount": 0, "year_override": False}
+
+
+def requote(q, cycle: str | None = None, package: str | None = None) -> dict:
+    """คำนวณใบเดิมใหม่ (เปลี่ยนรอบบิล/แพ็กเกจ) — ใบราคาตั้งเองใช้ราคา/Setup/ยอดรายปีที่เจ้าของตั้งไว้ · ใบแบบเดิมใช้ตาราง"""
+    cycle = cycle or cycle_of(q)
+    package = package or q["package"]
+    if is_custom(q):
+        return custom_price_for(package, _f(q, "custom_price"), cycle, _f(q, "custom_setup", 0),
+                                _f(q, "custom_year") if cycle == "year" else None)
+    return price_for(package, q["discount_pct"], bool(q["setup"]), cycle)
+
+
 def default_cycle() -> str:
     """รอบบิลที่เสนอก่อน — เจ้าของสั่ง 24 ต.ค. ให้เสนอรายปีก่อน (รายเดือนเป็นทางเลือกที่ลูกค้าเปลี่ยนเองได้ในหน้าใบเสนอราคา)"""
     try:
@@ -74,7 +164,10 @@ def default_cycle() -> str:
 
 
 def alternative(q) -> dict:
-    """ราคาอีกรอบบิลของใบเดียวกัน (แพ็กเกจ/ส่วนลด/Setup เดิม) ไว้โชว์เทียบและให้ลูกค้าเปลี่ยน"""
+    """ราคาอีกรอบบิลของใบเดียวกัน (แพ็กเกจ/ส่วนลด/Setup เดิม) ไว้โชว์เทียบและให้ลูกค้าเปลี่ยน
+    · ใบราคาตั้งเอง = None (เจ้าของตกลงรอบบิลกับลูกค้าแล้ว ไม่เสนออีกแบบ)"""
+    if is_custom(q):
+        return None
     other = "month" if cycle_of(q) == "year" else "year"
     pr = price_for(q["package"], q["discount_pct"], bool(q["setup"]), other)
     yearly = pr if other == "year" else price_for(q["package"], q["discount_pct"], bool(q["setup"]), "year")
@@ -147,6 +240,8 @@ def is_expired(q, today: str | None = None) -> bool:
 def summary_text(q, domain: str, lang: str = "th") -> str:
     """สรุปใบเสนอราคาเป็นข้อความ (ใช้ในข้อเสนอของ CEO และอีเมล) · lang = ภาษาของลูกค้า (ข้อเสนอถึงเจ้าของเป็นไทยเสมอ)"""
     t = _tr(lang)
+    if is_custom(q):
+        return _custom_summary(q, domain, lang)
     label = t(billing.PLANS[q['package']]['label'])
     if cycle_of(q) == "year":
         lines = [t("ใบเสนอราคา {number} สำหรับ {dom} (รายปี)", number=q['number'], dom=domain),
@@ -174,6 +269,29 @@ def summary_text(q, domain: str, lang: str = "th") -> str:
     alt = alternative(q)
     lines.append(t("• หรือจ่ายรายปี {total} บาท (ประหยัด {saving} บาท", total=f"{alt['period_total']:,}", saving=f"{alt['saving_year']:,}")
                  + (t(" · GEO Setup ฟรี") if q["setup"] else "") + t(") — เปลี่ยนได้ในหน้าใบเสนอราคา"))
+    return "\n".join(lines)
+
+
+def _custom_summary(q, domain: str, lang: str = "th") -> str:
+    """สรุปใบราคาตั้งเอง: ชื่อบริการ + ราคาที่ตกลง + ขอบเขตงานที่เจ้าของพิมพ์ (ข้อมูล ไม่แปล) + Setup + ยอดงวดแรก · ไม่มีข้อเสนออีกรอบบิล"""
+    t = _tr(lang)
+    label = label_of(q, lang)
+    vat = (t(" + VAT {vat}% = {payable} บาท", vat=f"{vat_pct(q):g}", payable=baht(payable(q))) if vat_pct(q) else "")
+    if cycle_of(q) == "year":
+        lines = [t("ใบเสนอราคา {number} สำหรับ {dom} (รายปี)", number=q['number'], dom=domain),
+                 t("• {label} รายปี {total} บาท/ปี (เทียบ {net} บาท/เดือน · ราคาตามขอบเขตงานที่ตกลง)", label=label,
+                   total=f"{period_total(q):,}", net=f"{q['net']:,}")]
+    else:
+        lines = [t("ใบเสนอราคา {number} สำหรับ {dom}", number=q['number'], dom=domain),
+                 t("• {label} {price} บาท/เดือน (ราคาตามขอบเขตงานที่ตกลง)", label=label, price=f"{q['net']:,}")]
+    scope = scope_lines(q)
+    if scope:
+        lines.append(t("• ขอบเขตงาน:"))
+        lines += [f"   – {x}" for x in scope]
+    if q["setup"] and q["setup_price"]:
+        lines.append(t("• GEO Setup (แก้โครงสร้างเว็บให้บอทอ่านได้) ครั้งเดียว {price} บาท", price=f"{q['setup_price']:,}"))
+    lines.append((t("• ยอดชำระครั้งเดียวทั้งปี {total} บาท", total=f"{q['first_total']:,}") if cycle_of(q) == "year"
+                  else t("• ยอดชำระงวดแรก {total} บาท", total=f"{q['first_total']:,}")) + vat + t(" · ใบเสนอราคาใช้ได้ถึง {date}", date=q['valid_until']))
     return "\n".join(lines)
 
 
@@ -212,14 +330,20 @@ def _tr(lang: str):
 def terms_for(q, lang: str = "th") -> list[str]:
     t = _tr(lang)
     d = refund_days(q)
+    custom = is_custom(q)
     if cycle_of(q) == "year":
         base = [t("ค่าบริการเป็นรายปี ชำระครั้งเดียวล่วงหน้าทั้งปี ต่ออายุอัตโนมัติเมื่อครบปี ยกเลิกการต่ออายุได้ทุกเมื่อ มีผลเมื่อสิ้นปีสัญญา"),
                 (t("ไม่พอใจภายใน {d} วันนับจากชำระ คืนเงินเต็มจำนวน — หลังจากนั้นไม่คืนเงินส่วนที่เหลือของปี แต่ใช้บริการได้จนครบปี", d=d) if d
                  else t("ค่าบริการที่ชำระแล้วไม่คืนเงิน รวมถึงส่วนที่เหลือของปี แต่ใช้บริการได้จนครบปี")),
-                t("GEO Setup ฟรีเมื่อจ่ายรายปี และรายงานผลจริงทุกเดือนเหมือนรายเดือน")]
+                t("ราคาและขอบเขตงานตามที่ตกลงในใบเสนอราคานี้ และรายงานผลจริงทุกเดือน") if custom
+                else t("GEO Setup ฟรีเมื่อจ่ายรายปี และรายงานผลจริงทุกเดือนเหมือนรายเดือน")]
     else:
         base = [t("ค่าบริการเป็นรายเดือน ชำระล่วงหน้าต้นรอบ ยกเลิกได้ทุกเมื่อ มีผลเมื่อสิ้นรอบที่ชำระแล้ว"),
                 (t("ไม่พอใจภายใน {d} วันนับจากชำระงวดแรก คืนเงินเต็มจำนวน", d=d) if d else t("ค่าบริการที่ชำระแล้วไม่คืนเงิน"))]
+        if custom:
+            base.append(t("ราคาและขอบเขตงานตามที่ตกลงในใบเสนอราคานี้ และรายงานผลจริงทุกเดือน"))
+    if custom and q["setup"] and q["setup_price"]:
+        base.append(t("ค่า GEO Setup ชำระครั้งเดียวพร้อมงวดแรก ไม่เรียกเก็บซ้ำเมื่อต่ออายุ"))
     v = vat_pct(q)
     return base + [t(x) for x in TERMS_COMMON] + ([t("ราคายังไม่รวมภาษีมูลค่าเพิ่ม {v}% ซึ่งบวกเพิ่มในยอดชำระและใบกำกับภาษี", v=f"{v:g}")] if v else [])
 
@@ -233,11 +357,14 @@ def contract_sections(company: dict, customer: dict, q, lang: str = "th") -> lis
     cust = customer.get("name") or customer.get("domain") or t("ผู้รับบริการ")
     net = f"{q['net']:,}"
     yearly = cycle_of(q) == "year"
-    items = "; ".join(t(p) for p in plan["perks"])
+    custom = is_custom(q)
+    scope = scope_lines(q) if custom else []
+    perks = [] if (custom and _f(q, "custom_label") and scope) else [t(p) for p in plan["perks"]]   # แบบกำหนดเอง = ตามขอบเขตงานที่พิมพ์ไว้เท่านั้น
+    items = "; ".join(perks + scope)                                  # ขอบเขตงานเป็นข้อมูลที่เจ้าของพิมพ์ — ไม่แปล
     setup_txt = ""
-    if q["setup"]:
+    if q["setup"] and (q["setup_price"] or not custom):
         setup_txt = (" " + t("และงาน GEO Setup ครั้งเดียว (แก้โครงสร้างเว็บให้บอทอ่านได้ ติดตั้ง /geo, llms.txt, sitemap, แก้ robots/canonical/index)") + " "
-                     + (t("โดยไม่มีค่าใช้จ่ายเพิ่มเมื่อชำระรายปี") if yearly else t("ค่าบริการ {price} บาท", price=f"{q['setup_price']:,}")))
+                     + (t("โดยไม่มีค่าใช้จ่ายเพิ่มเมื่อชำระรายปี") if yearly and not custom else t("ค่าบริการ {price} บาท", price=f"{q['setup_price']:,}")))
     vt = vat_pct(q)
     vtxt = ((lambda amt: " " + t("ยังไม่รวมภาษีมูลค่าเพิ่ม ผู้รับบริการชำระภาษีมูลค่าเพิ่มร้อยละ {v} เพิ่ม รวมเป็น {total} บาท", v=f"{vt:g}", total=baht(with_vat(amt, vt))))
             if vt else (lambda amt: ""))
@@ -262,7 +389,8 @@ def contract_sections(company: dict, customer: dict, q, lang: str = "th") -> lis
     return [
         {"h": t("1. คู่สัญญา"), "p": [provider, receiver]},
         {"h": t("2. บริการ"), "p": [
-            t("ผู้ให้บริการให้บริการแพ็กเกจ {label} ของแพลตฟอร์มเจอ.AI ประกอบด้วย {items}{setup}", label=plan["label"], items=items, setup=setup_txt),
+            (t("ผู้ให้บริการให้บริการ {label} ของเจอ.AI ตามขอบเขตงานที่ตกลงในใบเสนอราคา ประกอบด้วย {items}{setup}", label=label_of(q, lang), items=items, setup=setup_txt)
+             if custom else t("ผู้ให้บริการให้บริการแพ็กเกจ {label} ของแพลตฟอร์มเจอ.AI ประกอบด้วย {items}{setup}", label=plan["label"], items=items, setup=setup_txt)),
             t("บริการเริ่มเมื่อผู้ให้บริการยืนยันการชำระงวดแรก และเปิดบัญชีให้ผู้รับบริการเข้าใช้แพลตฟอร์ม"),
         ]},
         {"h": t("3. ค่าบริการและการชำระเงิน"), "p": [

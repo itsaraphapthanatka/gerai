@@ -16,6 +16,7 @@
 {% if lead['notes'] %}<p class="muted" style="font-size:12.5px">{{ lead['notes'] }}</p>{% endif %}
 <p class="muted">สร้างเมื่อ {{ (lead['created_at'] or '')[:16].replace('T',' ') }}{% if lead['last_contacted_at'] %} · ทักล่าสุด {{ lead['last_contacted_at'][:16].replace('T',' ') }}{% endif %}{% if lead['package'] %} · แพ็กเกจ {{ lead['package'] }} {{ "{:,}".format(lead['monthly_thb'] or 0) }} บาท/เดือน{% endif %}</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if wants_call %}<div class="err-banner" style="background:#fff4e5;color:#9a5b00">🔥 ลูกค้าขอนัดคุยเมื่อ {{ (wants_call['created_at'] or '')[:16].replace('T',' ') }} — {{ wants_call['note'] or '' }} · โทรนัดภายในวันนี้ <a class="link" href="/admin/calls/{{ lead['id'] }}">เปิดบทโทร 📞</a> · คุยเสร็จตั้งราคาและส่งใบเสนอราคาด้านล่าง (ระบบไม่ส่งเอง)</div>{% endif %}
 {% if lead['status'] == 'unsubscribed' %}<div class="err-banner">ลูกค้าขอไม่รับการติดต่อเมื่อ {{ (lead['unsub_at'] or '')[:16].replace('T',' ') }} — ระบบไม่ส่งข้อความใด ๆ ถึงรายนี้อีก</div>{% endif %}
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
@@ -81,7 +82,7 @@
         <form method="post" action="/admin/leads/{{ lead['id'] }}/deep"><button class="btn ghost sm" type="submit" {% if not lead['audit_json'] %}disabled{% endif %}>ไต่เว็บใหม่</button></form>
         <form method="post" action="/admin/leads/{{ lead['id'] }}/deep"><input type="hidden" name="ai" value="1"><button class="btn ghost sm" type="submit" {% if not lead['audit_json'] %}disabled{% endif %}>ถาม AI 20 คำถาม (≈฿40)</button></form>
       </div>
-      <div class="muted" style="font-size:11.5px;margin-top:4px">วัด AI อัตโนมัติวันนี้ {{ ai_today }}/{{ ai_daily }} ราย (เมื่อลูกค้าทิ้งช่องทางติดต่อหรือขอใบเสนอราคา) · ปุ่มนี้ไม่นับเพดาน</div>
+      <div class="muted" style="font-size:11.5px;margin-top:4px">วัด AI อัตโนมัติวันนี้ {{ ai_today }}/{{ ai_daily }} ราย (เมื่อลูกค้าทิ้งช่องทางติดต่อหรือขอนัดคุย) · ปุ่มนี้ไม่นับเพดาน</div>
     </div>
   </div>
 
@@ -95,21 +96,37 @@
     {% else %}
       <a class="btn ghost sm" href="/admin/calls/{{ lead['id'] }}">📞 บทโทร</a>
       <form method="post" action="/admin/leads/{{ lead['id'] }}/propose" style="display:inline"><button class="btn sm" type="submit" {% if not lead['audit_json'] %}disabled title="ต้องตรวจเว็บก่อน"{% endif %}>CEO คัด + ร่างข้อความทัก</button></form>
-      <div class="muted" style="font-size:12px;margin-top:6px">หรือสร้างใบเสนอราคาเองด้านล่าง (ถือเป็นการตัดสินใจของคุณ ส่งได้ทันที)</div>
+      <div class="muted" style="font-size:12px;margin-top:6px">ใบเสนอราคาไม่เกิดเอง — คุยกับลูกค้าแล้วตั้งราคาเองด้านล่าง (ถือเป็นการตัดสินใจของคุณ)</div>
     {% endif %}
     <h3 style="font-size:13.5px;margin:14px 0 6px">ใบเสนอราคาใหม่</h3>
-    <form method="post" action="/admin/leads/{{ lead['id'] }}/quote" style="display:grid;gap:8px;font-size:13px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <select name="package" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px">
-          {% for k in packages %}<option value="{{ k }}">{{ plans[k].label }} {{ "{:,}".format(plans[k].price) }} บาท/เดือน</option>{% endfor %}
-        </select>
-        <select name="cycle" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="รายปี: ลด {{ yearly_pct }}% · GEO Setup ฟรี · {{ 'คืนเงินได้เฉพาะ %d วันแรก'|format(refund_days()) if refund_days() else 'ไม่คืนเงิน' }}">
-          <option value="year" {% if default_cycle == 'year' %}selected{% endif %}>รายปี (ลด {{ yearly_pct }}% · Setup ฟรี)</option><option value="month" {% if default_cycle == 'month' %}selected{% endif %}>รายเดือน</option>
-        </select>
-        <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลดพิเศษ %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
+    <form method="post" action="/admin/leads/{{ lead['id'] }}/quote" style="display:grid;gap:8px;font-size:13px" class="qform">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
+        <label><input type="radio" name="pricing" value="custom" checked onchange="this.form.dataset.p=this.value"> ตั้งราคาเอง (บริการแบบเอเจนซี ทีมเราดูแล)</label>
+        <label><input type="radio" name="pricing" value="package" onchange="this.form.dataset.p=this.value"> แพ็กเกจมาตรฐาน (ราคาตาราง — เช่นเอเจนซี/พันธมิตรซื้อ Agency ไปใช้เอง)</label>
       </div>
-      <label style="font-size:12.5px"><input type="checkbox" name="setup" value="1" {% if needs_setup %}checked{% endif %}> รวม GEO Setup ครั้งเดียว {{ "{:,}".format(setup_price) }} บาท (รายปีฟรี){% if needs_setup %} (แนะนำ: เว็บตกข้อโครงสร้าง){% endif %}</label>
-      <label style="font-size:12.5px"><input type="checkbox" name="send" value="1" checked> ส่งให้ลูกค้าทันที (อีเมล/LINE ที่มี)</label>
+      <style>.qform[data-p=package] .only-custom{display:none}.qform:not([data-p=package]) .only-package{display:none}</style>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select name="package" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="แพ็กเกจฐาน = สิทธิ์ใช้งานในแอปของลูกค้า · แบบกำหนดเอง = สิทธิ์เท่า Agency ชื่อบนใบเป็น &quot;{{ custom_label }}&quot;">
+          {% for k in packages %}<option value="{{ k }}">ฐาน {{ plans[k].label }} (ตาราง {{ "{:,}".format(plans[k].price) }} บาท/เดือน)</option>{% endfor %}
+          <option value="custom">{{ custom_label }}</option>
+        </select>
+        <input class="only-custom" type="text" inputmode="numeric" name="price" value="" placeholder="ราคา/เดือน (บาท)" style="width:140px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ราคาที่ตกลงกับลูกค้า (≥ 0) — เว้นว่าง = ใช้ราคาตาราง + ส่วนลดด้านขวา · ต่ำกว่า {{ "{:,}".format(mandate.ai_cost_cap_thb) }} บาท/เดือน CFO จะเตือนว่าขาดทุนค่า AI">
+        <select name="cycle" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="รายปี = 12 × ราคา × (1 − {{ yearly_pct }}%) เว้นใส่ยอดทั้งปีเอง · {{ 'คืนเงินได้เฉพาะ %d วันแรก'|format(refund_days()) if refund_days() else 'ไม่คืนเงิน' }}">
+          <option value="year" {% if default_cycle == 'year' %}selected{% endif %}>รายปี (ลด {{ yearly_pct }}%)</option><option value="month" {% if default_cycle == 'month' %}selected{% endif %}>รายเดือน</option>
+        </select>
+        <input class="only-custom" type="text" inputmode="numeric" name="year_total" value="" placeholder="ยอดทั้งปี (ไม่บังคับ)" style="width:140px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="รายปีเท่านั้น — เว้นว่าง = 12 × ราคา × (1 − {{ yearly_pct }}%)">
+        <input class="only-custom" type="text" inputmode="numeric" name="setup_amount" value="" placeholder="GEO Setup (บาท)" style="width:130px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ค่า GEO Setup ครั้งเดียวพร้อมงวดแรก (ราคาตั้งเอง) · เว้นว่าง/0 = ไม่มี">
+      </div>
+      <textarea class="only-custom" name="scope" rows="4" maxlength="6000" placeholder="ขอบเขตงาน บรรทัดละข้อ (ขึ้นบนใบเสนอราคาและในสัญญาข้อ 2) เช่น&#10;ติดตั้ง llms.txt และ schema ทั้งเว็บ&#10;เขียนบทความตอบคำถามลูกค้า 8 ชิ้น/เดือน&#10;ประชุมสรุปผลทุกเดือน" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px"></textarea>
+      <div class="muted only-custom" style="font-size:11.5px">ขอบเขตงานเป็นข้อความที่คุณพิมพ์ ระบบไม่แปล — ลูกค้าภาษาอื่นให้พิมพ์เป็นภาษาของเขา</div>
+      <div class="only-package">
+        <div class="muted" style="font-size:12px">ราคาตามแพ็กเกจที่เลือกด้านบน · แพ็กเกจ Agency = ลูกค้าใช้แอปดูแลเว็บของเขาเองได้ (เอเจนซี/พันธมิตร)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
+          <input type="number" name="discount_pct" min="0" max="100" step="1" value="0" placeholder="ส่วนลดพิเศษ %" style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px" title="ส่วนลด % (เกิน {{ mandate.max_discount_pct }}% = นอกกรอบ CFO)">
+          <label style="font-size:12.5px"><input type="checkbox" name="setup" value="1" {% if needs_setup %}checked{% endif %}> รวม GEO Setup {{ "{:,}".format(setup_price) }} บาท (รายปีฟรี){% if needs_setup %} (แนะนำ: เว็บตกข้อโครงสร้าง){% endif %}</label>
+        </div>
+      </div>
+      <label style="font-size:12.5px"><input type="checkbox" name="send" value="1"> ส่งให้ลูกค้าทันที (อีเมล/LINE ที่มี) — ไม่ติ๊ก = สร้างเป็นร่าง เปิดดูแล้วกด "ส่ง" ในตารางด้านล่าง</label>
       <div><button class="btn ghost sm" type="submit" {% if lead['status'] == 'unsubscribed' %}disabled{% endif %}>สร้างใบเสนอราคา</button></div>
     </form>
   </div>
@@ -141,7 +158,7 @@
     {% for q in quotes %}
     <tr>
       <td><b>{{ q['number'] }}</b><div class="muted" style="font-size:11.5px">{{ (q['created_at'] or '')[:10] }} · โดย {{ q['created_by'] }}</div></td>
-      <td>{{ q['package'] }}{% if q['cycle'] == 'year' %} <span class="pill ok">รายปี</span>{% endif %}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}</td>
+      <td>{{ label_of(q) if is_custom(q) else q['package'] }}{% if is_custom(q) %} <span class="pill">ราคาตั้งเอง</span>{% endif %}{% if q['cycle'] == 'year' %} <span class="pill ok">รายปี</span>{% endif %}{% if q['setup'] %} + Setup{% endif %}{% if q['discount_pct'] %}<div class="muted" style="font-size:11.5px">ลด {{ "%g"|format(q['discount_pct']) }}%</div>{% endif %}{% if is_custom(q) and scope_of(q) %}<div class="muted" style="font-size:11.5px">ขอบเขต: {{ scope_of(q)|join(' · ')|truncate(120) }}</div>{% endif %}</td>
       <td>{{ "{:,}".format(q['net']) }}</td>
       <td>{{ q_payable(q) }}{% if q['vat_pct'] %}<div class="muted" style="font-size:11px">รวม VAT</div>{% endif %}</td>
       <td><span class="pill {{ 'ok' if q['status'] in ('paid','accepted','claimed') else ('no' if q['status'] in ('expired','cancelled') else '') }}">{{ qstatus.get(q['status'], q['status']) }}</span>{% if q['accepted_name'] %}<div class="muted" style="font-size:11.5px">ยืนยันโดย {{ q['accepted_name'] }}</div>{% endif %}</td>
@@ -157,7 +174,7 @@
     {% endfor %}
     </tbody>
   </table>
-  {% else %}<div style="padding:18px" class="muted">ยังไม่มีใบเสนอราคา — เกิดเองเมื่อลูกค้ากด "ขอใบเสนอราคา" (CEO เสนอให้คุณอนุมัติ) หรือสร้างเองด้านบน</div>{% endif %}
+  {% else %}<div style="padding:18px" class="muted">ยังไม่มีใบเสนอราคา — ระบบไม่สร้างเอง เมื่อลูกค้ากด "นัดคุย 30 นาที" ระบบแจ้งคุณให้โทร คุยเสร็จแล้วตั้งราคาและสร้างด้านบน</div>{% endif %}
 </div>
 
 {% if buyer_quote or acct_docs %}

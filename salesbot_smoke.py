@@ -21,9 +21,9 @@ lead = db.get_lead(lid)
 
 # ---- คลังข้อเท็จจริง ----
 k = " ".join(SB.knowledge(lead))
-assert "9,900 บาท/เดือน" in k and "29,000" in k and "ทดลองใช้ฟรี 14 วัน" in k and "ชำระแล้วไม่คืนเงิน" in k and "คืนเงินเต็ม" not in k
+assert "9,900 บาท/เดือน" in k and "29,000" not in k and "ราคาสุดท้ายขึ้นกับขอบเขตงาน" in k and "30 นาที" in k and "ทดลองใช้ฟรี 14 วัน" in k   # โหมดเอเจนซี: ราคาเริ่มต้น ไม่มีเมนูแพ็กเกจ and "ชำระแล้วไม่คืนเงิน" in k and "คืนเงินเต็ม" not in k
 assert "shop.co.th" in k and "ไม่มี llms.txt" in k and "/audit/tok123" in k or "tok123" in k
-print("knowledge: ราคา/แพ็กเกจ/ทดลอง/คืนเงินจากระบบ + ผลตรวจของลีด OK")
+print("knowledge: ราคาเริ่มต้น (ไม่มีเมนูแพ็กเกจ) · นัดคุย 30 นาที · ทดลอง/คืนเงินจากระบบ + ผลตรวจของลีด OK")
 
 # ---- answer: ผ่านกติกา / ตัวเลขนอกคลัง / นอกกรอบ / ส่วนลด ----
 ok_llm = lambda m: json.dumps({"answer": "Pro 9,900 บาท/เดือน ยังไม่รวม VAT ทดลองฟรี 14 วันได้ครับ", "needs_human": False})
@@ -47,7 +47,8 @@ print("answer: ตัวเลขนอกคลัง/คำต้องห้�
 SB.LLM = ok_llm
 db.update_lead(lid, line_user_id="U1")
 out = P.line_text("U1", "แพ็กเกจ Pro ได้อะไรบ้าง", "rt")
-assert out == "replied_answered" and "9,900" in replies[-1][0] and "ใบเสนอราคา" in replies[-1][0] and "พิมพ์ที่อยู่เว็บ" not in replies[-1][0], (out, replies[-1])
+assert out == "replied_answered" and "9,900" in replies[-1][0] and "30 นาที" in replies[-1][0] and "ใบเสนอราคา" not in replies[-1][0] and "พิมพ์ที่อยู่เว็บ" not in replies[-1][0], (out, replies[-1])
+assert replies[-1][0].count("30 นาที") == 1 and not [q for q in db.list_quotes(lid)]                  # สนใจทาง LINE: ชวนนัดคุยครั้งเดียว ไม่สร้างใบเสนอราคา
 out = P.line_text("U1", "ใช้เวลาติดตั้งนานไหม", "rt"); assert out == "salesbot" and "9,900" in replies[-1][0]
 assert any(e["kind"] == "chat" for e in db.list_lead_events(lid))
 out = P.line_text("U9", "ทำงานยังไง", "rt")                                                      # คนที่ยังไม่มีลีด → ชวนตรวจเว็บท้ายคำตอบ
@@ -55,7 +56,7 @@ assert out == "salesbot" and "พิมพ์ที่อยู่เว็บ" 
 out = P.line_text("U9", "สวัสดีครับ", "rt"); assert out == "help"
 n_alert = len(alerts)
 out = P.line_text("U9", "ขอคุยกับเจ้าหน้าที่หน่อย", "rt")
-assert out == "salesbot_escalated" and replies[-1][0].startswith(SB.HOLD) and len(alerts) == n_alert + 1
+assert out == "salesbot_escalated" and replies[-1][0].startswith(P.call_reply(None)) and len(alerts) == n_alert + 1 and "อยากคุย" in alerts[-1]   # ขอคุยกับคน = นัดคุย + แจ้งเจ้าของ
 SB.set_enabled("line", False); assert P.line_text("U9", "ราคาเท่าไหร่", "rt") == "help"; SB.set_enabled("line", True)
 print("LINE: ตอบทันที · คนใหม่ชวนตรวจเว็บ · ทักทาย = วิธีใช้ · ขอคุยกับคนแจ้งเจ้าของ · ปิดได้ OK")
 

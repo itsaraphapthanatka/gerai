@@ -1,5 +1,5 @@
 """Inbox — อ่านอีเมลที่ลีดตอบกลับมาที่ report@appreview.cloud แล้วทำต่อให้:
-  สนใจ/ถามราคา → นับเป็น "ตอบกลับ" → CEO ทำใบเสนอราคา (หยุดติดตามผลอัตโนมัติ)
+  สนใจ/ถามราคา → นับเป็น "ตอบกลับ" + "อยากนัดคุย" → แจ้งเจ้าของนัดโทร 30 นาที · ตอบลีดทันทีว่าเราจะติดต่อไปนัด (ไม่ส่งใบเสนอราคาเอง · หยุดติดตามผล)
   ถามคำถาม    → นับเป็น "ตอบกลับ" + CEO ร่างคำตอบเป็นข้อเสนอให้เจ้าของอนุมัติก่อนส่ง
   ไม่สนใจ      → ปิดลีด ยกเลิกข้อความที่ค้าง · ขอไม่รับ → บันทึกขอไม่รับ (ไม่ติดต่ออีก)
   ตอบกลับอัตโนมัติ (out of office) → ไม่นับ · อีเมลเด้ง → จดว่าอีเมลใช้ไม่ได้
@@ -23,7 +23,8 @@ AUTO_RE = re.compile(r"(out of office|automatic reply|auto.?reply|autoreply|ต�
 BOUNCE_FROM = re.compile(r"(mailer-daemon|postmaster|mail delivery)", re.I)
 UNSUB_RE = re.compile(r"(unsubscribe|ไม่รับ|เลิกส่ง|หยุดส่ง|อย่าส่ง|remove me|ลบออก|stop)", re.I)
 NO_RE = re.compile(r"(ไม่สนใจ|ไม่ต้องการ|ไม่เอา|not interested|no thanks|no thank you|ไม่ใช่ตอนนี้|มีแล้ว|มีเจ้าประจำ)", re.I)
-YES_RE = re.compile(r"(สนใจ|ราคา|ใบเสนอ|ค่าบริการ|เท่าไหร่|เท่าไร|โทร|นัด|คุย|ติดต่อกลับ|interested|quote|price|call me)", re.I)
+YES_RE = re.compile(r"(สนใจ|ราคา|ใบเสนอ|ค่าบริการ|เท่าไหร่|เท่าไร|โทร|นัด|คุย|ติดต่อกลับ|interested|quote|price|call me"
+                    r"|感兴趣|报价|价格|興味|見積|料金|관심|견적|가격)", re.I)                 # ลีดที่เลือกภาษาอื่นบนเว็บ
 TOKEN_RE = re.compile(r"/(?:audit|u|q)/([A-Za-z0-9_\-]{8,})")
 FETCH_LIMIT = 50
 # อีเมลฟรี — ไม่รู้ว่าเป็นธุรกิจไหน จึงไม่สร้างลีดใหม่จากที่อยู่พวกนี้ (ถ้าตรงกับลีดเดิมยังจับคู่ได้ตามปกติ)
@@ -124,15 +125,16 @@ def classify(m: dict, llm=None) -> str:
     return "question" if "?" in body or "ไหม" in body or "มั้ย" in body else "other"
 
 
-def draft_answer(lead, body: str, llm=None) -> str:
-    """ร่างคำตอบอีเมลลูกค้า · ภาษาตามที่ลีดเลือกบนเว็บ (ไทย = ข้อความ/prompt เดิมทุกตัวอักษร)"""
+def draft_answer(lead, body: str, llm=None, call: bool = False) -> str:
+    """ร่างคำตอบอีเมลลูกค้า · ภาษาตามที่ลีดเลือกบนเว็บ (ไทย = ข้อความ/prompt เดิมทุกตัวอักษร) · call = ลีดสนใจ → ต่อท้ายด้วยการนัดคุย 30 นาที"""
     from . import pipeline, i18n
     llm = llm or LLM
     from . import deliverability as D
     lang = db.row_lang(lead)
     t = lambda x, **kw: i18n.tr(x, lang, **kw)
+    tail = ("\n\n" + pipeline.call_reply(lead, lang)) if call else ""
     base = D.sign(t("สวัสดีครับ ขอบคุณที่ตอบกลับมาครับ") + "\n\n"
-                  + t("เรื่องที่ถามมา ผมขอเช็กให้ชัดแล้วตอบกลับภายในวันนี้ครับ ระหว่างนี้ดูรายละเอียดของเว็บคุณได้ที่ {url}", url=pipeline.result_url(lead)))
+                  + t("เรื่องที่ถามมา ผมขอเช็กให้ชัดแล้วตอบกลับภายในวันนี้ครับ ระหว่างนี้ดูรายละเอียดของเว็บคุณได้ที่ {url}", url=pipeline.result_url(lead)) + tail)
     try:
         if llm is None:
             from . import ai_client
@@ -144,7 +146,7 @@ def draft_answer(lead, body: str, llm=None) -> str:
         b = str((json.loads(mm.group(0)) if mm else {}).get("body") or "").strip()
         from . import execs
         if len(b) >= 40 and not execs.FORBIDDEN.search(b) and not D.wrong_language(b, lang):
-            return D.sign(b)
+            return D.sign(b + tail)
     except Exception:
         pass
     return base
@@ -203,13 +205,17 @@ def process(m: dict, llm=None) -> dict:
         pipeline._cancel_pending(lead["id"], {"outreach", "followup", "lead_review", "quote"}, "ลูกค้าตอบว่าไม่สนใจ")
         action = "ปิดลีดเป็นไม่สนใจ · ยกเลิกข้อความที่ค้าง"
     else:
-        did = pipeline.lead_replied(lead, (m.get("body") or "")[:500], via="อีเมล")
-        action += ("ทักเข้ามาเอง · ตรวจเว็บให้แล้ว" if created else "นับเป็นตอบกลับ · หยุดติดตามผล") + (" · CEO เสนอใบเสนอราคา" if did else "")
-        asks = bool(re.search(r"\?|ไหม|มั้ย|เท่าไ|อะไร|ยังไง|อย่างไร|กี่|ได้บ้าง|ต่างจาก|how|what", strip_quoted(m.get("body") or "")[:1500], re.I))
-        if cat in ("question", "other") or (cat == "interested" and asks):     # สนใจแต่ถามมาด้วย → ตอบคำถามด้วย ไม่ใช่แค่ส่งใบเสนอราคา
-            from . import salesbot
-            res = salesbot.answer(strip_quoted(m.get("body") or "")[:1500], lead, "email", llm) if salesbot.enabled("email") else None
-            ans = res["answer"] if res and res["source"] == "llm" else draft_answer(lead, m.get("body") or "", llm)
+        from . import salesbot
+        body_new = strip_quoted(m.get("body") or "")[:1500]
+        wants = cat == "interested" or salesbot.buying_intent(body_new)          # สัญญาณซื้อ → แจ้งเจ้าของนัดโทร (ไม่ทำใบเสนอราคาเอง)
+        pipeline.lead_replied(lead, (m.get("body") or "")[:500], via="อีเมล", wants_call=wants)
+        action += ("ทักเข้ามาเอง · ตรวจเว็บให้แล้ว" if created else "นับเป็นตอบกลับ · หยุดติดตามผล") + (" · แจ้งเจ้าของนัดโทร 30 นาที" if wants else "")
+        asks = bool(re.search(r"\?|ไหม|มั้ย|เท่าไ|อะไร|ยังไง|อย่างไร|กี่|ได้บ้าง|ต่างจาก|how|what", body_new, re.I))
+        if wants and not asks:                                              # สนใจเฉย ๆ → ตอบทันทีในภาษาของลีด ว่าเราจะติดต่อไปนัดคุย 30 นาที
+            action += " · " + send_call_ack(db.get_lead(lead["id"]), m)
+        if (cat in ("question", "other") and not wants) or (wants and asks):   # ถาม หรือสนใจแต่ถามมาด้วย → ตอบคำถาม (+ ชวนนัดคุย) ร่างรออนุมัติ
+            res = salesbot.answer(body_new, lead, "email", llm) if salesbot.enabled("email") else None
+            ans = res["answer"] if res and res["source"] == "llm" else draft_answer(lead, m.get("body") or "", llm, call=wants)
             esc = (res or {}).get("escalate")
             rd = db.add_decision("salesbot" if res else "ceo", "reply", f"ตอบอีเมล {lead['domain']}" + (f" · ต้องให้คุณดู ({esc})" if esc else ""),
                                  f"ลูกค้าถาม:\n{(m.get('body') or '')[:800]}\n\nร่างคำตอบ:\n{ans}",
@@ -228,6 +234,24 @@ def process(m: dict, llm=None) -> dict:
         except Exception:
             pass
     return {"category": cat, "action": action, "lead_id": lead["id"] if lead else None}
+
+
+def send_call_ack(lead, m: dict) -> str:
+    """ตอบอีเมลลีดที่สนใจทันที (ภาษาของลีด · แบบคนพิมพ์ ที่อยู่ส่งเดียวกับอีเมลทัก): เราจะติดต่อไปนัดคุย 30 นาที — ไม่มีราคา/ใบเสนอราคา"""
+    from . import pipeline, mailer, deliverability, i18n
+    to = (m.get("from") or lead["email"] or "").strip()
+    if lead["status"] == "unsubscribed" or not (to and mailer.is_deliverable(to) and mailer.config()):
+        return "ไม่มีอีเมลที่ตอบกลับได้ — เจ้าของติดต่อเอง"
+    lang = pipeline.lead_lang(lead)
+    subj = "Re: " + (m.get("subject") or i18n.tr("เรื่องเว็บ {dom}", lang, dom=lead["domain"]))[:150]
+    body = deliverability.sign(i18n.tr("สวัสดีครับ ขอบคุณที่ตอบกลับมาครับ", lang) + "\n\n" + pipeline.call_reply(lead, lang)) + pipeline.outreach_footer(lead, lang)
+    try:
+        fa, fn = deliverability.active_from()
+        mailer.send_plain(to, subj, body, pipeline.unsubscribe_url(lead), fa, fn, **mailer.lang_kw(lang))
+    except Exception as e:
+        return f"ตอบรับนัดคุยไม่สำเร็จ ({type(e).__name__}) — เจ้าของติดต่อเอง"
+    pipeline.record(lead["id"], "note", f"ตอบอีเมลแล้ว: ทีมงานจะติดต่อไปนัดคุย 30 นาที (ส่งถึง {to})", "inbox")
+    return f"ตอบลีดแล้วว่าจะติดต่อไปนัดคุย ({to})"
 
 
 def new_lead_from_email(m: dict, llm=None):
@@ -253,10 +277,7 @@ def new_lead_from_email(m: dict, llm=None):
             pipeline.run_lead_audit(lid, site)
             from . import deep_audit
             deep_audit.start(lid)
-            lead = db.get_lead(lid)
-            from . import quotes as Q
-            if lead["status"] == "replied" and not any(q["status"] in Q.OPEN for q in db.list_quotes(lid)):
-                pipeline.propose_quote(lead)                # ตรวจเสร็จแล้วค่อยทำใบเสนอราคา (ตอนอีเมลเข้ายังไม่มีผลตรวจ)
+            # โหมดเอเจนซี: ไม่ทำใบเสนอราคาเอง — ผลตรวจพร้อมไว้ให้เจ้าของคุยในสาย (แจ้งเจ้าของไปแล้วตอนอีเมลเข้า)
         except Exception:
             pass
     pipeline._spawn(audit)
