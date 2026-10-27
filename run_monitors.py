@@ -13,6 +13,7 @@
   python run_monitors.py --all --aiserp     # เช็ค Google AI Overview / AI Mode (SerpApi — ต้องมีคีย์)
   python run_monitors.py --email            # ส่งอีเมลแคมเปญที่ถึงกำหนด (cron รายวัน — ไม่ขึ้นกับแบรนด์)
   python run_monitors.py --autopilot        # รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (cron รายสัปดาห์) · --brand N รันแบรนด์เดียว
+  python run_monitors.py --crm              # เตือนเจ้าของเมื่องานขายถึงกำหนด (ภายใน 15 นาที/เลยกำหนด) ครั้งเดียวต่อนัด (cron ทุก 15 นาที)
 """
 import json
 import os
@@ -184,8 +185,16 @@ def main():
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
     ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
+    ap.add_argument("--crm", action="store_true", help="CRM: เตือนเจ้าของ (กระดิ่ง + LINE · อีเมลเฉพาะนัดประชุม) เมื่องานถัดไปของดีลถึงกำหนดภายใน 15 นาทีหรือเลยกำหนด")
     args = ap.parse_args()
     db.init_db()
+    if args.crm:
+        from app import crm
+        res = crm.run_reminders()
+        if res["n"]:                                       # เงียบเมื่อไม่มีอะไรถึงกำหนด (รันทุก 15 นาที — log ไม่บวม)
+            print(f"crm · {datetime.datetime.now().isoformat(timespec='minutes')} เตือน {res['n']} รายการ: "
+                  + ", ".join(a["domain"] + (" (เลยกำหนด)" if a["overdue"] else "") for a in res["alerted"]))
+        return
     if args.inbox:
         from app import inbox
         res = inbox.poll()

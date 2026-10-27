@@ -100,9 +100,11 @@ LEAD_EVENTS = {
     "cs_report": ("cs", "cs", "ส่งรายงานเดือนให้ {dom}"),
     "cs_risk": ("cs", "risk", "{dom} เสี่ยงหลุด"),
     "call": ("owner", "call", "เจ้าของโทรหา {dom}"),
+    "meeting": ("owner", "call", "เจ้าของประชุมกับ {dom}"),
     "ai_check": ("cto", "audit", "ถาม AI 20 คำถามเรื่อง {dom}"),
 }
-VISITOR_STATUSES = ("new", "contacted", "replied", "quoted", "won")
+VISITOR_STATUSES = ("new", "contacted", "replied", "call", "met", "quoted", "won")
+VISITOR_SEAT = {"call": "replied", "met": "replied"}      # ห้องรับรองมีเก้าอี้ 4 ขั้น: อยากคุย/คุยแล้ว นั่งแถว "ตอบกลับ"
 KIND_TH = {"lead_review": "คัดลูกค้า", "outreach": "ข้อความทัก", "quote": "ใบเสนอราคา", "payment": "ยืนยันยอดเข้า", "post": "โพสต์การตลาด", "followup": "ติดตามผล"}
 CHANNEL_TH = {"line": "LINE OA", "facebook": "Facebook Page"}
 
@@ -311,7 +313,7 @@ def state() -> dict:
         pending = c.execute("SELECT COUNT(*) AS n FROM decisions WHERE status='proposed'").fetchone()["n"]
     n_type = lambda t: sum(1 for e in events if e["type"] == t)
     f = L.funnel(rows)
-    visitors = [{"id": r["id"], "domain": r["domain"], "status": r["status"], "score": r["score"], "src": r["src"] if "src" in r.keys() else None}
+    visitors = [{"id": r["id"], "domain": r["domain"], "status": VISITOR_SEAT.get(r["status"], r["status"]), "score": r["score"], "src": r["src"] if "src" in r.keys() else None}
                 for r in rows if r["status"] in VISITOR_STATUSES][:150]
     lv = live()
     from . import line_oa

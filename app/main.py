@@ -568,8 +568,8 @@ async def api_contact(request: Request):
     if not name or not contact:
         return JSONResponse({"error": "กรุณากรอกชื่อและช่องทางติดต่อ"}, status_code=400)
     db.add_contact(name, contact, plan, message, _i18n.lang_of(request))
-    db.notify_admins(f"📩 ผู้ติดต่อใหม่: {name} ({contact})" + (f" · สนใจ {plan}" if plan else ""),
-                     "/admin/contacts", "contact")
+    pipeline.alert_admins(f"📩 คำขอนัดคุยใหม่: {name}" + (f" · สนใจ {plan}" if plan else "") + " — ผูกกับดีลที่หน้าดีล",
+                          "/admin/deals#requests", "contact")          # กระดิ่ง + LINE (ไม่ส่งอีเมล) · ช่องทางติดต่อดูในแอป ไม่ส่งออกไปใน LINE
     return JSONResponse({"ok": True})
 
 
@@ -1097,7 +1097,8 @@ def _lead_ctx(lead, notice: str = "") -> dict:
     _qs = db.list_quotes(lead["id"])
     _bq = next((x for x in _qs if x["status"] in ("paid", "accepted", "claimed")), None)
     _cb = leads.customer_brand(lead["domain"])
-    return {"customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    from . import crm as _crm
+    return {**_crm.lead_panel(lead), "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -4401,6 +4402,27 @@ def admin_accounting_csv(request: Request, month: str = ""):
                     headers={"Content-Disposition": f'attachment; filename="jerai-accounting-{month}.csv"'})
 
 
+# ---- ลูกค้า (CRM): ลูกค้าที่จ่ายเงินทุกราย · รายได้ประจำ · ครบรอบ · ใครต้องดูแล — อ่านอย่างเดียว (app/crm_customers.py) ----
+@app.get("/admin/customers")
+def admin_customers(request: Request, q: str = "", plan: str = "", attention: str = "", renewing: str = ""):
+    from . import crm_customers
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    return templates.TemplateResponse(request, "admin_customers.html",
+                                      crm_customers.context(q[:100], plan[:20], attention == "1", renewing == "1"))
+
+
+@app.get("/admin/customers.csv")
+def admin_customers_csv(request: Request, q: str = "", plan: str = "", attention: str = "", renewing: str = ""):
+    import datetime as _dt
+    from . import crm_customers
+    if not _is_admin(request):
+        return _redirect("/login")
+    rs = crm_customers.apply_filters(crm_customers.rows(), q[:100], plan[:20], attention == "1", renewing == "1")
+    return Response(crm_customers.csv_text(rs), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="jerai-customers-{_dt.date.today().isoformat()}.csv"'})
+
+
 @app.post("/admin/accounting/run")
 def admin_accounting_run(request: Request):
     from . import accounting
@@ -4640,3 +4662,8 @@ async def inbox_hook(request: Request, secret: str = ""):
         return JSONResponse({"error": "empty or too large"}, status_code=400)
     m = inbox.parse_raw(raw)
     return JSONResponse(inbox.process(m))
+
+
+# ---------- CRM งานขาย: กระดานดีล /admin/deals และฟอร์มบนหน้าลูกค้าเป้าหมาย (app/crm_web.py) ----------
+from .crm_web import router as _crm_router   # noqa: E402
+app.include_router(_crm_router)

@@ -286,7 +286,7 @@ def execute(action: str, args: dict) -> str:
         f = L.funnel(db.list_leads(None, 5000))
         pend = len(db.list_decisions("proposed", 500))
         lines = [f"สถานะ {office.today_bkk()} · {execs.mode_label()}",
-                 f"สายดีล: ใหม่ {f['n'].get('new', 0)} · ทักแล้ว {f['n'].get('contacted', 0)} · ตอบกลับ {f['n'].get('replied', 0)} · เสนอราคา {f['n'].get('quoted', 0)} · ปิดดีล {f['n'].get('won', 0)}",
+                 f"สายดีล: ใหม่ {f['n'].get('new', 0)} · ทักแล้ว {f['n'].get('contacted', 0)} · ตอบกลับ {f['n'].get('replied', 0)} · อยากคุย {f['n'].get('call', 0)} · คุยแล้ว {f['n'].get('met', 0)} · เสนอราคา {f['n'].get('quoted', 0)} · ปิดดีล {f['n'].get('won', 0)}",
                  f"ด่านเฟส {k['phase']}: ผ่าน {k['n_pass']}/{k['n_rows']} · " + " · ".join(f"{r['label']} {r['value']}/{r['target']}" for r in k["rows"] if not r["ok"]),
                  f"รออนุมัติ {pend} เรื่อง"]
         c = closer.status_text()

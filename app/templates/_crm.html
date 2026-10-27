@@ -1,0 +1,43 @@
+{# ชิ้นส่วนร่วมของ CRM (กระดานดีล + หน้าลูกค้าเป้าหมาย) — หน้าแอดมิน ภาษาไทยอย่างเดียว #}
+{% macro styles() %}
+<style>
+  .crm-next{display:grid;gap:8px;font-size:13px;margin:0}
+  .crm-next input[type=text],.crm-next input[type=datetime-local],.crm-next select,.crm-act textarea,.crm-act input[type=text],.crm-act input[type=datetime-local],.crm-act select{
+    width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--border);font:inherit;font-size:13px;background:#fff;color:var(--ink)}
+  .crm-presets{display:flex;gap:6px;flex-wrap:wrap}
+  .crm-chip{display:inline-flex;margin:0;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--ink)}
+  .crm-chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .crm-chip span{display:inline-block;padding:5px 11px;border-radius:9999px;border:1px solid var(--border);background:#fff;white-space:nowrap;transition:background .12s,border-color .12s}
+  .crm-chip:hover span{border-color:var(--ink)}
+  .crm-chip input:checked + span{background:var(--ink);border-color:var(--ink);color:#fff}
+  .crm-chip input:focus-visible + span{box-shadow:0 0 0 3px var(--purple-subtle);border-color:var(--ink)}
+  .crm-next:has(input[name=preset]:checked:not([value=custom])) .crm-at,
+  .crm-act:has(input[name=preset]:checked:not([value=custom])) .crm-at{display:none}
+  .crm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .crm-row select{width:auto;flex:0 0 auto}
+  .crm-row .sp{flex:1}
+  .crm-flag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:9999px;white-space:nowrap}
+  .crm-flag.hot{background:#fff1ec;color:#b5310f}
+  .crm-flag.reply{background:#eef4ff;color:#2952a3}
+  .crm-flag.warn{background:#fff6e0;color:#8a5a00}
+  .crm-flag.late{background:var(--danger-subtle);color:var(--danger-text)}
+  .crm-flag.q{background:var(--canvas);color:var(--cool)}
+  .crm-flag.ok{background:var(--green-subtle);color:var(--green-dark)}
+</style>
+{% endmacro %}
+
+{% macro next_form(lid, c, presets, next_kinds, autofocus=False) %}
+<form method="post" action="/admin/deals/{{ lid }}/next" class="crm-next">
+  <input type="text" name="action" value="{{ c.next_action }}" placeholder="งานถัดไป เช่น โทรนัดสาธิต · ส่งใบเสนอราคา" maxlength="200" required aria-label="งานถัดไป"{% if autofocus %} autofocus{% endif %}>
+  <div class="crm-presets" role="radiogroup" aria-label="เวลา (เวลาไทย)">
+    {% for k, lb in presets %}<label class="crm-chip"><input type="radio" name="preset" value="{{ k }}" {% if (k == 'custom' and c.next_input) or (k == 'tomorrow10' and not c.next_input) %}checked{% endif %}><span>{{ lb }}</span></label>{% endfor %}
+  </div>
+  <input class="crm-at" type="datetime-local" name="at" value="{{ c.next_input }}" aria-label="วันเวลา (เวลาไทย)">
+  <div class="crm-row">
+    <select name="kind" aria-label="ชนิดงาน">{% for k, lb in next_kinds.items() %}<option value="{{ k }}" {% if c.next_kind == k %}selected{% endif %}>{{ lb }}</option>{% endfor %}</select>
+    <span class="sp"></span>
+    {% if c.next_action %}<button class="btn ghost sm" type="submit" name="clear" value="1" formnovalidate>เสร็จแล้ว · ล้าง</button>{% endif %}
+    <button class="btn sm" type="submit">บันทึก</button>
+  </div>
+</form>
+{% endmacro %}

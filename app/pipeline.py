@@ -324,7 +324,7 @@ def wants_call_pending(lead_id: int) -> dict | None:
     """ลีดขอนัดคุยแล้วยังไม่ได้โทร (ไม่มีบันทึกผลโทรหลังจากนั้น) → event ล่าสุด · None = ไม่มี"""
     evs = db.list_lead_events(lead_id, 300)                      # ใหม่ก่อน
     for e in evs:
-        if e["kind"] == "call":
+        if e["kind"] in ("call", "meeting"):
             return None
         if e["kind"] == "wants_call":
             return e
@@ -342,7 +342,9 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
     · ไม่สร้าง/ไม่ส่งใบเสนอราคาเอง — เจ้าของคุยแล้วตั้งราคาและส่งเองจากหน้าลูกค้า · คืน None เสมอ (ไม่มีข้อเสนอให้อนุมัติ)"""
     if lead["status"] == "unsubscribed":
         return None
-    if lead["status"] in ("new", "contacted", "lost"):
+    if wants_call and lead["status"] in ("new", "contacted", "lost", "replied"):
+        db.update_lead(lead["id"], status="call")          # ขั้นดีล "อยากคุย" — รอเจ้าของโทรนัด (ขั้นที่ไกลกว่านี้แล้วคงไว้)
+    elif lead["status"] in ("new", "contacted", "lost"):
         db.update_lead(lead["id"], status="replied")
     msg = (message or "").strip()
     record(lead["id"], "replied", msg[:500] or f"กดคุยต่อผ่าน{via}", actor)

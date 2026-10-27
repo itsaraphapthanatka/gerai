@@ -73,7 +73,7 @@ no_thai(r.text, "report-en")
 r = c.post(f"/audit/{tok}/reply", data={"message": "Tuesday afternoon works"})
 assert r.status_code == 200 and "book a 30-minute call" in r.text and "within this business day" in r.text, r.text[-1500:]
 no_thai(r.text, "report-en-replied")
-assert no_quote(web) and hot(web) and "wants_call" in kinds(web) and db.get_lead(web)["status"] == "replied"
+assert no_quote(web) and hot(web) and "wants_call" in kinds(web) and db.get_lead(web)["status"] == "call"   # ขั้นดีล "อยากคุย"
 top = C.call_list()[0]; assert top["lead"]["id"] == web and top["trigger"]["kind"] == "wants_call" and top["trigger"]["prio"] > 100, top["trigger"]
 r = c.get(f"/audit/{tok}?lang=th"); assert "รับเรื่องแล้ว ทีมเจอ.AI จะติดต่อกลับเพื่อนัดคุย 30 นาที" in r.text
 n = len(alerts); c.post(f"/audit/{tok}/reply", data={}); assert len(alerts) == n and no_quote(web)        # กดซ้ำ: ไม่แจ้งซ้ำ ไม่มีใบ

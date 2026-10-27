@@ -206,7 +206,7 @@
   <div class="item"><div class="lb">{{ _("รายงานผลจริงทุกเดือน") }}</div><div class="why">{{ _("ตัวเลขจาก Search Console และการถาม AI จริง ไม่ใช่ตัวเลขประมาณ") }}</div></div>
 
   {% if sent %}
-    {% if replied or lead['status'] in ('replied', 'quoted') %}
+    {% if replied or lead['status'] in ('replied', 'call', 'met', 'quoted') %}
     <div class="ok">{{ _("รับเรื่องแล้ว ทีมเจอ.AI จะติดต่อกลับเพื่อนัดคุย 30 นาทีภายในวันทำการนี้ พาดูผลตรวจของคุณและวางแผนที่เหมาะกับธุรกิจ") }}</div>
     {% elif lead['status'] == 'won' %}
     <div class="ok">{{ _("คุณเป็นลูกค้าของเจอ.AI แล้ว เข้าสู่ระบบได้ที่") }} <a href="/login">/login</a></div>

@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}ลูกค้า — เจอ.AI{% endblock %}
+{% block content %}
+<style>
+  .cu-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:6px}
+  .cu-head h1{margin:0;display:flex;align-items:center;gap:10px}
+  .cu-sub{color:var(--cool);font-size:14.5px;line-height:1.6;margin:8px 0 0;max-width:68ch}
+  .cu-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:22px 0 4px}
+  .cu-kpi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;text-decoration:none;color:inherit;display:block;min-width:0}
+  a.cu-kpi:hover{border-color:var(--ink)}
+  .cu-kpi .lb{font-size:12.5px;color:var(--cool)}
+  .cu-kpi .n{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cu-kpi .n small{font-size:12.5px;font-weight:500;color:var(--silver);letter-spacing:0;margin-left:3px}
+  .cu-kpi .ft{font-size:12px;color:var(--silver);margin-top:4px;line-height:1.45}
+  .cu-kpi.warn .n{color:var(--danger-text)}
+  .cu-note{font-size:12.5px;color:var(--cool);background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:10px 14px;margin:10px 0 0;line-height:1.6}
+  .cu-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:22px 0 10px}
+  .cu-bar input[type=search]{flex:1 1 220px;width:auto;padding:9px 13px;font-size:14px;border-radius:9999px}
+  .cu-bar select{width:auto;padding:9px 13px;font-size:14px;border-radius:9999px}
+  .cu-tog{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--cool);border:1px solid var(--border);border-radius:9999px;padding:7px 13px;background:#fff;cursor:pointer;margin:0;white-space:nowrap}
+  .cu-tog input{margin:0}
+  .cu-tog:has(input:checked){background:var(--ink);border-color:var(--ink);color:#fff}
+  .cu-tog .c{font-variant-numeric:tabular-nums;opacity:.8}
+  .cu-bar .clear{font-size:13px;color:var(--cool)}
+  .cu-count{font-size:12.5px;color:var(--silver);margin:0 0 8px}
+  .cu-list{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .cu-list table{margin:0;font-size:13.5px}
+  .cu-list th{padding:11px 14px;border-bottom:1px solid var(--border);border-radius:0;white-space:nowrap}
+  .cu-list td{padding:14px;border-bottom:1px solid var(--border)}
+  .cu-list tr:last-child td{border-bottom:0}
+  .cu-list tr.att td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
+  .cu-nm b{display:block;font-size:14.5px;line-height:1.35;overflow-wrap:anywhere}
+  .cu-nm .dom{font-size:12.5px;color:var(--cool);overflow-wrap:anywhere}
+  .cu-nm .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+  .cu-links{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:9px;font-size:12.5px}
+  .cu-links a{color:var(--cool);text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px}
+  .cu-links a:hover{color:var(--ink);text-decoration-color:var(--coral)}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cu-money b{font-size:15px}
+  .sm{font-size:12px;color:var(--silver);line-height:1.5}
+  .cu-pay{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:13px}
+  .cu-pay::before{content:"";width:7px;height:7px;border-radius:9999px;background:var(--silver);flex:none}
+  .cu-pay.paid::before{background:var(--green)}
+  .cu-pay.open::before,.cu-pay.claimed::before{background:#e0a100}
+  .cu-pay.overdue{color:var(--danger-text)}.cu-pay.overdue::before{background:var(--danger)}
+  .cu-res{display:grid;gap:3px;font-size:12.5px;color:var(--cool)}
+  .cu-res b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .up{color:var(--green-dark);font-weight:600}.down{color:var(--danger-text);font-weight:600}.flat{color:var(--silver)}
+  .cu-flags{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+  .cu-flag{display:inline-block;white-space:nowrap;font-size:12px;font-weight:600;padding:3px 9px;border-radius:9999px;background:var(--danger-subtle);color:var(--danger-text);cursor:help}
+  .cu-flag.soft{background:#fff6e0;color:#8a5a00}
+  .cu-okay{font-size:12.5px;color:var(--green-dark);font-weight:600}
+  .cu-empty{text-align:center;padding:48px 20px}
+  .cu-empty h2{border:0;margin:0 0 8px;padding:0}
+  .cu-empty p{color:var(--cool);font-size:14px;line-height:1.65;max-width:52ch;margin:0 auto 16px}
+  .lbl-m{display:none}
+  .nw{white-space:nowrap}
+  .cu-list th.c-flags{width:1%}
+  @media (max-width:1100px){.cu-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (max-width:720px){
+    .cu-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cu-kpi .n{font-size:22px}
+    .cu-kpi:last-child{grid-column:1 / -1}
+    .cu-list{background:none;border:0;border-radius:0;overflow:visible}
+    .cu-list thead{display:none}
+    .cu-list table,.cu-list tbody{display:block}
+    .cu-list tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+    .cu-list tr.att{border-left:3px solid var(--danger)}
+    .cu-list tr.att td:first-child{box-shadow:none}
+    .cu-list td{display:block;padding:0;border:0;min-width:0}
+    .cu-list td.c-nm,.cu-list td.c-flags{grid-column:1 / -1}
+    .cu-list td.c-flags{order:-1}
+    .cu-list td.c-flags:empty{display:none}
+    .lbl-m{display:block;font-size:12px;font-weight:600;color:var(--silver);margin-bottom:3px}
+    .cu-flags{flex-direction:row;flex-wrap:wrap}
+  }
+</style>
+
+<div class="cu-head">
+  <div>
+    <h1>ลูกค้า <span class="pill">{{ k.active }} ราย</span></h1>
+    <p class="cu-sub">ลูกค้าที่จ่ายเงินทุกรายในที่เดียว — รายได้ประจำ ครบรอบบิล การชำระ และผลล่าสุด เรียงคนที่ต้องดูแลก่อน · ตัวเลขเงินไม่รวม VAT</p>
+  </div>
+  {% if total %}<a class="btn ghost sm" href="/admin/customers.csv?q={{ f.q|urlencode }}&plan={{ f.plan|urlencode }}{% if f.attention %}&attention=1{% endif %}{% if f.renewing %}&renewing=1{% endif %}">ส่งออก CSV</a>{% endif %}
+</div>
+
+<div class="cu-kpis">
+  <div class="cu-kpi"><div class="lb">ลูกค้าที่ใช้งาน</div><div class="n">{{ k.active }}</div>
+    <div class="ft">{% if k.inactive %}กลับเป็นแผนฟรี {{ k.inactive }} ราย{% else %}บัญชีแผนเสียเงิน{% endif %}</div></div>
+  <div class="cu-kpi"><div class="lb">รายได้ประจำ / เดือน</div><div class="n">{{ baht(k.mrr|round) }}<small>บาท</small></div>
+    <div class="ft">{% if k.mrr_vat %}+ VAT {{ baht(k.mrr_vat|round) }} บาท{% else %}ไม่รวม VAT{% endif %}</div></div>
+  <div class="cu-kpi"><div class="lb">รายได้ประจำ / ปี</div><div class="n">{{ baht(k.arr|round) }}<small>บาท</small></div>
+    <div class="ft">MRR × 12</div></div>
+  <a class="cu-kpi" href="/admin/customers?renewing=1"><div class="lb">ครบรอบบิลใน {{ window }} วัน</div><div class="n">{{ k.renew_n }}<small>ราย</small></div>
+    <div class="ft">{{ baht(k.renew_amount) }} บาท{% if k.renew_vat %} + VAT {{ baht(k.renew_vat) }}{% endif %}{% if k.renew_year %} · รายปี {{ k.renew_year }}{% endif %}</div></a>
+  <a class="cu-kpi {{ 'warn' if k.overdue_n or k.stripe_overdue }}" href="/admin/accounting"><div class="lb">ค้างชำระ</div><div class="n">{{ k.overdue_n }}<small>ใบ</small></div>
+    <div class="ft">{% if k.overdue_n %}{{ baht(k.overdue_amount) }} บาท (รวม VAT){% else %}ไม่มีใบเลยกำหนด{% endif %}{% if k.stripe_overdue %} · ตัดบัตรไม่ผ่าน {{ k.stripe_overdue }}{% endif %}</div></a>
+</div>
+{% if k.noquote_n %}
+<div class="cu-note">บัญชีแผนเสียเงิน {{ k.noquote_n }} รายยังไม่มีใบเสนอราคาที่ชำระแล้ว จึงไม่นับในรายได้ประจำ (ถ้าคิดตามราคาแพ็กเกจ = {{ baht(k.noquote_list) }} บาท/เดือน) · ออกใบเสนอราคาจากหน้าลีด ระบบบัญชีจะออกใบแจ้งหนี้และนับรายได้ให้เอง</div>
+{% endif %}
+
+{% if not total %}
+<div class="card cu-empty">
+  <h2>ยังไม่มีลูกค้าที่จ่ายเงิน</h2>
+  <p>เมื่อลูกค้ายืนยันใบเสนอราคาและชำระเงิน หรือคุณเปิดแผนเสียเงินให้บัญชีใด บัญชีนั้นจะขึ้นที่นี่พร้อมรายได้ รอบบิล และผลงาน</p>
+  <a class="btn sm" href="/admin/leads">ไปที่ลีด</a>
+</div>
+{% else %}
+<form class="cu-bar" method="get" action="/admin/customers">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="ค้นหาชื่อ แบรนด์ โดเมน อีเมล" aria-label="ค้นหาลูกค้า">
+  <select name="plan" aria-label="แผน" onchange="this.form.submit()">
+    <option value="">ทุกแผน</option>
+    {% for key, label in plans %}<option value="{{ key }}" {{ 'selected' if f.plan == key }}>{{ label }}</option>{% endfor %}
+  </select>
+  <label class="cu-tog"><input type="checkbox" name="attention" value="1" {{ 'checked' if f.attention }} onchange="this.form.submit()"> ต้องดูแล <span class="c">{{ k.attention }}</span></label>
+  <label class="cu-tog"><input type="checkbox" name="renewing" value="1" {{ 'checked' if f.renewing }} onchange="this.form.submit()"> ครบรอบใน {{ window }} วัน <span class="c">{{ k.renew_n }}</span></label>
+  <button class="sm" type="submit">ค้นหา</button>
+  {% if f.q or f.plan or f.attention or f.renewing %}<a class="clear" href="/admin/customers">ล้างตัวกรอง</a>{% endif %}
+</form>
+<p class="cu-count">แสดง {{ rows|length }} จาก {{ total }} บัญชี</p>
+
+{% if rows %}
+<div class="cu-list">
+<table>
+  <thead><tr><th>ลูกค้า</th><th>รายได้ · รอบบิล</th><th>การชำระ</th><th>ผลล่าสุด</th><th class="c-flags">ต้องดูแล</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr class="{{ 'att' if r.flags }}">
+    <td class="c-nm">
+      <div class="cu-nm">
+        <b>{{ r.name }}</b>
+        <span class="dom">{% if r.brand and r.brand.name != r.name %}{{ r.brand.name }} · {% endif %}{{ r.domain or 'ยังไม่มีแบรนด์' }}{% if r.n_brands > 1 %} · +{{ r.n_brands - 1 }} แบรนด์{% endif %}</span>
+        <div class="tags">
+          <span class="pill {{ 'admin' if r.plan_key == 'custom' else '' }}">{{ r.plan_label }}{% if r.custom_label %} · {{ r.custom_label }}{% endif %}</span>
+          <span class="pill">{{ 'ใช้เอง' if r.self_serve else 'ทีมดูแล' }}</span>
+          {% if not r.active %}<span class="pill no">แผนฟรี</span>{% endif %}
+        </div>
+      </div>
+      <div class="cu-links">
+        {% if r.brand %}<a href="/brands/{{ r.brand.id }}">แบรนด์</a><a href="/brands/{{ r.brand.id }}/report">รายงานเดือน</a>{% endif %}
+        {% if r.lead_id %}<a href="/admin/leads/{{ r.lead_id }}">ลีด</a>{% endif %}
+        {% if r.quote_token %}<a href="/q/{{ r.quote_token }}" target="_blank" rel="noopener">ใบเสนอราคา {{ r.quote_number }}</a>{% endif %}
+        {% if r.pay.invoice %}<a href="/bill/{{ r.pay.invoice.token }}" target="_blank" rel="noopener">ใบแจ้งหนี้ {{ r.pay.invoice.number }}</a>{% endif %}
+        {% if r.pay.receipt %}<a href="/doc/{{ r.pay.receipt.token }}" target="_blank" rel="noopener">ใบเสร็จ {{ r.pay.receipt.number }}</a>{% endif %}
+      </div>
+    </td>
+    <td class="c-money">
+      <span class="lbl-m">รายได้ · รอบบิล</span>
+      {% if r.has_quote and r.active %}
+        <div class="cu-money num"><b>{{ baht(r.mrr|round) }}</b> <span class="sm">บาท/เดือน</span></div>
+        <div class="sm">{{ r.cycle_label }}{% if r.cycle == 'year' %} · ปีละ {{ baht(r.period_amount) }}{% endif %}{% if r.vat_pct %} · +VAT {{ r.vat_pct|round(0)|int }}%{% endif %}{% if r.n_quotes > 1 %} · {{ r.n_quotes }} ใบ{% endif %}</div>
+      {% elif r.active %}
+        <div class="sm">ไม่มีใบเสนอราคา<br>ราคาแพ็กเกจ {{ baht(r.list_price) }} บาท/เดือน</div>
+      {% else %}
+        <div class="cu-money num"><b>0</b> <span class="sm">บาท/เดือน</span></div>
+      {% endif %}
+      <div class="sm" style="margin-top:6px">ลูกค้าตั้งแต่ {{ th_date(r.since|string) if r.since else '—' }}</div>
+      {% if r.next_date %}<div class="sm">ครบรอบ <b class="num" style="color:var(--ink)">{{ th_date(r.next_date|string) }}</b> · <span class="nw">{% if r.next_in == 0 %}วันนี้{% else %}อีก {{ r.next_in }} วัน{% endif %}</span></div>{% endif %}
+    </td>
+    <td class="c-pay">
+      <span class="lbl-m">การชำระ</span>
+      <span class="cu-pay {{ r.pay.key }}">{{ r.pay.label }}</span>
+      {% if r.pay.amount %}<div class="sm num">{{ baht(r.pay.amount) }} บาท (รวม VAT)</div>{% endif %}
+    </td>
+    <td class="c-res">
+      <span class="lbl-m">ผลล่าสุด</span>
+      <div class="cu-res">
+        {% if r.sov %}<span>SoV <b>{{ r.sov.pct|round(1) }}%</b>
+          {% if r.sov.delta is not none %}<span class="{{ 'up' if r.sov.delta > 0 else ('down' if r.sov.delta < 0 else 'flat') }}">{{ '%+.1f'|format(r.sov.delta) }}</span>{% endif %}</span>
+        {% else %}<span class="sm">ยังไม่มีผลวัด SoV</span>{% endif %}
+        {% if r.ai %}<span class="nw">AI เอ่ยถึง {% if r.ai.first is not none %}<b>{{ r.ai.first }}→{{ r.ai.last }}</b>{% else %}<b>{{ r.ai.last }}</b>{% endif %} จาก {{ r.ai.asked }}</span>{% endif %}
+        {% if r.health %}<span>สุขภาพเว็บ {% if r.health.ok %}<span class="up">ผ่าน</span>{% else %}<span class="down">ต้องแก้ {{ r.health.fail }} ข้อ</span>{% endif %}</span>{% endif %}
+      </div>
+    </td>
+    <td class="c-flags">{% if r.flags %}<div class="cu-flags">{% for fl in r.flags %}<span class="cu-flag {{ 'soft' if fl.key in ('content', 'flat') }}" title="{{ fl.detail }}">{{ fl.label }}</span>{% endfor %}</div>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="card cu-empty"><p>ไม่มีบัญชีที่ตรงกับตัวกรองนี้</p><a class="btn ghost sm" href="/admin/customers">ล้างตัวกรอง</a></div>
+{% endif %}
+{% endif %}
+{% endblock %}

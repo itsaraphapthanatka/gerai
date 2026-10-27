@@ -6,10 +6,11 @@ import re
 import secrets
 from urllib.parse import urlparse
 
-STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("replied", "ตอบกลับ"),
+STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("replied", "ตอบกลับ"), ("call", "อยากคุย"), ("met", "คุยแล้ว"),
             ("quoted", "เสนอราคาแล้ว"), ("won", "ปิดดีล"), ("lost", "ไม่สนใจ"), ("unsubscribed", "ขอไม่รับการติดต่อ")]
 STATUS_LABEL = dict(STATUSES)
-PIPELINE = ["new", "contacted", "replied", "quoted", "won"]      # ลำดับขั้นดีล (lost / unsubscribed อยู่นอกสาย)
+# ลำดับขั้นดีล (lost / unsubscribed อยู่นอกสาย) · call = ลีดขอนัดคุย รอเจ้าของโทร · met = เจ้าของคุย/ประชุมแล้ว รอตั้งราคาส่งใบเสนอ
+PIPELINE = ["new", "contacted", "replied", "call", "met", "quoted", "won"]
 NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
 SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง", "email": "อีเมลเข้ามาเอง"}
 EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
@@ -24,7 +25,13 @@ EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข�
                "acct_receipt": "บัญชี: ออกใบเสร็จ", "acct_invoice": "บัญชี: ออกใบแจ้งหนี้", "acct_reminder": "บัญชี: เตือนชำระ",
                "acct_overdue": "บัญชี: ค้างชำระ", "bounced": "อีเมลเด้ง", "complained": "ร้องเรียนว่าเป็นสแปม",
                "partner_ref": "มาจากพันธมิตร", "chat": "แชตถามคำถาม", "exp_offer": "ขยายบัญชี: เสนอ", "exp_sent": "ขยายบัญชี: ส่งข้อเสนอ",
-               "exp_upgraded": "ขยายบัญชี: อัปเกรดแล้ว"}
+               "exp_upgraded": "ขยายบัญชี: อัปเกรดแล้ว", "meeting": "ประชุม", "email_out": "ส่งอีเมล (เจ้าของ)",
+               "next_action": "ตั้งงานถัดไป", "contact_request": "คำขอนัดคุยจากหน้าเว็บ", "deal_value": "แก้มูลค่าดีล"}
+# ไอคอนในไทม์ไลน์หน้าลูกค้า (ไม่มี = จุด)
+EVENT_ICON = {"call": "📞", "meeting": "🤝", "line": "💬", "email_out": "✉️", "note": "📝", "wants_call": "🔥", "replied": "↩️",
+              "contacted": "📤", "followup": "📤", "audit": "🔎", "deep_audit": "🔎", "ai_check": "🤖", "quote_sent": "📄", "quote_viewed": "👀",
+              "quote_accepted": "✅", "payment_claimed": "💸", "paid": "💰", "won": "🎉", "lost": "✖️", "unsubscribed": "⛔", "status": "↔️",
+              "next_action": "⏰", "contact_request": "📩", "opened": "👀", "bounced": "⚠️", "deal_value": "฿"}
 LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ
@@ -169,7 +176,7 @@ def funnel(rows) -> dict:
         n[r["status"]] = n.get(r["status"], 0) + 1
     reached = lambda stage: sum(n.get(k, 0) for k in PIPELINE[PIPELINE.index(stage):])
     contacted, replied, won = reached("contacted"), reached("replied"), n.get("won", 0)
-    return {"n": n, "contacted": contacted, "replied": replied, "quoted": reached("quoted"), "won": won,
+    return {"n": n, "contacted": contacted, "replied": replied, "call": reached("call"), "met": reached("met"), "quoted": reached("quoted"), "won": won,
             "reply_rate": round(replied / contacted * 100) if contacted else None,
             "close_rate": round(won / replied * 100) if replied else None}
 

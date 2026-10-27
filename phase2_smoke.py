@@ -48,7 +48,7 @@ print("outreach: ส่งอีเมลพร้อมลิงก์ติด
 # ---- 2) ลูกค้าเปิดจากอีเมล → กดนัดคุย → แจ้งเจ้าของนัดโทร (ไม่มีใบเสนอราคาเอง) → เจ้าของสร้างใบเอง ----
 c.get(f"/audit/{token}?via=mail"); assert "opened" in kinds(lead["id"])
 r = c.post(f"/audit/{token}/reply", data={"message": "สนใจครับ"}); assert "นัดคุย 30 นาที" in r.text and "ใบเสนอราคา" not in r.text.split("รับเรื่องแล้ว", 1)[-1][:200]
-assert db.get_lead(lead["id"])["status"] == "replied" and "wants_call" in kinds(lead["id"])
+assert db.get_lead(lead["id"])["status"] == "call" and "wants_call" in kinds(lead["id"])      # ขอนัดคุย = ขั้นดีล "อยากคุย"
 assert not [d for d in db.list_decisions(None, 100) if d["kind"] == "quote"] and not db.list_quotes(lead["id"])      # ไม่มีใบเสนอราคา/ข้อเสนอเอง
 a.post(f"/admin/leads/{lead['id']}/quote", data={"package": "pro", "cycle": "year", "setup": "1"})      # เจ้าของคุยแล้วสร้างเอง (ราคาตาราง · ร่าง)
 q = db.list_quotes(lead["id"])[0]
@@ -135,7 +135,7 @@ db.set_setting("auto_quote", "1"); db.set_setting("auto_override_quote", "1"); a
 r = c.post("/audit", data={"url": "seven.co.th"}); t7 = str(r.url).rsplit("/", 1)[-1]
 c.post(f"/audit/{t7}/contact", data={"email": "hi@seven.co.th", "consent": "1"})
 sent.clear(); c.post(f"/audit/{t7}/reply", data={})
-l7 = db.get_lead_by_token(t7); assert not db.list_quotes(l7["id"]) and l7["status"] == "replied" and not any("/q/" in m[2] for m in sent)
+l7 = db.get_lead_by_token(t7); assert not db.list_quotes(l7["id"]) and l7["status"] == "call" and not any("/q/" in m[2] for m in sent)
 did_q = P.propose_quote(db.get_lead(l7["id"])); assert db.get_decision(did_q)["status"] == "proposed"      # ร่างที่ CEO ทำ (เมื่อสั่ง) รอเจ้าของกดส่งเสมอ
 assert P.run_pending_auto("quote") == 0 and db.get_decision(did_q)["status"] == "proposed" and db.list_quotes(l7["id"])[0]["status"] == "draft"
 r = a.post("/admin/decisions/auto", data={"kind": "quote", "on": "1", "override": "1"}); assert "สลับไม่ได้" in r.text
@@ -177,7 +177,7 @@ assert any(p[0] == "/message/reply" for p in pushes) and any(p[0] == "/message/p
 body = ev("four.co.th"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["cached"]
 body = ev("สนใจครับ"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["replied"]
 assert "30 นาที" in pushes[-1][1]["messages"][0]["text"] and "ใบเสนอราคา" not in pushes[-1][1]["messages"][0]["text"]
-l4 = db.get_lead(l4["id"]); assert l4["status"] == "replied" and l4["consent"] == 1 and "wants_call" in kinds(l4["id"])
+l4 = db.get_lead(l4["id"]); assert l4["status"] == "call" and l4["consent"] == 1 and "wants_call" in kinds(l4["id"])
 assert not any(d["kind"] == "quote" and d["lead_id"] == l4["id"] for d in db.list_decisions(None, 200)) and not db.list_quotes(l4["id"])
 body = ev("สวัสดี"); assert c.post("/line/webhook", content=body, headers={"X-Line-Signature": sign(body)}).json()["handled"] == ["help"]
 code = LO.link_code(); body = ev(code, uid="UOWNER")

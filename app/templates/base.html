@@ -205,7 +205,10 @@
     <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> {{ _("รหัสผ่าน") }}</a>
     {% if request.session.get('is_admin') %}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> {{ _("ผู้ดูแลระบบ") }}</a>
-    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> {{ _("ผู้ติดต่อ") }}{% set _nc = new_contacts_count(request) %}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
+    {% set _nc = new_contacts_count(request) %}
+    <a href="/admin/deals" class="{{ 'active' if _path.startswith('/admin/deals') }}"><span class="icon">🗂️</span> {{ _("ดีล") }}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
+    <a href="/admin/customers" class="{{ 'active' if _path.startswith('/admin/customers') }}"><span class="icon">💼</span> {{ _("ลูกค้า") }}</a>
+    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> {{ _("ผู้ติดต่อ") }}</a>
     <a href="/admin/leads" class="{{ 'active' if _path.startswith('/admin/leads') }}"><span class="icon">🎯</span> {{ _("ลูกค้าเป้าหมาย") }}</a>
     <a href="/admin/decisions" class="{{ 'active' if _path.startswith('/admin/decisions') }}"><span class="icon">🧭</span> {{ _("การตัดสินใจ") }}</a>
     <a href="/admin/office" class="{{ 'active' if _path.startswith('/admin/office') }}"><span class="icon">🏢</span> {{ _("ออฟฟิศ") }}</a>

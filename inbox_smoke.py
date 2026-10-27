@@ -31,7 +31,7 @@ def raw(frm, subj, body, to="report@appreview.cloud", mid=None, extra=""):
 
 m = I.parse_raw(raw("Khun A <info@a.co.th>", "Re: ผลตรวจเว็บ a.co.th", "สนใจครับ ขอใบเสนอราคาหน่อย\n\nOn Mon, เจอ.AI wrote:\n> ผลตรวจ https://x/audit/tokacothxx"))
 assert m["body"] == "สนใจครับ ขอใบเสนอราคาหน่อย" and m["from"] == "info@a.co.th"
-r = I.process(m); assert r["category"] == "interested" and db.get_lead(A)["status"] == "replied" and F.history(A)["replied"]
+r = I.process(m); assert r["category"] == "interested" and db.get_lead(A)["status"] == "call" and F.history(A)["replied"]   # สนใจ = ขั้นดีล "อยากคุย"
 assert not any(d["kind"] == "quote" and d["lead_id"] == A for d in db.list_decisions(None, 50)) and not db.list_quotes(A)       # โหมดเอเจนซี: ไม่ทำใบเสนอราคาเอง
 assert any(e["kind"] == "wants_call" for e in db.list_lead_events(A)) and "นัดโทร" in r["action"]
 assert sent and sent[-1][0] == "info@a.co.th" and "30 นาที" in sent[-1][2] and "/u/" in sent[-1][2]                            # ตอบลีดทันทีว่าจะติดต่อไปนัดคุย

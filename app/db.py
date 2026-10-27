@@ -542,6 +542,12 @@ def init_db() -> None:
         for t in ("leads", "tenants", "partners", "contacts", "sales_chats"):
             _ensure_column(c, t, "lang", "TEXT DEFAULT 'th'")
         _ensure_column(c, "tenants", "self_serve", "INTEGER")   # ใช้แอปเองได้ไหมในโหมดเอเจนซี: NULL = ตามแผน (Agency/ไม่จำกัด ใช้เอง) · 1 ใช้เอง · 0 ทีมดูแล                     # ภาษาที่ลูกค้าเลือกบนเว็บ (th en zh ja ko) — อีเมลถึงเขาใช้ภาษานี้
+        # CRM งานขาย (หน้า /admin/deals): มูลค่าดีล/เดือน · งานถัดไป + เวลา (เวลาเครื่องแบบไม่มีโซน เหมือน now()) · เตือนแล้วเมื่อไร · คำขอนัดคุยผูกกับดีลไหน
+        for col, ddl in (("deal_value", "INTEGER"), ("next_action", "TEXT"), ("next_at", "TEXT"), ("next_kind", "TEXT"), ("next_alerted_at", "TEXT")):
+            _ensure_column(c, "leads", col, ddl)
+        _ensure_column(c, "contacts", "lead_id", "INTEGER")
+        c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
+            id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -1374,7 +1380,8 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang"}
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang",
+               "deal_value", "next_action", "next_at", "next_kind", "next_alerted_at"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1977,3 +1984,54 @@ def list_ai_visibility(brand_id: int, limit: int = 12) -> list:
 def list_ai_serp(brand_id: int, limit: int = 12) -> list:
     with get_conn() as c:
         return c.execute(q("SELECT * FROM ai_serp_checks WHERE brand_id=? ORDER BY checked_at DESC LIMIT ?"), (brand_id, limit)).fetchall()
+
+
+# ---- CRM: ผู้ติดต่อของแต่ละบริษัท (ลีด) · คำขอนัดคุยจากหน้าเว็บ ----
+LEAD_CONTACT_FIELDS = ("name", "role", "phone", "email", "line_id", "note")
+
+
+def add_lead_contact(lead_id: int, **f) -> int:
+    vals = [((f.get(k) or "").strip() or None) for k in LEAD_CONTACT_FIELDS]
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO lead_contacts(lead_id,name,role,phone,email,line_id,note,created_at) VALUES(?,?,?,?,?,?,?,?) RETURNING id"),
+                        (lead_id, *vals, now()))
+        return cur.fetchone()["id"]
+
+
+def list_lead_contacts(lead_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM lead_contacts WHERE lead_id=? ORDER BY id"), (lead_id,)).fetchall()
+
+
+def get_lead_contact(cid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM lead_contacts WHERE id=?"), (cid,)).fetchone()
+
+
+def update_lead_contact(cid: int, **f) -> None:
+    cols = [k for k in f if k in LEAD_CONTACT_FIELDS]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE lead_contacts SET {', '.join(k + '=?' for k in cols)} WHERE id=?"),
+                  tuple(((f[k] or "").strip() or None) for k in cols) + (cid,))
+
+
+def delete_lead_contact(cid: int) -> None:
+    with get_conn() as c:
+        c.execute(q("DELETE FROM lead_contacts WHERE id=?"), (cid,))
+
+
+def get_contact(cid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM contacts WHERE id=?"), (cid,)).fetchone()
+
+
+def link_contact(cid: int, lead_id, status: str = "handled") -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE contacts SET status=?, lead_id=? WHERE id=?"), (status, lead_id, cid))
+
+
+def list_new_contacts(limit: int = 50):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM contacts WHERE status='new' ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()

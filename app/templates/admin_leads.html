@@ -44,7 +44,7 @@
         <a class="btn ghost sm" href="/admin/leads/{{ l['id'] }}">เปิด</a>
         {% if not l['audit_json'] %}<form method="post" action="/admin/leads/{{ l['id'] }}/audit" style="display:inline"><button class="btn ghost sm" type="submit">ตรวจเว็บ</button></form>
         {% elif l['pending'] %}<a class="btn ghost sm" href="/admin/decisions">รอยืนยัน {{ l['pending'] }}</a>
-        {% elif l['status'] in ('new', 'replied') %}<form method="post" action="/admin/leads/{{ l['id'] }}/propose" style="display:inline"><button class="btn ghost sm" type="submit">ให้ CEO เสนอ</button></form>{% endif %}
+        {% elif l['status'] in ('new', 'replied', 'call', 'met') %}<form method="post" action="/admin/leads/{{ l['id'] }}/propose" style="display:inline"><button class="btn ghost sm" type="submit">ให้ CEO เสนอ</button></form>{% endif %}
       </td>
     </tr>
     {% endfor %}

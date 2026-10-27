@@ -57,7 +57,7 @@ def segment_stats() -> dict:
             r["contacted"] += 1
         if "opened" in kinds:
             r["opened"] += 1
-        if "replied" in kinds or l["status"] in ("replied", "quoted", "won"):
+        if "replied" in kinds or l["status"] in ("replied", "call", "met", "quoted", "won"):
             r["replied"] += 1
     return st
 

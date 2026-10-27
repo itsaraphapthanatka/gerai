@@ -1,6 +1,61 @@
 {% extends "base.html" %}
+{% from "_crm.html" import styles as crm_styles, next_form %}
 {% block title %}{{ lead['domain'] }} — ลูกค้าเป้าหมาย{% endblock %}
 {% block content %}
+{{ crm_styles() }}
+<style>
+  .ld-deal{display:grid;gap:14px}
+  .ld-steps{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .ld-steps form{margin:0}
+  .ld-steps button{background:#fff;color:var(--cool);border:1px solid var(--border);border-radius:9999px;padding:5px 12px;font-size:12.5px;font-weight:600}
+  .ld-steps button:hover{border-color:var(--ink);color:var(--ink);background:#fff}
+  .ld-steps button.done{background:var(--canvas);color:var(--ink)}
+  .ld-steps button.cur{background:var(--ink);border-color:var(--ink);color:#fff}
+  .ld-steps .arr{color:var(--silver);font-size:12px}
+  .ld-steps .out{margin-left:8px;font-size:12.5px;color:var(--cool)}
+  .ld-deal-grid{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:18px;align-items:start}
+  .ld-k{font-size:12px;color:var(--cool);margin-bottom:4px}
+  .ld-val{display:flex;align-items:baseline;gap:4px;margin:0}
+  .ld-val input{width:120px;font-size:22px;font-weight:600;letter-spacing:-.02em;padding:4px 8px;font-variant-numeric:tabular-nums}
+  .ld-val span{font-size:13px;color:var(--cool)}
+  .ld-nextnow{font-size:14px;margin-bottom:8px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .ld-nextnow.late{color:var(--danger-text)}
+  .ld-ct{display:grid;gap:8px}
+  .ld-ct-row{border:1px solid var(--border);border-radius:12px;padding:9px 11px;font-size:13px}
+  .ld-ct-row .nm{font-weight:600}
+  .ld-ct-row .nm small{font-weight:500;color:var(--cool);margin-left:4px}
+  .ld-ct-row .ch{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:3px;color:var(--charcoal)}
+  .ld-ct-row .ch a{color:var(--ink)}
+  .ld-ct-row .nt{color:var(--cool);font-size:12.5px;margin-top:3px;overflow-wrap:anywhere}
+  .ld-ct-row details summary,.ld-ct-add summary{cursor:pointer;font-size:12.5px;color:var(--cool)}
+  .ld-ct-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
+  .ld-ct-form input{padding:6px 8px;border-radius:8px;font-size:12.5px}
+  .ld-ct-form .full{grid-column:1 / -1;display:flex;gap:6px;align-items:center}
+  .crm-act{display:grid;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .crm-act .crm-presets .crm-chip span{padding:6px 13px}
+  .crm-act .opt{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px}
+  .crm-act .opt label{margin:0;font-size:12.5px;color:var(--ink);font-weight:500}
+  .crm-act:not(:has(input[name=kind][value=call]:checked)) .only-call{display:none}
+  .crm-act details summary{cursor:pointer;font-size:12.5px;color:var(--cool)}
+  .crm-act details[open] summary{margin-bottom:8px}
+  .crm-act details .grid{display:grid;gap:8px}
+  .ld-tl{display:grid;gap:2px;font-size:13px}
+  .ld-tl-row{display:grid;grid-template-columns:22px 92px minmax(120px,170px) minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--canvas)}
+  .ld-tl-row .ic{text-align:center}
+  .ld-tl-row .tm{color:var(--silver);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ld-tl-row .nt{overflow-wrap:anywhere}
+  .ld-tl-row .by{color:var(--silver);font-size:12px;white-space:nowrap}
+  .ld-tl-row.act{background:linear-gradient(90deg,var(--purple-tint),transparent 60%);border-radius:8px}
+  @media (max-width:860px){
+    .ld-deal-grid{grid-template-columns:minmax(0,1fr)}
+    .ld-ct-form{grid-template-columns:minmax(0,1fr)}
+    .ld-tl-row{grid-template-columns:22px minmax(0,1fr) auto;row-gap:0}
+    .ld-tl-row .lb{grid-column:2}
+    .ld-tl-row .nt{grid-column:2 / -1}
+    .ld-tl-row .tm{grid-column:2;grid-row:1}
+    .ld-tl-row .by{grid-row:1;grid-column:3}
+  }
+</style>
 <p class="muted" style="margin-bottom:6px"><a class="link" href="/admin/leads">← ลูกค้าเป้าหมาย</a></p>
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
   <h1 style="margin:0">{{ lead['domain'] }}</h1>
@@ -18,6 +73,35 @@
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if wants_call %}<div class="err-banner" style="background:#fff4e5;color:#9a5b00">🔥 ลูกค้าขอนัดคุยเมื่อ {{ (wants_call['created_at'] or '')[:16].replace('T',' ') }} — {{ wants_call['note'] or '' }} · โทรนัดภายในวันนี้ <a class="link" href="/admin/calls/{{ lead['id'] }}">เปิดบทโทร 📞</a> · คุยเสร็จตั้งราคาและส่งใบเสนอราคาด้านล่าง (ระบบไม่ส่งเอง)</div>{% endif %}
 {% if lead['status'] == 'unsubscribed' %}<div class="err-banner">ลูกค้าขอไม่รับการติดต่อเมื่อ {{ (lead['unsub_at'] or '')[:16].replace('T',' ') }} — ระบบไม่ส่งข้อความใด ๆ ถึงรายนี้อีก</div>{% endif %}
+
+<div class="card ld-deal" id="deal-{{ lead['id'] }}">
+  <div class="ld-steps" aria-label="ขั้นดีล">
+    {% set _ci = (crm.stages|map('first')|list).index(crm.column) if crm.column in (crm.stages|map('first')|list) else -1 %}
+    {% for k, lb in crm.stages %}
+      <form method="post" action="/admin/deals/{{ lead['id'] }}/stage"><input type="hidden" name="status" value="{{ k }}">
+        <button type="submit" class="{{ 'cur' if k == crm.column else ('done' if loop.index0 < _ci else '') }}" {% if k == crm.column %}aria-current="step"{% endif %}{% if k == 'won' %} onclick="return confirm('ย้ายไป &quot;ปิดได้&quot;? (ปกติระบบย้ายเองเมื่อยืนยันยอดเข้า)')"{% endif %}>{{ lb }}{% if k == crm.column and lead['status'] == 'replied' %} · ตอบกลับแล้ว{% endif %}</button></form>
+      {% if not loop.last %}<span class="arr" aria-hidden="true">→</span>{% endif %}
+    {% endfor %}
+    {% if lead['status'] in ('lost', 'unsubscribed') %}<span class="out">ตอนนี้: <b>{{ dict(statuses)[lead['status']] }}</b> (นอกสาย)</span>{% endif %}
+    <a class="link" href="/admin/deals#deal-{{ lead['id'] }}" style="margin-left:auto;font-size:12.5px">ดูบนกระดานดีล →</a>
+  </div>
+  <div class="ld-deal-grid">
+    <div>
+      <div class="ld-k">มูลค่าดีล / เดือน</div>
+      <form class="ld-val" method="post" action="/admin/deals/{{ lead['id'] }}/value">
+        <span>฿</span><input type="text" name="value" inputmode="numeric" value="{{ '{:,}'.format(crm.value) }}" aria-label="มูลค่าดีลบาทต่อเดือน">
+        <button class="btn ghost sm" type="submit">บันทึก</button>
+      </form>
+      <div class="muted" style="font-size:12px;margin-top:4px">{{ crm.value_src_label }}{% if crm.value_manual is not none %} · เว้นว่างแล้วบันทึก = กลับไปใช้ค่าตั้งต้น{% endif %}</div>
+    </div>
+    <div>
+      <div class="ld-k">งานถัดไป (เวลาไทย)</div>
+      {% if crm.next_action %}<div class="ld-nextnow {{ 'late' if crm.overdue }}"><b>{{ '⚠ เลยกำหนด · ' if crm.overdue else '⏰ ' }}{{ crm.next_fmt or 'ไม่ระบุเวลา' }}</b><span>{{ crm.next_action }}</span></div>
+      {% elif crm.no_next %}<div class="ld-nextnow"><span class="crm-flag warn">⚠ ดีลกำลังคุยแต่ยังไม่มีงานถัดไป</span></div>{% endif %}
+      {{ next_form(lead['id'], crm, crm.presets, crm.next_kinds) }}
+    </div>
+  </div>
+</div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
   <div class="card">
@@ -46,6 +130,43 @@
       ส่งแล้ว {{ fu.n }}/{{ fu.steps }}
       {% if fu.replied %} · หยุดแล้ว (ลูกค้าตอบ/ขอไม่รับ){% elif fu.why %} · ไม่ติดตาม: {{ fu.why }}{% elif fu.next %} · ครั้งที่ {{ fu.next.step }} ถึงกำหนด {{ fu.next.due_at[:16].replace('T',' ') }}{% elif fu.n >= fu.steps %} · ครบแล้ว{% endif %}</div>
     {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:15px">ผู้ติดต่อ ({{ crm.contacts|length }})</h2>
+    <div class="ld-ct">
+    {% for c in crm.contacts %}
+      <div class="ld-ct-row">
+        <div class="nm">{{ c.name or 'ไม่ระบุชื่อ' }}{% if c.role %}<small>{{ c.role }}</small>{% endif %}</div>
+        <div class="ch">{% if c.phone %}<a href="tel:{{ c.phone|replace('-', '')|replace(' ', '') }}">📞 {{ c.phone }}</a>{% endif %}{% if c.email %}<a href="mailto:{{ c.email }}">✉️ {{ c.email }}</a>{% endif %}{% if c.line_id %}<span>💬 {{ c.line_id }}</span>{% endif %}</div>
+        {% if c.note %}<div class="nt">{{ c.note }}</div>{% endif %}
+        <details><summary>แก้ไข</summary>
+          <form class="ld-ct-form" method="post" action="/admin/deals/{{ lead['id'] }}/contacts/{{ c.id }}">
+            <input type="text" name="name" value="{{ c.name or '' }}" placeholder="ชื่อ" maxlength="120" aria-label="ชื่อ">
+            <input type="text" name="role" value="{{ c.role or '' }}" placeholder="ตำแหน่ง" maxlength="80" aria-label="ตำแหน่ง">
+            <input type="text" name="phone" value="{{ c.phone or '' }}" placeholder="โทร" maxlength="40" aria-label="โทร">
+            <input type="email" name="email" value="{{ c.email or '' }}" placeholder="อีเมล" maxlength="160" aria-label="อีเมล">
+            <input type="text" name="line_id" value="{{ c.line_id or '' }}" placeholder="LINE ID" maxlength="120" aria-label="LINE ID">
+            <input type="text" name="note" value="{{ c.note or '' }}" placeholder="โน้ต" maxlength="500" aria-label="โน้ต">
+            <div class="full"><button class="btn ghost sm" type="submit">บันทึก</button>
+              <button class="btn danger" type="submit" formaction="/admin/deals/{{ lead['id'] }}/contacts/{{ c.id }}/delete" onclick="return confirm('ลบผู้ติดต่อนี้?')">ลบ</button></div>
+          </form>
+        </details>
+      </div>
+    {% else %}<div class="muted" style="font-size:13px">ยังไม่มีผู้ติดต่อ</div>
+    {% endfor %}
+    </div>
+    <details class="ld-ct-add" style="margin-top:10px" {% if not crm.contacts %}open{% endif %}><summary>＋ เพิ่มผู้ติดต่อ</summary>
+      <form class="ld-ct-form" method="post" action="/admin/deals/{{ lead['id'] }}/contacts">
+        <input type="text" name="name" placeholder="ชื่อ" maxlength="120" aria-label="ชื่อ">
+        <input type="text" name="role" placeholder="ตำแหน่ง เช่น เจ้าของ · การตลาด" maxlength="80" aria-label="ตำแหน่ง">
+        <input type="text" name="phone" placeholder="โทร" maxlength="40" aria-label="โทร">
+        <input type="email" name="email" placeholder="อีเมล" maxlength="160" aria-label="อีเมล">
+        <input type="text" name="line_id" placeholder="LINE ID" maxlength="120" aria-label="LINE ID">
+        <input type="text" name="note" placeholder="โน้ต" maxlength="500" aria-label="โน้ต">
+        <div class="full"><button class="btn ghost sm" type="submit">เพิ่ม</button></div>
+      </form>
+    </details>
   </div>
 
   {% if cs %}
@@ -201,16 +322,39 @@
 </div>
 {% endif %}
 
-<h2>ไทม์ไลน์</h2>
+<h2>กิจกรรมและไทม์ไลน์</h2>
 <div class="card">
-  <form method="post" action="/admin/leads/{{ lead['id'] }}/note" style="display:flex;gap:8px;margin-bottom:12px">
-    <input type="text" name="note" placeholder="บันทึก เช่น โทรคุยแล้ว นัดสาธิตพุธหน้า" maxlength="500" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
-    <button class="btn ghost sm" type="submit">บันทึก</button>
+  <form class="crm-act" method="post" action="/admin/deals/{{ lead['id'] }}/activity">
+    <div class="crm-presets" role="radiogroup" aria-label="ชนิดกิจกรรม">
+      {% for k, lb in crm.act_kinds.items() %}<label class="crm-chip"><input type="radio" name="kind" value="{{ k }}" {% if loop.first %}checked{% endif %}><span>{{ icons.get(k, '') }} {{ lb }}</span></label>{% endfor %}
+    </div>
+    <textarea name="outcome" rows="2" maxlength="500" placeholder="ผลการคุย เช่น สนใจรายปี ขอใบเสนอราคาพร้อมขอบเขตงานภายในพฤหัส" aria-label="ผลการคุย"></textarea>
+    <div class="opt">
+      <label class="only-call"><input type="checkbox" name="reached" value="0"> ติดต่อไม่ได้ (ไม่รับสาย/เบอร์ผิด) — ไม่ย้ายขั้น</label>
+      {% if crm.next_action %}<label><input type="checkbox" name="done_next" value="1" checked> งานถัดไปเดิม "{{ crm.next_action|truncate(40) }}" เสร็จแล้ว</label>{% endif %}
+    </div>
+    <details><summary>＋ ตั้งงานถัดไปพร้อมกัน</summary>
+      <div class="grid">
+        <input type="text" name="next_action" placeholder="งานถัดไป เช่น ส่งใบเสนอราคา" maxlength="200" aria-label="งานถัดไป">
+        <div class="crm-presets" role="radiogroup" aria-label="เวลา (เวลาไทย)">
+          {% for k, lb in crm.presets %}<label class="crm-chip"><input type="radio" name="preset" value="{{ k }}" {% if k == 'tomorrow10' %}checked{% endif %}><span>{{ lb }}</span></label>{% endfor %}
+        </div>
+        <input class="crm-at" type="datetime-local" name="at" aria-label="วันเวลา (เวลาไทย)">
+        <div class="crm-row"><select name="next_kind" aria-label="ชนิดงาน">{% for k, lb in crm.next_kinds.items() %}<option value="{{ k }}">{{ lb }}</option>{% endfor %}</select></div>
+      </div>
+    </details>
+    <div><button class="btn sm" type="submit">บันทึกกิจกรรม</button> <span class="muted" style="font-size:12px">โทรติด/ประชุม = ย้ายไปขั้น "คุยแล้ว" · LINE/อีเมลถึงลีดใหม่ = "ทักแล้ว"</span></div>
   </form>
   {% if events %}
-  <div style="display:grid;gap:6px;font-size:13px">
+  <div class="ld-tl">
   {% for e in events %}
-    <div style="display:flex;gap:10px;align-items:baseline"><span class="muted" style="white-space:nowrap;font-size:12px;min-width:120px">{{ (e['created_at'] or '')[:16].replace('T',' ') }}</span><b style="min-width:150px">{{ labels.get(e['kind'], e['kind']) }}</b><span>{{ e['note'] or '' }}</span><span class="muted" style="font-size:11.5px;margin-left:auto">{{ e['actor'] }}</span></div>
+    <div class="ld-tl-row {{ 'act' if e['kind'] in crm.act_kinds and e['kind'] != 'line' or (e['kind'] == 'line' and e['actor'] != 'customer') }}">
+      <span class="ic" aria-hidden="true">{{ icons.get(e['kind'], '·') }}</span>
+      <span class="tm" title="เวลาไทย">{{ bkk(e['created_at']) }}</span>
+      <b class="lb">{{ labels.get(e['kind'], e['kind']) }}</b>
+      <span class="nt">{{ e['note'] or '' }}</span>
+      <span class="by">{{ e['actor'] }}</span>
+    </div>
   {% endfor %}
   </div>
   {% else %}<div class="muted" style="font-size:13px">ยังไม่มีเหตุการณ์</div>{% endif %}
