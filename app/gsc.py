@@ -208,7 +208,10 @@ def list_sites(key: dict) -> list:
 def candidate_props(site_url: str) -> list:
     """ชื่อ property ที่เป็นไปได้ของเว็บนี้ เรียงจากที่อยากได้ก่อน — domain property ครอบทุก URL"""
     apex = host_of(site_url)
-    return [f"sc-domain:{apex}", f"https://{apex}/", f"https://www.{apex}/", f"http://{apex}/", f"http://www.{apex}/"]
+    labels = apex.split(".")
+    # โดเมนย่อย (geo.example.com) อยู่ใต้ domain property ของโดเมนแม่ได้ (sc-domain:example.com ครอบทุก subdomain)
+    parents = [f"sc-domain:{'.'.join(labels[i:])}" for i in range(1, len(labels) - 1)]
+    return [f"sc-domain:{apex}", f"https://{apex}/", f"https://www.{apex}/", f"http://{apex}/", f"http://www.{apex}/"] + parents
 
 
 def match_property(sites: list, site_url: str):

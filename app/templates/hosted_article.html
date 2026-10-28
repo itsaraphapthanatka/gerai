@@ -25,6 +25,14 @@
   a { color: #7132f5; }
   article { margin-bottom: 40px; }
   footer { border-top: 1px solid #ececf1; padding-top: 16px; color: #6b6b7b; font-size: 13px; }
+  .more { border-top: 1px solid #ececf1; padding-top: 22px; margin: 0 0 34px; }
+  .more h2 { font-size: 18px; margin: 0 0 12px; }
+  .more ul { list-style: none; padding: 0; margin: 0 0 12px; }
+  .more li { margin: 0 0 10px; }
+  .more a { text-decoration: none; }
+  .more a:hover { text-decoration: underline; }
+  .cta { background: #f7f8fa; border-radius: 14px; padding: 18px 20px; margin: 0 0 34px; }
+  .cta b { display: block; font-size: 16px; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -32,8 +40,15 @@
   <h1>{{ title }}</h1>
   {{ body_html | safe }}
 </article>
+{% set en = (lang or 'th')[:2] != 'th' %}
+{% if is_self %}<div class="cta"><b>เว็บของคุณถูก AI แนะนำหรือยัง?</b>ตรวจเว็บฟรีในราว 2 นาที ไม่ต้องสมัคร — <a href="{{ site_url }}/audit?src=geo">ตรวจเว็บฟรี →</a></div>{% endif %}
+{% if related %}<nav class="more" aria-label="{{ 'More articles' if en else 'บทความอื่น' }}">
+  <h2>{{ 'More articles' if en else 'บทความอื่น' }}</h2>
+  <ul>{% for r in related %}<li><a href="{{ r.url }}">{{ r.title }}</a></li>{% endfor %}</ul>
+  <a href="{{ index_url }}">{{ 'All articles →' if en else 'ดูบทความทั้งหมด →' }}</a>
+</nav>{% endif %}
 <footer>
-  เนื้อหาโดย <strong>{{ brand_name }}</strong> · <a href="{{ site_url }}">{{ domain }}</a>
+  เนื้อหาโดย <strong>{{ brand_name }}</strong> · <a href="{{ site_url }}">{{ domain }}</a>{% if not related %} · <a href="{{ index_url }}">{{ 'All articles' if en else 'บทความทั้งหมด' }}</a>{% endif %}
 </footer>
 </body>
 </html>

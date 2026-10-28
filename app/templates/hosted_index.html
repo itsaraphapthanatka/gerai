@@ -6,6 +6,8 @@
 <title>บทความ — {{ brand_name }}</title>
 <meta name="description" content="รวมบทความและคำแนะนำจาก {{ brand_name }}">
 <meta name="generator" content="เจอ.AI GEO">
+{% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+{% if item_list %}<script type="application/ld+json">{{ item_list | safe }}</script>{% endif %}
 <style>
   body { font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
     max-width: 760px; margin: 0 auto; padding: 40px 22px; line-height: 1.7;
@@ -22,11 +24,12 @@
 <h1>บทความ — {{ brand_name }}</h1>
 {% if articles %}
 <ul>
-  {% for a in articles %}<li><a href="{{ a.url }}">{{ a.title }}</a></li>{% endfor %}
+  {% for a in articles %}<li><a href="{{ a.url }}">{{ a.title }}</a>{% if a.desc %}<div style="color:#6b6b7b;font-size:14px;margin-top:2px">{{ a.desc }}</div>{% endif %}</li>{% endfor %}
 </ul>
 {% else %}
 <p>ยังไม่มีบทความที่เผยแพร่</p>
 {% endif %}
+{% if is_self %}<p style="background:#f7f8fa;border-radius:14px;padding:16px 18px;margin-top:28px">เว็บของคุณถูก AI แนะนำหรือยัง? <a href="{{ site_url }}/audit?src=geo">ตรวจเว็บฟรี →</a></p>{% endif %}
 <footer><a href="{{ site_url }}">← กลับ {{ domain }}</a></footer>
 </body>
 </html>

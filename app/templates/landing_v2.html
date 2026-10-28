@@ -217,6 +217,17 @@
   .faq details p{font-size:15.5px;color:var(--steel);line-height:1.75;margin-top:12px;max-width:62ch}
   @media(max-width:860px){.faq-grid{grid-template-columns:1fr;gap:20px}}
 
+  /* ---------- latest articles ---------- */
+  .arts-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  .arts-all{font-size:15px;font-weight:600;border-bottom:1px solid var(--ink);padding-bottom:2px}
+  .arts-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:40px}
+  .art{display:flex;flex-direction:column;gap:14px;border:1px solid var(--hair);border-radius:22px;padding:24px;min-height:190px;transition:border-color .25s,transform .4s var(--ease)}
+  .art:hover{border-color:var(--ink);transform:translateY(-4px)}
+  .art .n{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--coral)}
+  .art .t{font-family:var(--display);font-size:18px;font-weight:500;line-height:1.5;flex:1}
+  .art .go{font-size:18px;color:var(--steel)}
+  @media(max-width:860px){.arts-grid{grid-template-columns:minmax(0,1fr)}.art{min-height:0}}
+
   /* ---------- final cta ---------- */
   .final{position:relative;background:var(--ink);color:#fff;text-align:center;overflow:hidden;padding:150px 0}
   .final .glow{position:absolute;left:50%;top:-30%;width:520px;height:120%;transform:translateX(-50%);
@@ -293,6 +304,7 @@
       {% if proof %}<a href="#proof">{{ T.nav_proof }}</a>{% endif %}
       <a href="#pricing">{{ T.nav_pricing }}</a>
       <a href="#faq">{{ T.nav_faq }}</a>
+      <a href="/geo"{% if lang != 'th' %} hreflang="th"{% endif %}>{{ T.nav_articles }}</a>
     </nav>
     <div class="nav-cta">
       <details class="lang">
@@ -435,6 +447,15 @@
   </div>
 </section>
 
+{% if lang == 'th' and articles %}
+<section class="arts" id="articles">
+  <div class="wrap">
+    <div class="arts-head rv"><div><div class="kicker">{{ T.art_kicker }}</div><h2>{{ T.art_h }}</h2></div><a class="arts-all" href="/geo">{{ T.art_all }}</a></div>
+    <div class="arts-grid">{% for a in articles %}<a class="art rv" style="--d:{{ loop.index0 * 0.08 }}s" href="{{ a.url }}"><span class="n">{{ '%02d'|format(loop.index) }}</span><span class="t">{{ a.title }}</span><span class="go">→</span></a>{% endfor %}</div>
+  </div>
+</section>
+{% endif %}
+
 <section class="final">
   <div class="glow" aria-hidden="true"></div>
   <div class="wrap" style="position:relative">
@@ -454,7 +475,7 @@
 <footer>
   <div class="wrap foot">
     <div class="logo"><span class="dot"></span><span>เจอ.AI</span></div>
-    <nav><a href="#how">{{ T.nav_how }}</a><a href="#pricing">{{ T.nav_pricing }}</a><a href="/audit?src={{ src }}">{{ T.nav_audit }}</a><a href="/partners">{{ T.nav_partners }}</a><a href="/login">{{ T.nav_login }}</a></nav>
+    <nav><a href="#how">{{ T.nav_how }}</a><a href="#pricing">{{ T.nav_pricing }}</a><a href="/audit?src={{ src }}">{{ T.nav_audit }}</a><a href="/geo"{% if lang != 'th' %} hreflang="th"{% endif %}>{{ T.nav_articles }}</a><a href="/partners">{{ T.nav_partners }}</a><a href="/login">{{ T.nav_login }}</a></nav>
     <nav class="langs" aria-label="{{ T.lang_aria }}">{% for l in langs %}<a href="{{ l.href }}" hreflang="{{ l.hreflang }}" lang="{{ l.hreflang }}"{% if l.code == lang %} aria-current="page"{% endif %}>{{ l.name }}</a>{% endfor %}</nav>
     <div>© 2026 เจอ.AI</div>
   </div>

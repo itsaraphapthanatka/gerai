@@ -26,6 +26,10 @@ assert g.match_property([{"siteUrl": "https://jkppropertyagency.com/th/", "permi
                         "jkppropertyagency.com")[0] == "https://jkppropertyagency.com/th/"
 assert g.match_property(SITES, "https://nobody.example") == (None, None)
 assert g.candidate_props("https://www.Petgo.asia/")[0] == "sc-domain:petgo.asia"
+# โดเมนย่อยใช้ domain property ของโดเมนแม่ได้ · property ของโดเมนย่อยเองยังชนะ
+assert g.match_property([{"siteUrl": "sc-domain:example.com", "permissionLevel": "siteFullUser"}], "https://geo.example.com") == ("sc-domain:example.com", "siteFullUser")
+assert g.match_property([{"siteUrl": "sc-domain:example.com", "permissionLevel": "siteFullUser"},
+                         {"siteUrl": "https://geo.example.com/", "permissionLevel": "siteOwner"}], "https://geo.example.com") == ("https://geo.example.com/", "siteOwner")
 print("match_property: domain property ก่อน → www → prefix ลึก → ไม่เจอ OK")
 
 # ---------- classify ----------

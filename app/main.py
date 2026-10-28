@@ -113,6 +113,8 @@ templates.env.globals["new_contacts_count"] = lambda req: (
 @app.on_event("startup")
 def _startup():
     db.init_db()
+    if db.get_setting("indexnow_on") is None:      # IndexNow (บอก Bing เมื่อมีบทความใหม่) เปิดใน production · เทสต์ไม่ผ่าน startup = ปิด
+        db.set_setting("indexnow_on", "1")
     if db.get_setting("agency_mode") is None:      # ค่าเริ่มต้นของ production = โหมดเอเจนซี (แอดมินปิดได้ที่ /admin แล้วค่านี้คงอยู่)
         db.set_setting("agency_mode", "1")
     _maybe_start_scheduler()
@@ -172,6 +174,7 @@ def _publish_item(item, conn, brand, status="publish"):
         )
         if res["ok"]:
             db.mark_content_published(item["id"], res["id"], res.get("link", ""))
+            _indexnow_after(item["id"])
             wp_client.connector_push_settings(
                 conn["site_url"], key,
                 llms_txt=geo_content.llms_txt(brand, db.list_content(brand["id"])),
@@ -183,6 +186,7 @@ def _publish_item(item, conn, brand, status="publish"):
     )
     if res["ok"]:
         db.mark_content_published(item["id"], res["id"], res.get("link", ""))
+        _indexnow_after(item["id"])
     return res
 
 
@@ -202,6 +206,7 @@ def _auto_publish_tick(b, days, now_local):
                 _publish_item(it, conn, brand, status="publish")
             else:
                 db.mark_content_published(it["id"], None, f"{site}/geo/{it['id']}")  # hosted
+                _indexnow_after(it["id"])
         except Exception:
             pass
 
@@ -456,6 +461,10 @@ def _landing_page(request: Request, lang: str):
     t = L.T[lang]
     live = ctx["ai_live"]
     base = str(request.base_url).rstrip("/")
+    sb = _self_brand()                                    # บทความล่าสุดของเจอ.AI — หน้าแรกต้องลิงก์หาคอนเทนต์ (Google ให้น้ำหนักหน้าที่มีลิงก์จริง)
+    pub = sorted([i for i in db.list_content(sb["id"]) if i["status"] == "published"],
+                 key=lambda i: i["published_at"] or i["created_at"] or "", reverse=True) if sb else []
+    ctx["articles"] = [{"title": i["title"], "url": f"/geo/{i['id']}"} for i in pub[:3]]
     ctx.update(T=t, lang=lang, html_lang=L.HTML_LANG[lang], og_locale=L.OG_LOCALE[lang],
                font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
                langs=[{"code": c, "name": L.NAMES[c], "path": L.PATHS[c], "href": "/?lang=th" if c == "th" else L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
@@ -2586,6 +2595,7 @@ def _autopilot_content(brand, n: int, mode: str) -> list:
                 status = "published" if res["ok"] else f"เผยแพร่ไม่สำเร็จ: {res['msg'][:80]}"
             else:
                 db.mark_content_published(cid, None, f"{site}/geo/{cid}")
+                _indexnow_after(cid)
                 status = "published"
         made.append({"question": g["question"], "id": cid, "title": data["title"], "status": status})
     return made
@@ -3020,6 +3030,7 @@ def publish_content(request: Request, content_id: int, status: str = Form("draft
         if wp_status == "publish":
             site = geo_content._site_url(brand)
             db.mark_content_published(content_id, None, f"{site}/geo/{content_id}")
+            _indexnow_after(content_id)
             item = db.get_content(content_id)
             notice = {"ok": True, "msg": f"เผยแพร่บนหน้า hosted แล้ว → {site}/geo/{content_id}"}
         else:
@@ -3146,15 +3157,44 @@ def _published_items(brand):
     return [c for c in db.list_content(brand["id"]) if c["status"] == "published"]
 
 
+def _indexnow_after(content_id) -> None:
+    """หลังเผยแพร่: บอก Bing ผ่าน IndexNow (เบื้องหลัง ล้มเงียบ)"""
+    try:
+        from . import indexnow
+        indexnow.notify_content(int(content_id))
+    except Exception:
+        pass
+
+
+@app.api_route("/e/{key}/a/indexnow.txt", methods=["GET", "HEAD"])
+def hosted_indexnow_key(key: str):
+    """ไฟล์ยืนยันคีย์ IndexNow — เว็บลูกค้าเห็นเป็น {เว็บ}/geo/indexnow.txt ผ่าน proxy /geo"""
+    from . import indexnow
+    if not db.get_brand_by_embed_key(key):
+        return PlainTextResponse("", status_code=404)
+    return PlainTextResponse(indexnow.key(), headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.api_route("/geo/indexnow.txt", methods=["GET", "HEAD"])
+def self_indexnow_key():
+    from . import indexnow
+    return PlainTextResponse(indexnow.key(), headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.api_route("/e/{key}/a/", methods=["GET", "HEAD"])
 def hosted_index(request: Request, key: str):
     brand = db.get_brand_by_embed_key(key)
     if not brand:
         return Response("not found", status_code=404)
     site = geo_content._site_url(brand)
-    articles = [{"title": it["title"], "url": f"{site}/geo/{it['id']}"} for it in _published_items(brand)]
+    articles = [{"title": it["title"], "url": f"{site}/geo/{it['id']}", "desc": it["meta_desc"] or ""} for it in _published_items(brand)]
+    item_list = json.dumps({"@context": "https://schema.org", "@type": "ItemList", "name": f"บทความ — {brand['name']}",
+                            "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": a["url"], "name": a["title"]}
+                                                for i, a in enumerate(articles)]}, ensure_ascii=False)
     return templates.TemplateResponse(request, "hosted_index.html",
-        {"brand_name": brand["name"], "site_url": site, "domain": brand["domain"], "articles": articles},
+        {"brand_name": brand["name"], "site_url": site, "domain": brand["domain"], "articles": articles,
+         "canonical": f"{site}/geo", "item_list": item_list,
+         "is_self": bool((_self_brand() or {"id": None})["id"] == brand["id"])},
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
@@ -3178,7 +3218,12 @@ def hosted_article(request: Request, key: str, cid: int):
          "meta_title": (it["meta_title"] or it["title"]), "meta_desc": it["meta_desc"] or "",
          "body_html": wp_client.md_to_html(it["body_md"]), "schemas": schemas,
          "canonical": f"{site}/geo/{cid}", "brand_name": brand["name"],
-         "site_url": site, "domain": brand["domain"]},
+         "site_url": site, "domain": brand["domain"],
+         # ลิงก์ภายใน: บทความอื่นของแบรนด์ + หน้ารวม — Google ไต่ต่อและให้น้ำหนักหน้าที่มีลิงก์จริง
+         "related": [{"title": x["title"], "url": f"{site}/geo/{x['id']}"} for x in
+                     sorted([x for x in _published_items(brand) if x["id"] != cid],
+                            key=lambda x: x["published_at"] or x["created_at"] or "", reverse=True)[:5]],
+         "index_url": f"{site}/geo", "is_self": bool((_self_brand() or {"id": None})["id"] == brand["id"])},
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
@@ -3203,24 +3248,61 @@ def self_geo_article(request: Request, cid: int):
     return hosted_article(request, b["embed_key"], cid) if b else Response("not found", status_code=404)
 
 
+# หน้าในโดเมนของเจอ.AI ที่ไม่ควรถูกค้นเจอ (หลังบ้าน · แอปลูกค้า · ลิงก์ลับที่มี token)
+SELF_DISALLOW = ("/admin", "/app$", "/app/", "/brands", "/account", "/upgrade", "/notifications", "/q/", "/contract", "/bill/",
+                 "/doc/", "/audit/", "/u/", "/p/", "/partner/", "/e/", "/chat/", "/pay", "/preview/")
+
+
+def _self_summary() -> str:
+    """คำสรุปเจอ.AI ใน llms.txt — สร้างสดจากระบบ (ราคา Pro · AI ที่วัดได้จริง) ไม่ให้ AI จำข้อความเก่า"""
+    live = _ai_live()
+    ais = live["text"] if live["n"] else "ผู้ช่วย AI"
+    return (f"เอเจนซี่ GEO/AEO สำหรับธุรกิจไทย — ทีมเจอ.AI ถาม {ais} และ Google AI ด้วยคำถามแบบที่ลูกค้าของคุณถามจริงทุกสัปดาห์ "
+            f"แล้วแก้เว็บและเขียนคำตอบลงเว็บของคุณให้ จนกว่า AI จะหยิบไปแนะนำ · เริ่มจากตรวจเว็บฟรี คุยกัน 30 นาที "
+            f"แล้วส่งข้อเสนอตามขอบเขตงาน เริ่มต้น {billing.PLANS['pro']['price']:,} บาท/เดือน (ยังไม่รวม VAT) · "
+            "ไม่รับประกันอันดับหรือการถูกแนะนำ รายงานผลจริงทุกเดือน · เอเจนซี่และฟรีแลนซ์ร่วมเป็นพันธมิตรได้")
+
+
+def _self_pages(base: str) -> list:
+    from . import landing_i18n as L
+    alts = {L.HTML_LANG[c]: base + L.PATHS[c] for c in L.LANGS}
+    alts["x-default"] = base + "/"
+    home = [{"loc": base + L.PATHS[c], "alternates": alts} for c in L.LANGS]
+    return home + [{"loc": base + "/audit"}, {"loc": base + "/partners"}, {"loc": base + "/geo"}]
+
+
 @app.api_route("/llms.txt", methods=["GET", "HEAD"])
 def self_llms():
     b = _self_brand()
-    return embed_llms(b["embed_key"]) if b else PlainTextResponse("# not found", status_code=404)
+    if not b:
+        return PlainTextResponse("# not found", status_code=404)
+    site = geo_content._site_url(b)
+    pages = [("หน้าแรก (ไทย)", site + "/", "บริการ วิธีทำงาน ราคาเริ่มต้น คำถามที่พบบ่อย"),
+             ("English · 中文 · 日本語 · 한국어", f"{site}/en · {site}/zh · {site}/ja · {site}/ko", ""),
+             ("ตรวจเว็บฟรี", site + "/audit", "รายงาน Ranking · AI Visibility · Site Audit ในราว 2 นาที ไม่ต้องสมัคร"),
+             ("โปรแกรมพันธมิตร", site + "/partners", "เอเจนซี่และฟรีแลนซ์แนะนำลูกค้า รับค่าแนะนำ"),
+             ("บทความทั้งหมด", site + "/geo", "")]
+    txt = geo_content.llms_txt(b, db.list_content(b["id"]), summary=_self_summary(), pages=pages)
+    return PlainTextResponse(txt, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.api_route(geo_content.SITEMAP_PATH, methods=["GET", "HEAD"])
+@app.api_route("/sitemap.xml", methods=["GET", "HEAD"])
 def self_sitemap():
     b = _self_brand()
-    return embed_sitemap(b["embed_key"]) if b else PlainTextResponse("not found", status_code=404)
+    if not b:
+        return PlainTextResponse("not found", status_code=404)
+    xml = geo_content.sitemap_xml(b, db.list_content(b["id"]), pages=_self_pages(geo_content._site_url(b)))
+    return Response(xml, media_type="application/xml; charset=utf-8", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.api_route("/robots.txt", methods=["GET", "HEAD"])
 def self_robots():
-    """robots.txt ของโดเมนแพลตฟอร์ม — เปิดให้บอท AI และชี้ sitemap เหมือนที่แนะนำลูกค้า (ก่อนหน้านี้ตอบ 404)"""
+    """robots.txt ของโดเมนแพลตฟอร์ม — เปิดให้บอท AI และชี้ sitemap · กันหลังบ้าน/แอปลูกค้า/ลิงก์ลับ ไม่ให้ถูกค้นเจอ"""
     b = _self_brand()
     if b:
-        return embed_robots(b["embed_key"])
+        return PlainTextResponse(geo_content.robots_snippet(b, own_site=True, disallow=SELF_DISALLOW),
+                                 headers={"Cache-Control": "public, max-age=86400"})
     return PlainTextResponse("User-agent: *\nAllow: /\n")
 
 
