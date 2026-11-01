@@ -97,7 +97,7 @@ for m in ("🔴 Acme Widgets: เข้าเว็บไม่ได้ — ต
     db.add_notification(t["id"], m, f"/brands/{bid}", "info")
 
 B = f"/brands/{bid}"
-PAGES = ["/app", B, B + "/questions", B + "/monitor", B + "/content", B + "/wp", B + "/chat"]
+PAGES = ["/app", B, B + "/questions", B + "/monitor", B + "/content", B + "/wp", B + "/chat", B + "/theme"]
 for lg in OTHER:
     for url in PAGES:
         get(c, url, lg)
@@ -115,6 +115,8 @@ get(c, B, "en", must=["Latest Share of Voice", "1/2 questions", "Status: Done", 
                        "2 issues", "Off — let the system do it weekly", "Install GEO on your site", "Delete brand Acme Widgets and all its data?"])
 get(c, B + "/monitor", "en", must=["Monitor history", "Every week", "Running", "Done"])
 get(c, B + "/monitor", "zh", must=["监测记录", "每周"])
+get(c, B + "/theme", "en", must=["Article page theme", "Brand color", "Footer background", "Logo height", "Preview"])
+get(c, B + "/theme", "ja", must=["記事ページのテーマ", "ブランドカラー", "フッター背景"])
 get(c, B + "/questions", "ko", must=[I.tr("คำถามเป้าหมาย", "ko"), "시스템 추가"])               # คำสั้นที่หลายคลังใช้ร่วมกัน เทียบกับคลังจริง
 get(c, B + "/content", "en", must=["Created this week: 1/3", "3 pieces/week", "Auto after 3 days", "No image · The brand's site has no images to choose from",
                                    "Can't create new images right now", "Auto-publishes in", "Draft"])

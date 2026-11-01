@@ -508,6 +508,7 @@ def init_db() -> None:
         _ensure_column(c, "brands", "facts", "TEXT")           # ข้อมูลจริงของแบรนด์ (ลูกค้ากรอกเอง)
         _ensure_column(c, "brands", "site_context", "TEXT")    # เนื้อหาจากเว็บจริง (cache สำหรับ grounding)
         _ensure_column(c, "brands", "schema_type", "TEXT")     # schema.org @type ขององค์กร (ว่าง = เดาจากชื่อ/ตลาด)
+        _ensure_column(c, "brands", "theme", "TEXT")           # ธีมหน้าบทความใต้โดเมนลูกค้า (JSON · ดู app/hosted_theme.py) ว่าง = ชุดสีของเจอ.AI
         _ensure_column(c, "ai_visibility", "cost_usd", "REAL")  # ค่าใช้จ่ายจริงต่อรอบ จาก usage ที่ API ส่งกลับ
         _ensure_column(c, "brands", "autopilot", "INTEGER DEFAULT 0")            # เปิด Autopilot รายสัปดาห์
         _ensure_column(c, "brands", "autopilot_mode", "TEXT DEFAULT 'draft'")    # draft | publish
@@ -893,6 +894,12 @@ def set_brand_facts(brand_id: int, facts: str) -> None:
 def set_schema_type(brand_id: int, t) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE brands SET schema_type=? WHERE id=?"), (t or None, brand_id))
+
+
+def set_brand_theme(brand_id: int, theme) -> None:
+    """ธีมหน้าบทความใต้โดเมนลูกค้า (JSON) — None = กลับไปใช้ชุดสีของเจอ.AI"""
+    with get_conn() as c:
+        c.execute(q("UPDATE brands SET theme=? WHERE id=?"), (theme or None, brand_id))
 
 
 def set_brand_site_context(brand_id: int, ctx: str) -> None:

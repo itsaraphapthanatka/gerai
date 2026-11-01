@@ -1,0 +1,174 @@
+{# โครงหน้าบทความที่เสิร์ฟใต้โดเมนลูกค้า (/geo · /geo/<id>)
+   สี ฟอนต์ โลโก้ และปุ่มชวนติดต่อมาจากธีมของแบรนด์ (app/hosted_theme.py)
+   แบรนด์ที่ยังไม่ตั้งธีม = ชุดสีเดิมของเจอ.AI โครงหน้าเดียวกันทุกราย #}
+<!doctype html>
+<html lang="{{ lang|default('th') }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="เจอ.AI GEO">
+{% block head %}{% endblock %}
+{% if th.font_url %}<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{{ th.font_url }}">{% endif %}
+<style>
+:root{ {{ css_vars|safe }} color-scheme:light }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--text);line-height:1.5;
+  font-family:var(--font);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+img{max-width:100%}
+a{color:inherit}
+
+/* ---- แถบบน ---- */
+.rail{max-width:1180px;margin:0 auto;padding:0 24px}
+.bar{position:sticky;top:0;z-index:20;background:var(--page);border-bottom:1px solid var(--border)}
+.bar .rail{height:68px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.mark{display:flex;align-items:center;text-decoration:none;font-size:16px;font-weight:800;color:var(--text);flex-shrink:0}
+.mark img{height:var(--logo-h);width:auto;display:block}
+.navs{display:flex;align-items:center;gap:20px}
+.navs a{font-size:14px;font-weight:600;color:var(--muted);text-decoration:none;white-space:nowrap}
+.navs a:hover{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 20px;border-radius:9999px;
+  background:var(--cta);color:var(--cta-ink);font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap;
+  transition:transform .18s,box-shadow .18s}
+.pill:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.pill svg{stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- หัวเรื่องรวม ---- */
+.eyebrow{margin:0 0 12px;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+h1{margin:0;font-size:38px;line-height:1.3;font-weight:800;text-wrap:balance}
+.lede{margin:16px 0 0;max-width:54ch;font-size:16px;line-height:1.8;color:var(--muted)}
+.count{margin:18px 0 0;font-size:13px;font-weight:700;color:var(--faint)}
+
+/* ---- รายการบทความ ---- */
+.hero{padding:56px 0 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(324px,1fr));gap:16px;padding-bottom:16px}
+.card{display:flex;flex-direction:column;gap:9px;padding:22px 24px 20px;text-decoration:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  transition:border-color .18s,box-shadow .18s,transform .18s}
+.card:hover{border-color:var(--accent);box-shadow:0 14px 34px rgba(0,0,0,.08);transform:translateY(-2px)}
+.card h2{margin:0;font-size:16.5px;line-height:1.6;font-weight:700;color:var(--text)}
+.card:hover h2{color:var(--accent)}
+.card p{margin:0;font-size:13.5px;line-height:1.75;color:var(--muted);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .go{margin-top:auto;padding-top:10px;font-size:12.5px;font-weight:800;color:var(--accent)}
+.card .go i{display:inline-block;font-style:normal;transition:transform .18s}
+.card:hover .go i{transform:translateX(4px)}
+.empty{padding:16px 0 40px;color:var(--muted)}
+
+/* ---- บทความ ---- */
+.doc{max-width:752px;margin:0 auto;padding:0 24px}
+.crumb{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:28px 0 0;font-size:12.5px;color:var(--faint)}
+.crumb a{color:var(--faint);text-decoration:none}
+.crumb a:hover{color:var(--accent)}
+article>h1{margin:18px 0 0;font-size:34px;line-height:1.35}
+.meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0 34px;font-size:13px;color:var(--muted)}
+.meta .dot{width:3px;height:3px;border-radius:9999px;background:var(--faint)}
+
+.prose p,.prose li{font-size:16.5px;line-height:1.95}
+.prose>:first-child{margin-top:0}
+.prose h2{margin:2.1em 0 .55em;font-size:22px;line-height:1.55;font-weight:800}
+.prose h2::before{content:"";display:block;width:30px;height:3px;margin-bottom:14px;border-radius:2px;background:var(--accent)}
+.prose h3{margin:1.8em 0 .4em;font-size:17.5px;line-height:1.6;font-weight:700}
+.prose h4{margin:1.5em 0 .3em;font-size:16px;font-weight:700}
+.prose ul,.prose ol{margin:1em 0;padding-left:1.4em}
+.prose li{margin:.4em 0}
+.prose li::marker{color:var(--accent);font-weight:700}
+.prose a{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.prose img{border-radius:var(--radius);border:1px solid var(--border)}
+.prose code{padding:2px 6px;border-radius:6px;background:var(--tint);font-size:.9em}
+.prose hr{margin:2.4em 0;border:0;border-top:1px solid var(--border)}
+.prose blockquote{margin:1.5em 0;padding:16px 20px;background:var(--tint);
+  border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0}
+.prose blockquote p{margin:0;font-size:15.5px;line-height:1.85}
+/* ตารางเปรียบเทียบยาวกว่าความกว้างอ่านเสมอ — ให้เลื่อนในกรอบของตัวเอง ไม่ใช่ทั้งหน้า */
+.prose .tbl{margin:1.6em 0;overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+.prose table{width:100%;min-width:560px;border-collapse:collapse;font-size:14.5px}
+.prose th,.prose td{padding:12px 16px;text-align:left;vertical-align:top;line-height:1.75;border-bottom:1px solid var(--border)}
+.prose th{background:var(--tint);color:var(--accent);font-size:13px;font-weight:800}
+.prose tbody tr:last-child td{border-bottom:0}
+
+/* ---- แถบชวนติดต่อ ---- */
+.band{margin:48px 0 0;padding:30px 32px;border-radius:calc(var(--radius) + 8px);background:var(--accent);color:var(--accent-ink)}
+.band b{display:block;font-size:19px;font-weight:800;line-height:1.5}
+.band p{margin:8px 0 18px;font-size:14.5px;line-height:1.75;opacity:.8}
+
+/* ---- บทความอื่น ---- */
+.more{margin:46px 0 0;padding-top:26px;border-top:1px solid var(--border)}
+.more h2{margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.more ul{margin:0;padding:0;list-style:none}
+.more li+li{border-top:1px solid var(--border)}
+.more li a{display:block;padding:13px 0;font-size:15px;font-weight:600;line-height:1.65;text-decoration:none}
+.more li a:hover{color:var(--accent)}
+.more>a{display:inline-block;margin-top:16px;font-size:13.5px;font-weight:800;color:var(--accent);text-decoration:none}
+
+/* ---- ท้ายหน้า ---- */
+.foot{margin-top:84px;background:var(--foot);color:var(--foot-text);
+  border-top:1px solid var(--foot-border);border-radius:var(--foot-round) var(--foot-round) 0 0}
+.foot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:40px;flex-wrap:wrap;padding-top:54px;padding-bottom:36px}
+.foot-id img{height:42px;width:auto;display:block}
+.foot-id b{font-size:17px;font-weight:800;color:var(--foot-head)}
+.foot-id p{margin:14px 0 0;max-width:34ch;font-size:13.5px;line-height:1.75}
+.foot-links{display:flex;flex-direction:column;gap:11px;font-size:13.5px}
+.foot-links span{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--foot-head);margin-bottom:3px}
+.foot-links a{text-decoration:none;color:var(--foot-text)}
+.foot-links a:hover{color:var(--foot-head)}
+/* เส้นคั่นท้ายหน้าต้องอ่านออกทั้งฟุตเตอร์ขาวและฟุตเตอร์ดำ — ผสมจากสีตัวหนังสือของฟุตเตอร์เอง */
+.foot-end{border-top:1px solid var(--border)}
+@supports (color:color-mix(in srgb,#000 50%,transparent)){
+  .foot-end{border-top-color:color-mix(in srgb,var(--foot-text) 26%,transparent)}
+}
+.foot-end .rail{padding-top:22px;padding-bottom:22px;font-size:12.5px}
+
+@media (max-width:760px){
+  h1{font-size:29px}
+  article>h1{font-size:27px}
+  .hero{padding:38px 0 24px}
+  .prose p,.prose li{font-size:16px}
+  .prose h2{font-size:20px}
+  .bar .rail{height:62px}
+  .navs{gap:14px}
+  /* บนมือถือเหลือลิงก์รวมบทความกับปุ่ม — โลโก้พาไปหน้าแรกอยู่แล้ว */
+  .navs a.home{display:none}
+  .band{padding:24px 22px}
+  .foot-top{gap:28px;padding-top:40px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="rail">
+    <a class="mark" href="{{ site_url }}">
+      {% if th.logo %}<img src="{{ th.logo }}" alt="{{ brand_name }}">{% else %}{{ brand_name }}{% endif %}
+    </a>
+    <nav class="navs">
+      <a href="{{ index_url }}">{{ L.all }}</a>
+      <a class="home" href="{{ site_url }}">{{ L.home }}</a>
+      {% if th.cta_url and th.cta_label %}<a class="pill" href="{{ th.cta_url }}">{{ th.cta_label }}
+        <svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>{% endif %}
+    </nav>
+  </div>
+</header>
+
+{% block main %}{% endblock %}
+
+<footer class="foot">
+  <div class="rail foot-top">
+    <div class="foot-id">
+      {% if th.logo_foot %}<img src="{{ th.logo_foot }}" alt="{{ brand_name }}">{% else %}<b>{{ brand_name }}</b>{% endif %}
+      <p>{{ lede }}</p>
+    </div>
+    <div class="foot-links">
+      <span>{{ L.eyebrow }}</span>
+      <a href="{{ index_url }}">{{ L.all }}</a>
+      <a href="{{ site_url }}">{{ domain }}</a>
+      {% if th.cta_url and th.cta_label %}<a href="{{ th.cta_url }}">{{ th.cta_label }}</a>{% endif %}
+    </div>
+  </div>
+  <div class="foot-end"><div class="rail">© {{ year }} {{ brand_name }}</div></div>
+</footer>
+</body>
+</html>

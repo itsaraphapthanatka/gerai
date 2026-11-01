@@ -335,6 +335,11 @@
     <div class="qc-count">{{ _("ก่อน vs หลัง") }}</div>
   </a>
   {% if not managed() %}
+  <a href="/brands/{{ brand['id'] }}/theme" class="quick-card">
+    <div class="qc-icon">🎨</div>
+    <div class="qc-label">{{ _("ธีมหน้าบทความ") }}</div>
+    <div class="qc-count">{{ _("สี ฟอนต์ โลโก้") }}</div>
+  </a>
   <a href="/brands/{{ brand['id'] }}/assets" class="quick-card">
     <div class="qc-icon">🛡️</div>
     <div class="qc-label">{{ _("ชุดติดตั้ง") }}</div>

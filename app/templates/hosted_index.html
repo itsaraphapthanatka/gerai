@@ -1,35 +1,46 @@
-<!doctype html>
-<html lang="th">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>บทความ — {{ brand_name }}</title>
-<meta name="description" content="รวมบทความและคำแนะนำจาก {{ brand_name }}">
-<meta name="generator" content="เจอ.AI GEO">
+{% extends "_hosted_shell.html" %}
+
+{% block head %}
+<title>{{ L.eyebrow }} — {{ brand_name }}</title>
+<meta name="description" content="{{ lede }}">
 {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+<meta property="og:title" content="{{ L.eyebrow }} — {{ brand_name }}">
+<meta property="og:description" content="{{ lede }}">
+<meta property="og:type" content="website">
+{% if canonical %}<meta property="og:url" content="{{ canonical }}">{% endif %}
 {% if item_list %}<script type="application/ld+json">{{ item_list | safe }}</script>{% endif %}
-<style>
-  body { font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
-    max-width: 760px; margin: 0 auto; padding: 40px 22px; line-height: 1.7;
-    color: #1c1c2b; background: #fff; }
-  h1 { font-size: 26px; margin: 0 0 20px; }
-  ul { list-style: none; padding: 0; }
-  li { margin: 0 0 12px; }
-  a { color: #7132f5; font-size: 17px; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  footer { border-top: 1px solid #ececf1; margin-top: 32px; padding-top: 16px; color: #6b6b7b; font-size: 13px; }
-</style>
-</head>
-<body>
-<h1>บทความ — {{ brand_name }}</h1>
-{% if articles %}
-<ul>
-  {% for a in articles %}<li><a href="{{ a.url }}">{{ a.title }}</a>{% if a.desc %}<div style="color:#6b6b7b;font-size:14px;margin-top:2px">{{ a.desc }}</div>{% endif %}</li>{% endfor %}
-</ul>
-{% else %}
-<p>ยังไม่มีบทความที่เผยแพร่</p>
-{% endif %}
-{% if is_self %}<p style="background:#f7f8fa;border-radius:14px;padding:16px 18px;margin-top:28px">เว็บของคุณถูก AI แนะนำหรือยัง? <a href="{{ site_url }}/audit?src=geo">ตรวจเว็บฟรี →</a></p>{% endif %}
-<footer><a href="{{ site_url }}">← กลับ {{ domain }}</a></footer>
-</body>
-</html>
+{% endblock %}
+
+{% block main %}
+<main class="rail">
+  <div class="hero">
+    <p class="eyebrow">{{ brand_name }}</p>
+    <h1>{{ L.index_h1 }}</h1>
+    <p class="lede">{{ lede }}</p>
+    {% if articles %}<p class="count">{{ count_label }}</p>{% endif %}
+  </div>
+
+  {% if articles %}
+  <div class="grid">
+    {% for a in articles %}
+    <a class="card" href="{{ a.url }}">
+      <h2>{{ a.title }}</h2>
+      {% if a.desc %}<p>{{ a.desc }}</p>{% endif %}
+      <span class="go">{{ L.read }} <i>&rarr;</i></span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">{{ L.empty }}</p>
+  {% endif %}
+
+  {% if is_self %}
+  <div class="band">
+    <b>เว็บของคุณถูก AI แนะนำหรือยัง?</b>
+    <p>ตรวจเว็บฟรีในราว 2 นาที ไม่ต้องสมัคร</p>
+    <a class="pill" href="{{ site_url }}/audit?src=geo">ตรวจเว็บฟรี
+      <svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

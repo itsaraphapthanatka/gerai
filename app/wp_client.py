@@ -95,13 +95,56 @@ def _md_inline(s: str) -> str:
     s = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)",
                r'<img src="\2" alt="\1" loading="lazy" style="max-width:100%;height:auto;border-radius:12px;margin:6px 0">', s)
     s = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", r'<a href="\2">\1</a>', s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
     return s
 
 
+_HR = re.compile(r"^\s*([-*_])\s*(?:\1\s*){2,}$")
+
+
+def _cells(line: str) -> list:
+    s = line.strip()
+    if s.startswith("|"):
+        s = s[1:]
+    if s.endswith("|"):
+        s = s[:-1]
+    return [c.strip() for c in s.split("|")]
+
+
+def _is_row(line: str) -> bool:
+    """แถวตาราง — ต้องขึ้นต้นด้วย | ไม่งั้นประโยคธรรมดาที่มีขีดคั่นจะถูกนับเป็นตาราง"""
+    s = line.strip()
+    return s.startswith("|") and s.count("|") >= 2
+
+
+def _is_sep(line: str) -> bool:
+    """แถวคั่นหัวตาราง |---|:---:| — ทุกช่องมีแต่ขีดกับทวิภาค"""
+    cs = _cells(line)
+    return bool(cs) and all(c and "-" in c and set(c) <= set(":-") for c in cs)
+
+
+def _table(head: list, body: list) -> str:
+    n = len(head)
+    th = "".join(f"<th>{_md_inline(c)}</th>" for c in head)
+    rows = ["<tr>" + "".join(f"<td>{_md_inline(c)}</td>" for c in (r + [""] * n)[:n]) + "</tr>"
+            for r in body]
+    return ('<div class="tbl"><table><thead><tr>' + th + "</tr></thead><tbody>"
+            + "".join(rows) + "</tbody></table></div>")
+
+
 def md_to_html(md: str) -> str:
-    """แปลง markdown → HTML แบบทีละบรรทัด (ทนต่อ output ของ LLM ที่ใช้ single newline)."""
-    out, para, items = [], [], []
+    """แปลง markdown → HTML แบบทีละบรรทัด (ทนต่อ output ของ LLM ที่ใช้ single newline).
+
+    รองรับ หัวข้อ · ย่อหน้า · รายการแบบจุดและแบบนับเลข · กรอบคำพูด (>) · ตาราง GFM
+    · เส้นคั่น · และ inline (ตัวหนา ลิงก์ รูป โค้ด)
+
+    ตารางเปรียบเทียบกับกรอบ "สรุป:" เป็นของที่ AI เขียนมาแทบทุกบทความ ก่อนหน้านี้
+    ตกลงไปเป็นย่อหน้าเดียวที่มีขีดกับ | ปนกันทั้งก้อน อ่านไม่ออกทั้งคนและบอท
+    """
+    lines = (md or "").replace("\r\n", "\n").split("\n")
+    out, para, items, quote = [], [], [], []
+    ordered = [False]
 
     def flush_para():
         if para:
@@ -110,27 +153,63 @@ def md_to_html(md: str) -> str:
 
     def flush_list():
         if items:
-            out.append("<ul>" + "".join(f"<li>{x}</li>" for x in items) + "</ul>")
+            tag = "ol" if ordered[0] else "ul"
+            out.append(f"<{tag}>" + "".join(f"<li>{x}</li>" for x in items) + f"</{tag}>")
             items.clear()
+        ordered[0] = False
 
-    for raw in (md or "").replace("\r\n", "\n").split("\n"):
-        line = raw.strip()
+    def flush_quote():
+        if quote:
+            out.append("<blockquote><p>" + "<br>".join(quote) + "</p></blockquote>")
+            quote.clear()
+
+    def flush_all():
+        flush_para(); flush_list(); flush_quote()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if not line:
-            flush_para(); flush_list(); continue
+            flush_all(); i += 1; continue
+        # ตาราง: แถวหัวต้องมีแถวคั่นต่อท้ายทันที ไม่งั้นไม่ใช่ตาราง
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        if _is_row(line) and _is_row(nxt) and _is_sep(nxt):
+            flush_all()
+            head = _cells(line)
+            i += 2
+            body = []
+            while i < len(lines) and _is_row(lines[i]):
+                body.append(_cells(lines[i])); i += 1
+            out.append(_table(head, body))
+            continue
         mh = re.match(r"^(#{1,6})\s+(.*)$", line)
         if mh:
-            flush_para(); flush_list()
+            flush_all()
             tag = "h2" if len(mh.group(1)) <= 2 else ("h3" if len(mh.group(1)) == 3 else "h4")
             out.append(f"<{tag}>{_md_inline(mh.group(2).strip())}</{tag}>")
-            continue
+            i += 1; continue
+        mq = re.match(r"^>\s?(.*)$", line)
+        if mq:
+            flush_para(); flush_list()
+            quote.append(_md_inline(mq.group(1).strip()))
+            i += 1; continue
+        flush_quote()
+        if _HR.match(line):
+            flush_all(); out.append("<hr>"); i += 1; continue
         mb = re.match(r"^[-*]\s+(.*)$", line)
-        if mb:
+        mo = re.match(r"^\d{1,3}[.)]\s+(.*)$", line)
+        if mb or mo:
             flush_para()
-            items.append(_md_inline(mb.group(1).strip()))
-            continue
+            want = bool(mo)
+            if items and ordered[0] != want:
+                flush_list()
+            ordered[0] = want
+            items.append(_md_inline((mo or mb).group(1).strip()))
+            i += 1; continue
         flush_list()
         para.append(_md_inline(line))
-    flush_para(); flush_list()
+        i += 1
+    flush_all()
     return "\n".join(out)
 
 

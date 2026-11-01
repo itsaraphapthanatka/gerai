@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ _("ธีมหน้าบทความ") }} — {{ brand['name'] }}{% endblock %}
+
+{% macro color(key, label, hint='') %}
+<label class="fld">
+  <span>{{ label }}{% if hint %} <i>{{ hint }}</i>{% endif %}</span>
+  <span class="ci">
+    <input type="color" data-sw="{{ key }}" aria-label="{{ label }}"
+           value="{{ th[key] if th[key]|length == 7 and th[key].startswith('#') else '#ffffff' }}">
+    <input type="text" name="{{ key }}" data-k="{{ key }}" value="{{ th[key] }}" spellcheck="false">
+  </span>
+</label>
+{% endmacro %}
+
+{% macro size(key, label, hint='') %}
+<label class="fld">
+  <span>{{ label }}{% if hint %} <i>{{ hint }}</i>{% endif %}</span>
+  <input type="number" name="{{ key }}" data-k="{{ key }}" data-unit="px" min="0" max="999" value="{{ nums[key] }}">
+</label>
+{% endmacro %}
+
+{% block content %}
+{% from "_managed.html" import note with context %}
+<p class="muted"><a class="link" href="/brands/{{ brand['id'] }}">← {{ brand['name'] }}</a></p>
+<h1>{{ _("ธีมหน้าบทความ") }}</h1>
+<p class="muted">
+  {{ _("สี ฟอนต์ และโลโก้ของหน้าบทความที่เสิร์ฟใต้โดเมนลูกค้า ตั้งให้เหมือนเว็บจริง คนอ่านจะได้ไม่รู้สึกว่าหลุดไปเว็บอื่น") }}
+  <a class="link" href="{{ geo_url }}" target="_blank" rel="noopener">{{ _("เปิดหน้าจริง") }} ↗</a>
+</p>
+
+{% if saved == '1' %}<p class="pill ok">{{ _("บันทึกแล้ว") }} — {{ _("หน้าจริงแคชไว้ 10 นาที") }}</p>{% endif %}
+{% if saved == '2' %}<p class="pill ok">{{ _("ล้างธีมแล้ว กลับไปใช้ชุดสีของเจอ.AI") }}</p>{% endif %}
+
+{% if managed() %}{{ note() }}{% else %}
+<form method="post" action="/brands/{{ brand['id'] }}/theme" class="tw">
+  <div>
+    <div class="card">
+      <h2>{{ _("ฟอนต์") }}</h2>
+      <label class="fld" style="max-width:340px">
+        <span>{{ _("ชุดสำเร็จรูป") }} <i>{{ _("โหลดจาก Google Fonts") }}</i></span>
+        <select name="font_preset" id="fontsel">
+          {% for key, label, stack, url in fonts %}
+          <option value="{{ key }}" {{ 'selected' if key == font_preset }}>{{ label }}</option>
+          {% endfor %}
+          <option value="custom" {{ 'selected' if font_preset == 'custom' }}>{{ _("กรอกเอง") }}</option>
+        </select>
+      </label>
+      <div id="fontcustom" class="tw-grid" style="margin-top:12px;{{ '' if font_preset == 'custom' else 'display:none' }}">
+        <label class="fld"><span>font-family</span>
+          <input type="text" name="font" value="{{ th.font }}" spellcheck="false"></label>
+        <label class="fld"><span>{{ _("ลิงก์สไตล์ชีตของฟอนต์") }} <i>fonts.googleapis.com</i></span>
+          <input type="text" name="font_url" value="{{ th.font_url }}" spellcheck="false"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>{{ _("สีพื้นและตัวอักษร") }}</h2>
+      <div class="tw-grid">
+        {{ color('page', _("พื้นหลัง")) }}
+        {{ color('surface', _("พื้นการ์ด")) }}
+        {{ color('text', _("ตัวอักษร")) }}
+        {{ color('muted', _("ตัวอักษรรอง")) }}
+        {{ color('faint', _("ตัวอักษรจาง")) }}
+        {{ color('border', _("เส้นขอบ")) }}
+        {{ color('tint', _("พื้นอ่อน"), _("กรอบสรุป · หัวตาราง")) }}
+        {{ size('radius', _("ความโค้งการ์ด")) }}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>{{ _("สีแบรนด์และปุ่ม") }}</h2>
+      <div class="tw-grid">
+        {{ color('accent', _("สีแบรนด์"), _("ลิงก์ · ขีดใต้หัวข้อ · แถบชวนติดต่อ")) }}
+        {{ color('accent_ink', _("ตัวอักษรบนสีแบรนด์")) }}
+        {{ color('cta', _("ปุ่ม")) }}
+        {{ color('cta_ink', _("ตัวอักษรบนปุ่ม")) }}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>{{ _("ท้ายหน้า") }}</h2>
+      <div class="tw-grid">
+        {{ color('foot', _("พื้นท้ายหน้า")) }}
+        {{ color('foot_head', _("ชื่อแบรนด์ท้ายหน้า")) }}
+        {{ color('foot_text', _("ตัวอักษรท้ายหน้า")) }}
+        {{ size('foot_round', _("มุมบนโค้ง")) }}
+      </div>
+      <p class="muted" style="margin-bottom:0">{{ _("พื้นท้ายหน้าสีเดียวกับพื้นหลัง ระบบจะใส่เส้นคั่นให้เอง คนละสีจะไม่ใส่") }}</p>
+    </div>
+
+    <div class="card">
+      <h2>{{ _("โลโก้") }}</h2>
+      <div class="tw-grid">
+        <label class="fld"><span>{{ _("โลโก้บนพื้นสว่าง") }} <i>{{ _("แถบบน") }}</i></span>
+          <input type="text" name="logo" value="{{ th.logo }}" placeholder="/assets/logo.png" spellcheck="false"></label>
+        <label class="fld"><span>{{ _("โลโก้บนพื้นเข้ม") }} <i>{{ _("ท้ายหน้า") }}</i></span>
+          <input type="text" name="logo_foot" value="{{ th.logo_foot }}" placeholder="/assets/logo-white.png" spellcheck="false"></label>
+        {{ size('logo_h', _("ความสูงโลโก้")) }}
+      </div>
+      <p class="muted" style="margin-bottom:0">{{ _("ใส่ที่อยู่ไฟล์ในเว็บลูกค้าได้เลย เช่น /assets/logo.png เพราะหน้านี้อยู่โดเมนเดียวกัน ปล่อยว่าง = ใช้ชื่อแบรนด์เป็นตัวอักษร") }}</p>
+    </div>
+
+    <div class="card">
+      <h2>{{ _("แถบชวนติดต่อท้ายบทความ") }}</h2>
+      <div class="tw-grid">
+        <label class="fld"><span>{{ _("หัวข้อ") }}</span>
+          <input type="text" name="cta_title" value="{{ th.cta_title }}" maxlength="160"></label>
+        <label class="fld"><span>{{ _("ป้ายบนปุ่ม") }}</span>
+          <input type="text" name="cta_label" value="{{ th.cta_label }}" maxlength="160"></label>
+        <label class="fld"><span>{{ _("ลิงก์ปุ่ม") }}</span>
+          <input type="text" name="cta_url" value="{{ th.cta_url }}" placeholder="/contact" spellcheck="false"></label>
+        <label class="fld" style="grid-column:1/-1"><span>{{ _("คำอธิบาย") }}</span>
+          <input type="text" name="cta_text" value="{{ th.cta_text }}" maxlength="160"></label>
+      </div>
+      <p class="muted" style="margin-bottom:0">{{ _("กรอกครบทั้งหัวข้อ ป้ายปุ่ม และลิงก์ แถบถึงจะขึ้น ปุ่มบนแถบบนใช้ป้ายกับลิงก์ชุดเดียวกันนี้") }}</p>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 0">
+      <button class="btn" type="submit">{{ _("บันทึก") }}</button>
+      {% if has_theme %}
+      <button class="btn ghost" type="submit" name="reset" value="1"
+              formnovalidate onclick="return confirm({{ _("ล้างธีมของแบรนด์นี้ กลับไปใช้ชุดสีของเจอ.AI?")|tojson|forceescape }})">
+        {{ _("ล้างธีม") }}
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="tw-side">
+    <div class="tw-side-h">{{ _("ตัวอย่าง") }}</div>
+    <div id="prev" style="--t-page:{{ th.page }};--t-surface:{{ th.surface }};--t-tint:{{ th.tint }};
+      --t-text:{{ th.text }};--t-muted:{{ th.muted }};--t-faint:{{ th.faint }};--t-border:{{ th.border }};
+      --t-accent:{{ th.accent }};--t-accent-ink:{{ th.accent_ink }};--t-cta:{{ th.cta }};--t-cta-ink:{{ th.cta_ink }};
+      --t-foot:{{ th.foot }};--t-foot-text:{{ th.foot_text }};--t-foot-head:{{ th.foot_head }};
+      --t-radius:{{ th.radius }};--t-foot-round:{{ th.foot_round }}">
+      <div class="pv-bar">
+        <b>{{ brand['name'] }}</b>
+        <span class="pv-pill">{{ th.cta_label or _("ปุ่ม") }}</span>
+      </div>
+      <div class="pv-body">
+        <div class="pv-eyebrow">{{ brand['name'] }}</div>
+        <div class="pv-h1">{{ _("บทความและคำแนะนำ") }}</div>
+        <div class="pv-card">
+          <div class="pv-card-t">{{ _("ชื่อบทความ") }}</div>
+          <div class="pv-card-d">{{ _("คำอธิบายใต้ชื่อบทความ") }}</div>
+        </div>
+        <div class="pv-quote">{{ _("กรอบสรุปต้นบทความ") }}</div>
+        <table class="pv-tbl">
+          <tr><th>{{ _("หัวตาราง") }}</th><th>{{ _("หัวตาราง") }}</th></tr>
+          <tr><td>{{ _("ข้อมูล") }}</td><td>{{ _("ข้อมูล") }}</td></tr>
+        </table>
+        <div class="pv-band">
+          <b>{{ th.cta_title or _("แถบชวนติดต่อ") }}</b>
+          <span class="pv-pill">{{ th.cta_label or _("ปุ่ม") }}</span>
+        </div>
+      </div>
+      <div class="pv-foot"><b>{{ brand['name'] }}</b><span>{{ _("ท้ายหน้า") }}</span></div>
+    </div>
+  </aside>
+</form>
+{% endif %}
+
+<style>
+.tw { display:grid; grid-template-columns:minmax(0,1fr) 304px; gap:22px; align-items:start; }
+.tw h2 { font-size:15px; margin:0 0 12px; }
+.tw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(216px,1fr)); gap:13px; }
+.fld { display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:600; min-width:0; }
+.fld i { font-style:normal; font-weight:400; font-size:11.5px; color:var(--silver); }
+.fld input, .fld select { font-size:13.5px; padding:9px 11px; }
+.ci { display:flex; gap:7px; align-items:center; }
+.ci input[type=color] { flex:0 0 42px; width:42px; height:38px; padding:3px; cursor:pointer; }
+.ci input[type=text] { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.tw-side { position:sticky; top:16px; }
+.tw-side-h { font-size:12px; font-weight:700; color:var(--silver); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
+#prev { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--t-page); color:var(--t-text); font-size:11px; line-height:1.5; }
+.pv-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-bottom:1px solid var(--t-border); }
+.pv-bar b { font-size:12px; font-weight:800; }
+.pv-pill { padding:4px 10px; border-radius:9999px; background:var(--t-cta); color:var(--t-cta-ink); font-size:10px; font-weight:800; white-space:nowrap; }
+.pv-body { padding:14px 12px; display:flex; flex-direction:column; gap:10px; }
+.pv-eyebrow { font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--t-accent); }
+.pv-h1 { font-size:17px; font-weight:800; line-height:1.3; margin-top:-5px; }
+.pv-card { background:var(--t-surface); border:1px solid var(--t-border); border-radius:var(--t-radius); padding:10px 12px; }
+.pv-card-t { font-weight:700; }
+.pv-card-d { color:var(--t-muted); font-size:10.5px; margin-top:2px; }
+.pv-quote { background:var(--t-tint); border-left:3px solid var(--t-accent); border-radius:0 var(--t-radius) var(--t-radius) 0; padding:9px 11px; }
+.pv-tbl { width:100%; border-collapse:collapse; border:1px solid var(--t-border); border-radius:var(--t-radius); overflow:hidden; font-size:10.5px; }
+.pv-tbl th { background:var(--t-tint); color:var(--t-accent); font-weight:800; text-align:left; padding:7px 10px; }
+.pv-tbl td { padding:7px 10px; border-top:1px solid var(--t-border); }
+.pv-band { display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--t-accent); color:var(--t-accent-ink); border-radius:var(--t-radius); padding:11px 12px; }
+.pv-band b { font-size:11px; font-weight:800; }
+.pv-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--t-foot); color:var(--t-foot-text); padding:16px 12px 14px; border-radius:var(--t-foot-round) var(--t-foot-round) 0 0; font-size:10px; }
+.pv-foot b { color:var(--t-foot-head); font-size:11.5px; }
+@media (max-width:900px) { .tw { grid-template-columns:1fr; } .tw-side { position:static; } }
+</style>
+
+<script>
+(function () {
+  var prev = document.getElementById('prev');
+  if (!prev) return;
+  document.querySelectorAll('[data-k]').forEach(function (txt) {
+    var k = txt.dataset.k, sw = document.querySelector('[data-sw="' + k + '"]');
+    function push() { prev.style.setProperty('--t-' + k.replace(/_/g, '-'), txt.value + (txt.dataset.unit || '')); }
+    txt.addEventListener('input', function () {
+      if (sw && /^#[0-9a-fA-F]{6}$/.test(txt.value)) sw.value = txt.value;
+      push();
+    });
+    if (sw) sw.addEventListener('input', function () { txt.value = sw.value; push(); });
+  });
+  var sel = document.getElementById('fontsel'), box = document.getElementById('fontcustom');
+  if (sel && box) sel.addEventListener('change', function () { box.style.display = sel.value === 'custom' ? '' : 'none'; });
+})();
+</script>
+{% endblock %}

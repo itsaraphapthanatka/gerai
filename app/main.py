@@ -4,6 +4,7 @@ import os
 import json
 import re
 import secrets
+import datetime as _dt
 from pathlib import Path
 from urllib.parse import quote
 from dotenv import load_dotenv
@@ -18,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -2939,6 +2940,37 @@ def brand_assets(request: Request, brand_id: int):
     )
 
 
+# ---------- ธีมหน้าบทความใต้โดเมนลูกค้า (/geo) ----------
+@app.get("/brands/{brand_id}/theme")
+def brand_theme(request: Request, brand_id: int):
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    th = hosted_theme.theme_for(brand)
+    return templates.TemplateResponse(
+        request,
+        "brand_theme.html",
+        {"brand": brand, "th": th, "fonts": hosted_theme.FONTS,
+         "font_preset": hosted_theme.font_preset_of(th),
+         "nums": {k: hosted_theme.px(th[k]) for k in ("foot_round", "radius", "logo_h")},
+         "has_theme": bool(brand["theme"]),
+         "geo_url": geo_content._site_url(brand) + "/geo",
+         "saved": request.query_params.get("saved")},
+    )
+
+
+@app.post("/brands/{brand_id}/theme")
+async def save_brand_theme(request: Request, brand_id: int):
+    if blk := _managed_block(request, f"/brands/{brand_id}/theme"):
+        return blk
+    if not _brand_for(request, brand_id):
+        return _redirect("/login")
+    form = await request.form()
+    # ช่องเยอะและเพิ่มได้เรื่อย ๆ — อ่านทั้งฟอร์มทีเดียว แล้วให้ hosted_theme คัดค่าที่ใช้ได้
+    db.set_brand_theme(brand_id, None if form.get("reset") else hosted_theme.from_form(form))
+    return _redirect(f"/brands/{brand_id}/theme?saved=" + ("2" if form.get("reset") else "1"))
+
+
 # ---------- WordPress publish (execution layer — Phase B) ----------
 @app.post("/brands/{brand_id}/wp")
 def save_wp(request: Request, brand_id: int, site_url: str = Form(...), user: str = Form(""), app_password: str = Form(""), api_key: str = Form("")):
@@ -3181,6 +3213,18 @@ def self_indexnow_key():
     return PlainTextResponse(indexnow.key(), headers={"Cache-Control": "public, max-age=86400"})
 
 
+def _hosted_ctx(brand, site: str, lang: str = "th") -> dict:
+    """บริบทที่โครงหน้า (_hosted_shell.html) ต้องใช้ — ธีม ป้าย และลิงก์กลับเว็บลูกค้า"""
+    th = hosted_theme.theme_for(brand)
+    L = hosted_theme.labels(lang)
+    return {"th": th, "L": L, "css_vars": hosted_theme.css_vars(th), "lang": lang,
+            "brand_name": brand["name"], "site_url": site,
+            "domain": re.sub(r"^https?://|/$", "", site),
+            "index_url": f"{site}/geo", "year": _dt.date.today().year,
+            "lede": L["lede"].format(brand=brand["name"]),
+            "is_self": bool((_self_brand() or {"id": None})["id"] == brand["id"])}
+
+
 @app.api_route("/e/{key}/a/", methods=["GET", "HEAD"])
 def hosted_index(request: Request, key: str):
     brand = db.get_brand_by_embed_key(key)
@@ -3191,10 +3235,10 @@ def hosted_index(request: Request, key: str):
     item_list = json.dumps({"@context": "https://schema.org", "@type": "ItemList", "name": f"บทความ — {brand['name']}",
                             "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": a["url"], "name": a["title"]}
                                                 for i, a in enumerate(articles)]}, ensure_ascii=False)
-    return templates.TemplateResponse(request, "hosted_index.html",
-        {"brand_name": brand["name"], "site_url": site, "domain": brand["domain"], "articles": articles,
-         "canonical": f"{site}/geo", "item_list": item_list,
-         "is_self": bool((_self_brand() or {"id": None})["id"] == brand["id"])},
+    ctx = _hosted_ctx(brand, site)
+    ctx.update({"articles": articles, "canonical": f"{site}/geo", "item_list": item_list,
+                "count_label": ctx["L"]["count"].format(n=len(articles))})
+    return templates.TemplateResponse(request, "hosted_index.html", ctx,
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
@@ -3213,17 +3257,27 @@ def hosted_article(request: Request, key: str, cid: int):
         schemas.append(org)
     if it["schema_json"]:
         schemas.append(it["schema_json"])
-    return templates.TemplateResponse(request, "hosted_article.html",
-        {"lang": it["lang"] or "th", "title": it["title"],
-         "meta_title": (it["meta_title"] or it["title"]), "meta_desc": it["meta_desc"] or "",
-         "body_html": wp_client.md_to_html(it["body_md"]), "schemas": schemas,
-         "canonical": f"{site}/geo/{cid}", "brand_name": brand["name"],
-         "site_url": site, "domain": brand["domain"],
-         # ลิงก์ภายใน: บทความอื่นของแบรนด์ + หน้ารวม — Google ไต่ต่อและให้น้ำหนักหน้าที่มีลิงก์จริง
-         "related": [{"title": x["title"], "url": f"{site}/geo/{x['id']}"} for x in
-                     sorted([x for x in _published_items(brand) if x["id"] != cid],
-                            key=lambda x: x["published_at"] or x["created_at"] or "", reverse=True)[:5]],
-         "index_url": f"{site}/geo", "is_self": bool((_self_brand() or {"id": None})["id"] == brand["id"])},
+    lang = it["lang"] or "th"
+    ctx = _hosted_ctx(brand, site, lang)
+    when = (it["published_at"] or it["created_at"] or "")[:10]
+    ctx.update({
+        "title": it["title"],
+        "meta_title": (it["meta_title"] or it["title"]), "meta_desc": it["meta_desc"] or "",
+        "body_html": wp_client.md_to_html(it["body_md"]), "schemas": schemas,
+        "canonical": f"{site}/geo/{cid}",
+        # วันที่เผยแพร่ — คนอ่านบทความแนะนำทำเล/ราคา ต้องรู้ว่าข้อมูลเก่าแค่ไหน
+        "published": landing_i18n.date(when, lang) if when else "", "published_iso": when,
+        # ลิงก์ภายใน: บทความอื่นของแบรนด์ + หน้ารวม — Google ไต่ต่อและให้น้ำหนักหน้าที่มีลิงก์จริง
+        "related": [{"title": x["title"], "url": f"{site}/geo/{x['id']}"} for x in
+                    sorted([x for x in _published_items(brand) if x["id"] != cid],
+                           key=lambda x: x["published_at"] or x["created_at"] or "", reverse=True)[:5]],
+        # เส้นทางบนหน้า (หน้าแรก / บทความ / ชื่อเรื่อง) บอกบอทด้วย ไม่ใช่แค่คนอ่าน
+        "crumb_schema": json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": ctx["L"]["home"], "item": site},
+            {"@type": "ListItem", "position": 2, "name": ctx["L"]["eyebrow"], "item": f"{site}/geo"},
+            {"@type": "ListItem", "position": 3, "name": it["title"], "item": f"{site}/geo/{cid}"}]}, ensure_ascii=False),
+    })
+    return templates.TemplateResponse(request, "hosted_article.html", ctx,
         headers={"Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*"})
 
 
