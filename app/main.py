@@ -12,14 +12,14 @@ from dotenv import load_dotenv
 # โหลด .env ก่อน import db (db อ่าน GEO_DB_PATH ตอน import)
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-from fastapi import FastAPI, Request, Form, UploadFile, File
+from fastapi import FastAPI, Request, Form, UploadFile, File, Depends
 from fastapi.responses import RedirectResponse, PlainTextResponse, Response, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, staff, staff_audit, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -36,8 +36,48 @@ def verify_pw(password: str, hashed: str) -> bool:
     except Exception:
         return False
 
+class StaffDenied(Exception):
+    """ทีมงานไม่มีสิทธิ์หมวดนี้ (area) · logout=True = บัญชีถูกปิด/ถอนสิทธิ์แล้ว ออกจากระบบ"""
+    def __init__(self, area=None, logout=False):
+        self.area, self.logout = area, logout
+
+
+async def _staff_guard(request: Request):
+    """ตรวจสิทธิ์ทีมงานจุดเดียวทุก route (dependency ระดับแอป) — route หลังบ้านยังเช็ค _is_admin ของตัวเองเหมือนเดิม
+    อ่านแถว tenant จาก DB ทุกคำขอของทีมงาน → เปลี่ยนสิทธิ์/ปิดบัญชีมีผลทันทีโดยไม่ต้องรอ session หมด
+    คำขอที่เปลี่ยนข้อมูล → เก็บประวัติการแก้ไข (ค่าก่อน/หลัง) ใน staff_log ผ่าน app/staff_audit.py · ถูกปฏิเสธก็เก็บ"""
+    sess = request.session
+    if not sess.get("is_admin"):
+        yield
+        return
+    t = db.get_tenant(sess.get("tenant_id")) if sess.get("tenant_id") else None
+    if not staff.is_staff(t):
+        raise StaffDenied(logout=True)
+    request.state.staff = t
+    path, method = request.url.path, request.method
+    area = staff.area_for(path)
+    deny = None if staff.allowed(t, path, method) else area
+    m = re.match(r"/admin/tenants/(\d+)/", path)       # แก้อีเมล/แผนของบัญชีทีมงานด้วยกัน = เจ้าของเท่านั้น (กันยึดบัญชีเจ้าของ)
+    if deny is None and m and method not in ("GET", "HEAD") and not staff.is_owner(t):
+        target = db.get_tenant(int(m.group(1)))
+        if target and target["is_admin"]:
+            deny = "staff"
+    if deny is not None:
+        staff_audit.denied(t["id"], request)
+        raise StaffDenied(deny)
+    if method in ("GET", "HEAD", "OPTIONS") or path == "/login":
+        yield
+        return
+    entry = await staff_audit.begin(request, t["id"])
+    try:
+        yield
+    except Exception:
+        staff_audit.finish(entry, "error")
+        raise
+    staff_audit.finish(entry)
+
 BASE = Path(__file__).resolve().parent
-app = FastAPI(title="GEO Platform")
+app = FastAPI(title="GEO Platform", dependencies=[Depends(_staff_guard)])
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"))
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
@@ -109,6 +149,32 @@ templates.env.globals["team_contact"] = lambda: _team_contact()
 templates.env.globals["new_contacts_count"] = lambda req: (
     db.count_new_contacts() if req.session.get("is_admin") else 0
 )
+
+
+@app.exception_handler(StaffDenied)
+def _staff_denied(request: Request, exc: StaffDenied):
+    if exc.logout:
+        request.session.clear()
+        return _redirect("/login")
+    label = staff.AREAS.get(exc.area, ("",))[0]
+    if request.url.path.endswith(".json") or "application/json" in request.headers.get("accept", "") \
+            or request.headers.get("x-requested-with") == "fetch":
+        return JSONResponse({"ok": False, "error": "forbidden", "area": exc.area}, status_code=403)
+    write = request.method not in ("GET", "HEAD") and staff.can(request.state.staff, exc.area, "view")
+    return templates.TemplateResponse(request, "admin_denied.html", {"area_label": label, "write": write,
+                                      "role": staff.role_label(request.state.staff)}, status_code=403)
+
+
+def _staff_row(req):
+    """แถว tenant ของทีมงานที่ล็อกอิน (guard ใส่ไว้ใน request.state แล้ว) · None = ไม่ใช่ทีมงาน"""
+    if not req.session.get("is_admin"):
+        return None
+    t = getattr(req.state, "staff", None)
+    return t if t is not None else db.get_tenant(req.session.get("tenant_id"))
+
+
+templates.env.globals["can"] = lambda req, area, level="view": staff.can(_staff_row(req), area, level)   # เมนู/ปุ่มหลังบ้านตามสิทธิ์
+templates.env.globals["staff_badge"] = lambda req: (lambda t: "ADMIN" if staff.is_owner(t) else staff.role_label(t))(_staff_row(req))   # ป้ายข้างชื่อ
 
 
 @app.on_event("startup")
@@ -325,7 +391,10 @@ def _brand_for(request: Request, brand_id: int):
     tid = _tid(request)
     if not tid:
         return None
-    return db.get_brand(brand_id) if _is_admin(request) else db.get_brand(brand_id, tid)
+    if _is_admin(request):            # ทีมงาน: แบรนด์ลูกค้าทุกรายต้องมีสิทธิ์หมวด "ลูกค้าและผลงาน" (เปลี่ยนข้อมูล = ต้องแก้ไขได้)
+        if staff.can(_staff_row(request), "customers", "view" if request.method in ("GET", "HEAD") else "edit"):
+            return db.get_brand(brand_id)
+    return db.get_brand(brand_id, tid)
 
 
 def _dashboard_ctx(request: Request, error=None):
@@ -420,6 +489,10 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     t = db.get_tenant_by_email(email)
     if not t or not verify_pw(password, t["password_hash"]):
         return templates.TemplateResponse(request, "login.html", {"error": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"})
+    if t["disabled"]:
+        return templates.TemplateResponse(request, "login.html", {"error": "บัญชีนี้ถูกปิดการใช้งานแล้ว ติดต่อเจ้าของระบบ"})
+    if t["is_admin"]:
+        db.log_staff(t["id"], "LOGIN", "/login")
     request.session.update({
         "tenant_id": t["id"], "email": t["email"],
         "name": t["name"] or t["email"], "is_admin": bool(t["is_admin"]),
@@ -1134,7 +1207,8 @@ def admin_lead(request: Request, lead_id: int, notice: str = ""):
     lead = db.get_lead(lead_id)
     if not lead:
         return _redirect("/admin/leads")
-    return templates.TemplateResponse(request, "admin_lead.html", _lead_ctx(lead, notice))
+    edits = [staff_audit.view(r) for r in db.list_staff_log(30, target=f"leads:{lead_id}")]   # ประวัติการแก้ไขลีดนี้โดยทีมงาน
+    return templates.TemplateResponse(request, "admin_lead.html", {**_lead_ctx(lead, notice), "staff_edits": edits})
 
 
 @app.post("/admin/leads/{lead_id}/note")
@@ -4803,3 +4877,7 @@ async def inbox_hook(request: Request, secret: str = ""):
 # ---------- CRM งานขาย: กระดานดีล /admin/deals และฟอร์มบนหน้าลูกค้าเป้าหมาย (app/crm_web.py) ----------
 from .crm_web import router as _crm_router   # noqa: E402
 app.include_router(_crm_router)
+
+# ---------- ทีมงานและสิทธิ์ /admin/staff (app/staff_web.py · กฎสิทธิ์ app/staff.py) ----------
+from .staff_web import router as _staff_router   # noqa: E402
+app.include_router(_staff_router)

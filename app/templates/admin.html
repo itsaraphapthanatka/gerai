@@ -2,6 +2,7 @@
 {% block title %}ผู้ดูแลระบบ — เจอ.AI{% endblock %}
 {% block content %}
 <h1>แผงผู้ดูแล</h1>
+{% if can(request, 'settings', 'edit') %}
 <form method="post" action="/admin/free-plan" style="display:flex;gap:8px;align-items:center;margin:-4px 0 12px;font-size:13px">
   <span>แผน Free (ทดลองใช้ {{ trial_days }} วัน): <b>{{ 'เปิดเสนอ' if free_open else 'ปิดไว้' }}</b></span>
   <input type="hidden" name="on" value="{{ '' if free_open else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 10px">{{ 'ปิดแผน Free' if free_open else 'เปิดแผน Free' }}</button>
@@ -12,6 +13,7 @@
   <input type="hidden" name="on" value="{{ '' if agency_mode else '1' }}"><button class="btn ghost sm" type="submit" style="padding:2px 10px">{{ 'ปิดโหมดเอเจนซี' if agency_mode else 'เปิดโหมดเอเจนซี' }}</button>
   <span class="muted" style="font-size:12px">เปิด = ลูกค้าดูผลและรายงานได้อย่างเดียว ทีมงานตั้งค่า/สั่งรัน/เขียนคอนเทนต์ให้ (แอดมินทำได้ทุกอย่างในแบรนด์ลูกค้า) · ปิด = ลูกค้าใช้เครื่องมือเองแบบเดิม</span>
 </form>
+{% endif %}
 <p class="muted">มุมมองรวมทุกลูกค้าและแบรนด์ในระบบ</p>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
@@ -20,11 +22,11 @@
   <div class="astat"><div class="n">{{ stats.customers }}</div><div class="l">ลูกค้า</div></div>
   <div class="astat"><div class="n">{{ stats.brands }}</div><div class="l">แบรนด์</div></div>
   <div class="astat"><div class="n">{{ stats.brands_run }}</div><div class="l">รันมอนิเตอร์แล้ว</div></div>
-  <div class="astat"><div class="n">{{ stats.admins }}</div><div class="l">ผู้ดูแล</div></div>
+  <div class="astat"><div class="n">{{ stats.admins }}</div><div class="l">{% if can(request, 'staff') %}<a class="link" href="/admin/staff">ทีมงาน →</a>{% else %}ทีมงาน{% endif %}</div></div>
 </div>
 
 <!-- รอยืนยันชำระเงิน -->
-{% if pending_payments %}
+{% if pending_payments and can(request, 'finance') %}
 <h2>💳 รอยืนยันชำระเงิน ({{ pending_payments|length }})</h2>
 <div class="card" style="padding:0;overflow:hidden;border-color:var(--green)">
   <div style="overflow-x:auto">
@@ -39,9 +41,9 @@
       <td>{% if pay['slip_path'] %}<a class="link" href="/admin/slip/{{ pay['id'] }}" target="_blank">ดูสลิป ↗</a>{% else %}<span class="muted">ไม่มี</span>{% endif %}</td>
       <td class="muted" style="white-space:nowrap">{{ pay['created_at'][:16] }}</td>
       <td>
-        <form method="post" action="/admin/payments/{{ pay['id'] }}/confirm" onsubmit="return confirm('ยืนยันว่าได้รับเงินแล้ว? ระบบจะเปิดแผน {{ pay['plan'] }} ให้ลูกค้าทันที')">
+        {% if can(request, 'finance', 'edit') %}<form method="post" action="/admin/payments/{{ pay['id'] }}/confirm" onsubmit="return confirm('ยืนยันว่าได้รับเงินแล้ว? ระบบจะเปิดแผน {{ pay['plan'] }} ให้ลูกค้าทันที')">
           <button class="alt sm" type="submit" style="white-space:nowrap">✓ ยืนยัน+เปิดแผน</button>
-        </form>
+        </form>{% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -51,6 +53,7 @@
 </div>
 {% endif %}
 
+{% if can(request, 'accounts', 'edit') %}
 <!-- สร้างบัญชีลูกค้า -->
 <div class="card" style="border-color:var(--purple)">
   <h2 style="margin-top:0;border:none;padding:0 0 12px;font-size:15px">＋ สร้างบัญชีลูกค้าใหม่</h2>
@@ -64,14 +67,18 @@
   </form>
 </div>
 
-<!-- ลูกค้า -->
-<h2>ลูกค้า ({{ tenants|length }})</h2>
+{% endif %}
+
+{% if can(request, 'accounts') %}
+<!-- ลูกค้า (บัญชีทีมงานอยู่ที่ /admin/staff) -->
+{% set customers = tenants|rejectattr('is_admin')|list %}
+<h2>ลูกค้า ({{ customers|length }})</h2>
 <div class="card" style="padding:0;overflow:hidden">
   <div style="overflow-x:auto">
   <table>
     <thead><tr><th>อีเมล</th><th>ชื่อ / บริษัท</th><th>บทบาท</th><th>แบรนด์</th><th>แผน</th><th>บริการเสริม</th><th>สมัคร</th></tr></thead>
     <tbody>
-    {% for t in tenants %}
+    {% for t in customers %}
     <tr>
       <td>
         {# แก้อีเมลได้ตรงนี้ — บัญชีที่สร้างตอนตั้งระบบเป็น @…local ซึ่งแคมเปญ/Autopilot ส่งไปแล้วไม่มีใครได้รับ #}
@@ -119,6 +126,9 @@
   </div>
 </div>
 
+{% endif %}
+
+{% if can(request, 'customers') %}
 <!-- แบรนด์ -->
 <h2>แบรนด์ทั้งหมด ({{ all_brands|length }})</h2>
 <div class="card" style="padding:0;overflow:hidden">
@@ -147,6 +157,7 @@
   </div>
   {% else %}<p class="muted" style="padding:20px">ยังไม่มีแบรนด์ในระบบ</p>{% endif %}
 </div>
+{% endif %}
 
 <style>
 .astats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:16px 0; }

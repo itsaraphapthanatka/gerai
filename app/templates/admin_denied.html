@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}ไม่มีสิทธิ์ — เจอ.AI{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;margin:40px auto;text-align:center;padding:34px 28px">
+  <div style="font-size:34px;line-height:1">🔒</div>
+  <h1 style="margin:12px 0 8px;font-size:22px">{{ 'ดูได้อย่างเดียว' if write else 'ไม่มีสิทธิ์เข้าหน้านี้' }}</h1>
+  <p class="muted" style="line-height:1.65;margin:0 0 18px">
+    {% if write %}บทบาท <b>{{ role }}</b> เปิดดูหมวด “{{ area_label }}” ได้ แต่บันทึกหรือสั่งงานไม่ได้
+    {% else %}บทบาท <b>{{ role }}</b> ไม่ได้รับสิทธิ์หมวด “{{ area_label or 'นี้' }}”{% endif %}
+    — ขอสิทธิ์เพิ่มจากเจ้าของระบบได้ที่หน้า ทีมงานและสิทธิ์
+  </p>
+  <a class="btn" href="/admin">กลับหน้าผู้ดูแล</a>
+</div>
+{% endblock %}

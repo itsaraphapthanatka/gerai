@@ -7,7 +7,7 @@ import json
 import re
 
 from . import leads as L
-from . import office
+from . import office, staff
 
 MANDATE_DEFAULT = {
     "max_discount_pct": 10,
@@ -420,7 +420,7 @@ def morning_digest(base_url: str) -> dict:
     sent = []
     if mailer.config():
         for t in db.list_all_tenants():
-            if t["is_admin"] and mailer.is_deliverable(t["email"]):
+            if staff.receives(t, "/admin/decisions") and mailer.is_deliverable(t["email"]):   # สรุปเช้ามีตัวเลขเงิน — เฉพาะทีมงานที่ดูหมวดเอเจนต์ได้
                 try:
                     html = mailer.wrap_html("สรุปเช้า เจอ.AI", "<pre style='white-space:pre-wrap;font-family:inherit'>" + text + f"</pre><p><a href='{base_url}/admin/decisions'>เปิดหน้าการตัดสินใจ</a></p>")
                     mailer.send(t["email"], f"สรุปเช้า เจอ.AI {now.strftime('%d/%m')}", html, text=text)

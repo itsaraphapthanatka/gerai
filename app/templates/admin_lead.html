@@ -359,4 +359,11 @@
   </div>
   {% else %}<div class="muted" style="font-size:13px">ยังไม่มีเหตุการณ์</div>{% endif %}
 </div>
+{% if staff_edits %}
+<div class="card" style="padding:14px 16px;overflow-x:auto">
+  <h2 style="margin:0 0 6px;border:none;padding:0;font-size:15px">ประวัติการแก้ไขโดยทีมงาน
+    {% if can(request, 'staff') %}<a class="link" href="/admin/staff/history?target=leads:{{ lead['id'] }}" style="font-size:13px;font-weight:500;margin-left:8px">ทั้งหมด →</a>{% endif %}</h2>
+  {% with rows=staff_edits, show_target=False, who_link=can(request, 'staff') %}{% include "_staff_history.html" %}{% endwith %}
+</div>
+{% endif %}
 {% endblock %}

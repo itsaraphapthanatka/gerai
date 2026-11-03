@@ -203,28 +203,29 @@
     <a href="/app" class="{{ 'active' if _path == '/app' }}"><span class="icon">🏠</span> {{ _("หน้าหลัก") }}</a>
     <a href="/upgrade" class="{{ 'active' if _path == '/upgrade' }}"><span class="icon">⭐</span> {{ _("แพ็กเกจและการชำระเงิน") if managed() else _("อัปเกรดแผน", _ns="app") }}</a>
     <a href="/account/password" class="{{ 'active' if _path == '/account/password' }}"><span class="icon">🔑</span> {{ _("รหัสผ่าน") }}</a>
-    {% if request.session.get('is_admin') %}
+    {% if request.session.get('is_admin') %}  {# เมนูหลังบ้านโชว์เฉพาะหมวดที่ทีมงานคนนี้ดูได้ (app/staff.py) #}
     <a href="/admin" class="{{ 'active' if _path == '/admin' }}"><span class="icon">⚙️</span> {{ _("ผู้ดูแลระบบ") }}</a>
-    {% set _nc = new_contacts_count(request) %}
-    <a href="/admin/deals" class="{{ 'active' if _path.startswith('/admin/deals') }}"><span class="icon">🗂️</span> {{ _("ดีล") }}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>
-    <a href="/admin/customers" class="{{ 'active' if _path.startswith('/admin/customers') }}"><span class="icon">💼</span> {{ _("ลูกค้า") }}</a>
-    <a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> {{ _("ผู้ติดต่อ") }}</a>
-    <a href="/admin/leads" class="{{ 'active' if _path.startswith('/admin/leads') }}"><span class="icon">🎯</span> {{ _("ลูกค้าเป้าหมาย") }}</a>
-    <a href="/admin/decisions" class="{{ 'active' if _path.startswith('/admin/decisions') }}"><span class="icon">🧭</span> {{ _("การตัดสินใจ") }}</a>
-    <a href="/admin/office" class="{{ 'active' if _path.startswith('/admin/office') }}"><span class="icon">🏢</span> {{ _("ออฟฟิศ") }}</a>
-    <a href="/admin/calls" class="{{ 'active' if _path.startswith('/admin/calls') }}"><span class="icon">📞</span> {{ _("โทรปิดดีล") }}</a>
-    <a href="/admin/accounting" class="{{ 'active' if _path.startswith('/admin/accounting') }}"><span class="icon">🧾</span> {{ _("บัญชี") }}</a>
-    <a href="/admin/results" class="{{ 'active' if _path.startswith('/admin/results') }}"><span class="icon">📈</span> {{ _("ผลลัพธ์ลูกค้า") }}</a>
-    <a href="/admin/salesbot" class="{{ 'active' if _path.startswith('/admin/salesbot') }}"><span class="icon">💬</span> {{ _("ตอบแชตขาย") }}</a>
-    <a href="/admin/partners" class="{{ 'active' if _path.startswith('/admin/partners') }}"><span class="icon">🤝</span> {{ _("พันธมิตร") }}</a>
-    <a href="/admin/ceo" class="{{ 'active' if _path.startswith('/admin/ceo') }}"><span class="icon">💬</span> {{ _("สั่งงาน CEO") }}</a>
-    <a href="/admin/tasks" class="{{ 'active' if _path.startswith('/admin/tasks') }}"><span class="icon">📋</span> {{ _("งานที่ CEO แจก") }}</a>
-    <a href="/admin/inbox" class="{{ 'active' if _path.startswith('/admin/inbox') }}"><span class="icon">📥</span> {{ _("อีเมลตอบกลับ") }}</a>
-    <a href="/admin/deliverability" class="{{ 'active' if _path.startswith('/admin/deliverability') }}"><span class="icon">📬</span> {{ _("การส่งอีเมล") }}</a>
-    <a href="/admin/marketing" class="{{ 'active' if _path.startswith('/admin/marketing') }}"><span class="icon">📣</span> {{ _("การตลาด") }}</a>
-    <a href="/admin/skills" class="{{ 'active' if _path.startswith('/admin/skills') }}"><span class="icon">🎓</span> {{ _("ทักษะเอเจนต์") }}</a>
-    <a href="/admin/email" class="{{ 'active' if _path.startswith('/admin/email') }}"><span class="icon">📧</span> {{ _("อีเมล", _ns="app") }}</a>
-    <a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> {{ _("ตั้งค่า") }}</a>
+    {% if can(request, 'sales') %}{% set _nc = new_contacts_count(request) %}
+    <a href="/admin/deals" class="{{ 'active' if _path.startswith('/admin/deals') }}"><span class="icon">🗂️</span> {{ _("ดีล") }}{% if _nc %}<span class="menu-badge">{{ _nc }}</span>{% endif %}</a>{% endif %}
+    {% if can(request, 'customers') %}<a href="/admin/customers" class="{{ 'active' if _path.startswith('/admin/customers') }}"><span class="icon">💼</span> {{ _("ลูกค้า") }}</a>{% endif %}
+    {% if can(request, 'sales') %}<a href="/admin/contacts" class="{{ 'active' if _path.startswith('/admin/contacts') }}"><span class="icon">📩</span> {{ _("ผู้ติดต่อ") }}</a>{% endif %}
+    {% if can(request, 'sales') %}<a href="/admin/leads" class="{{ 'active' if _path.startswith('/admin/leads') }}"><span class="icon">🎯</span> {{ _("ลูกค้าเป้าหมาย") }}</a>{% endif %}
+    {% if can(request, 'agents') %}<a href="/admin/decisions" class="{{ 'active' if _path.startswith('/admin/decisions') }}"><span class="icon">🧭</span> {{ _("การตัดสินใจ") }}</a>{% endif %}
+    {% if can(request, 'agents') %}<a href="/admin/office" class="{{ 'active' if _path.startswith('/admin/office') }}"><span class="icon">🏢</span> {{ _("ออฟฟิศ") }}</a>{% endif %}
+    {% if can(request, 'sales') %}<a href="/admin/calls" class="{{ 'active' if _path.startswith('/admin/calls') }}"><span class="icon">📞</span> {{ _("โทรปิดดีล") }}</a>{% endif %}
+    {% if can(request, 'finance') %}<a href="/admin/accounting" class="{{ 'active' if _path.startswith('/admin/accounting') }}"><span class="icon">🧾</span> {{ _("บัญชี") }}</a>{% endif %}
+    {% if can(request, 'customers') %}<a href="/admin/results" class="{{ 'active' if _path.startswith('/admin/results') }}"><span class="icon">📈</span> {{ _("ผลลัพธ์ลูกค้า") }}</a>{% endif %}
+    {% if can(request, 'sales') %}<a href="/admin/salesbot" class="{{ 'active' if _path.startswith('/admin/salesbot') }}"><span class="icon">💬</span> {{ _("ตอบแชตขาย") }}</a>{% endif %}
+    {% if can(request, 'partners') %}<a href="/admin/partners" class="{{ 'active' if _path.startswith('/admin/partners') }}"><span class="icon">🤝</span> {{ _("พันธมิตร") }}</a>{% endif %}
+    {% if can(request, 'agents') %}<a href="/admin/ceo" class="{{ 'active' if _path.startswith('/admin/ceo') }}"><span class="icon">💬</span> {{ _("สั่งงาน CEO") }}</a>{% endif %}
+    {% if can(request, 'agents') %}<a href="/admin/tasks" class="{{ 'active' if _path.startswith('/admin/tasks') }}"><span class="icon">📋</span> {{ _("งานที่ CEO แจก") }}</a>{% endif %}
+    {% if can(request, 'sales') %}<a href="/admin/inbox" class="{{ 'active' if _path.startswith('/admin/inbox') }}"><span class="icon">📥</span> {{ _("อีเมลตอบกลับ") }}</a>{% endif %}
+    {% if can(request, 'marketing') %}<a href="/admin/deliverability" class="{{ 'active' if _path.startswith('/admin/deliverability') }}"><span class="icon">📬</span> {{ _("การส่งอีเมล") }}</a>{% endif %}
+    {% if can(request, 'marketing') %}<a href="/admin/marketing" class="{{ 'active' if _path.startswith('/admin/marketing') }}"><span class="icon">📣</span> {{ _("การตลาด") }}</a>{% endif %}
+    {% if can(request, 'agents') %}<a href="/admin/skills" class="{{ 'active' if _path.startswith('/admin/skills') }}"><span class="icon">🎓</span> {{ _("ทักษะเอเจนต์") }}</a>{% endif %}
+    {% if can(request, 'marketing') %}<a href="/admin/email" class="{{ 'active' if _path.startswith('/admin/email') }}"><span class="icon">📧</span> {{ _("อีเมล", _ns="app") }}</a>{% endif %}
+    {% if can(request, 'settings') %}<a href="/admin/settings" class="{{ 'active' if _path == '/admin/settings' }}"><span class="icon">🏦</span> {{ _("ตั้งค่า") }}</a>{% endif %}
+    {% if can(request, 'staff') %}<a href="/admin/staff" class="{{ 'active' if _path.startswith('/admin/staff') }}"><span class="icon">👥</span> {{ _("ทีมงานและสิทธิ์") }}</a>{% endif %}
     {% endif %}
 
     <span class="section-label">{{ _("แบรนด์") }}</span>
@@ -255,7 +256,7 @@
   <div class="user-box">
     <div class="name">
       {{ request.session.get('name') or _('ผู้ใช้') }}
-      {% if request.session.get('is_admin') %}<span class="badge-admin">ADMIN</span>{% endif %}
+      {% if request.session.get('is_admin') %}<span class="badge-admin">{{ _(staff_badge(request)) }}</span>{% endif %}
     </div>
     <div class="ub-row"><a href="/logout">{{ _("ออกจากระบบ") }}</a>{% include "_lang.html" %}</div>
   </div>

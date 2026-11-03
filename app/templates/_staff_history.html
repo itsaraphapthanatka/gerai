@@ -1,0 +1,41 @@
+{# ประวัติการแก้ไขของทีมงาน — rows = staff_audit.view(...) · show_target = โชว์คอลัมน์ "กับอะไร" (หน้าลีดไม่ต้อง) #}
+<style>
+  .sh{width:100%;border-collapse:collapse;font-size:13px}
+  .sh th,.sh td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  .sh tr:last-child td{border-bottom:0}
+  .sh .when{white-space:nowrap;color:var(--cool);font-variant-numeric:tabular-nums}
+  .sh .act b{display:block}
+  .sh .act .tg{font-size:12px;color:var(--cool)}
+  .sh .chg{margin:0;padding:0;list-style:none}
+  .sh .chg li{margin:0 0 3px;line-height:1.5;word-break:break-word}
+  .sh .chg .f{color:var(--cool)}
+  .sh .chg .a{color:var(--danger-text);text-decoration:line-through;text-decoration-thickness:1px}
+  .sh .chg .b{color:var(--green-dark);font-weight:600}
+  .sh details summary{cursor:pointer;font-size:12px;color:var(--cool)}
+  .sh .frm{font-family:ui-monospace,monospace;font-size:12px;color:var(--cool);margin:6px 0 0;line-height:1.55;word-break:break-all}
+  .sh .st-denied{background:var(--danger-subtle);color:var(--danger-text)}
+  .sh .st-error{background:#fff0e6;color:#b4530b}
+</style>
+<table class="sh">
+  <thead><tr><th>เมื่อ</th><th>ใคร</th><th>ทำอะไร</th><th>เปลี่ยนอะไร</th></tr></thead>
+  <tbody>
+  {% for l in rows %}
+  <tr>
+    <td class="when">{{ l['created_at'][:16].replace('T', ' ') }}</td>
+    <td>{% if who_link %}<a class="link" href="/admin/staff/history?who={{ l['tenant_id'] }}">{{ l['name'] or l['email'] or '#' ~ l['tenant_id'] }}</a>{% else %}{{ l['name'] or l['email'] or '#' ~ l['tenant_id'] }}{% endif %}</td>
+    <td class="act"><b>{{ l['action'] }}
+      {% if l['status'] == 'denied' %}<span class="pill st-denied">ถูกปฏิเสธ</span>{% elif l['status'] == 'error' %}<span class="pill st-error">ผิดพลาด</span>{% endif %}</b>
+      {% if show_target and l['target_label'] %}<a class="tg" href="/admin/staff/history?target={{ l['target'] }}">{{ l['target_label'] }}</a>{% endif %}
+    </td>
+    <td>
+      {% if l['changes'] %}<ul class="chg">{% for ch in l['changes'] %}<li><span class="f">{{ ch.f }}:</span> <span class="a">{{ ch.a }}</span> → <span class="b">{{ ch.b }}</span></li>{% endfor %}</ul>
+      {% elif l['method'] in ('LOGIN', 'GET', 'HEAD') %}<span class="muted">—</span>
+      {% else %}<span class="muted" style="font-size:12px">ไม่มีค่าที่บันทึกเปลี่ยน (สั่งงาน/ส่ง/สร้างรายการใหม่)</span>{% endif %}
+      {% if l['form'] %}<details><summary>ข้อมูลที่กรอก ({{ l['form']|length }})</summary>
+        <div class="frm">{% for k, v in l['form'].items() %}{{ k }} = {{ v }}<br>{% endfor %}</div></details>{% endif %}
+      {% if show_target %}<div class="frm" style="margin-top:3px">{{ l['method'] if l['method'] != 'LOGIN' else '' }} {{ l['path'] if l['method'] != 'LOGIN' else '' }}</div>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>

@@ -549,6 +549,15 @@ def init_db() -> None:
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
         c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
             id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
+        # ทีมงานหลังบ้าน (app/staff.py): บทบาท · สิทธิ์รายหมวดถ้ากำหนดเอง (JSON) · ปิดบัญชี · ประวัติการทำงาน
+        _ensure_column(c, "tenants", "staff_role", "TEXT")
+        _ensure_column(c, "tenants", "staff_perms", "TEXT")
+        _ensure_column(c, "tenants", "disabled", "INTEGER NOT NULL DEFAULT 0")
+        c.execute(f"""CREATE TABLE IF NOT EXISTS staff_log (
+            id {_PK}, tenant_id INTEGER NOT NULL, method TEXT, path TEXT, created_at TEXT NOT NULL)""")
+        # ประวัติการแก้ไข (app/staff_audit.py): ทำอะไร · กับแถวไหน (ตาราง:id) · ค่าก่อน→หลัง (JSON) · ฟอร์มที่ส่ง (ซ่อนรหัส) · ok/error/denied
+        for col in ("action", "target", "target_label", "changes", "form", "status"):
+            _ensure_column(c, "staff_log", col, "TEXT")
         # สร้าง embed_key ให้แบรนด์เก่าที่ยังไม่มี
         import secrets as _s
         rows = c.execute(q("SELECT id FROM brands WHERE embed_key IS NULL")).fetchall()
@@ -590,6 +599,57 @@ def set_email(tenant_id: int, email: str) -> bool:
 def set_password(tenant_id: int, password_hash: str) -> None:
     with get_conn() as c:
         c.execute(q("UPDATE tenants SET password_hash=? WHERE id=?"), (password_hash, tenant_id))
+
+
+def set_staff(tenant_id: int, role: str, perms_json=None) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET staff_role=?, staff_perms=? WHERE id=?"), (role, perms_json, tenant_id))
+
+
+def set_disabled(tenant_id: int, disabled: bool) -> None:
+    with get_conn() as c:
+        c.execute(q("UPDATE tenants SET disabled=? WHERE id=?"), (1 if disabled else 0, tenant_id))
+
+
+def list_staff():
+    """บัญชีทีมงาน + เวลาทำงานล่าสุด (จาก staff_log)"""
+    with get_conn() as c:
+        return c.execute(
+            "SELECT t.*, (SELECT MAX(l.created_at) FROM staff_log l WHERE l.tenant_id=t.id) AS last_seen "
+            "FROM tenants t WHERE t.is_admin=1 ORDER BY t.disabled, t.id").fetchall()
+
+
+def log_staff(tenant_id: int, method: str, path: str, action: str = None, target: str = None, target_label: str = None,
+              changes: list = None, form: dict = None, status: str = "ok") -> None:
+    import json as _json
+    with get_conn() as c:
+        c.execute(q("INSERT INTO staff_log(tenant_id,method,path,action,target,target_label,changes,form,status,created_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?)"),
+                  (tenant_id, method, path[:300], action, target, target_label,
+                   _json.dumps(changes, ensure_ascii=False) if changes else None,
+                   _json.dumps(form, ensure_ascii=False) if form else None, status, now()))
+
+
+def list_staff_log(limit: int = 100, tenant_id: int = None, target: str = None, status: str = None,
+                   q_text: str = None, before_id: int = None):
+    """ประวัติทีมงาน ใหม่สุดก่อน · กรองตามคน / แถวที่แก้ (เช่น 'leads:12') / ผล / คำค้น · before_id = หน้าถัดไป"""
+    where, args = [], []
+    if tenant_id:
+        where.append("l.tenant_id=?"); args.append(int(tenant_id))
+    if target:
+        where.append("l.target=?"); args.append(target)
+    if status:
+        where.append("l.status=?"); args.append(status)
+    if q_text:
+        like = f"%{q_text}%"
+        where.append("(l.action LIKE ? OR l.target_label LIKE ? OR l.path LIKE ? OR l.changes LIKE ?)"); args += [like] * 4
+    if before_id:
+        where.append("l.id<?"); args.append(int(before_id))
+    sql = "SELECT l.*, t.email, t.name FROM staff_log l LEFT JOIN tenants t ON t.id=l.tenant_id"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    with get_conn() as c:
+        return c.execute(q(sql + " ORDER BY l.id DESC LIMIT ?"), tuple(args) + (int(limit),)).fetchall()
 
 
 def count_admins() -> int:
@@ -716,7 +776,8 @@ def add_notification(tenant_id: int, message: str, link: str = None, type_: str 
 
 def notify_admins(message: str, link: str = None, type_: str = "info") -> None:
     with get_conn() as c:
-        ids = [r["id"] for r in c.execute("SELECT id FROM tenants WHERE is_admin=1").fetchall()]
+        from . import staff                        # ทีมงานได้เฉพาะเรื่องที่เปิดลิงก์นั้นได้ · บัญชีที่ปิดแล้วไม่ได้
+        ids = [r["id"] for r in c.execute("SELECT * FROM tenants WHERE is_admin=1").fetchall() if staff.receives(r, link)]
         for tid in ids:
             c.execute(
                 q("INSERT INTO notifications(tenant_id,type,message,link,is_read,created_at) VALUES(?,?,?,?,0,?)"),

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}ทีมงานและสิทธิ์ — เจอ.AI{% endblock %}
+{% block content %}
+<style>
+  .st-sub{color:var(--cool);font-size:14.5px;line-height:1.6;margin:8px 0 18px;max-width:72ch}
+  .st-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin:0 0 14px}
+  .st-card h2{margin:0 0 12px;border:none;padding:0;font-size:15px}
+  .st-add{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}
+  .st-add label{font-size:12.5px}
+  .st-mem{border:1px solid var(--border);border-radius:16px;background:var(--surface);margin:0 0 10px;overflow:hidden}
+  .st-mem[open]{border-color:var(--ink)}
+  .st-mem>summary{list-style:none;cursor:pointer;display:flex;gap:14px;align-items:center;padding:14px 18px;flex-wrap:wrap}
+  .st-mem>summary::-webkit-details-marker{display:none}
+  .st-who{flex:1 1 220px;min-width:0}
+  .st-who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-who span{font-size:12.5px;color:var(--cool)}
+  .st-meta{font-size:12.5px;color:var(--silver);white-space:nowrap}
+  .st-body{border-top:1px solid var(--border);padding:16px 18px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:22px}
+  .st-grid{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0 12px}
+  .st-grid th,.st-grid td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+  .st-grid td.lv{text-align:center;width:74px}
+  .st-grid th.lv{text-align:center;font-weight:600;font-size:12px;color:var(--cool)}
+  .st-grid .ds{display:block;font-size:12px;color:var(--silver);line-height:1.45}
+  .st-grid input{margin:0;width:auto}
+  .st-side form{margin:0 0 14px}
+  .st-side label{font-size:12.5px}
+  .st-pill-off{background:var(--danger-subtle);color:var(--danger-text)}
+  .st-matrix{width:100%;border-collapse:collapse;font-size:12.5px}
+  .st-matrix th,.st-matrix td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
+  .st-matrix th:first-child,.st-matrix td:first-child{text-align:left}
+  .st-lv-edit{color:var(--green-dark);font-weight:600}
+  .st-lv-view{color:var(--cool)}
+  .st-lv-none{color:var(--silver)}
+  @media (max-width:860px){.st-add{grid-template-columns:1fr 1fr}.st-body{grid-template-columns:1fr}}
+  @media (max-width:520px){.st-add{grid-template-columns:1fr}}
+</style>
+
+<h1>ทีมงานและสิทธิ์</h1>
+<p class="st-sub">เพิ่มบัญชีให้ทีมงานหลังบ้าน แล้วเลือกว่าแต่ละคนเห็น/แก้หมวดไหนได้ · <b>ดูได้</b> = เปิดหน้าอ่านได้แต่กดบันทึก/สั่งงานไม่ได้ · <b>แก้ไขได้</b> = ทำทุกอย่างในหมวดนั้น ·
+  เปลี่ยนสิทธิ์หรือปิดบัญชีแล้วมีผลทันทีโดยไม่ต้องให้เขาออกจากระบบ · แจ้งเตือนและอีเมลจากเอเจนต์ส่งถึงเฉพาะคนที่เปิดเรื่องนั้นได้</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div class="st-card" style="border-color:var(--purple)">
+  <h2>＋ เพิ่มทีมงาน</h2>
+  <form method="post" action="/admin/staff" class="st-add" autocomplete="off">
+    <div><label>อีเมล</label><input type="email" name="email" required placeholder="name@company.com"></div>
+    <div><label>ชื่อ</label><input name="name" placeholder="ชื่อเล่น / ตำแหน่ง"></div>
+    <div><label>รหัสผ่านเริ่มต้น (อย่างน้อย {{ min_pw }} ตัว)</label><input type="text" name="password" required minlength="{{ min_pw }}" autocomplete="new-password"></div>
+    <div><label>บทบาท</label>
+      <select name="role">{% for k, r in roles.items() %}<option value="{{ k }}" {{ 'selected' if k == 'viewer' }}>{{ r[0] }}</option>{% endfor %}</select></div>
+    <div><button type="submit">เพิ่ม</button></div>
+  </form>
+  <p class="muted" style="font-size:12.5px;margin:10px 0 0">ส่งรหัสเริ่มต้นให้เขาทางช่องทางส่วนตัว แล้วให้เปลี่ยนเองที่เมนู 🔑 รหัสผ่าน · ปรับสิทธิ์รายหมวดได้หลังเพิ่ม</p>
+</div>
+
+<h2>ทีมงาน ({{ team|length }})</h2>
+{% for m in team %}{% set t = m.t %}
+<details class="st-mem" {{ 'open' if team|length == 1 }}>
+  <summary>
+    <div class="st-who"><b>{{ t['name'] or t['email'] }}{% if m.me %} <span class="muted" style="font-weight:400">(คุณ)</span>{% endif %}</b><span>{{ t['email'] }}</span></div>
+    {% if t['disabled'] %}<span class="pill st-pill-off">ปิดบัญชีแล้ว</span>{% endif %}
+    <span class="pill admin">{{ m.role_label }}</span>
+    <span class="st-meta">{{ 'ล่าสุด ' ~ t['last_seen'][:16].replace('T', ' ') if t['last_seen'] else 'ยังไม่มีการใช้งาน' }}</span>
+  </summary>
+  <div class="st-body">
+    <form method="post" action="/admin/staff/{{ t['id'] }}/perms" data-perms>
+      <label>บทบาท</label>
+      <select name="role" data-role style="width:auto;min-width:220px">
+        {% for k, r in roles.items() %}<option value="{{ k }}" {{ 'selected' if m.role == k }}>{{ r[0] }}</option>{% endfor %}
+        <option value="custom" {{ 'selected' if m.role == 'custom' }}>กำหนดเอง</option>
+      </select>
+      <table class="st-grid">
+        <thead><tr><th>หมวดงาน</th>{% for lk, ll in levels.items() %}<th class="lv">{{ ll }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for ak, a in areas.items() %}
+        <tr><td><b>{{ a[0] }}</b><span class="ds">{{ a[1] }}</span></td>
+          {% for lk, ll in levels.items() %}<td class="lv"><input type="radio" name="lv_{{ ak }}" value="{{ lk }}" aria-label="{{ a[0] }}: {{ ll }}" {{ 'checked' if m.perms[ak] == lk }}></td>{% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <button type="submit">บันทึกสิทธิ์</button>
+    </form>
+    <div class="st-side">
+      <form method="post" action="/admin/staff/{{ t['id'] }}/email">
+        <label>อีเมลเข้าระบบ</label>
+        <div style="display:flex;gap:6px"><input type="email" name="email" value="{{ t['email'] }}" required><button type="submit" class="btn ghost sm">บันทึก</button></div>
+      </form>
+      <form method="post" action="/admin/staff/{{ t['id'] }}/password" autocomplete="off">
+        <label>ตั้งรหัสผ่านใหม่ให้ (ลืมรหัส)</label>
+        <div style="display:flex;gap:6px"><input type="text" name="password" required minlength="{{ min_pw }}" autocomplete="new-password" placeholder="อย่างน้อย {{ min_pw }} ตัว"><button type="submit" class="btn ghost sm">ตั้ง</button></div>
+      </form>
+      {% if not m.me %}
+      <form method="post" action="/admin/staff/{{ t['id'] }}/active" onsubmit="return confirm('{{ 'เปิดบัญชีนี้ให้ใช้งานได้อีกครั้ง?' if t['disabled'] else 'ปิดบัญชีนี้? เขาจะออกจากระบบทันทีและล็อกอินไม่ได้' }}')">
+        <input type="hidden" name="on" value="{{ '1' if t['disabled'] else '' }}">
+        <button type="submit" class="btn ghost sm" style="{{ '' if t['disabled'] else 'color:var(--danger-text)' }}">{{ 'เปิดบัญชีอีกครั้ง' if t['disabled'] else 'ปิดบัญชีนี้' }}</button>
+      </form>
+      {% endif %}
+      <p class="muted" style="font-size:12px;line-height:1.55;margin:0">ต้องเหลือเจ้าของ (หมวด "ทีมงานและสิทธิ์" แก้ไขได้) ที่ใช้งานได้อย่างน้อย 1 คนเสมอ</p>
+    </div>
+  </div>
+</details>
+{% endfor %}
+
+<h2>บทบาทสำเร็จรูป</h2>
+<div class="st-card" style="padding:6px 8px;overflow-x:auto">
+  <table class="st-matrix">
+    <thead><tr><th>บทบาท</th>{% for ak, a in areas.items() %}<th>{{ a[0] }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for k, r in roles.items() %}
+    <tr><td><b>{{ r[0] }}</b></td>{% for ak in areas %}{% set lv = presets[k][ak] %}<td class="st-lv-{{ lv }}">{{ {'edit': 'แก้ไข', 'view': 'ดู', 'none': '—'}[lv] }}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>ประวัติการแก้ไขล่าสุด <a class="link" href="/admin/staff/history" style="font-size:13px;font-weight:500;margin-left:8px">ดูทั้งหมด / ค้นหา →</a></h2>
+<div class="st-card" style="padding:4px 8px;overflow-x:auto">
+  {% if log %}{% with rows=log, show_target=True, who_link=True %}{% include "_staff_history.html" %}{% endwith %}
+  {% else %}<p class="muted" style="padding:14px">ยังไม่มีประวัติ — บันทึกการเข้าระบบ และทุกครั้งที่ทีมงานกดบันทึก/สั่งงาน/ลบ พร้อมค่าก่อน → หลัง</p>{% endif %}
+</div>
+
+<script>
+(function () {
+  var presets = {{ presets|tojson }};
+  document.querySelectorAll("form[data-perms]").forEach(function (f) {
+    var sel = f.querySelector("[data-role]");
+    sel.addEventListener("change", function () {           // เลือกบทบาท → เติมระดับรายหมวดตามชุดสำเร็จรูป
+      var p = presets[sel.value];
+      if (!p) return;
+      Object.keys(p).forEach(function (a) {
+        var r = f.querySelector('input[name="lv_' + a + '"][value="' + p[a] + '"]');
+        if (r) r.checked = true;
+      });
+    });
+    f.addEventListener("change", function (e) {             // แก้รายหมวดเอง → บทบาทเป็น "กำหนดเอง" (ถ้าบังเอิญตรงชุด ระบบเก็บเป็นบทบาทนั้นให้)
+      if (e.target.type === "radio") sel.value = "custom";
+    });
+  });
+})();
+</script>
+{% endblock %}

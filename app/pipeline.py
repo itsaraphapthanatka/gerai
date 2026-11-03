@@ -14,7 +14,7 @@ import threading
 import bcrypt
 
 from . import db, execs, leads, line_oa, mailer, quotes as Q, site_health
-from . import office
+from . import office, staff
 
 RUN_INLINE = False          # True = งานเบื้องหลัง (ตรวจเว็บจาก LINE) รันในเธรดเดียว — ใช้ตอนทดสอบ
 
@@ -78,7 +78,7 @@ def alert_admins(message: str, link: str, type_: str = "lead", subject: str | No
         pass
     if subject and mailer.config():
         for t in db.list_all_tenants():
-            if t["is_admin"] and mailer.is_deliverable(t["email"]):
+            if staff.receives(t, link) and mailer.is_deliverable(t["email"]):
                 try:
                     mailer.send(t["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(message) + f"</p><p><a href='{url}'>{url}</a></p>"),
                                 text=f"{message}\n{url}")
