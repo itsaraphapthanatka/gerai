@@ -710,8 +710,12 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     import datetime as _dt
     ip = _client_ip(request)
     since = (_dt.datetime.now() - _dt.timedelta(hours=leads.REUSE_AUDIT_HOURS)).isoformat(timespec="seconds")
-    if db.count_audits_since(ip, since) >= leads.AUDITS_PER_IP_PER_DAY:
-        return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {leads.AUDITS_PER_IP_PER_DAY} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url, "src": src})
+    is_staff = getattr(request.state, "staff", None) is not None   # ทีมงานที่ล็อกอินตรวจเว็บให้ลูกค้าได้ไม่จำกัด
+    by = request.session.get("tenant_id") or None                  # ล็อกอินแล้ว = นับต่อบัญชี · ไม่ได้ล็อกอิน = นับต่อ IP
+    cap = None if is_staff else leads.AUDITS_PER_ACCOUNT_PER_DAY if by else leads.AUDITS_PER_IP_PER_DAY
+    used = 0 if cap is None else db.count_account_audits_since(by, since) if by else db.count_audits_since(ip, since)
+    if cap is not None and used >= cap:
+        return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {cap} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url, "src": src})
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
@@ -726,6 +730,7 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
         partners.attribute(lid, ref, "ลิงก์แนะนำ")              # มาจากพันธมิตร (ครั้งแรกเท่านั้น)
     try:
         token = _run_lead_audit(lid, site, ip)
+        db.update_lead(lid, audit_by=by)                  # None = คนทั่วไป (นับรวมโควตาของ IP)
     except Exception:
         return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url, "src": src})
     deep_audit.start(lid)                                 # รายงานเต็มชั้น 1 ทำต่อเบื้องหลัง หน้าผลจะอัปเดตเอง
@@ -809,7 +814,7 @@ def admin_leads(request: Request, status: str = "", notice: str = ""):
         cb = leads.customer_brand(d["domain"], cmap)
         d["customer"] = {"id": cb["id"], "name": cb["name"]} if cb else None
         rep = json.loads(d["audit_json"]) if d.get("audit_json") else None
-        d["sc"] = leads.score_audit(rep) if rep else None
+        d["sc"] = leads.score_audit(rep, leads.lead_ai(d)) if rep else None
         d["pending"] = db.count_decisions_for_lead(d["id"], "proposed")
         d["quote"] = next((dict(x) for x in db.list_quotes(d["id"], None, 5) if x["status"] in quotes.OPEN and x["status"] != "draft"), None)
         rows.append(d)
@@ -1188,7 +1193,7 @@ def _lead_ctx(lead, notice: str = "") -> dict:
             "fu": {"n": _h["n"], "next": _fu.next_step(lead), "why": _fu.eligible(lead), "replied": _h["replied"], "steps": len(_fu.STEPS)},
             "deep": deep_audit.tier1(lead), "deep_ai": deep_audit.tier2(lead), "deep_progress": deep_audit.progress(lead),
             "ai_today": deep_audit.ai_today(), "ai_daily": deep_audit.ai_daily(),
-            "lead": dict(lead), "sc": leads.score_audit(rep) if rep else None, "summary": leads.public_summary(rep) if rep else [],
+            "lead": dict(lead), "sc": leads.score_audit(rep, leads.lead_ai(lead)) if rep else None, "summary": leads.public_summary(rep) if rep else [],
             "events": [dict(e) for e in db.list_lead_events(lead["id"])], "labels": leads.EVENT_LABEL, "last_draft": last_draft,
             "channel": pipeline.send_channel(lead),
             "quotes": [dict(x) for x in db.list_quotes(lead["id"])], "qstatus": quotes.STATUS_LABEL, "pending": pending,
@@ -2185,7 +2190,9 @@ def run_ai_visibility(brand_id: int) -> dict:
     ค่อยเพิ่มเมื่อมีฐานให้เทียบว่า "ตกลงจากเดิม" ได้
     """
     brand = db.get_brand(brand_id)
-    res = ai_visibility.check_brand(brand, db.list_questions(brand_id))
+    qs = ai_visibility.pick_questions(db.list_questions(brand_id), [r["report"] for r in db.list_ai_visibility(brand_id, 12)],
+                                      db.published_question_ids(brand_id))
+    res = ai_visibility.check_brand(brand, qs)
     db.add_ai_visibility(brand_id, res)
     return res
 
@@ -2484,7 +2491,9 @@ def brand_speed(request: Request, brand_id: int):
 def run_ai_serp(brand_id: int) -> dict:
     """ถาม AI Overview + AI Mode ของ Google ด้วยคำถามเป้าหมาย แล้วเก็บผล — ไม่มีคีย์ SerpApi = skip"""
     brand = db.get_brand(brand_id)
-    res = ai_serp.check_brand(brand, db.list_questions(brand_id))
+    qs = ai_visibility.pick_questions(db.list_questions(brand_id), [r["report"] for r in db.list_ai_serp(brand_id, 12)],
+                                      db.published_question_ids(brand_id), n=ai_serp.MAX_Q)
+    res = ai_serp.check_brand(brand, qs)
     db.add_ai_serp(brand_id, res)
     return res
 

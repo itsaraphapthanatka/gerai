@@ -547,6 +547,7 @@ def init_db() -> None:
         for col, ddl in (("deal_value", "INTEGER"), ("next_action", "TEXT"), ("next_at", "TEXT"), ("next_kind", "TEXT"), ("next_alerted_at", "TEXT")):
             _ensure_column(c, "leads", col, ddl)
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
+        _ensure_column(c, "leads", "audit_by", "INTEGER")             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
         c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
             id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
         # ทีมงานหลังบ้าน (app/staff.py): บทบาท · สิทธิ์รายหมวดถ้ากำหนดเอง (JSON) · ปิดบัญชี · ประวัติการทำงาน
@@ -1020,6 +1021,12 @@ def list_questions(brand_id: int):
         return c.execute(q("SELECT * FROM target_questions WHERE brand_id=? ORDER BY id"), (brand_id,)).fetchall()
 
 
+def published_question_ids(brand_id: int) -> set:
+    with get_conn() as c:
+        return {r["question_id"] for r in c.execute(
+            q("SELECT DISTINCT question_id FROM content_items WHERE brand_id=? AND status='published' AND question_id IS NOT NULL"), (brand_id,)).fetchall()}
+
+
 def delete_question(qid: int) -> None:
     with get_conn() as c:
         c.execute(q("DELETE FROM target_questions WHERE id=?"), (qid,))
@@ -1449,7 +1456,7 @@ def get_content_gaps(brand_id: int):
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
                "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang",
-               "deal_value", "next_action", "next_at", "next_kind", "next_alerted_at"}
+               "deal_value", "next_action", "next_at", "next_kind", "next_alerted_at", "audit_by"}
 
 
 def add_lead(site_url: str, domain: str, source: str = "audit", name: str = "", email: str = "", contact: str = "",
@@ -1500,7 +1507,12 @@ def update_lead(lead_id: int, **fields) -> None:
 
 def count_audits_since(ip: str, since_ts: str) -> int:
     with get_conn() as c:
-        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE ip=? AND audit_at >= ?"), (ip, since_ts)).fetchone()["n"]
+        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE ip=? AND audit_at >= ? AND audit_by IS NULL"), (ip, since_ts)).fetchone()["n"]
+
+
+def count_account_audits_since(tenant_id: int, since_ts: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM leads WHERE audit_by=? AND audit_at >= ?"), (tenant_id, since_ts)).fetchone()["n"]
 
 
 def count_leads_since(since_ts: str) -> int:

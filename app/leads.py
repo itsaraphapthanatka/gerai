@@ -2,6 +2,7 @@
 ทำ URL ให้สะอาด · ให้คะแนน "โอกาสขาย" จากผลตรวจสุขภาพเว็บ (ยิ่งเว็บล่องหนต่อบอทมาก เรายิ่งช่วยได้มาก)
 สรุปผลเป็นภาษาคนให้คนนอกอ่าน · อ่านรายชื่อที่วางมาเป็นข้อความ"""
 from __future__ import annotations
+import json
 import re
 import secrets
 from urllib.parse import urlparse
@@ -13,7 +14,7 @@ STATUS_LABEL = dict(STATUSES)
 PIPELINE = ["new", "contacted", "replied", "call", "met", "quoted", "won"]
 NO_CONTACT = {"unsubscribed", "won", "lost"}                      # สถานะที่ห้ามส่งข้อความทักซ้ำ (ไม่ส่งซ้ำถ้าไม่ตอบ · เลิกติดต่อเมื่อขอ)
 SOURCES = {"audit": "ตรวจเว็บฟรี", "import": "นำเข้า", "manual": "เพิ่มเอง", "line": "LINE OA", "prospect": "หาเอง", "email": "อีเมลเข้ามาเอง"}
-EVENT_LABEL = {"audit": "ตรวจเว็บ", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
+EVENT_LABEL = {"audit": "ตรวจเว็บ", "score": "คะแนนโอกาส", "contacted": "ส่งข้อความทัก", "opened": "เปิดอ่านผลตรวจจากอีเมล",
                "replied": "ตอบกลับ", "wants_call": "🔥 อยากนัดคุย", "quote_sent": "ส่งใบเสนอราคา", "quote_viewed": "ลูกค้าเปิดดูใบเสนอราคา",
                "quote_accepted": "ลูกค้ายืนยันรับข้อเสนอ", "payment_claimed": "ลูกค้าแจ้งชำระเงิน", "paid": "ยืนยันยอดเข้า",
                "provisioned": "เปิดบัญชีและแบรนด์", "won": "ปิดดีล", "lost": "ปิดเป็นไม่สนใจ", "unsubscribed": "ขอไม่รับการติดต่อ",
@@ -34,6 +35,7 @@ EVENT_ICON = {"call": "📞", "meeting": "🤝", "line": "💬", "email_out": "�
               "next_action": "⏰", "contact_request": "📩", "opened": "👀", "bounced": "⚠️", "deal_value": "฿"}
 LINE_AUDITS_PER_USER_PER_DAY = 5
 AUDITS_PER_IP_PER_DAY = 5     # กันบอทยิงตรวจเว็บฟรีไม่หยุด (ทุกครั้งเราดึงเว็บจริง ~30 วิ)
+AUDITS_PER_ACCOUNT_PER_DAY = 20  # ล็อกอินแล้ว (ลูกค้า/พันธมิตร) นับต่อบัญชีแทนต่อ IP — ไม่แย่งโควตากับคนใช้เน็ตมือถือ IP เดียวกัน · ทีมงานไม่จำกัด
 REUSE_AUDIT_HOURS = 24        # โดเมนเดิมภายในเวลานี้ใช้ผลเดิม ไม่ตรวจซ้ำ
 # ข้อที่วัดจากข้อมูลในแพลตฟอร์มของเรา (คอนเทนต์ที่เราเผยแพร่ให้ / ปลั๊กอิน WordPress) — เว็บคนนอกยังไม่มี จึงไม่นับและไม่โชว์
 PUBLIC_IGNORE = {"freshness", "wp", "sitemap", "connector"}
@@ -120,19 +122,77 @@ def customer_brand(domain: str, cmap: dict | None = None):
     return (cmap if cmap is not None else customer_map()).get(d)
 
 
-def score_audit(report: dict) -> dict:
-    """คะแนนโอกาสขาย 0–100 จากข้อที่ตก + เหตุผล 3 ข้อแรก · เข้าเว็บไม่ได้ = 0 (ขายไม่ได้จนกว่าเว็บจะกลับมา)"""
+# ผลถาม AI จริงของลีด (รายงานเต็มชั้น 2 · deep_ai_json) บวกเพิ่มได้สูงสุด 40 คะแนน — เว็บผ่านหมดแต่ AI ไม่แนะนำ = ยังมีงานให้ขาย
+AI_POINTS = {"gap": 20, "rival": 12, "uncited": 8}
+AI_MIN_ASKED = 5                       # ถามน้อยกว่านี้ยังไม่นับ (สุ่มเกินไป)
+
+
+def ai_part(ai: dict | None) -> dict | None:
+    """คะแนนจากผลถาม AI: ไม่ถูกเอ่ยถึง (gap) · AI แนะนำคู่แข่งแทน (rival) · ถูกเอ่ยชื่อแต่ไม่อ้างลิงก์เว็บ (uncited)
+    ไม่มีผล / ยังไม่เสร็จ / ถามน้อยไป = None (คะแนนเหลือแค่ส่วนเว็บเหมือนเดิม)"""
+    if not ai or ai.get("state", "done") != "done":
+        return None
+    asked = int(ai.get("asked") or 0)
+    if asked < AI_MIN_ASKED:
+        return None
+    named = min(asked, int(ai.get("mentioned") or 0))
+    cited = min(named, int(ai.get("cited") or 0))
+    comp = ai.get("comp_mentions") or {}
+    rival, rival_n = max(comp.items(), key=lambda kv: kv[1]) if comp else ("", 0)
+    rival_n = min(asked, int(rival_n or 0))
+    pts = {"gap": round(AI_POINTS["gap"] * (asked - named) / asked),
+           "rival": round(AI_POINTS["rival"] * rival_n / asked),
+           "uncited": round(AI_POINTS["uncited"] * (named - cited) / asked)}
+    eng = {"chatgpt": "ChatGPT", "perplexity": "Perplexity", "gemini": "Gemini", "claude": "Claude"}.get(ai.get("engine"), "AI")   # = deep_audit.ENGINE_LABEL
+    why = f"{eng} เอ่ยถึงแบรนด์ {named} จาก {asked} คำถาม" if named else f"{eng} ไม่เอ่ยถึงแบรนด์เลยใน {asked} คำถาม"
+    if rival_n > named:
+        why += f" แต่แนะนำ {rival} {rival_n} ครั้ง"
+    elif named and not cited:
+        why += " แต่ไม่ลิงก์ไปที่เว็บ"
+    return {"points": sum(pts.values()), "parts": pts, "asked": asked, "named": named, "cited": cited,
+            "rival": rival if rival_n else "", "rival_n": rival_n, "why": why}
+
+
+def score_audit(report: dict, ai: dict | None = None) -> dict:
+    """คะแนนโอกาสขาย 0–100 = ส่วนเว็บ (ข้อที่ตกตามน้ำหนัก) + ส่วนผลถาม AI (ถ้ามี · สูงสุด 40) + เหตุผล 3 ข้อแรก
+    เข้าเว็บไม่ได้ = 0 (ขายไม่ได้จนกว่าเว็บจะกลับมา) · ai = deep_ai_json ของลีด"""
     checks = [c for c in (report.get("checks") or []) if c.get("key") not in PUBLIC_IGNORE]
     by_key = {c.get("key"): c for c in checks}
     home = by_key.get("home")
     if home and home.get("status") == "fail":
-        return {"score": 0, "level": "เข้าเว็บไม่ได้", "reasons": [EXPLAIN["home"]], "n_fail": 1, "n_ok": 0}
+        return {"score": 0, "level": "เข้าเว็บไม่ได้", "reasons": [EXPLAIN["home"]], "n_fail": 1, "n_ok": 0,
+                "site": 0, "ai": None}
     fails = sorted([c for c in checks if c.get("status") == "fail"], key=lambda c: -WEIGHTS.get(c.get("key"), 5))
-    score = min(100, sum(WEIGHTS.get(c.get("key"), 5) for c in fails))
+    site = min(100, sum(WEIGHTS.get(c.get("key"), 5) for c in fails))
+    a = ai_part(ai)
+    score = min(100, site + (a["points"] if a else 0))
     level = "สูง" if score >= 50 else ("กลาง" if score >= 25 else "ต่ำ")
     reasons = [EXPLAIN.get(c.get("key"), c.get("label") or "") for c in fails][:3]
+    if a and a["points"] >= 10:                       # ผลถาม AI เป็นเหตุผลที่ขายได้ชัดที่สุด → ขึ้นก่อน
+        reasons = [a["why"]] + reasons[:2]
     return {"score": score, "level": level, "reasons": reasons, "n_fail": len(fails),
-            "n_ok": sum(1 for c in checks if c.get("status") == "ok"), "n_checked": len(checks)}
+            "n_ok": sum(1 for c in checks if c.get("status") == "ok"), "n_checked": len(checks), "site": site, "ai": a}
+
+
+def lead_ai(lead) -> dict | None:
+    """ผลถาม AI ของลีด (deep_ai_json) · ไม่มี/อ่านไม่ได้ = None"""
+    try:
+        raw = lead["deep_ai_json"] if "deep_ai_json" in lead.keys() else None
+    except Exception:
+        raw = None
+    try:
+        return json.loads(raw) if raw else None
+    except ValueError:
+        return None
+
+
+def score_lead(lead) -> dict | None:
+    """คะแนนโอกาสของลีดจากผลตรวจเว็บ + ผลถาม AI ที่เก็บไว้ · ยังไม่เคยตรวจ = None"""
+    try:
+        rep = json.loads(lead["audit_json"]) if lead["audit_json"] else None
+    except ValueError:
+        rep = None
+    return score_audit(rep, lead_ai(lead)) if rep else None
 
 
 def public_summary(report: dict, limit: int = 3) -> list[dict]:

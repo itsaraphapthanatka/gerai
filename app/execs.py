@@ -193,7 +193,7 @@ def draft_outreach(lead, summary: list[dict], result_url: str, llm=None, style: 
 
 def ceo_review_lead(lead, report: dict, result_url: str, llm=None) -> dict:
     """CEO คัดลูกค้าจากผลตรวจ: รับ (พร้อมแพ็กเกจ + ร่างข้อความทัก) หรือไม่รับ (พร้อมเหตุผล)"""
-    sc = L.score_audit(report)
+    sc = L.score_audit(report, L.lead_ai(lead))
     if sc["level"] == "เข้าเว็บไม่ได้":
         return {"action": "decline", "score": 0, "reason": "เข้าเว็บไม่ได้ — ตรวจใหม่เมื่อเว็บกลับมา ยังไม่ทัก"}
     if sc["score"] < MIN_SCORE_TO_PURSUE:

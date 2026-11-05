@@ -27,6 +27,20 @@ from urllib.parse import urlparse
 UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 AI_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "PerplexityBot", "Google-Extended")
+# ยิงหน้าแรกด้วย UA จริงของบอทแต่ละตัว — robots.txt เปิดให้ไม่พอ ไฟร์วอลล์ (เช่น Cloudflare "AI Crawler:
+# Training = Disallow") ตอบ 403 ใส่บอทก่อนถึงเว็บ ตัวตรวจเดิมอ่านแค่ robots.txt จึงขึ้นผ่านทั้งที่ GPTBot/ClaudeBot
+# โดนบล็อกทุกเว็บของเรา (เจอ พ.ย. 2026) · บอทฝึกโมเดลโดนบล็อก = เตือน (AI ค้นเว็บสดยังได้) · บอทค้น/ตอบสดโดน = ไม่ผ่าน
+BOT_PROBES = {
+    "GPTBot": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.1; +https://openai.com/gptbot",
+    "OAI-SearchBot": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot",
+    "ChatGPT-User": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot",
+    "ClaudeBot": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)",
+    "Claude-SearchBot": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-SearchBot/1.0; +https://www.anthropic.com)",
+    "PerplexityBot": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)",
+    "CCBot": "CCBot/2.0 (https://commoncrawl.org/faq/)",
+}
+TRAINING_BOTS = {"GPTBot", "ClaudeBot", "CCBot"}
+BLOCK_CODES = {401, 403, 406, 429, 451, 503}
 MAX_URL_PROBES = 12          # จำกัดจำนวน URL ที่ยิงเช็คต่อรอบ กันรันนานเกินไป
 STALE_DAYS = 30              # ไม่มีคอนเทนต์ใหม่เกินนี้ = เตือน
 MAX_CRAWL = 5                # ไต่ลิงก์จากหน้าแรกกี่หน้า เพื่อหา orphan
@@ -166,6 +180,27 @@ def judge_robots(status: int, text: str) -> list:
     else:
         out.append(_c("robots_sitemap", "robots.txt ชี้ sitemap", WARN, "ไม่มีบรรทัด Sitemap"))
     return out
+
+
+def judge_bot_access(checks: list, probe: dict, server: str = "") -> list:
+    """probe = {ชื่อบอท: http_code ของหน้าแรกเมื่อยิงด้วย UA บอทนั้น} · แทนผล ai_bots จาก robots.txt ถ้าไฟร์วอลล์บล็อก
+    (robots.txt บล็อกอยู่แล้ว = คงผลนั้นไว้ แก้ robots ก่อน รอบหน้าจะเห็นเรื่องไฟร์วอลล์)"""
+    blocked = [b for b, s in probe.items() if s in BLOCK_CODES]
+    cur = next((c for c in checks if c["key"] == "ai_bots"), None)
+    if not blocked or (cur and cur["status"] == FAIL):
+        return checks
+    cf = "cloudflare" in (server or "").lower()
+    live = [b for b in blocked if b not in TRAINING_BOTS]
+    names = ", ".join(blocked)
+    if live:
+        new = _c("ai_bots", "เปิดทางบอท AI", FAIL,
+                 f"Cloudflare ตอบปฏิเสธบอทที่ AI ใช้ค้นและตอบคำถาม: {names} — แก้ที่ Security → Bots → AI Crawler (Search และ Agents = Allow)" if cf
+                 else f"ไฟร์วอลล์ของเว็บตอบปฏิเสธบอทที่ AI ใช้ค้นและตอบคำถาม: {names} — robots.txt เปิดไว้แต่เซิร์ฟเวอร์ไม่ให้เข้า")
+    else:
+        new = _c("ai_bots", "เปิดทางบอท AI", WARN,
+                 f"Cloudflare บล็อกบอทเก็บข้อมูลฝึกโมเดล: {names} — AI ค้นเว็บสดได้ แต่โมเดลไม่ได้เรียนรู้แบรนด์ · แก้ที่ Security → Bots → AI Crawler: Training = Allow" if cf
+                 else f"ไฟร์วอลล์ของเว็บบล็อกบอทเก็บข้อมูลฝึกโมเดล: {names} — AI ค้นเว็บสดได้ แต่โมเดลไม่ได้เรียนรู้แบรนด์")
+    return [new if c is cur else c for c in checks] if cur else checks + [new]
 
 
 def judge_links(kind: str, label: str, status: int, urls: list, probe: dict) -> list:
@@ -484,9 +519,9 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
         except Exception:
             return 0, {}, "", url
 
-    def code(url):
+    def code(url, ua=UA):
         try:
-            with httpx.Client(follow_redirects=True, timeout=20, headers={"User-Agent": UA}) as c:
+            with httpx.Client(follow_redirects=True, timeout=20, headers={"User-Agent": ua}) as c:
                 return c.get(url).status_code
         except Exception:
             return 0
@@ -507,6 +542,8 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
 
     rst, _, rtxt, _ = fetch(base + "/robots.txt")
     checks += judge_robots(rst, rtxt)
+    if st == 200:
+        checks = judge_bot_access(checks, {b: code(base + "/", ua) for b, ua in BOT_PROBES.items()}, hd.get("server", ""))
 
     lst, _, ltxt, lurl = fetch(base + "/llms.txt")
     llinks = re.findall(r"https?://\S+", ltxt or "")[1:]

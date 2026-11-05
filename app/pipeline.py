@@ -98,8 +98,8 @@ def _cancel_pending(lead_id: int, kinds: set, why: str) -> None:
 def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
     """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
     report = site_health.run_checks(site)
-    sc = leads.score_audit(report)
     lead = db.get_lead(lead_id)
+    sc = leads.score_audit(report, leads.lead_ai(lead))          # ตรวจซ้ำ: ผลถาม AI รอบก่อนยังนับ
     token = lead["token"] or leads.new_token()
     db.update_lead(lead_id, audit_json=json.dumps(report, ensure_ascii=False), audit_at=db.now(),
                    score=sc["score"], token=token, **({"ip": ip} if ip else {}))

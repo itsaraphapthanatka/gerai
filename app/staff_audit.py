@@ -28,6 +28,7 @@ _TARGETS = [(re.compile(p), t, l) for p, t, l in TARGETS]
 
 # ชื่อการกระทำ: ท้าย URL → คำอ่านง่าย (ไม่ตรง = ใช้ path)
 ACTIONS = [
+    (r"/audit", "ตรวจเว็บฟรี (หน้าสาธารณะ)"),
     (r"/admin/staff", "เพิ่มทีมงาน"), (r"/admin/staff/\d+/perms", "แก้สิทธิ์ทีมงาน"), (r"/admin/staff/\d+/active", "เปิด/ปิดบัญชีทีมงาน"),
     (r"/admin/staff/\d+/password", "ตั้งรหัสผ่านทีมงาน"), (r"/admin/staff/\d+/email", "แก้อีเมลทีมงาน"),
     (r"/admin/tenants", "สร้างบัญชีลูกค้า"), (r"/admin/tenants/\d+/email", "แก้อีเมลบัญชี"), (r"/admin/tenants/\d+/plan", "เปลี่ยนแผน"),

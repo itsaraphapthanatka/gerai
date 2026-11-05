@@ -595,6 +595,11 @@ def run_ai(lead_id: int, force: bool = False, ask=None, llm=None, engine: str | 
         d = {"state": "done", "at": db.now(), **res}
         _save(lead_id, "deep_ai_json", d)
         db.add_lead_event(lead_id, "ai_check", f"{res['engine']}: ถูกเอ่ยถึง {res['mentioned']}/{res['asked']} · ถูกอ้างอิง {res['cited']} · ค่าใช้จ่าย ${res['cost_usd']}", "cto")
+        sc = L.score_lead(db.get_lead(lead_id))           # คะแนนโอกาสนับผลถาม AI ด้วย → อัปเดตที่เก็บไว้ (รายการโทร/CEO ใช้ค่านี้)
+        if sc:
+            db.update_lead(lead_id, score=sc["score"])
+            if sc["ai"]:
+                db.add_lead_event(lead_id, "score", f"โอกาส {sc['level']} {sc['score']}/100 (เว็บ {sc['site']} + ผลถาม AI {sc['ai']['points']})", "cto")
         return d
     except Exception as e:
         d = {"state": "error", "at": db.now(), "error": f"{type(e).__name__}: {str(e)[:160]}"}

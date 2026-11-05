@@ -55,4 +55,20 @@ assert r["searches"] == 2 + 1 + 2 + 1 + 1 and r["asked"] == 5 and len(r["rows"])
 err = next(x for x in r["rows"] if x["kind"] == "mode" and x["question"] == "พัง")
 assert err["status"] == a.ERROR and "run out" in err["reason"]
 print("check_brand: ไม่มีคีย์ skip · ไม่มี AI Overview ไม่เข้าตัวหาร · error เก็บเหตุผล · นับ searches OK")
+# ---- เลือกคำถามต่อรอบ: หมุนเวียนครบทุกข้อ ไม่ติดอยู่กับ n ข้อแรก ----
+import json, app.ai_visibility as V
+QS = [{"id": i, "question": f"q{i}"} for i in range(1, 26)]                        # 25 ข้อ เพดาน 8
+ids = lambda qs: [x["id"] for x in qs]
+assert ids(V.pick_questions(QS, [], set(), 8)) == list(range(1, 9))                 # ยังไม่เคยถาม = ข้อเก่าก่อน
+assert ids(V.pick_questions(QS, [], {20, 22}, 8)) == [1, 2, 3, 4, 5, 6, 20, 22]     # มีบทความแล้วได้ก่อน
+hist, seen = [], set()
+for _ in range(4):                                                                  # 4 รอบ × 8 ข้อ ≥ 25 → ครบทุกข้อ
+    pick = V.pick_questions(QS, hist, {20, 22}, 8)
+    assert len(pick) == 8 and len(set(ids(pick))) == 8
+    seen |= set(ids(pick))
+    hist.insert(0, json.dumps({"rows": [{"engine": e, "question_id": x["id"]} for e in ("chatgpt", "gemini") for x in pick]}))
+assert seen == set(range(1, 26)), sorted(set(range(1, 26)) - seen)
+assert len(V.pick_questions(QS[:5], hist, set(), 8)) == 5 and V.pick_questions([], hist) == []
+assert ids(V.pick_questions(QS, ["not json", None], set(), 3)) == [1, 2, 3]
+print("pick_questions: ข้อที่ถามน้อยสุดก่อน · มีบทความได้ก่อน · 4 รอบครบ 25 ข้อ · ผลเก่าเสียไม่พัง OK")
 print("ALL AISERP TESTS OK")

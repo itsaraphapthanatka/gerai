@@ -329,7 +329,7 @@ def execute(action: str, args: dict) -> str:
         lid = lead["id"] if lead else db.add_lead(site, dom, source="manual")
         token = pipeline.run_lead_audit(lid, site)
         deep_audit.start(lid)
-        sc = L.score_audit(json.loads(db.get_lead(lid)["audit_json"]))
+        sc = L.score_lead(db.get_lead(lid))
         return (f"ตรวจ {dom} แล้ว: ตก {sc['n_fail']} ข้อ · โอกาส {sc['level']} {sc['score']}/100\nรายงาน (รายงานเต็มเสร็จในราว 1 นาที): "
                 f"{pipeline.public_base()}/audit/{token}\nจะให้ทักไหม พิมพ์ \"ทัก {dom}\"")
     if action == "note":

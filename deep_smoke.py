@@ -117,7 +117,10 @@ assert c.get(f"/audit/{lead['token']}/progress").json() == {"tier1": "done", "ai
 r = c.post(f"/audit/{lead['token']}/contact", data={"email": "owner@shopabc.co.th", "consent": "1"}); assert r.status_code == 200
 lead = db.get_lead(lead["id"]); t2 = D.tier2(lead); assert t2["state"] == "done" and t2["asked"] == 19 and D.ai_today() == 1
 assert "20 คำถามที่ลูกค้าถาม AI" in r.text and "อ้างอิง ✓" in r.text and "/about/" in r.text
-print("flow: /audit → ชั้น 1 อัตโนมัติ → หน้า 3 แท็บ → ทิ้งช่องทางติดต่อ → วัด AI → แสดงผล OK")
+sc = L.score_lead(lead)                                                                    # คะแนนโอกาสนับผลถาม AI แล้วเก็บลงลีด
+assert sc["ai"] and sc["site"] == 30 and lead["score"] == sc["score"] == 30 + sc["ai"]["points"]
+assert any(e["kind"] == "score" and "ผลถาม AI" in e["note"] for e in db.list_lead_events(lead["id"]))
+print("flow: /audit → ชั้น 1 อัตโนมัติ → หน้า 3 แท็บ → ทิ้งช่องทางติดต่อ → วัด AI → แสดงผล → คะแนนโอกาสรวมผล AI OK")
 
 # ---- เพดานต่อวัน + ปุ่มแอดมิน + เปิดหน้าลีดเก่า ----
 db.set_setting("deep_ai_daily", "1")

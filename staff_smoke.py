@@ -190,4 +190,31 @@ print("หน้าประวัติ: กรองได้ทุกแบ�
 # ---- เจ้าของเห็นครบ ----
 r = own.get("/admin")
 assert all(f'href="{h}"' in r.text for h in ("/admin/settings", "/admin/staff", "/admin/accounting")) and "สร้างบัญชีลูกค้าใหม่" in r.text
+# ---- หน้าตรวจเว็บฟรี: เพดานต่อ IP กันบอท · ทีมงานที่ล็อกอินตรวจให้ลูกค้าได้ไม่จำกัด ----
+import datetime as _dt
+import app.leads as L
+def _fake_audit(lid, site, ip=""):                                   # ไม่ดึงเว็บจริงในเทสต์ · เขียนเวลา/IP เหมือนของจริง
+    db.update_lead(lid, audit_at=db.now(), ip=ip, token="tok%d" % lid)
+    return "tok%d" % lid
+M._run_lead_audit = _fake_audit
+M.deep_audit.start = lambda lid: None
+now = _dt.datetime.now().isoformat(timespec="seconds")
+for i in range(L.AUDITS_PER_IP_PER_DAY):
+    db.update_lead(db.add_lead(f"https://cap{i}.example", f"cap{i}.example", source="audit", ip="testclient"), audit_at=now)
+r = TestClient(M.app).post("/audit", data={"url": "anon.example"}, follow_redirects=False)
+assert r.status_code == 200 and f"ตรวจครบ {L.AUDITS_PER_IP_PER_DAY} เว็บแล้ว" in r.text
+for c, d in ((own, "byowner.example"), (mc, "bymanager.example")):
+    r = c.post("/audit", data={"url": d}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith("/audit/tok"), (d, r.status_code)
+assert S_A.action_label("/audit") == "ตรวจเว็บฟรี (หน้าสาธารณะ)"
+assert db.count_audits_since("testclient", "2000-01-01") == L.AUDITS_PER_IP_PER_DAY   # ทีมงานตรวจแล้วไม่กินโควตาของ IP
+aud_id = db.create_tenant("auditor@x.test", pw("pass12345"), "Auditor"); cc = login("auditor@x.test")                                                      # ลูกค้าล็อกอิน: IP เต็มแล้วก็ยังตรวจได้ นับต่อบัญชี
+for i in range(L.AUDITS_PER_ACCOUNT_PER_DAY):
+    r = cc.post("/audit", data={"url": f"cust{i}.example"}, follow_redirects=False)
+    assert r.status_code == 303, (i, r.status_code)
+assert db.count_account_audits_since(aud_id, "2000-01-01") == L.AUDITS_PER_ACCOUNT_PER_DAY
+r = cc.post("/audit", data={"url": "cust-over.example"}, follow_redirects=False)
+assert r.status_code == 200 and f"ตรวจครบ {L.AUDITS_PER_ACCOUNT_PER_DAY} เว็บแล้ว" in r.text
+assert own.post("/audit", data={"url": "owner-again.example"}, follow_redirects=False).status_code == 303
+print("ตรวจเว็บฟรี: คนทั่วไป 5/วันต่อ IP · ลูกค้าล็อกอิน 20/วันต่อบัญชี (ไม่กินโควตา IP) · ทีมงานไม่จำกัด OK")
 print("ALL OK")

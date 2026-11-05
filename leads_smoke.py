@@ -31,6 +31,23 @@ assert sc["score"] == 56 and sc["level"] == "สูง" and sc["n_fail"] == 3 an
 assert L.score_audit(rep(home_fail=True))["score"] == 0
 assert L.score_audit(rep("www"))["level"] == "ต่ำ" and L.score_audit(rep())["score"] == 0
 assert L.score_audit(rep("freshness", "wp"))["n_fail"] == 0 and L.public_summary(rep("freshness", "csr"))[0]["key"] == "csr"   # ข้อของแพลตฟอร์มไม่นับกับเว็บคนนอก
+# ---- ผลถาม AI นับในคะแนนโอกาส (สูงสุด +40) ----
+ai = lambda named, asked=20, cited=None, rival=0, **kw: {"state": "done", "engine": "chatgpt", "asked": asked, "mentioned": named,
+                                                       "cited": named if cited is None else cited, "comp_mentions": {"rival.example": rival}, **kw}
+assert L.score_audit(rep("csr"), None)["ai"] is None and L.score_audit(rep("csr"))["score"] == 30          # ไม่มีผล AI = เหมือนเดิม
+sc = L.score_audit(rep(), ai(0, rival=14))                                    # เว็บผ่านหมด แต่ AI ไม่แนะนำ และแนะนำคู่แข่ง 14/20
+assert (sc["site"], sc["ai"]["parts"], sc["score"], sc["level"]) == (0, {"gap": 20, "rival": 8, "uncited": 0}, 28, "กลาง"), sc
+assert sc["reasons"][0] == "ChatGPT ไม่เอ่ยถึงแบรนด์เลยใน 20 คำถาม แต่แนะนำ rival.example 14 ครั้ง"
+sc = L.score_audit(rep("csr", "indexed"), ai(16, cited=0, rival=9))           # ถูกเอ่ยชื่อบ่อยแต่ไม่ลิงก์ไปเว็บ
+assert sc["ai"]["parts"] == {"gap": 4, "rival": 5, "uncited": 6} and sc["score"] == 65 and sc["reasons"][0].endswith("แต่ไม่ลิงก์ไปที่เว็บ")
+sc = L.score_audit(rep("www"), ai(20))                                        # AI แนะนำครบทุกคำถาม = ไม่บวก
+assert sc["ai"]["points"] == 0 and sc["score"] == 6 and sc["reasons"][0].startswith("แบบมี www")
+assert L.score_audit(rep("csr", "noindex", "indexed", "robots"), ai(0, rival=20))["score"] == 100        # รวมไม่เกิน 100
+assert L.score_audit(rep(home_fail=True), ai(0))["score"] == 0                                           # เข้าเว็บไม่ได้ยังเป็น 0
+assert L.ai_part(ai(0, asked=3)) is None and L.ai_part({"state": "running"}) is None and L.ai_part(None) is None
+lead = {"audit_json": json.dumps(rep("csr")), "deep_ai_json": json.dumps(ai(3, rival=1))}
+assert L.score_lead(lead)["score"] == 30 + 17 + 1 and L.score_lead({"audit_json": None, "deep_ai_json": None}) is None
+print("โอกาส + ผลถาม AI: ไม่ถูกเอ่ยถึง · แนะนำคู่แข่ง · เอ่ยชื่อไม่ลิงก์ · ไม่เกิน 100 · เว็บล่ม = 0 · ถามน้อยไม่นับ OK")
 assert [s["key"] for s in L.public_summary(rep("www", "csr", "sitemap", "orphan"))] == ["csr", "orphan", "www"]   # ตัวเชื่อมของเราไม่ใช่ปัญหาของเว็บลีด
 assert "connector" not in [s["key"] for s in L.public_summary(rep("connector", "csr"))]
 rows = L.parse_import("domain, email, name\nexample.co.th, Sales@Example.co.th, คุณสมชาย\nwww.example.co.th\nbad\tx\nshop.com;info@shop.com")

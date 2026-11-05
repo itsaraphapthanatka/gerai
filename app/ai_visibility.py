@@ -561,6 +561,25 @@ def ask(engine: str, question: str) -> dict:
                 "reason": f"{type(e).__name__}: {str(e)[:120]}" + (f" · body: {body}" if body else "")}
 
 
+def pick_questions(questions, reports=(), published=(), n: int = MAX_Q) -> list:
+    """เลือกคำถามที่จะถามรอบนี้ (ไม่เกิน n) — หมุนเวียนให้ครบทุกข้อ
+    เดิมตัดเอา n ข้อแรกตาม id ทุกรอบ แบรนด์ที่มีคำถามเกิน n ข้อจึงถูกถามแต่คำถามชุดแรก (มักกว้างที่สุด)
+    ซ้ำทุกสัปดาห์ คำถามที่เพิ่มทีหลัง รวมทั้งข้อที่เขียนบทความไปตอบแล้ว ไม่เคยถูกวัดเลย (แบรนด์หนึ่งค้าง 17 จาก 25 ข้อ พ.ย. 2026)
+    ลำดับ: ข้อที่ถูกถามน้อยรอบที่สุด → ข้อที่มีบทความเผยแพร่แล้ว → ข้อเก่ากว่า
+    reports = ผลรอบก่อน ๆ (report JSON ที่มี rows[].question_id) · published = id คำถามที่มีบทความเผยแพร่แล้ว"""
+    seen: dict = {}
+    for rep in reports:
+        try:
+            data = json.loads(rep) if isinstance(rep, str) else (rep or {})
+        except Exception:
+            continue
+        for qid in {r.get("question_id") for r in data.get("rows") or []}:
+            seen[qid] = seen.get(qid, 0) + 1
+    qs = [dict(qq) for qq in questions]
+    qs.sort(key=lambda qq: (seen.get(qq.get("id"), 0), qq.get("id") not in published, qq.get("id") or 0))
+    return sorted(qs[:n], key=lambda qq: qq.get("id") or 0)
+
+
 def check_brand(brand, questions, aliases=()) -> dict:
     """ถามทุกเจ้า × ทุกคำถาม แล้วสรุปผล — brand ต้องมี name กับ domain"""
     from . import geo_content
