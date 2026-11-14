@@ -718,9 +718,11 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
         return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {cap} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url, "src": src})
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
+    if recent and not leads.reusable_for(recent, ip=ip):
+        recent = None                                     # ลีดของคนอื่น → ไม่ส่งต่อ token/ข้อมูลของเขา สร้างลีดใหม่ให้ผู้ขอคนนี้
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
         _remember_lead_lang(request, recent["id"])
-        return _redirect(f"/audit/{recent['token']}")   # โดเมนเดิมภายใน 24 ชม. ใช้ผลเดิม
+        return _redirect(f"/audit/{recent['token']}")   # คนเดิม โดเมนเดิม ภายใน 24 ชม. ใช้ผลเดิม
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
     _remember_lead_lang(request, lid)                     # ภาษาของหน้า = ภาษาอีเมลที่ลีดจะได้รับ
     if src and not (recent and recent["src"]):

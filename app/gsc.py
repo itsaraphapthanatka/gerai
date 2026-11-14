@@ -22,6 +22,7 @@ import datetime
 from urllib.parse import quote
 
 from .site_health import host_of, _noindex_reason, UA as _BOT_UA
+from . import netguard
 
 SCOPE = "https://www.googleapis.com/auth/webmasters"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -292,7 +293,7 @@ def _live_noindex(url: str):
     คืน None = ไม่มี noindex แล้ว · str = เหตุผลที่ยังติด · "?" = ดึงหน้าไม่ได้"""
     import httpx
     try:
-        with httpx.Client(follow_redirects=True, timeout=15, headers={"User-Agent": _BOT_UA}) as c:
+        with netguard.client(follow_redirects=True, timeout=15, headers={"User-Agent": _BOT_UA}) as c:
             r = c.get(url)
         if r.status_code != 200:
             return f"ตอบ {r.status_code}"

@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from . import db, geo_worker, leads, pipeline
+from . import db, geo_worker, leads, netguard, pipeline
 from . import office
 
 DEFAULT_SEGMENTS = [
@@ -158,7 +158,7 @@ def next_queries(k: int = QUERIES_PER_RUN) -> list[str]:
 # ---------- หาช่องทางติดต่อบนเว็บ ----------
 def _fetch(url: str) -> str:
     try:
-        r = httpx.get(url, follow_redirects=True, timeout=15, headers={"User-Agent": UA, "Accept-Language": "th,en;q=0.8"})
+        r = netguard.get(url, follow_redirects=True, timeout=15, headers={"User-Agent": UA, "Accept-Language": "th,en;q=0.8"})
         if r.status_code >= 400 or "html" not in (r.headers.get("content-type") or "html"):
             return ""
         return r.text[:600_000]

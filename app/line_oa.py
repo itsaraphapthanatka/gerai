@@ -139,5 +139,7 @@ def parse_events(body: dict) -> list[dict]:
         src = ev.get("source") or {}
         msg = ev.get("message") or {}
         out.append({"type": ev.get("type"), "user_id": src.get("userId") or "", "reply_token": ev.get("replyToken"),
-                    "text": (msg.get("text") or "").strip() if msg.get("type") == "text" else ""})
+                    "text": (msg.get("text") or "").strip() if msg.get("type") == "text" else "",
+                    "event_id": ev.get("webhookEventId") or "",
+                    "redelivery": bool((ev.get("deliveryContext") or {}).get("isRedelivery"))})
     return out

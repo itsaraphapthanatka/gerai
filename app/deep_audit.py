@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 from urllib.parse import urljoin, urlparse
 from urllib import robotparser
 
-from . import db, leads as L, office
+from . import db, leads as L, netguard, office
 
 UA = "Mozilla/5.0 (compatible; JerAI-Audit/1.0; +https://geo.appreview.cloud/audit)"
 MAX_PAGES = 100
@@ -128,7 +128,7 @@ def crawl(site: str, client=None, max_pages: int = MAX_PAGES, budget: float = TI
     """ไต่จากหน้าแรก + sitemap แบบกว้างก่อน (BFS) · เคารพ robots.txt · เก็บสถานะ/title/H1/description/alt/ลิงก์ขาเข้า"""
     import httpx
     own = client is None
-    client = client or httpx.Client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
+    client = client or netguard.client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
     t0 = time.time()
     base = site.rstrip("/")
     apex = _host(base)

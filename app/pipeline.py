@@ -721,16 +721,15 @@ def line_site_request(user_id: str, url: str, reply_token: str | None = None) ->
         return "limit"
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
+    if recent and not leads.reusable_for(recent, line_user_id=user_id):
+        mine = db.get_lead_by_line_user(user_id)        # ลีดล่าสุดของโดเมนเป็นของคนอื่น — ลองลีดล่าสุดของ LINE นี้เอง
+        recent = mine if (mine and mine["domain"] == dom) else None
+        # ไม่มีของตัวเอง → ห้ามผูก LINE นี้เข้าลีดคนอื่นและห้ามส่งลิงก์รายงานของเขา · ตรวจใหม่ในลีดของคนนี้เอง
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
-        if not recent["line_user_id"]:
-            db.update_lead(recent["id"], line_user_id=user_id)
         record(recent["id"], "line", f"ขอผลตรวจซ้ำ (ใช้ผลเดิมใน {leads.REUSE_AUDIT_HOURS} ชม.)", "customer")
         line_oa.reply(reply_token, [line_result_message(db.get_lead(recent["id"]))])
         return "cached"
-    if recent and not recent["line_user_id"]:
-        db.update_lead(recent["id"], line_user_id=user_id)
-        lid = recent["id"]
-    elif recent:
+    if recent:
         lid = recent["id"]
     else:
         lid = db.add_lead(site, dom, source="line")
@@ -752,6 +751,9 @@ def handle_line_webhook(body: dict) -> list[str]:
     """รับ event ที่ตรวจลายเซ็นแล้ว · คืนรายการกิ่งที่เดิน (ไว้ log/ทดสอบ)"""
     out = []
     for ev in line_oa.parse_events(body):
+        if not db.claim_line_event(ev.get("event_id") or ""):
+            out.append("duplicate")                       # LINE ส่งซ้ำ (redelivery/retry) → ทำไปแล้ว ไม่ตอบ/ไม่ตรวจซ้ำ
+            continue
         if ev["type"] == "follow":
             line_oa.reply(ev["reply_token"], [f"สวัสดีครับ นี่คือ {line_oa.bot_name()} 👋 พิมพ์ที่อยู่เว็บของคุณมาได้เลย เราจะตรวจฟรีว่าเว็บโผล่ใน Google และคำตอบของ AI หรือยัง"])
             out.append("follow")

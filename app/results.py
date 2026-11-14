@@ -14,7 +14,7 @@ import re
 from collections import Counter
 from urllib.parse import urlparse, unquote
 
-from . import db, office
+from . import db, netguard, office
 
 STALL_WEEKS = 4
 REVIEW_EVERY_DAYS = 6
@@ -136,7 +136,7 @@ def _status(url: str, http=None) -> int:
         return http(url)
     import httpx
     try:
-        r = httpx.get(url, timeout=12, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
+        r = netguard.get(url, timeout=12, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
         return r.status_code
     except Exception:
         return 0
@@ -145,7 +145,7 @@ def _status(url: str, http=None) -> int:
 def _page_html(url: str) -> str:
     import httpx
     try:
-        r = httpx.get(url, timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
+        r = netguard.get(url, timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
         return r.text if r.status_code == 200 else ""
     except Exception:
         return ""
@@ -247,7 +247,7 @@ def check_task(t, fetch=None) -> tuple[bool | None, str]:
         import httpx
 
         def fetch(u):
-            r = httpx.get(u, timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
+            r = netguard.get(u, timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 (compatible; JerAI-results)"})
             return r.status_code, r.text
     try:
         code, html = fetch(url)

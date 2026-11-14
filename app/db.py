@@ -454,6 +454,11 @@ def _tables() -> list[str]:
             api_key TEXT,
             created_at TEXT NOT NULL
         )""",
+        # LINE ส่ง event ซ้ำได้ (redelivery) — จำ webhookEventId ที่ทำไปแล้ว กันตอบ/ตรวจซ้ำ
+        """CREATE TABLE IF NOT EXISTS line_events_seen (
+            event_id TEXT PRIMARY KEY,
+            seen_at TEXT NOT NULL
+        )""",
     ]
 
 
@@ -1602,6 +1607,16 @@ def count_events(kind: str, since_ts: str) -> int:
 def get_lead_by_line_user(uid: str):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM leads WHERE line_user_id=? ORDER BY id DESC LIMIT 1"), (uid,)).fetchone()
+
+
+def claim_line_event(event_id: str) -> bool:
+    """True = event นี้ยังไม่เคยทำ (จองไว้แล้ว) · False = เคยรับแล้ว ให้ข้าม · ไม่มี id = ทำได้เสมอ"""
+    if not event_id:
+        return True
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO line_events_seen(event_id, seen_at) VALUES(?,?) ON CONFLICT (event_id) DO NOTHING"),
+                        (event_id, now()))
+        return (cur.rowcount or 0) > 0
 
 
 def count_line_audits_since(uid: str, since_ts: str) -> int:
