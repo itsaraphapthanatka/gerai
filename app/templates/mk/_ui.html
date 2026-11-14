@@ -1,0 +1,92 @@
+{# ชิ้นส่วนของหน้าเว็บสาธารณะชุดใหม่ — ใช้ด้วย {% import "mk/_ui.html" as ui %}
+   ทุก macro escape ข้อความที่รับมาโดยอัตโนมัติ (Jinja autoescape) · ไม่รับ HTML ดิบจากข้อมูลภายนอก
+   สถานะใช้ชื่อตาม docs/rebuild/METRIC_DICTIONARY.md: found | absent | partial | not_tested | unavailable #}
+
+{% set ST_LABEL = {"found": "พบแล้ว", "absent": "ไม่พบ (ทดสอบแล้ว)", "partial": "ได้บางส่วน",
+                   "not_tested": "ยังไม่ได้ทดสอบ", "unavailable": "ระบบไม่พร้อม"} %}
+
+{% macro status(state, text=None) -%}
+  {%- set s = state if state in ST_LABEL else "not_tested" -%}
+  <span class="mk-st mk-st-{{ s }}"><i aria-hidden="true"></i>{{ text or ST_LABEL[s] }}</span>
+{%- endmacro %}
+
+{% macro button(label, href=None, kind="primary", type="button", disabled_reason=None, id=None) -%}
+  {#- outline/ghost = ให้ _ds.html (ทาปุ่มทุกปุ่มเป็นสีดำ) ข้ามปุ่มรอง/ปุ่มข้อความ -#}
+  {%- set cls = "mk-btn mk-btn-" ~ kind ~ (" outline" if kind == "secondary" else " ghost" if kind == "text" else "") -%}
+  {%- if disabled_reason -%}
+    <button class="{{ cls }}" type="button" disabled aria-describedby="{{ id or 'b' }}-why">{{ label }}</button>
+    <span class="mk-small mk-muted" id="{{ id or 'b' }}-why">{{ disabled_reason }}</span>
+  {%- elif href -%}
+    <a class="{{ cls }}" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}>{{ label }}</a>
+  {%- else -%}
+    <button class="{{ cls }}" type="{{ type }}"{% if id %} id="{{ id }}"{% endif %}>{{ label }}</button>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro field(id, label, name=None, value="", type="text", help=None, error=None, placeholder=None, required=False, autocomplete=None) -%}
+  <div class="mk-field{% if error %} mk-field-err{% endif %}">
+    <label for="{{ id }}">{{ label }}</label>
+    <input id="{{ id }}" name="{{ name or id }}" type="{{ type }}" value="{{ value }}"
+      {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
+      {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+      {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-err"{% elif help %} aria-describedby="{{ id }}-help"{% endif %}>
+    {%- if error %}<span class="mk-err" id="{{ id }}-err">{{ error }}</span>{% elif help %}<span class="mk-help" id="{{ id }}-help">{{ help }}</span>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro lane(title, state, detail=None) -%}
+  <div class="mk-card"><h3>{{ title }}</h3>{{ status(state) }}{% if detail %}<span class="mk-meta">{{ detail }}</span>{% endif %}</div>
+{%- endmacro %}
+
+{% macro coverage(tested, total) -%}
+  <div class="mk-cover">
+    <span class="mk-small">ความครอบคลุมของรายงานนี้: ตรวจแล้ว {{ tested }} จาก {{ total }} ส่วน</span>
+    <div class="mk-cover-bar" style="--n:{{ total|int }}" aria-hidden="true">{% for i in range(total|int) %}<span{% if i >= tested|int %} class="no"{% endif %}></span>{% endfor %}</div>
+  </div>
+{%- endmacro %}
+
+{% macro evidence(excerpt, url, captured_at, finding_state=None, finding=None, index=None, of=None) -%}
+  <div class="mk-card">
+    <span class="mk-meta">{% if index %}หลักฐาน {{ index }}{% if of %} จาก {{ of }}{% endif %} · {% endif %}<span class="mk-mono">{{ url }}</span> · บันทึก {{ captured_at }}</span>
+    <blockquote class="mk-quote">{{ excerpt }}</blockquote>
+    {% if finding %}{{ status(finding_state or "absent", finding) }}{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro action(n, title, page, confidence, effort, owner, evidence_href=None, draft_href=None) -%}
+  <div class="mk-card">
+    <h3><span class="mk-order-n">{{ n }}</span>{{ title }}</h3>
+    <dl class="mk-facts"><dt>หน้า</dt><dd class="mk-mono">{{ page }}</dd><dt>ความมั่นใจ</dt><dd>{{ confidence }}</dd><dt>งาน</dt><dd>{{ effort }}</dd><dt>ใครทำได้</dt><dd>{{ owner }}</dd></dl>
+    {% if evidence_href or draft_href %}<div>{% if evidence_href %}<a class="mk-btn mk-btn-text" href="{{ evidence_href }}">ดูหลักฐาน</a>{% endif %}{% if draft_href %}<a class="mk-btn mk-btn-text" href="{{ draft_href }}">ดูตัวอย่างข้อความที่ปรับแล้ว</a>{% endif %}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro fact(label, value, source=None) -%}
+  <dt>{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="mk-muted">ยังไม่ทราบ</span>{% endif %}
+  {%- if value and source == "confirmed" %}<span class="mk-lbl mk-lbl-confirmed">ลูกค้ายืนยัน</span>{% elif value and source == "inferred" %}<span class="mk-lbl mk-lbl-inferred">ระบบเดา</span>{% endif %}</dd>
+{%- endmacro %}
+
+{% macro empty(title, body, cta_label=None, cta_href=None) -%}
+  <div class="mk-empty"><b>{{ title }}</b><span class="mk-small mk-muted">{{ body }}</span>{% if cta_href %}<a class="mk-btn mk-btn-secondary" href="{{ cta_href }}">{{ cta_label }}</a>{% endif %}</div>
+{%- endmacro %}
+
+{# สื่อ: ไม่มีวิดีโอที่อนุมัติ → ภาพนิ่ง/ข้อความ ไม่มีปุ่มเล่นปลอม · มีวิดีโอ → <video> ที่ไม่เล่นเอง มี poster และคำบรรยาย #}
+{% macro media(alt, src=None, poster=None, video=None, captions=None, title=None, duration=None) -%}
+  <figure class="mk-media" style="margin:0">
+    {%- if video -%}
+      <video controls preload="none"{% if poster %} poster="{{ poster }}"{% endif %} style="width:100%;height:100%">
+        <source src="{{ video }}">{% if captions %}<track kind="captions" src="{{ captions }}" srclang="th" label="ไทย" default>{% endif %}
+        {{ alt }}
+      </video>
+    {%- elif src -%}
+      <img src="{{ src }}" alt="{{ alt }}" loading="lazy">
+    {%- else -%}
+      <div class="mk-small mk-muted"><b style="color:var(--mk-ink)">{{ title or alt }}</b><br>ยังไม่มีวิดีโอสาธิตที่อนุมัติ</div>
+    {%- endif -%}
+    {%- if video and (title or duration) %}<figcaption class="mk-small mk-muted">{{ title }}{% if duration %} · {{ duration }}{% endif %}</figcaption>{% endif %}
+  </figure>
+{%- endmacro %}
+
+{% macro faq(items) -%}
+  <div class="mk-faq">{% for q, a in items %}<details><summary>{{ q }}</summary><p>{{ a }}</p></details>{% endfor %}</div>
+{%- endmacro %}

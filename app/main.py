@@ -4895,3 +4895,7 @@ app.include_router(_crm_router)
 # ---------- ทีมงานและสิทธิ์ /admin/staff (app/staff_web.py · กฎสิทธิ์ app/staff.py) ----------
 from .staff_web import router as _staff_router   # noqa: E402
 app.include_router(_staff_router)
+
+# ---------- หน้าเว็บสาธารณะชุดใหม่ หลัง flag marketing_v2 (app/marketing_web.py · เทมเพลต app/templates/mk/) ----------
+from .marketing_web import router as _mk_router   # noqa: E402
+app.include_router(_mk_router)
