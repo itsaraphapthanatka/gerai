@@ -1,4 +1,5 @@
-{# เมนู: แยกทางผู้ซื้อธุรกิจ กับ ทางพาร์ตเนอร์ · ลิงก์เฉพาะ route ที่มีอยู่จริง (ดู docs/rebuild/ROUTE_MAP.md) #}
+{# เมนู: แยกทางผู้ซื้อธุรกิจ กับ ทางพาร์ตเนอร์ · ลิงก์เฉพาะ route ที่มีอยู่จริง (ดู docs/rebuild/ROUTE_MAP.md)
+   ตัวเลือกภาษา: หน้าแรกใช้ home_langs (ไปหน้าแรกของภาษานั้น) · หน้าอื่นใช้ _lang.html เดิม #}
 <nav class="mk-nav" aria-label="เมนูหลัก">
   <div class="mk-wrap">
     {% include "_logo.html" %}
@@ -6,6 +7,10 @@
       <li><a href="/audit"{% if active == "audit" %} aria-current="page"{% endif %}>ตรวจเว็บไซต์ (สำหรับธุรกิจ)</a></li>
       <li><a href="/partners"{% if active == "partners" %} aria-current="page"{% endif %}>สำหรับเว็บสตูดิโอและเอเจนซี</a></li>
       <li><a href="/login">เข้าสู่ระบบ</a></li>
+      <li>{% if home_langs %}<details class="ds-lang">
+        <summary aria-label="เปลี่ยนภาษา">{% for l in home_langs if l.current %}{{ l.name }}{% endfor %}</summary>
+        <ul>{% for l in home_langs %}<li><a href="{{ l.href }}" hreflang="{{ l.hreflang }}" lang="{{ l.hreflang }}"{% if l.current %} aria-current="true"{% endif %}>{{ l.name }}</a></li>{% endfor %}</ul>
+      </details>{% else %}{% include "_lang.html" %}{% endif %}</li>
     </ul>
   </div>
 </nav>

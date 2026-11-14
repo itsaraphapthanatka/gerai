@@ -49,7 +49,7 @@ assert 'disabled aria-describedby="b-sample-why"' in html and "stage 07" in html
 ids = re.findall(r'<input id="([^"]+)"', html)
 assert ids and all(f'<label for="{i}">' in html for i in ids), ids
 # ลิงก์ในเมนู/ท้ายหน้าชี้ไป route ที่มีอยู่จริงเท่านั้น
-for href in set(re.findall(r'<a [^>]*href="(/[^"#]*)"', html)):
+for href in {h for h in re.findall(r'<a [^>]*href="(/[^"#]*)"', html) if not h.startswith("/preview/")}:
     st = anon.get(href, follow_redirects=False).status_code
     assert st in (200, 302, 303, 307), (href, st)
 
@@ -72,7 +72,7 @@ assert r.status_code == 200 and "noindex" in r.headers.get("x-robots-tag", "")
 home = r.text
 assert home.count('action="/audit"') == 2 and home.count('name="url"') == 2 and home.count('name="website"') == 2   # hero + CTA ท้ายหน้า, มี honeypot
 assert 'name="src" value="line"' in home and 'name="ref" value=""' in home                     # ค่าจาก URL ผ่านตัวกรองเดิม
-assert home.count("<script") == 1 and "data-actbar-anchor" in home                               # สคริปต์เดียว: แถบปุ่มล่างจอ (ปิด JS ฟอร์มยังใช้ได้)
+assert "data-actbar-anchor" in home and re.search(r'<form [^>]*method="post" action="/audit"', home)   # ฟอร์มเป็น HTML ธรรมดา ปิด JS ก็ส่งได้ (JS มีแค่แถบปุ่มล่างจอกับแชตเดิม)
 assert "ตัวอย่างสาธิต ไม่ใช่ผลตรวจเว็บไซต์ของคุณ" in home
 import app.billing as B
 assert "฿{:,}".format(B.PLANS["pro"]["price"]) in home                                            # ราคาจากโค้ด ไม่พิมพ์เอง
@@ -80,13 +80,39 @@ visible = re.sub(r"(?s)<style.*?</style>|<[^>]+>", " ", home)                   
 for banned in ("2 นาที", "จนกว่า AI", "ร้านคุณ", "100%", "อันดับ 1"):
     assert banned not in visible, banned
 assert not re.search(r"(?<!ไม่)(การันตี|รับประกันผล)", visible)                               # ได้เฉพาะรูปปฏิเสธ "ไม่การันตี"
-ids = re.findall(r'<input id="([^"]+)"', home)
-assert ids and all(f'<label for="{i}">' in home for i in ids)
-for href in set(re.findall(r'<a [^>]*href="(/[^"#]*)"', home)):
+main_html = home.split('<main id="main">')[1].split("</main>")[0]                                  # เนื้อหาหน้าเรา (แชตเดิมอยู่นอก main)
+ids = re.findall(r'<input id="([^"]+)"', main_html)
+assert ids and all(f'<label for="{i}">' in main_html for i in ids)
+for href in {h for h in re.findall(r'<a [^>]*href="(/[^"#]*)"', home) if not h.startswith("/preview/")}:
     assert anon.get(href, follow_redirects=False).status_code in (200, 302, 303, 307), href
 
+# ---- stage 02: ต่อหน้าแรก / หลัง flag ----
+old_home = anon.get("/").text
+assert 'class="mk"' not in old_home                                                             # flag ปิด = หน้าเดิม
+r = admin.get("/")                                                                               # แอดมินที่ preview เห็นหน้าใหม่ แต่ noindex
+assert 'class="mk"' in r.text and "noindex" in r.headers.get("x-robots-tag", "") and 'rel="canonical"' not in r.text
+F.set_enabled("marketing_v2", True)
+fresh = TestClient(app)
+r = fresh.get("/")
+assert r.status_code == 200 and 'class="mk"' in r.text
+assert "x-robots-tag" not in r.headers and 'name="robots"' not in r.text                         # เปิดจริง = ให้ Google เก็บได้
+assert '<link rel="canonical" href="http://testserver/">' in r.text
+assert r.text.count('rel="alternate" hreflang=') == 6 and 'hreflang="en" href="http://testserver/en"' in r.text
+assert 'name="src" value="home"' in r.text                                                       # ที่มาลีดเหมือนหน้าเดิม
+assert 'href="/en" hreflang="en"' in r.text and 'href="/?lang=th"' in r.text                    # เปลี่ยนภาษาได้เหมือนหน้าเดิม
+import app.salesbot as SB
+SB.set_enabled("web", True)
+assert 'class="mk"' in fresh.get("/").text and ("chat" in fresh.get("/").text.lower())            # แชตเดิมยังอยู่เมื่อเปิดไว้
+assert 'class="mk"' not in fresh.get("/en").text                                                 # ภาษาอื่นยังเป็นหน้าเดิม
+en = TestClient(app); en.cookies.set("jr_lang", "en")
+assert en.get("/", follow_redirects=False).headers.get("location") == "/en"                      # คนที่เลือกอังกฤษไว้ยังถูกพาไป /en
+r = fresh.get("/?lang=th"); assert 'class="mk"' in r.text and r.cookies.get("jr_lang") == "th"
+F.set_enabled("marketing_v2", False)
+assert 'class="mk"' not in TestClient(app).get("/").text                                         # ปิด flag = กลับหน้าเดิมทันที
+
 # ---- หน้าเดิมไม่เปลี่ยน ----
+plain = TestClient(app)                                                                          # ไม่มีคุกกี้ preview
 for path in ("/", "/audit", "/partners", "/login"):
-    r = anon.get(path); assert r.status_code == 200 and 'class="mk"' not in r.text, path
+    r = plain.get(path); assert r.status_code == 200 and 'class="mk"' not in r.text, path
 
 print("mk_smoke OK")

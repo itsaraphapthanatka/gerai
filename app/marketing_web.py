@@ -20,12 +20,26 @@ def _render(request: Request, name: str, ctx: dict | None = None, *, internal: b
 
 
 def _home_ctx(request: Request) -> dict:
-    """ข้อมูลจริงเท่านั้น: ราคาเริ่มต้นอ่านจาก billing.PLANS (ไม่พิมพ์ตัวเลขเอง) · src/ref ผ่านตัวกรองเดิมของ /audit"""
-    from . import billing
-    from .main import _src, _ref
+    """ข้อมูลจริงเท่านั้น: ราคาเริ่มต้นอ่านจาก billing.PLANS (ไม่พิมพ์ตัวเลขเอง) · src/ref ผ่านตัวกรองเดิมของ /audit
+    SEO ต่อจากหน้าเดิม: canonical = /, hreflang ชี้หน้าภาษาอื่นเดิม, ลิงก์บทความล่าสุด"""
+    from . import billing, landing_i18n as L
+    from .main import _src, _ref, _home_articles
     pro = billing.PLANS.get("pro") or {}
-    return {"price_from": pro.get("price") or None, "src": _src(request.query_params.get("src", "")),
-            "ref": _ref(request, request.query_params.get("ref", ""))}
+    base = str(request.base_url).rstrip("/")
+    return {"price_from": pro.get("price") or None,
+            "src": _src(request.query_params.get("src", "")) or "home",
+            "ref": _ref(request, request.query_params.get("ref", "")),
+            "canonical": base + "/",
+            "alternates": [{"hreflang": L.HTML_LANG[c], "href": base + L.PATHS[c]} for c in L.LANGS],
+            # ตัวเลือกภาษาแบบหน้าแรกเดิม: ไปหน้าแรกของภาษานั้นตรง ๆ (ไม่ใช่ ?lang= ซึ่งจะยังได้หน้าไทย)
+            "home_langs": [{"name": L.NAMES[c], "href": "/?lang=th" if c == "th" else L.PATHS[c],
+                            "hreflang": L.HTML_LANG[c], "current": c == "th"} for c in L.LANGS],
+            "articles": _home_articles()}
+
+
+def home(request: Request):
+    """หน้าแรกชุดใหม่สำหรับ / (เรียกจาก main.landing เมื่อ flag marketing_v2 active) · flag ยังไม่เปิดจริง = noindex"""
+    return _render(request, "mk/home.html", _home_ctx(request))
 
 
 @router.get("/preview/home")

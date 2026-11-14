@@ -538,16 +538,25 @@ def _landing_page(request: Request, lang: str):
     t = L.T[lang]
     live = ctx["ai_live"]
     base = str(request.base_url).rstrip("/")
-    sb = _self_brand()                                    # บทความล่าสุดของเจอ.AI — หน้าแรกต้องลิงก์หาคอนเทนต์ (Google ให้น้ำหนักหน้าที่มีลิงก์จริง)
-    pub = sorted([i for i in db.list_content(sb["id"]) if i["status"] == "published"],
-                 key=lambda i: i["published_at"] or i["created_at"] or "", reverse=True) if sb else []
-    ctx["articles"] = [{"title": i["title"], "url": f"/geo/{i['id']}"} for i in pub[:3]]
+    ctx["articles"] = _home_articles()
     ctx.update(T=t, lang=lang, html_lang=L.HTML_LANG[lang], og_locale=L.OG_LOCALE[lang],
                font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
                langs=[{"code": c, "name": L.NAMES[c], "path": L.PATHS[c], "href": "/?lang=th" if c == "th" else L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
                canonical=base + L.PATHS[lang], base=base, src="home" if lang == "th" else f"home-{lang}",
                proof=_proof_view(_landing_proof(), lang), call_plan=L.CALL_PLAN, preview=False)
     resp = templates.TemplateResponse(request, "landing_v2.html", ctx)
+    return _remember_home_lang(request, resp, lang)
+
+
+def _home_articles(n: int = 3) -> list:
+    """บทความล่าสุดของเจอ.AI — หน้าแรกต้องลิงก์หาคอนเทนต์ (Google ให้น้ำหนักหน้าที่มีลิงก์จริง) · ใช้ทั้งหน้าแรกเดิมและชุดใหม่"""
+    sb = _self_brand()
+    pub = sorted([i for i in db.list_content(sb["id"]) if i["status"] == "published"],
+                 key=lambda i: i["published_at"] or i["created_at"] or "", reverse=True) if sb else []
+    return [{"title": i["title"], "url": f"/geo/{i['id']}"} for i in pub[:n]]
+
+
+def _remember_home_lang(request: Request, resp, lang: str):
     from . import i18n
     if request.cookies.get(i18n.COOKIE) != lang and (lang != "th" or i18n.valid(request.query_params.get("lang"))):
         resp.set_cookie(i18n.COOKIE, lang, max_age=365 * 86400, samesite="lax", secure=request.url.scheme == "https")
@@ -560,6 +569,9 @@ def landing(request: Request):
     remembered = i18n.valid(request.cookies.get(i18n.COOKIE))
     if not i18n.valid(request.query_params.get("lang")) and remembered and remembered != "th":
         return _redirect(i18n.PATHS[remembered])          # เลือกภาษาไว้แล้ว → หน้าแรกภาษานั้น (เลือกไทยคืน = /?lang=th)
+    from . import flags, marketing_web
+    if flags.active("marketing_v2", request):             # หน้าแรกชุดใหม่ (stage 02) · flag ปิด = หน้าเดิมทุกอย่าง · /en /zh /ja /ko ยังเป็นหน้าเดิม
+        return _remember_home_lang(request, marketing_web.home(request), "th")
     return _landing_page(request, "th")
 
 

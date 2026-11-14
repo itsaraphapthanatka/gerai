@@ -4,7 +4,13 @@
    ไม่มีส่วนอุตสาหกรรม (ยังไม่มีหน้าปลายทาง) และไม่มีเคส/โลโก้ลูกค้า (ยังไม่มีสิทธิ์เผยแพร่) — ตั้งใจเว้นไว้
    ฟอร์มส่งเข้า /audit เดิม (honeypot website, src, ref) · ทำงานได้โดยไม่ต้องมี JavaScript #}
 {% block title %}เจอ.AI · ตรวจว่าเว็บไซต์ของคุณพร้อมให้ลูกค้าค้นพบผ่าน AI แค่ไหน{% endblock %}
-{% block meta %}<meta name="description" content="ตรวจเว็บไซต์ฟรี ไม่ต้องสมัคร ดูว่าข้อมูลธุรกิจของคุณชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง พร้อมหลักฐานและสิ่งที่ควรทำต่อ">{% endblock %}
+{% block meta %}{% set desc = "ตรวจเว็บไซต์ฟรี ไม่ต้องสมัคร ดูว่าข้อมูลธุรกิจของคุณชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง พร้อมหลักฐานและสิ่งที่ควรทำต่อ" %}
+<meta name="description" content="{{ desc }}">
+{% if canonical and not preview %}<link rel="canonical" href="{{ canonical }}">
+{% for a in alternates or [] %}<link rel="alternate" hreflang="{{ a.hreflang }}" href="{{ a.href }}">
+{% endfor %}<link rel="alternate" hreflang="x-default" href="{{ canonical }}">
+<meta property="og:type" content="website"><meta property="og:url" content="{{ canonical }}"><meta property="og:locale" content="th_TH">
+<meta property="og:title" content="เจอ.AI · ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?"><meta property="og:description" content="{{ desc }}">{% endif %}{% endblock %}
 
 {% macro audit_form(fid, anchor=False) -%}
 <form class="mk-stack" method="post" action="/audit" style="max-width:520px;gap:12px"{% if anchor %} data-actbar-anchor{% endif %}>
@@ -101,6 +107,16 @@
   </ol>
 </section>
 
+{# บทความจริงของเจอ.AI (มีเฉพาะเมื่อเผยแพร่แล้ว — ไม่มีก็ไม่แสดงส่วนนี้) #}
+{% if articles %}
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-learn" style="gap:14px">
+  <h2 id="h-learn">บทความล่าสุด</h2>
+  <ul class="mk-grid" style="list-style:none;margin:0;padding:0">
+    {% for a in articles %}<li class="mk-card"><a href="{{ a.url }}">{{ a.title }}</a></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 {# 9 · FAQ + CTA ซ้ำ #}
 <section class="mk-section" aria-labelledby="h-faq" style="background:var(--mk-surface)">
   <div class="mk-wrap mk-stack" style="gap:18px;max-width:820px">
@@ -120,4 +136,6 @@
   </div>
 </section>
 {% endblock %}
-{% block actbar %}<div class="mk-actbar">{{ ui.button("ตรวจเว็บไซต์ของฉัน", href="#home-url") }}</div>{% endblock %}
+{% block actbar %}<div class="mk-actbar">{{ ui.button("ตรวจเว็บไซต์ของฉัน", href="#home-url") }}</div>
+{# แชตถามเจอ.AI แบบเดียวกับหน้าแรกเดิม (เปิด/ปิดที่ตั้งค่า salesbot) — คงช่องทางรับลีดเดิมไว้ #}
+{% if chat_on is defined and chat_on() %}{% include "_chat_widget.html" %}{% endif %}{% endblock %}
