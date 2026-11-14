@@ -1,0 +1,50 @@
+# CI — build the app image, then run every *_smoke.py inside it (same command as on the server).
+# pg_smoke.py needs a live Postgres and is run by hand.
+# The job is named "test": the server's pull-based deploy waits for this check to pass on main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -q -t geo-platform:ci .
+
+      - name: Smoke tests
+        run: |
+          mkdir -p ci-logs
+          ls *_smoke.py | grep -vx 'pg_smoke.py' \
+            | xargs -P 4 -I{} sh -c 'docker run --rm -v "$PWD:/src" -w /src -e GEO_SESSION_SECRET=ci geo-platform:ci python {} > ci-logs/{}.log 2>&1 && echo "PASS {}" || echo "FAIL {}"' \
+            | sort > results.txt
+          cat results.txt
+          echo "passed $(grep -c '^PASS' results.txt) of $(wc -l < results.txt)"
+          if grep -q '^FAIL' results.txt; then
+            for f in $(grep '^FAIL' results.txt | cut -d' ' -f2); do
+              echo "::group::$f"; tail -40 "ci-logs/$f.log"; echo "::endgroup::"
+            done
+            exit 1
+          fi
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: ci-logs/
+          retention-days: 7
