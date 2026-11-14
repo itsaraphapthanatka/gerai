@@ -84,7 +84,8 @@ main_html = home.split('<main id="main">')[1].split("</main>")[0]               
 ids = re.findall(r'<input id="([^"]+)"', main_html)
 assert ids and all(f'<label for="{i}">' in main_html for i in ids)
 for href in {h for h in re.findall(r'<a [^>]*href="(/[^"#]*)"', home) if not h.startswith("/preview/")}:
-    assert anon.get(href, follow_redirects=False).status_code in (200, 302, 303, 307), href
+    cl = admin if href == "/callback" else anon                                                  # /callback อยู่หลัง flag เดียวกับหน้าแรกใหม่ (คนนอกเห็นเมื่อเปิด flag)
+    assert cl.get(href, follow_redirects=False).status_code in (200, 302, 303, 307), href
 
 # ---- stage 02: ต่อหน้าแรก / หลัง flag ----
 old_home = anon.get("/").text

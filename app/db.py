@@ -459,6 +459,23 @@ def _tables() -> list[str]:
             event_id TEXT PRIMARY KEY,
             seen_at TEXT NOT NULL
         )""",
+        f"""CREATE TABLE IF NOT EXISTS plan_requests (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            idem_key TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            role TEXT,
+            contact_channel TEXT NOT NULL,
+            contact_value TEXT NOT NULL,
+            desired_window TEXT,
+            web_readiness TEXT,
+            budget TEXT,
+            message TEXT,
+            consents_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'stored',
+            ip TEXT,
+            created_at TEXT NOT NULL
+        )""",
     ]
 
 
@@ -1405,7 +1422,7 @@ def get_sov_impact(brand_id: int):
 
 
 def get_content_gaps(brand_id: int):
-    """หา 'ช่องว่าง' คอนเทนต์: คำถามที่แบรนด์ยังไม่โผล่ใน AI จาก run ล่าสุด
+    """หา 'ช่องว่าง' คอนเทนต์: คำถามที่แบรนด์ยังไม่ปรากฏในผลค้นเว็บ (SoV = web_search_presence ไม่ใช่ AI) จาก run ล่าสุด
     จัดระดับ: critical (ไม่มีคอนเทนต์) > draft (มีร่าง) > stale (เผยแพร่แล้วยังไม่โผล่) > unmeasured
     คืน dict: has_run, last_run_at, gaps[], critical, total_gaps, q_total
     """
@@ -1618,6 +1635,30 @@ def claim_line_event(event_id: str) -> bool:
         cur = c.execute(q("INSERT INTO line_events_seen(event_id, seen_at) VALUES(?,?) ON CONFLICT (event_id) DO NOTHING"),
                         (event_id, now()))
         return (cur.rowcount or 0) > 0
+
+
+# ---- คำขอแผน (stage 06) · idem_key กันกดส่งซ้ำ ----
+PLAN_REQUEST_FIELDS = ("name", "role", "contact_channel", "contact_value", "desired_window", "web_readiness", "budget", "message", "consents_json", "ip")
+
+
+def add_plan_request(lead_id: int, idem_key: str, **f) -> tuple[int, bool]:
+    """คืน (id, สร้างใหม่ไหม) · idem_key เดิม = คืนแถวเดิม ไม่สร้างซ้ำ"""
+    cols = [k for k in PLAN_REQUEST_FIELDS if k in f]
+    with get_conn() as c:
+        row = c.execute(q(f"INSERT INTO plan_requests(lead_id,idem_key,{','.join(cols)},status,created_at) "
+                          f"VALUES(?,?,{','.join('?' * len(cols))},'stored',?) ON CONFLICT (idem_key) DO NOTHING RETURNING id"),
+                        (lead_id, idem_key, *[f[k] for k in cols], now())).fetchone()
+        if row:
+            return row["id"], True
+        old = c.execute(q("SELECT id, lead_id FROM plan_requests WHERE idem_key=?"), (idem_key,)).fetchone()
+        if not old or old["lead_id"] != lead_id:
+            raise ValueError("idem_key ถูกใช้กับรายงานอื่น")
+        return old["id"], False
+
+
+def list_plan_requests(lead_id: int, limit: int = 20):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM plan_requests WHERE lead_id=? ORDER BY id DESC LIMIT ?"), (lead_id, limit)).fetchall()
 
 
 def count_line_audits_since(uid: str, since_ts: str) -> int:

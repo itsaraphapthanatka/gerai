@@ -769,8 +769,21 @@ def _audit_result_ctx(lead, sent=False, error="", replied=False):
             "progress": deep_audit.progress(lead), "highlights": deep_audit.highlights(t1, t2), "benchmark": deep_audit.BENCHMARK}
 
 
+def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, errors: dict | None = None, status_code: int = 200):
+    """stage 05/06: รายงาน 4 ช่อง + ฟอร์มขอแผน (หน้าไทย · flag report_v2) · ข้อมูลทั้งหมดอ่านจากของเดิม ไม่เขียน DB"""
+    from . import report_view, plan_request, flags
+    vm = report_view.build(lead, snap)
+    plan_on = flags.active("plan_request_v2", request)
+    pr = plan_request.latest(lead["id"]) if plan_on else None
+    resp = templates.TemplateResponse(request, "mk/report.html", {
+        "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr,
+        "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
+    resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
+    return resp
+
+
 @app.get("/audit/{token}")
-def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = ""):
+def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = "", view: str = ""):
     lead = db.get_lead_by_token(token)
     if not lead:
         return _redirect("/audit")
@@ -785,7 +798,41 @@ def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, 
     if lead["audit_json"] and deep_audit.progress(lead)["tier1"] in ("none", "error"):
         deep_audit.start(lead["id"])                      # ลีดเก่า/หาเอง: เปิดหน้าครั้งแรกค่อยทำรายงานเต็ม
         lead = db.get_lead(lead["id"])
+    if view != "full" and _i18n.lang_of(request) == "th" and _flags.active("report_v2", request):
+        return _report_v2(request, lead, snap)          # stage 05: รายงาน 4 ช่อง (ตารางละเอียดเดิมอยู่ที่ ?view=full)
     return templates.TemplateResponse(request, "audit_result.html", {**_audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)), "snap": snap})
+
+
+@app.post("/audit/{token}/plan", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_plan_request(request: Request, token: str):
+    """stage 06: ขอแผนจากรายงาน · บันทึกลง plan_requests ก่อน แล้วจึงแสดง "ได้รับแล้ว" · กดซ้ำ (idem_key เดิม) = ไม่สร้างซ้ำ"""
+    from . import plan_request, snapshot
+    if not _flags.active("plan_request_v2", request):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    form = dict(await request.form())
+    if (form.get("website") or "").strip():               # honeypot: บอทกรอก → เงียบ
+        return _redirect(f"/audit/{token}")
+    v, err = plan_request.validate(form)
+    if err:
+        return _report_v2(request, lead, snapshot.view(lead), form=v, errors=err, status_code=422)
+    try:
+        pid, created = plan_request.submit(lead, v, _client_ip(request))
+    except Exception:
+        return _report_v2(request, lead, snapshot.view(lead), form=v, status_code=500,
+                          errors={"_": "บันทึกคำขอไม่สำเร็จ ยังไม่ได้ส่งถึงทีม ลองกดส่งอีกครั้ง หรือทัก LINE ของเจอ.AI"})
+    if created and not plan_request.recent_alerted(lead["id"], pid):
+        _remember_lead_lang(request, lead["id"])
+        pipeline.alert_admins(f"📋 ขอแผนจากรายงาน: {lead['domain']} · {v['name']} · ติดต่อทาง {plan_request.CHANNELS[v['contact_channel']]}",
+                              f"/admin/leads/{lead['id']}#brief", "lead", subject=f"📋 ขอแผน: {lead['domain']}")   # ช่องทางติดต่อดูในแอป ไม่ส่งออกไปในข้อความแจ้ง
+        try:
+            deep_audit.start(lead["id"], ai=True)         # ขอแผน = สนใจจริง → วัด AI ให้ (เหมือนฟอร์มเดิม)
+        except Exception:
+            pass
+    return _redirect(f"/audit/{token}#plan")
 
 
 @app.get("/audit/{token}/progress")
@@ -1215,7 +1262,12 @@ def _lead_ctx(lead, notice: str = "") -> dict:
     _bq = next((x for x in _qs if x["status"] in ("paid", "accepted", "claimed")), None)
     _cb = leads.customer_brand(lead["domain"])
     from . import crm as _crm
-    return {**_crm.lead_panel(lead), "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    try:                                                                # stage 06: สรุปก่อนโทร (มีเมื่อลูกค้าส่งคำขอแผนผ่านฟอร์มใหม่)
+        from . import plan_request as _pr, report_view as _rv, snapshot as _snap
+        _brief = _pr.brief(lead, _rv.build(lead, _snap.view(lead)))
+    except Exception:
+        _brief = None
+    return {**_crm.lead_panel(lead), "brief": _brief, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -1477,7 +1529,7 @@ def pwa_manifest():
     return JSONResponse({
         "name": "เจอ.AI — GEO Platform",
         "short_name": "เจอ.AI",
-        "description": "ให้แบรนด์คุณโผล่ในคำตอบ AI — วัด Share of Voice + สร้างคอนเทนต์ GEO อัตโนมัติ",
+        "description": "ตรวจความพร้อมของเว็บ วัดการปรากฏในผลค้นเว็บ และสร้างคอนเทนต์ GEO",
         "lang": "th",
         "start_url": "/app",
         "scope": "/",

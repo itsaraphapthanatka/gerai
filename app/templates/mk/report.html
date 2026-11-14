@@ -1,0 +1,145 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# รายงานตรวจเว็บแบบ 4 ช่อง (stage 05-core, flag report_v2) + ฟอร์มขอแผน (stage 06-core, flag plan_request_v2)
+   ตัวเลขทุกตัวมาจาก app/report_view.py · ช่องที่ไม่ได้ทดสอบ/ระบบไม่พร้อม ไม่มีตัวเลข (ไม่แสดง 0)
+   ตารางละเอียดเดิมทั้งหมดอยู่ที่ ?view=full #}
+{% block title %}ผลตรวจ {{ lead["domain"] }} · เจอ.AI{% endblock %}
+{% block head %}<style>
+  body.mk .rp-num{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+  body.mk .rp-note{border-left:3px solid var(--mk-slate);padding:2px 0 2px 10px}
+  body.mk .rp-note.down{border-color:var(--mk-down)}
+  body.mk .rp-list{margin:0;padding-left:20px;display:grid;gap:4px}
+  body.mk fieldset{border:0;margin:0;padding:0;display:grid;gap:6px;min-width:0}
+  body.mk legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:6px}
+  body.mk .rp-radios{display:flex;gap:8px;flex-wrap:wrap}
+  body.mk .rp-radios label{display:flex;gap:6px;align-items:center;border:1.5px solid var(--mk-hair);border-radius:12px;padding:10px 14px;font-weight:500;cursor:pointer}
+  body.mk .rp-radios label:has(input:checked){border-color:var(--mk-ink)}
+  body.mk .rp-check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+  body.mk .rp-check input{margin-top:4px;width:18px;height:18px;flex:none}
+  body.mk .rp-form{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+  body.mk .rp-form > .full{grid-column:1/-1}
+  @media (max-width:640px){body.mk .rp-form{grid-template-columns:1fr}}
+</style>{% endblock %}
+{% block content %}
+<section class="mk-wrap mk-section mk-stack" style="gap:14px;padding-bottom:8px" aria-labelledby="h-rp">
+  <span class="mk-eyebrow">รายงานตรวจเว็บ</span>
+  <h1 id="h-rp" style="font-size:clamp(26px,4.5vw,38px);overflow-wrap:anywhere">ผลตรวจ {{ lead["domain"] }}</h1>
+  <p class="mk-muted mk-small">ตรวจเมื่อ {{ vm.audit_at or "—" }} · ข้อมูล ณ วันที่ตรวจ ใช้ประกอบการตัดสินใจ ไม่ใช่การรับประกันอันดับหรือผลลัพธ์</p>
+  {% if snap and snap.state == "partial" %}<p class="rp-note mk-small" role="note">ตรวจได้บางส่วน: หมดเวลาก่อนตรวจครบ ส่วนที่ไม่ได้ตรวจไม่นับเป็นไม่ผ่าน · {% for s in snap.steps if s.state == "skipped" %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if vm.running %}<p class="rp-note mk-small" role="status" id="rp-running">กำลังตรวจส่วนที่เหลือเบื้องหลัง หน้านี้จะโหลดผลใหม่เองเมื่อเสร็จ (ถ้ายังไม่ได้พิมพ์ในฟอร์ม) · <a href="/audit/{{ lead['token'] }}">โหลดใหม่</a></p>{% endif %}
+</section>
+
+<section class="mk-wrap mk-stack" style="gap:14px" aria-labelledby="h-lanes">
+  <h2 id="h-lanes" style="font-size:20px">ภาพรวม 4 ด้าน</h2>
+  <div class="mk-grid">
+    {% for x in vm.lanes %}
+    <div class="mk-card" id="lane-{{ x.key }}">
+      <h3 style="font-size:16px">{{ x.title }}</h3>
+      {{ ui.status(x.state, x.label) }}
+      {% if x.value %}<span class="rp-num">{{ x.value }}</span>{% endif %}
+      {% if x.detail %}<span class="mk-small">{{ x.detail }}</span>{% endif %}
+      {% if x.method %}<span class="mk-meta">วิธีวัด: {{ x.method }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {{ ui.coverage(vm.tested, vm.total) }}
+  <p class="mk-small mk-muted">"ยังไม่ได้ทดสอบ" และ "ระบบไม่พร้อม" ไม่ใช่ผลว่าไม่ผ่าน และไม่นับเป็นศูนย์ · การปรากฏในผลค้นเว็บวัดจาก Google ไม่ใช่จากคำตอบของ AI</p>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" style="gap:14px" aria-labelledby="h-act">
+  <h2 id="h-act" style="font-size:20px">สิ่งที่ควรทำก่อน</h2>
+  {% if vm.actions %}
+  <div class="mk-stack" style="gap:10px">
+    {% for a in vm.actions %}
+    <div class="mk-card">
+      <h3 style="font-size:16px"><span class="mk-order-n">{{ loop.index }}</span>{{ a.title }}</h3>
+      {% if a.why %}<span class="mk-small">{{ a.why }}</span>{% endif %}
+      <dl class="mk-facts"><dt>หน้า</dt><dd class="mk-mono">{{ a.page or "—" }}</dd>{% if a.evidence %}<dt>หลักฐาน</dt><dd>{{ a.evidence }}</dd>{% endif %}<dt>มาจาก</dt><dd>{{ a.source }}</dd></dl>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif vm.lanes[0].state in ("found", "absent", "partial") %}
+  {{ ui.empty("ยังไม่พบข้อที่ต้องแก้ด่วนจากส่วนที่ตรวจ", "ขั้นต่อไปคือทำให้ AI พูดถึงแบรนด์คุณ ซึ่งต้องมีเนื้อหาที่ตอบคำถามจริงของลูกค้า") }}
+  {% else %}
+  {{ ui.empty("ยังสรุปสิ่งที่ควรทำไม่ได้", "ต้องตรวจเว็บได้ก่อน ลองตรวจใหม่เมื่อเว็บเปิดได้", "ตรวจใหม่", "/audit") }}
+  {% endif %}
+  <p class="mk-small"><a href="/audit/{{ lead['token'] }}?view=full">ดูตารางรายละเอียดทั้งหมด (อันดับ คำถาม AI ปัญหารายหน้า)</a></p>
+</section>
+
+<section class="mk-wrap mk-stack" style="gap:14px" aria-labelledby="h-scope">
+  <h2 id="h-scope" style="font-size:20px">ขอบเขตของรายงานนี้</h2>
+  <div class="mk-grid">
+    <div class="mk-card"><h3 style="font-size:15px">ตรวจแล้ว</h3>
+      {% if vm.scope.checked %}<ul class="rp-list mk-small">{% for t in vm.scope.checked %}<li>{{ t }}</li>{% endfor %}</ul>{% else %}<span class="mk-small mk-muted">ยังไม่มีส่วนที่ตรวจสำเร็จ</span>{% endif %}</div>
+    <div class="mk-card"><h3 style="font-size:15px">ยังไม่ได้ตรวจ</h3>
+      <ul class="rp-list mk-small">{% for t in vm.scope.not_checked %}<li>{{ t }}</li>{% endfor %}</ul></div>
+  </div>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" style="gap:16px" id="plan" aria-labelledby="h-plan">
+  {% if plan_on and plan %}
+    <h2 id="h-plan" style="font-size:22px">ได้รับคำขอแผนแล้ว</h2>
+    <div class="mk-card" role="status">
+      {{ ui.status("found", "บันทึกแล้ว") }}
+      <dl class="mk-facts"><dt>เมื่อ</dt><dd>{{ (plan.created_at or "")[:16].replace("T", " ") }}</dd>
+        <dt>ติดต่อกลับทาง</dt><dd>{{ pr.CHANNELS.get(plan.contact_channel, plan.contact_channel) }}</dd></dl>
+      <span class="mk-small">ทีมเจอ.AI จะติดต่อกลับภายใน 1 วันทำการ เพื่อพาดูรายงานนี้และสรุปว่าควรแก้อะไรก่อน ยังไม่มีการนัดเวลา ทีมจะถามเวลาที่สะดวกตอนติดต่อกลับ</span>
+    </div>
+  {% elif plan_on %}
+    <h2 id="h-plan" style="font-size:22px">ขอแผนแก้จากทีมเจอ.AI</h2>
+    <p class="mk-muted">ไม่มีค่าใช้จ่าย ทีมจะติดต่อกลับภายใน 1 วันทำการ พาดูรายงานนี้ และสรุปว่าควรแก้อะไรก่อน ราคาและขอบเขตงานคุยกันหลังจากนั้น</p>
+    {% if errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down)"><b>ยังส่งไม่ได้</b>
+      <ul class="rp-list mk-small">{% for k, m in errors.items() %}<li>{% if k != "_" %}<a href="#f-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+    <form method="post" action="/audit/{{ lead['token'] }}/plan#plan" class="rp-form" novalidate>
+      {{ csrf_input(request) }}
+      <input type="hidden" name="idem_key" value="{{ form.idem_key }}">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      {{ ui.field("f-name", "ชื่อที่ให้ทีมเรียก", name="name", value=form.name or "", error=errors.name, required=True, autocomplete="name") }}
+      {{ ui.field("f-role", "ตำแหน่ง (ไม่บังคับ)", name="role", value=form.role or "", placeholder="เช่น เจ้าของกิจการ ผู้จัดการฝ่ายการตลาด", autocomplete="organization-title") }}
+      <fieldset class="full{% if errors.contact_channel %} mk-field-err{% endif %}" id="f-contact_channel"{% if errors.contact_channel %} aria-describedby="f-cc-err"{% endif %}>
+        <legend>ให้ติดต่อกลับทางไหน</legend>
+        <div class="rp-radios">{% for k, lb in pr.CHANNELS.items() %}<label><input type="radio" name="contact_channel" value="{{ k }}"{% if form.contact_channel == k %} checked{% endif %} required> {{ lb }}</label>{% endfor %}</div>
+        {% if errors.contact_channel %}<span class="mk-err" id="f-cc-err">{{ errors.contact_channel }}</span>{% endif %}
+      </fieldset>
+      <div class="full">{{ ui.field("f-contact_value", "LINE ID เบอร์โทร หรืออีเมล ตามที่เลือก", name="contact_value", value=form.contact_value or "", error=errors.contact_value, required=True) }}</div>
+      <div class="mk-field"><label for="f-desired_window">อยากเริ่มเมื่อไร (ไม่บังคับ)</label>
+        <select id="f-desired_window" name="desired_window">{% for k, lb in pr.WINDOWS.items() %}<option value="{{ k }}"{% if (form.desired_window or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field"><label for="f-web_readiness">ตอนนี้ใครดูแลเว็บ (ไม่บังคับ)</label>
+        <select id="f-web_readiness" name="web_readiness">{% for k, lb in pr.READINESS.items() %}<option value="{{ k }}"{% if (form.web_readiness or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field"><label for="f-budget">งบประมาณโดยประมาณ (ไม่บังคับ)</label>
+        <select id="f-budget" name="budget">{% for k, lb in pr.BUDGETS.items() %}<option value="{{ k }}"{% if (form.budget or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field full"><label for="f-message">อยากให้ทีมดูเรื่องไหนเป็นพิเศษ (ไม่บังคับ)</label>
+        <textarea id="f-message" name="message" rows="3" maxlength="1000">{{ form.message or "" }}</textarea></div>
+      <div class="full mk-stack" style="gap:10px">
+        <label class="rp-check{% if errors.consent_fulfil %} mk-field-err{% endif %}" id="f-consent_fulfil"><input type="checkbox" name="consent_fulfil" value="1"{% if form.consent_fulfil %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.fulfil_request }}</span></label>
+        {% if errors.consent_fulfil %}<span class="mk-err">{{ errors.consent_fulfil }}</span>{% endif %}
+        <label class="rp-check"><input type="checkbox" name="consent_marketing" value="1"{% if form.marketing %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.marketing }}</span></label>
+      </div>
+      <div class="full">{{ ui.button("ส่งคำขอแผน", type="submit") }}</div>
+    </form>
+  {% elif lead["consent"] %}
+    <h2 id="h-plan" style="font-size:22px">รับเรื่องแล้ว</h2>
+    <p>ทีมเจอ.AI จะติดต่อกลับภายใน 1 วันทำการ ขอบคุณครับ</p>
+  {% else %}
+    <h2 id="h-plan" style="font-size:22px">ให้ทีมเจอ.AI ส่งแผนแก้ให้</h2>
+    <form method="post" action="/audit/{{ lead['token'] }}/contact" class="rp-form">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      {{ ui.field("c-name", "ชื่อ (ไม่บังคับ)", name="name", autocomplete="name") }}
+      {{ ui.field("c-email", "อีเมล", name="email", type="email", autocomplete="email") }}
+      <div class="full">{{ ui.field("c-contact", "LINE ID หรือเบอร์โทร (ถ้าไม่ใช้อีเมล)", name="contact") }}</div>
+      <label class="rp-check full"><input type="checkbox" name="consent" value="1"> <span>ยินยอมให้เจอ.AI ติดต่อกลับเรื่องผลตรวจนี้ และเก็บช่องทางติดต่อไว้เพื่อการนี้เท่านั้น</span></label>
+      <div class="full">{{ ui.button("ส่งแผนแก้ให้ฉัน", type="submit") }}</div>
+    </form>
+  {% endif %}
+</section>
+{% if vm.running %}
+<script>
+/* ตรวจส่วนที่เหลือเสร็จ → โหลดหน้าใหม่ แต่ไม่โหลดทับถ้าผู้ใช้เริ่มพิมพ์ในฟอร์มแล้ว */
+(function(){var dirty=false,f=document.querySelector('#plan form');if(f){f.addEventListener('input',function(){dirty=true;});}
+var start=null;function poll(){fetch('/audit/{{ lead["token"] }}/progress',{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+var k=p.tier1+'|'+p.ai;if(start===null){start=k;}if(k!==start&&p.tier1!=='running'&&p.ai!=='running'){if(!dirty){location.reload();return;}
+var n=document.getElementById('rp-running');if(n){n.textContent='ตรวจส่วนที่เหลือเสร็จแล้ว ส่งฟอร์มหรือโหลดหน้าใหม่เพื่อดูผลล่าสุด';}return;}setTimeout(poll,6000);}).catch(function(){setTimeout(poll,12000);});}
+setTimeout(poll,4000);})();
+</script>
+{% endif %}
+{% endblock %}

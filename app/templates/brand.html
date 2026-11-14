@@ -53,7 +53,7 @@
     <span style="font-size:20px">🎯</span>
     <div>
       <div style="font-weight:700;font-size:15px">{{ _("คำถามที่ควรเขียน ({n})", n=gaps.total_gaps) }}</div>
-      <div class="muted" style="font-size:12px">{{ _("แบรนด์ยังไม่โผล่ใน AI สำหรับคำถามเหล่านี้ — วัดเมื่อ {date}", date=gaps.last_run_at[:10]) }}</div>
+      <div class="muted" style="font-size:12px">{{ _("แบรนด์ยังไม่ปรากฏในผลค้นเว็บสำหรับคำถามเหล่านี้ — วัดเมื่อ {date}", date=gaps.last_run_at[:10]) }}</div>
     </div>
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
@@ -80,7 +80,7 @@
 {% elif gaps.has_run and gaps.total_gaps == 0 %}
 <div class="card" style="margin-top:16px;border-color:#16a34a;background:#f0fdf4;display:flex;align-items:center;gap:10px">
   <span style="font-size:20px">✅</span>
-  <div style="font-size:13px">{{ _("ครอบคลุมครบทุกคำถามเป้าหมาย — แบรนด์โผล่ใน AI ทั้ง {n} คำถาม", n=gaps.q_total) }}</div>
+  <div style="font-size:13px">{{ _("ครอบคลุมครบทุกคำถามเป้าหมาย — แบรนด์ปรากฏในผลค้นเว็บทั้ง {n} คำถาม", n=gaps.q_total) }}</div>
 </div>
 {% endif %}
 

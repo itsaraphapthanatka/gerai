@@ -2,9 +2,10 @@
 flag ปิด + ไม่ใช่แอดมินที่ preview → 404 (เหมือนไม่มีหน้า) · preview ใส่ noindex ทั้ง header และ meta"""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from . import flags
+from .csrf import require_csrf
 
 router = APIRouter()
 NOINDEX = {"X-Robots-Tag": "noindex, nofollow"}
@@ -56,3 +57,48 @@ def ui_kit(request: Request):
     if not flags.previewing("marketing_v2", request):
         raise HTTPException(status_code=404)
     return _render(request, "mk/ui_kit.html", internal=True)
+
+
+# ---------- นัดคุย 30 นาที (stage 06) — แทนปุ่มเดิมของหน้าแรกเก่า · ขอให้โทรกลับ ไม่ใช่การจองเวลา (ยังไม่มีปฏิทินจริง) ----------
+def _callback_page(request: Request, form: dict | None = None, errors: dict | None = None, done: bool = False, status_code: int = 200):
+    from . import plan_request
+    resp = _render(request, "mk/callback.html", {"form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {},
+                                                  "done": done, "pr": plan_request})
+    resp.status_code = status_code
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@router.get("/callback")
+def callback_form(request: Request, done: int = 0):
+    if not flags.active("marketing_v2", request):
+        raise HTTPException(status_code=404)
+    return _callback_page(request, done=bool(done))
+
+
+@router.post("/callback", dependencies=[Depends(require_csrf)])
+async def callback_submit(request: Request):
+    """เก็บลงตาราง contacts เดิม (plan = "นัดคุย") → ขึ้นกล่องคำขอบนกระดานดีลแบบเดียวกับปุ่มเดิม · บันทึกก่อนแล้วจึงบอกว่าได้รับ"""
+    from . import db, pipeline, plan_request, i18n, landing_i18n
+    from .main import _redirect
+    if not flags.active("marketing_v2", request):
+        raise HTTPException(status_code=404)
+    form = dict(await request.form())
+    if (form.get("website") or "").strip():                   # honeypot
+        return _redirect("/callback?done=1")
+    v, err = plan_request.validate(form)
+    if err:
+        return _callback_page(request, v, err, status_code=422)
+    if request.session.get("cb_idem") == v["idem_key"]:          # กดส่งซ้ำ/รีเฟรช = ไม่สร้างคำขอซ้ำ
+        return _redirect("/callback?done=1")
+    contact = f"{plan_request.CHANNELS[v['contact_channel']]}: {v['contact_value']}"
+    note = " · ".join(x for x in [v["message"], "รับข่าวสาร: " + ("ยินยอม" if v["marketing"] else "ไม่ยินยอม"),
+                                  f"ข้อความยินยอม {plan_request.NOTICE_VERSION}"] if x)
+    try:
+        db.add_contact(v["name"], contact, landing_i18n.CALL_PLAN, note[:1000], i18n.lang_of(request))
+    except Exception:
+        return _callback_page(request, v, {"_": "บันทึกคำขอไม่สำเร็จ ยังไม่ได้ส่งถึงทีม ลองกดส่งอีกครั้ง"}, status_code=500)
+    request.session["cb_idem"] = v["idem_key"]
+    pipeline.alert_admins(f"📩 คำขอนัดคุยใหม่: {v['name']} · สนใจ {landing_i18n.CALL_PLAN} — ผูกกับดีลที่หน้าดีล",
+                          "/admin/deals#requests", "contact")
+    return _redirect("/callback?done=1")

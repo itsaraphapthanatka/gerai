@@ -18,7 +18,7 @@
 <!-- auto สร้างร่าง + โหมดเผยแพร่ -->
 <div class="card" style="margin-bottom:12px;border-color:var(--purple)">
   <div style="font-weight:600;font-size:14px;margin-bottom:2px">🤖 {{ _("auto สร้างคอนเทนต์ปิด gap") }}</div>
-  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">{{ _("ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่โผล่ใน AI ให้เองตามจังหวะ จนปิดครบ — แล้ว") }}<b>{{ _("คิดคำถามใหม่เพิ่มเอง") }}</b> {{ _("(รอบละ {n} ข้อ ไม่เกิน {max} ข้อ/แบรนด์) ให้มอนิเตอร์วัดก่อน ค่อยเขียนต่อ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)", n=auto_topup[0], max=auto_topup[1]) }}</div>
+  <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">{{ _("ระบบสร้างคอนเทนต์สำหรับคำถามที่แบรนด์ยังไม่ปรากฏในผลค้นเว็บ ให้เองตามจังหวะ จนปิดครบ — แล้ว") }}<b>{{ _("คิดคำถามใหม่เพิ่มเอง") }}</b> {{ _("(รอบละ {n} ข้อ ไม่เกิน {max} ข้อ/แบรนด์) ให้มอนิเตอร์วัดก่อน ค่อยเขียนต่อ · เลือกรูปแบบ AEO ให้อัตโนมัติ (คำถามเชิงเทียบ → ⚖️ เปรียบเทียบ, เชิงลิสต์ → 🔢 อันดับ)", n=auto_topup[0], max=auto_topup[1]) }}</div>
 
   <div style="display:flex;gap:20px;flex-wrap:wrap">
     {% set curw = brand['auto_content_weekly'] or 0 %}

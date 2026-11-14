@@ -1,0 +1,49 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# นัดคุย 30 นาที (stage 06) — ขอให้ทีมติดต่อกลับเพื่อตกลงเวลา · ไม่มีปฏิทินให้เลือกเวลา (ยังไม่มีปฏิทินจริง ดู stage 06A) #}
+{% block title %}นัดคุย 30 นาที · เจอ.AI{% endblock %}
+{% block head %}<style>
+  body.mk fieldset{border:0;margin:0;padding:0;display:grid;gap:6px;min-width:0}
+  body.mk legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:6px}
+  body.mk .rp-radios{display:flex;gap:8px;flex-wrap:wrap}
+  body.mk .rp-radios label{display:flex;gap:6px;align-items:center;border:1.5px solid var(--mk-hair);border-radius:12px;padding:10px 14px;font-weight:500;cursor:pointer}
+  body.mk .rp-radios label:has(input:checked){border-color:var(--mk-ink)}
+  body.mk .rp-check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+  body.mk .rp-check input{margin-top:4px;width:18px;height:18px;flex:none}
+  body.mk .rp-list{margin:0;padding-left:20px}
+</style>{% endblock %}
+{% block content %}
+<section class="mk-wrap mk-section mk-stack" style="max-width:640px;gap:16px" aria-labelledby="h-cb">
+  {% if done %}
+    <span class="mk-eyebrow">ได้รับแล้ว</span>
+    <h1 id="h-cb" style="font-size:clamp(26px,4.5vw,36px)">ทีมจะติดต่อกลับเพื่อนัดเวลา</h1>
+    <p role="status">เราบันทึกคำขอแล้ว ทีมเจอ.AI จะติดต่อกลับภายใน 1 วันทำการ ทางช่องทางที่คุณเลือก เพื่อตกลงเวลาคุย 30 นาที</p>
+    <p class="mk-muted mk-small">ระหว่างรอ ตรวจเว็บไซต์ของคุณก่อนได้ ทีมจะใช้ผลนั้นคุยกับคุณ</p>
+    <div>{{ ui.button("ตรวจเว็บไซต์ของฉัน", href="/audit") }}</div>
+  {% else %}
+    <span class="mk-eyebrow">นัดคุย 30 นาที</span>
+    <h1 id="h-cb" style="font-size:clamp(26px,4.5vw,36px)">คุยกับทีมเจอ.AI ไม่มีค่าใช้จ่าย</h1>
+    <p class="mk-muted">กรอกช่องทางติดต่อ ทีมจะติดต่อกลับภายใน 1 วันทำการเพื่อตกลงเวลาที่สะดวก ยังไม่ต้องเลือกเวลาตอนนี้</p>
+    {% if errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down)"><b>ยังส่งไม่ได้</b>
+      <ul class="rp-list mk-small">{% for k, m in errors.items() %}<li>{% if k != "_" %}<a href="#f-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+    <form method="post" action="/callback" class="mk-stack" style="gap:16px" novalidate>
+      {{ csrf_input(request) }}
+      <input type="hidden" name="idem_key" value="{{ form.idem_key }}">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      {{ ui.field("f-name", "ชื่อที่ให้ทีมเรียก", name="name", value=form.name or "", error=errors.name, required=True, autocomplete="name") }}
+      <fieldset class="{% if errors.contact_channel %}mk-field-err{% endif %}" id="f-contact_channel">
+        <legend>ให้ติดต่อกลับทางไหน</legend>
+        <div class="rp-radios">{% for k, lb in pr.CHANNELS.items() %}<label><input type="radio" name="contact_channel" value="{{ k }}"{% if form.contact_channel == k %} checked{% endif %} required> {{ lb }}</label>{% endfor %}</div>
+        {% if errors.contact_channel %}<span class="mk-err">{{ errors.contact_channel }}</span>{% endif %}
+      </fieldset>
+      {{ ui.field("f-contact_value", "LINE ID เบอร์โทร หรืออีเมล ตามที่เลือก", name="contact_value", value=form.contact_value or "", error=errors.contact_value, required=True) }}
+      <div class="mk-field"><label for="f-message">อยากคุยเรื่องอะไร หรือเว็บไซต์ของคุณ (ไม่บังคับ)</label>
+        <textarea id="f-message" name="message" rows="3" maxlength="1000">{{ form.message or "" }}</textarea></div>
+      <label class="rp-check" id="f-consent_fulfil"><input type="checkbox" name="consent_fulfil" value="1"{% if form.consent_fulfil %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.fulfil_request }}</span></label>
+      {% if errors.consent_fulfil %}<span class="mk-err">{{ errors.consent_fulfil }}</span>{% endif %}
+      <label class="rp-check"><input type="checkbox" name="consent_marketing" value="1"{% if form.marketing %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.marketing }}</span></label>
+      <div>{{ ui.button("ขอให้ทีมติดต่อกลับ", type="submit") }}</div>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

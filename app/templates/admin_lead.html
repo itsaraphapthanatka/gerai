@@ -73,6 +73,20 @@
 <p class="muted">สร้างเมื่อ {{ (lead['created_at'] or '')[:16].replace('T',' ') }}{% if lead['last_contacted_at'] %} · ทักล่าสุด {{ lead['last_contacted_at'][:16].replace('T',' ') }}{% endif %}{% if lead['package'] %} · แพ็กเกจ {{ lead['package'] }} {{ "{:,}".format(lead['monthly_thb'] or 0) }} บาท/เดือน{% endif %}</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if wants_call %}<div class="err-banner" style="background:#fff4e5;color:#9a5b00">🔥 ลูกค้าขอนัดคุยเมื่อ {{ (wants_call['created_at'] or '')[:16].replace('T',' ') }} — {{ wants_call['note'] or '' }} · โทรนัดภายในวันนี้ <a class="link" href="/admin/calls/{{ lead['id'] }}">เปิดบทโทร 📞</a> · คุยเสร็จตั้งราคาและส่งใบเสนอราคาด้านล่าง (ระบบไม่ส่งเอง)</div>{% endif %}
+{% if brief %}
+<div class="card" id="brief">
+  <h2 style="margin-top:0;font-size:15px">📋 Sales Brief · ขอแผนเมื่อ {{ (brief.request['created_at'] or '')[:16].replace('T',' ') }}</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;font-size:13.5px;line-height:1.7">
+    <div><b>ลูกค้ายืนยันเอง</b>{% for k, v in brief.confirmed %}<div><span class="muted">{{ k }}</span> {{ v }}</div>{% endfor %}
+      <div class="muted" style="font-size:12px">ยินยอมให้ติดต่อเรื่องคำขอนี้ ✓ · รับข่าวสาร {{ '✓' if brief.marketing else '✗ (ห้ามส่งข่าวสาร)' }} · ข้อความยินยอม {{ brief.notice_version }}</div></div>
+    <div><b>ระบบเดาจากเว็บ (ยืนยันกับลูกค้าก่อนใช้)</b>{% for k, v in brief.inferred %}<div><span class="muted">{{ k }}</span> {{ v }}</div>{% else %}<div class="muted">ยังไม่มี (รายงานเต็มยังไม่เสร็จ)</div>{% endfor %}
+      {% for x in brief.lanes %}<div><span class="muted">{{ x.title }}</span> {{ x.value or '' }} {{ x.detail }}</div>{% endfor %}</div>
+    <div><b>สิ่งที่พบพร้อมหลักฐาน</b>{% for a in brief.findings %}<div>{{ loop.index }}. {{ a.title }}{% if a.evidence %} <span class="muted">({{ a.evidence }})</span>{% endif %}</div>{% else %}<div class="muted">ไม่มีข้อที่ต้องแก้ด่วน</div>{% endfor %}
+      <div style="margin-top:6px"><b>ยังไม่ทราบ</b> {{ brief.unknown|join(', ') or '—' }}</div>
+      <div style="margin-top:6px"><b>ถัดไป</b> {{ brief.next }}</div></div>
+  </div>
+</div>
+{% endif %}
 {% if lead['status'] == 'unsubscribed' %}<div class="err-banner">ลูกค้าขอไม่รับการติดต่อเมื่อ {{ (lead['unsub_at'] or '')[:16].replace('T',' ') }} — ระบบไม่ส่งข้อความใด ๆ ถึงรายนี้อีก</div>{% endif %}
 
 <div class="card ld-deal" id="deal-{{ lead['id'] }}">
