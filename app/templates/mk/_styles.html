@@ -85,7 +85,9 @@
   /* mobile action bar: visible only on narrow screens */
   .mk-actbar{display:none}
   @media (max-width:720px){
-    .mk-actbar{display:flex;gap:8px;position:sticky;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--mk-hair);
+    /* แสดงเมื่อเลื่อนผ่านจุดที่มีปุ่มหลักแล้วเท่านั้น (mk-on ใส่โดยสคริปต์ใน base.html) · ปิด JS = ไม่แสดง ปุ่มในหน้ายังใช้ได้ */
+    .mk-actbar.mk-on{display:flex}
+    .mk-actbar{gap:8px;position:sticky;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--mk-hair);
       padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
     .mk-actbar .mk-btn{flex:1;padding:11px 12px;font-size:14.5px}
   }

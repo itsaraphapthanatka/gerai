@@ -65,6 +65,26 @@ out = t.render(x='<script>alert(1)</script>', u='/a"><img src=x onerror=1>', f="
 assert "<script>" not in out and "&lt;script&gt;" in out and "onerror=1>" not in out and "&lt;b&gt;" in out
 assert "ยังไม่ได้ทดสอบ" in out                                                    # สถานะที่ไม่รู้จัก = ยังไม่ได้ทดสอบ ไม่ใช่ "ไม่พบ"
 
+# ---- stage 02: หน้าแรกชุดใหม่ (preview เท่านั้น) ----
+assert anon.get("/preview/home").status_code == 404 and user.get("/preview/home").status_code == 404
+r = admin.get("/preview/home?src=line&ref=<bad>")
+assert r.status_code == 200 and "noindex" in r.headers.get("x-robots-tag", "")
+home = r.text
+assert home.count('action="/audit"') == 2 and home.count('name="url"') == 2 and home.count('name="website"') == 2   # hero + CTA ท้ายหน้า, มี honeypot
+assert 'name="src" value="line"' in home and 'name="ref" value=""' in home                     # ค่าจาก URL ผ่านตัวกรองเดิม
+assert home.count("<script") == 1 and "data-actbar-anchor" in home                               # สคริปต์เดียว: แถบปุ่มล่างจอ (ปิด JS ฟอร์มยังใช้ได้)
+assert "ตัวอย่างสาธิต ไม่ใช่ผลตรวจเว็บไซต์ของคุณ" in home
+import app.billing as B
+assert "฿{:,}".format(B.PLANS["pro"]["price"]) in home                                            # ราคาจากโค้ด ไม่พิมพ์เอง
+visible = re.sub(r"(?s)<style.*?</style>|<[^>]+>", " ", home)                                   # ตรวจเฉพาะข้อความที่คนเห็น
+for banned in ("2 นาที", "จนกว่า AI", "ร้านคุณ", "100%", "อันดับ 1"):
+    assert banned not in visible, banned
+assert not re.search(r"(?<!ไม่)(การันตี|รับประกันผล)", visible)                               # ได้เฉพาะรูปปฏิเสธ "ไม่การันตี"
+ids = re.findall(r'<input id="([^"]+)"', home)
+assert ids and all(f'<label for="{i}">' in home for i in ids)
+for href in set(re.findall(r'<a [^>]*href="(/[^"#]*)"', home)):
+    assert anon.get(href, follow_redirects=False).status_code in (200, 302, 303, 307), href
+
 # ---- หน้าเดิมไม่เปลี่ยน ----
 for path in ("/", "/audit", "/partners", "/login"):
     r = anon.get(path); assert r.status_code == 200 and 'class="mk"' not in r.text, path

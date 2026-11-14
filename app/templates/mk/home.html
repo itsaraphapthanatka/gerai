@@ -1,0 +1,123 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# หน้าแรกชุดใหม่ (stage 02) — ลำดับตามเอกสาร: hero+URL → ตัวอย่างจริงที่ติดป้าย → ตรวจ/ไม่ตรวจ → ทางเลือก 3 แบบ → ขั้นตอน → FAQ + CTA ซ้ำ
+   ไม่มีส่วนอุตสาหกรรม (ยังไม่มีหน้าปลายทาง) และไม่มีเคส/โลโก้ลูกค้า (ยังไม่มีสิทธิ์เผยแพร่) — ตั้งใจเว้นไว้
+   ฟอร์มส่งเข้า /audit เดิม (honeypot website, src, ref) · ทำงานได้โดยไม่ต้องมี JavaScript #}
+{% block title %}เจอ.AI · ตรวจว่าเว็บไซต์ของคุณพร้อมให้ลูกค้าค้นพบผ่าน AI แค่ไหน{% endblock %}
+{% block meta %}<meta name="description" content="ตรวจเว็บไซต์ฟรี ไม่ต้องสมัคร ดูว่าข้อมูลธุรกิจของคุณชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง พร้อมหลักฐานและสิ่งที่ควรทำต่อ">{% endblock %}
+
+{% macro audit_form(fid, anchor=False) -%}
+<form class="mk-stack" method="post" action="/audit" style="max-width:520px;gap:12px"{% if anchor %} data-actbar-anchor{% endif %}>
+  {{ ui.field(fid, "ที่อยู่เว็บไซต์ของคุณ", name="url", placeholder="example.co.th", help="ไม่ต้องสมัคร ไม่ต้องกรอกเบอร์โทรหรืออีเมลก่อนเห็นผล", required=True, autocomplete="url") }}
+  <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <input type="hidden" name="src" value="{{ src or '' }}"><input type="hidden" name="ref" value="{{ ref or '' }}">
+  <div>{{ ui.button("ตรวจเว็บไซต์ของฉัน", type="submit") }}</div>
+</form>
+{%- endmacro %}
+
+{% block content %}
+{# 1 · Hero #}
+<section class="mk-wrap mk-section" aria-labelledby="h-hero" style="padding-block:56px 40px">
+  <div class="mk-stack" style="gap:18px;max-width:760px">
+    <span class="mk-eyebrow">ตรวจฟรี สำหรับธุรกิจ B2B และบริการ</span>
+    <h1 id="h-hero">ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?</h1>
+    <p class="mk-muted" style="font-size:17.5px">เราอ่านหน้าสาธารณะของเว็บไซต์คุณ แล้วบอกว่าข้อมูลสำคัญ เช่น คุณให้บริการอะไร ที่ไหน กับใคร ชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง พร้อมหลักฐานจากหน้าเว็บจริงและสิ่งที่ควรทำต่อ</p>
+    {{ audit_form("home-url", anchor=True) }}
+    <p class="mk-small mk-muted">ผลเบื้องต้นส่วนใหญ่ได้ภายในไม่กี่นาที ขึ้นกับความเร็วของเว็บไซต์ · เราดึงเฉพาะหน้าที่เปิดสาธารณะ</p>
+  </div>
+</section>
+
+{# 2–3 · ตัวอย่างจริงที่ติดป้าย: ข้อค้นพบ → หลักฐาน → สิ่งที่ควรทำ #}
+<section class="mk-section" aria-labelledby="h-sample" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:20px">
+    <div class="mk-stack" style="gap:8px">
+      <span class="mk-eyebrow">ตัวอย่างสาธิต ไม่ใช่ผลตรวจเว็บไซต์ของคุณ</span>
+      <h2 id="h-sample">รายงานบอกอะไรคุณบ้าง</h2>
+      <p class="mk-muted">ทุกข้อสรุปมีหลักฐานจากหน้าเว็บจริงกำกับ และแยกชัดว่าส่วนไหนตรวจแล้ว ส่วนไหนยังไม่ได้ตรวจ ข้อมูลด้านล่างเป็นของบริษัทสมมติ</p>
+    </div>
+    <div class="mk-grid">
+      {{ ui.lane("ความพร้อมของเว็บ", "found", "ตรวจ 5/5 หน้า · พบ 3 จุดควรแก้") }}
+      {{ ui.lane("การปรากฏในผลค้นเว็บ", "partial", "ค้นสำเร็จ 6/8 คำถาม · พบ 2") }}
+      {{ ui.lane("AI พูดถึงแบรนด์", "not_tested", "ทำเมื่อคุณขอรายงานเต็ม") }}
+      {{ ui.lane("AI อ้างอิงเว็บของคุณ", "not_tested", "ทำเมื่อคุณขอรายงานเต็ม") }}
+    </div>
+    {{ ui.coverage(2, 4) }}
+    <div class="mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))">
+      {{ ui.evidence("เรามีคลังสินค้าพร้อมให้เช่าหลายขนาด รองรับทั้งสินค้าทั่วไปและสินค้าควบคุมอุณหภูมิ", "/services/warehouse", "ตัวอย่าง",
+                     "absent", "ไม่มีชื่อพื้นที่หรือจังหวัดในย่อหน้านี้", 1, 2) }}
+      {{ ui.action(1, "ระบุพื้นที่ให้บริการในหน้าบริการ", "/services/warehouse", "สูง (หลักฐาน 2 จุด)", "ประมาณ 1 ชั่วโมง", "ทีมเว็บของคุณ") }}
+    </div>
+  </div>
+</section>
+
+{# 4 · ตรวจอะไร ไม่ตรวจอะไร #}
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-scope" style="gap:18px">
+  <h2 id="h-scope">การตรวจฟรีครอบคลุมอะไร</h2>
+  <div class="mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">
+    <div class="mk-card">
+      <h3>ตรวจทันที</h3>
+      <ul class="mk-stack" style="gap:8px;margin:0;padding:0;list-style:none">
+        <li>{{ ui.status("found", "เว็บเปิดได้ และไม่ได้สั่งห้ามระบบค้นหาเก็บหน้า") }}</li>
+        <li>{{ ui.status("found", "บอทของ AI เข้าอ่านได้ และเนื้อหาไม่ต้องรอ JavaScript") }}</li>
+        <li>{{ ui.status("found", "ข้อมูลโครงสร้าง (Schema), sitemap และหน้าซ้ำ") }}</li>
+        <li>{{ ui.status("partial", "อันดับในการค้นของคำหลัก: ถ้าระบบค้นไม่พร้อม รายงานจะบอกว่ายังไม่ได้ทดสอบ") }}</li>
+      </ul>
+    </div>
+    <div class="mk-card">
+      <h3>ไม่รวมในการตรวจฟรีครั้งแรก</h3>
+      <ul class="mk-stack" style="gap:8px;margin:0;padding:0;list-style:none">
+        <li>{{ ui.status("not_tested", "คำตอบจาก AI จริง: ทำเมื่อคุณขอรายงานเต็ม และจำกัดจำนวนต่อวัน") }}</li>
+        <li>{{ ui.status("not_tested", "ข้อมูลใน Google Search Console: ต้องได้สิทธิ์จากคุณก่อน") }}</li>
+        <li>{{ ui.status("not_tested", "ยอดขายหรือจำนวนลูกค้า: เราไม่วัดและไม่คาดเดา") }}</li>
+      </ul>
+    </div>
+  </div>
+  <p class="mk-small mk-muted">ผลค้นเว็บกับคำตอบของ AI เป็นคนละเรื่องกัน รายงานแยกไว้คนละช่องเสมอ และ “ยังไม่ได้ทดสอบ” ไม่ได้แปลว่า “ไม่พบ”</p>
+</section>
+
+{# 5 · ทางเลือก 3 แบบ #}
+<section class="mk-section" aria-labelledby="h-paths" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:18px">
+    <h2 id="h-paths">ได้รายงานแล้ว ทำต่อได้ 3 ทาง</h2>
+    <div class="mk-grid">
+      <div class="mk-card"><h3>ทำเอง</h3><p class="mk-muted">ใช้รายการสิ่งที่ควรทำและตัวอย่างข้อความในรายงานได้เลย ไม่มีค่าใช้จ่าย</p></div>
+      <div class="mk-card"><h3>ส่งให้ทีมเว็บของคุณ</h3><p class="mk-muted">ทุกข้อมีหน้าที่ต้องแก้ หลักฐาน และเกณฑ์ว่าแก้แล้วเป็นอย่างไร ส่งต่อให้ทีมเดิมหรือเอเจนซีที่ดูแลเว็บได้ทันที</p></div>
+      <div class="mk-card"><h3>ให้เราช่วยตามขอบเขต</h3><p class="mk-muted">คุยกันก่อนว่าจะวัดอะไร แก้อะไร ใครทำส่วนไหน แล้วเราส่งข้อเสนอที่ระบุงานและราคา{% if price_from %} (เริ่มต้น ฿{{ "{:,}".format(price_from) }}/เดือน ยังไม่รวม VAT ราคาจริงตามขอบเขต){% endif %}</p></div>
+    </div>
+  </div>
+</section>
+
+{# 8 · ขั้นตอน #}
+<section class="mk-wrap mk-section mk-stack" id="how" aria-labelledby="h-how" style="gap:18px">
+  <h2 id="h-how">ถ้าทำงานกับเรา ขั้นตอนเป็นแบบนี้</h2>
+  <ol class="mk-grid" style="list-style:none;margin:0;padding:0;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))">
+    {% for t, d in [("ตรวจ", "ตรวจเว็บไซต์และเก็บหลักฐานจากหน้าจริง"),
+                     ("ยืนยันข้อมูลธุรกิจ", "คุณยืนยันบริการหลัก พื้นที่ และลูกค้าเป้าหมาย ส่วนที่ระบบเดาจะติดป้ายไว้"),
+                     ("ตกลงขอบเขต", "ระบุงาน สิ่งที่ไม่รวม สิ่งที่คุณต้องเตรียม และเกณฑ์ตรวจรับ เป็นลายลักษณ์อักษร"),
+                     ("ลงมือ", "เริ่มเมื่อพร้อมจริง เช่น ได้สิทธิ์เข้าเว็บและข้อมูลที่ยืนยันแล้ว"),
+                     ("ทบทวนผล", "วัดด้วยวิธีเดิมแล้วรายงานตามจริง ข้อมูลไม่พอก็บอกว่าไม่พอ")] %}
+    <li class="mk-card"><span class="mk-order-n">{{ loop.index }}</span><h3>{{ t }}</h3><p class="mk-muted mk-small">{{ d }}</p></li>
+    {% endfor %}
+  </ol>
+</section>
+
+{# 9 · FAQ + CTA ซ้ำ #}
+<section class="mk-section" aria-labelledby="h-faq" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:18px;max-width:820px">
+    <h2 id="h-faq">คำถามที่พบบ่อย</h2>
+    {{ ui.faq([
+      ("รับประกันไหมว่า AI จะแนะนำธุรกิจเรา", "ไม่มีใครรับประกันได้ เพราะ AI และระบบค้นหาตัดสินเอง สิ่งที่เราทำได้คือหาสิ่งที่ทำให้ข้อมูลของคุณถูกเข้าใจยาก แก้ตามขอบเขตที่ตกลง แล้ววัดผลด้วยวิธีเดิมและรายงานตามจริง"),
+      ("ต้องกรอกเบอร์โทรหรืออีเมลก่อนไหม", "ไม่ต้อง ใส่ที่อยู่เว็บแล้วเห็นผลเบื้องต้นได้เลย จะทิ้งช่องทางติดต่อหรือไม่ก็ได้หลังเห็นผลแล้ว"),
+      ("ข้อมูลอะไรของเราที่ถูกใช้", "เฉพาะหน้าเว็บที่เปิดสาธารณะ เราไม่เข้าระบบหลังบ้านของคุณ และไม่เผยแพร่ผลตรวจของคุณต่อสาธารณะ"),
+      ("ต่างจากการทำ SEO อย่างไร", "SEO ดูอันดับในการค้นเว็บ เราดูทั้งการค้นเว็บและคำตอบของ AI แยกกันคนละช่อง งานหลายอย่างช่วยทั้งสองทาง เช่น ข้อมูลโครงสร้างและหน้าที่ตอบคำถามลูกค้าตรง ๆ"),
+      ("ราคาเท่าไร", ("เริ่มต้น ฿" ~ "{:,}".format(price_from) ~ "/เดือน ยังไม่รวม VAT 7% ราคาจริงขึ้นกับขอบเขตงาน เราส่งข้อเสนอหลังคุยกัน") if price_from else "ราคาตามขอบเขตงาน เราส่งข้อเสนอหลังคุยกัน")
+    ]) }}
+    <div class="mk-card mk-stack" style="gap:12px">
+      <h3>เริ่มจากดูว่าเว็บไซต์ของคุณอยู่ตรงไหน</h3>
+      {{ audit_form("home-url-2") }}
+    </div>
+    <p class="mk-small mk-muted">เป็นเว็บสตูดิโอหรือเอเจนซี? <a href="/partners">ดูการทำงานร่วมกับพาร์ตเนอร์</a></p>
+  </div>
+</section>
+{% endblock %}
+{% block actbar %}<div class="mk-actbar">{{ ui.button("ตรวจเว็บไซต์ของฉัน", href="#home-url") }}</div>{% endblock %}

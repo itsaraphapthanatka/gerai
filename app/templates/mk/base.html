@@ -19,5 +19,11 @@
 <main id="main">{% block content %}{% endblock %}</main>
 {% include "mk/_footer.html" %}
 {% block actbar %}{% endblock %}
+<script>
+/* แถบปุ่มล่างจอ: โผล่เมื่อจุดที่มี data-actbar-anchor (ปุ่มหลักด้านบน) เลื่อนพ้นจอแล้ว · ไม่มี anchor = โผล่ตลอด */
+(function(){var bar=document.querySelector('.mk-actbar');if(!bar)return;var a=document.querySelector('[data-actbar-anchor]');
+if(!a||!('IntersectionObserver' in window)){bar.classList.add('mk-on');return;}
+new IntersectionObserver(function(es){bar.classList.toggle('mk-on',!es[0].isIntersecting&&es[0].boundingClientRect.top<0);}).observe(a);})();
+</script>
 </body>
 </html>
