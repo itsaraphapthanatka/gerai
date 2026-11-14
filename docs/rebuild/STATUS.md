@@ -4,7 +4,17 @@
 |---|---|---|---|
 | 00 ตรวจระบบ + เอกสาร | **เสร็จ รอเจ้าของตรวจ** | 2026-11-14 | branch `docs/rebuild-stage-00` · แก้เฉพาะ `docs/rebuild/` · ไม่แตะโค้ด/config/schema |
 | 00S ปิดช่องเสี่ยง (ข้อ 1–3) | **เสร็จ เทสต์ผ่าน 63/63 รอเจ้าของตรวจ** | 2026-11-14 | เจ้าของอนุมัติ · branch เดียวกัน · ข้อ 4–5 (ตรวจ config production) ยังรอผู้ดูแล server |
-| 01–19 | ยังไม่เริ่ม | | |
+| 01-lite ฐาน (flags + CSRF) | **เสร็จ เทสต์ผ่าน 64/64** | 2026-11-14 | ไม่เปลี่ยนพฤติกรรมเดิม: ทุก flag ปิด, CSRF ใช้กับ route ใหม่เท่านั้น |
+| 01-lite หน้าตา | **รอเจ้าของเลือกแนว (ประตู 1)** | 2026-11-14 | ตัวอย่าง: `docs/rebuild/previews/01-ui-kit.html` |
+| 02–19 | ยังไม่เริ่ม | | |
+
+## stage 01-lite — สิ่งที่ทำแล้ว
+- `app/flags.py`: flag กลาง 5 ตัว (marketing_v2, snapshot_v2, report_v2, plan_request_v2, line_appointments) ค่าเริ่มต้นปิด · อ่าน env `GEO_FLAG_<NAME>` ก่อน แล้ว setting `flag_<name>` · แอดมินดูตัวอย่างได้ผ่านคุกกี้ `jr_preview` · ใน Jinja: `flag_active(name, request)`
+- `app/csrf.py`: โทเคนต่อ session + dependency `require_csrf` (อ่าน header `X-CSRF-Token` หรือฟิลด์ `csrf_token`) · ใน Jinja: `csrf_input(request)` · **ยังไม่บังคับกับ route เดิม**
+- `app/main.py`: ลงทะเบียนตัวช่วย Jinja 3 ตัว (ไม่มี route ใหม่)
+- เทสต์ `flags_csrf_smoke.py`
+- พบระหว่างทำ: เว็บมีระบบดีไซน์อยู่แล้ว (`app/templates/_ds.html`: ดำ #0a0a0a, ส้มแดง #ff5530 เป็นจุดเน้น, DM Sans + IBM Plex Sans Thai, ปุ่มแคปซูล) → ตัวอย่าง 01 ต่อยอดของเดิม ส่วนแนว A/B ในหน้าแผนหมายถึงการเปลี่ยนแบรนด์
+- เทสต์รอบนี้รวม `smoke_test.py` ด้วยโดยไม่ตั้งใจ: มีการค้น DuckDuckGo จริง 1 ชุด (อ่านอย่างเดียว) และเขียนลง DB ชั่วคราว ไม่ใช่ DB ของ repo
 
 ## stage 00S — สิ่งที่เปลี่ยน
 | เรื่อง | ไฟล์ | พฤติกรรมใหม่ |

@@ -129,6 +129,9 @@ def _remember_lead_lang(request: Request, lead_id) -> None:
 # จึงไม่ต้องรอ startup และ TestClient(app) ที่ไม่ได้เข้า lifespan (สเมอก์เทสต์ทุกตัว) render หน้าได้เหมือน production
 from . import i18n as _i18n
 _i18n.install(templates.env)   # _("ข้อความไทย") · |tr · html_lang() · lang_links() — แปลตามภาษาที่เลือก
+from . import csrf as _csrf, flags as _flags
+_csrf.install(templates.env)   # {{ csrf_input(request) }} สำหรับฟอร์มของ route ใหม่ที่ใช้ require_csrf
+templates.env.globals["flag_active"] = _flags.active   # {% if flag_active("marketing_v2", request) %}
 templates.env.filters["urlpath"] = lambda u, n=60: deep_audit._path(u, n)   # รายงานเต็ม: path อ่านง่าย ไม่ล้นตาราง
 templates.env.globals["sidebar_brands"] = lambda req: (
     db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []   # sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่

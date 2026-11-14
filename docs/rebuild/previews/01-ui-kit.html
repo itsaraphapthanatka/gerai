@@ -1,0 +1,246 @@
+<title>สมุดชิ้นส่วน เจอ.AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: สมุดชิ้นส่วนของแบรนดเดิม (ดำ + ส้มแดงเป็นจุดเน้น) วางเป็นแผ่นตัวอย่างเรียงลงมา · ตั้งใจเป็นธีมสว่างธีมเดียวตามเว็บจริง */
+:root{
+  --ink:#0a0a0a; --charcoal:#222; --slate:#45515e; --stone:#8e8e93;
+  --canvas:#fff; --surface:#f7f8fa; --soft:#f2f3f5; --hair:#e5e7eb;
+  --coral:#ff5530; --coral-deep:#c8341a; --coral-tint:#fff4f1;
+  --found:#1c7a44; --absent:#8a5a12; --untested:#5f6670; --down:#b42318;
+  --font:'DM Sans','IBM Plex Sans Thai',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--canvas);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.65;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 72px}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{margin:0;line-height:1.25;text-wrap:balance;font-weight:700;letter-spacing:-.01em}
+h1{font-size:clamp(28px,4.4vw,40px)} h2{font-size:22px} h3{font-size:16px}
+p{margin:0;max-width:66ch}
+.eyebrow{font-size:12.5px;font-weight:600;color:var(--coral-deep);text-transform:uppercase;letter-spacing:.06em}
+.muted{color:var(--slate)} .small{font-size:13.5px}
+.mono{font-family:var(--mono);font-size:.88em;font-variant-numeric:tabular-nums}
+header.top{display:grid;gap:12px;padding-block:44px 24px;border-bottom:1px solid var(--hair)}
+.logo{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:20px;letter-spacing:-.5px}
+.logo .dot{width:9px;height:9px;border-radius:99px;background:var(--coral)} .logo .ai{color:var(--coral)}
+.note{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px;font-size:14.5px;display:grid;gap:4px}
+section{display:grid;gap:16px;padding-block:36px 4px}
+.sheet{display:grid;gap:14px;border:1px solid var(--hair);border-radius:16px;padding:20px;background:var(--canvas);min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+
+/* tokens */
+.sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.sw div{border:1px solid var(--hair);border-radius:12px;overflow:hidden;font-size:13px}
+.sw i{display:block;height:46px}
+.sw span{display:block;padding:6px 10px}
+.type-row{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:baseline;border-bottom:1px dashed var(--hair);padding-bottom:8px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:9999px;padding:11px 22px;font:600 15px var(--font);border:1.5px solid var(--ink);cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.secondary{background:#fff;color:var(--ink)}
+.btn.text{border-color:transparent;background:transparent;color:var(--ink);text-decoration:underline;text-underline-offset:3px;padding-inline:6px}
+.btn:focus-visible,input:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* status chips: shape + word + colour; coral never means "not tested" */
+.st{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;white-space:nowrap}
+.st i{width:12px;height:12px;flex:none;display:inline-block;border-radius:50%}
+.st.found{color:var(--found)} .st.found i{background:var(--found)}
+.st.absent{color:var(--absent)} .st.absent i{border:2px solid var(--absent)}
+.st.untested{color:var(--untested)} .st.untested i{border:2px dashed var(--untested)}
+.st.down{color:var(--down)} .st.down i{border:2px solid var(--down);background:linear-gradient(135deg,transparent 42%,var(--down) 42%,var(--down) 58%,transparent 58%)}
+.st.partial{color:var(--absent)} .st.partial i{background:linear-gradient(90deg,var(--absent) 50%,transparent 50%);border:2px solid var(--absent)}
+
+/* cards */
+.card{border:1px solid var(--hair);border-radius:14px;padding:16px;display:grid;gap:8px;background:#fff;min-width:0}
+.lane h3{font-size:15px}
+.cover{display:grid;gap:6px}
+.cover .bar{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.cover .bar span{height:8px;border-radius:99px;background:var(--ink)}
+.cover .bar span.no{background:transparent;border:1.5px dashed var(--stone)}
+.quote{margin:0;border-left:3px solid var(--coral);padding-left:12px;font-size:15px}
+.meta{font-size:12.5px;color:var(--slate)}
+.order .head{display:flex;gap:10px;align-items:baseline}
+.order .n{font-weight:700;color:var(--coral-deep);font-variant-numeric:tabular-nums}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13.5px}
+.facts dt{color:var(--slate)} .facts dd{margin:0}
+.lbl{font-size:11.5px;padding:0 7px;border-radius:99px;border:1px solid currentColor;margin-left:6px;white-space:nowrap}
+.lbl.c{color:var(--found)} .lbl.g{color:var(--absent)}
+
+/* form */
+.field{display:grid;gap:6px}
+.field label{font-weight:600;font-size:14.5px}
+.field input{font:16px var(--font);padding:11px 14px;border:1.5px solid var(--hair);border-radius:12px;background:#fff;color:var(--ink);width:100%}
+.field.err input{border-color:var(--down)}
+.field .help{font-size:13px;color:var(--slate)} .field .msg{font-size:13.5px;color:var(--down);font-weight:500}
+
+/* empty / media */
+.empty{border:1.5px dashed var(--hair);border-radius:14px;padding:22px;display:grid;gap:8px;justify-items:start;background:var(--surface)}
+.media{aspect-ratio:16/9;max-width:100%;border-radius:14px;background:var(--soft);border:1px solid var(--hair);display:grid;place-items:center;text-align:center;padding:20px}
+
+/* phone + action bar */
+.phone{max-width:360px;width:100%;margin:0 auto;border:1px solid var(--hair);border-radius:28px;padding:12px;background:var(--surface)}
+.screen{background:#fff;border-radius:18px;overflow:hidden;display:grid}
+.screen .nav{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--hair)}
+.screen .nav .who{font-size:12.5px;color:var(--slate)}
+.screen .body{padding:16px 14px;display:grid;gap:12px}
+.screen .hero{font-size:21px;font-weight:700;line-height:1.35}
+.screen .actbar{position:relative;border-top:1px solid var(--hair);padding:10px 14px;display:flex;gap:8px;background:#fff}
+.screen .actbar .btn{flex:1;padding:10px;font-size:14px}
+.checks{display:grid;gap:5px;font-size:13.5px}
+.checks div{display:flex;gap:8px;align-items:center}
+.faq details{border-bottom:1px solid var(--hair);padding:12px 0}
+.faq summary{cursor:pointer;font-weight:600}
+
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--slate);font-weight:600;font-size:13px}
+.tbl{overflow-x:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <span class="logo"><span class="dot"></span>เจอ<span class="ai">.AI</span></span>
+  <span class="eyebrow">Stage 01 · ตัวอย่างก่อนตัดสินใจ</span>
+  <h1>สมุดชิ้นส่วนสำหรับหน้าเว็บสาธารณะชุดใหม่</h1>
+  <p class="muted">ทุกชิ้นในหน้านี้ใช้สี ตัวอักษร และทรงปุ่มของแบรนด์ที่ใช้อยู่แล้วบนเว็บ (ดำเป็นหลัก ส้มแดงเป็นจุดเน้น DM Sans กับ IBM Plex Sans Thai ปุ่มทรงแคปซูล) แล้วเพิ่มชิ้นส่วนแบบ “แฟ้มหลักฐาน” เข้าไป ไม่ได้เปลี่ยนแบรนด์ ข้อมูลทั้งหมดเป็นตัวอย่างสมมติ</p>
+  <div class="note"><b>สิ่งที่ต้องตัดสินใจ</b><span>ใช้แนวนี้ (ต่อยอดแบรนด์เดิม) หรือเปลี่ยนไปใช้แนว A / B ในหน้าแผน ซึ่งหมายถึงเปลี่ยนสีและฟอนต์ของแบรนด์ทั้งเว็บ</span></div>
+</header>
+
+<section>
+  <span class="eyebrow">1 · สีและตัวอักษร</span>
+  <div class="sheet">
+    <div class="sw">
+      <div><i style="background:var(--ink)"></i><span>หมึก · ปุ่มหลัก ข้อความ</span></div>
+      <div><i style="background:var(--coral)"></i><span>ส้มแดง · จุดเน้นเท่านั้น</span></div>
+      <div><i style="background:var(--surface)"></i><span>พื้นรอง</span></div>
+      <div><i style="background:var(--found)"></i><span>พบแล้ว</span></div>
+      <div><i style="background:var(--absent)"></i><span>ไม่พบ (ทดสอบแล้ว)</span></div>
+      <div><i style="background:var(--untested)"></i><span>ยังไม่ได้ทดสอบ</span></div>
+      <div><i style="background:var(--down)"></i><span>ระบบไม่พร้อม</span></div>
+    </div>
+    <p class="small muted">กติกา: ส้มแดงไม่ใช้เป็นสีของสถานะใด ๆ เพื่อไม่ให้ “ยังไม่ได้ทดสอบ” ดูเหมือนผลเสีย · สีสถานะผ่านคอนทราสต์ 4.5:1 บนพื้นขาว</p>
+    <div class="type-row"><span class="small muted">หัวเรื่อง 40</span><span style="font-size:32px;font-weight:700;line-height:1.3">ลูกค้าถาม AI หาบริการแบบคุณ</span></div>
+    <div class="type-row"><span class="small muted">หัวข้อ 22</span><span style="font-size:22px;font-weight:700">สิ่งที่เราตรวจในรอบนี้</span></div>
+    <div class="type-row"><span class="small muted">เนื้อหา 16</span><span>เราอ่านเว็บไซต์ของคุณสูงสุด 5 หน้า แล้วบอกว่าข้อมูลสำคัญชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง</span></div>
+    <div class="type-row"><span class="small muted">ตัวเลข/URL</span><span class="mono">/services/warehouse · 5/5 หน้า · 1 พ.ย. 2569 14:20</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">2 · ปุ่มและสถานะ</span>
+  <div class="grid2">
+    <div class="sheet">
+      <h3>ปุ่ม · หนึ่งการตัดสินใจ หนึ่งปุ่มหลัก</h3>
+      <div class="row"><button class="btn primary" type="button">ตรวจเว็บไซต์ของฉัน</button><button class="btn secondary" type="button">ดูตัวอย่างรายงาน</button><a class="btn text" href="#faq">อ่านวิธีตรวจ</a></div>
+      <div class="row"><button class="btn primary" type="button" disabled>กำลังส่ง…</button></div>
+      <p class="small muted">ปุ่มที่กดไม่ได้ต้องบอกเหตุผลข้าง ๆ เสมอ ไม่มีปุ่มที่ไม่ทำอะไร</p>
+    </div>
+    <div class="sheet">
+      <h3>ป้ายสถานะ · รูปทรง + คำ + สี</h3>
+      <div class="row" style="gap:14px 20px">
+        <span class="st found"><i></i>พบแล้ว</span><span class="st absent"><i></i>ไม่พบ (ทดสอบแล้ว)</span>
+        <span class="st partial"><i></i>ได้บางส่วน</span><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="st down"><i></i>ระบบไม่พร้อม</span>
+      </div>
+      <p class="small muted">“ยังไม่ได้ทดสอบ” และ “ระบบไม่พร้อม” ไม่แสดงตัวเลข 0 เด็ดขาด ตามพจนานุกรมตัวชี้วัด</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">3 · ชิ้นส่วนรายงาน (ใช้ใน stage 05)</span>
+  <div class="sheet">
+    <h3>สี่ช่องตัวชี้วัด + ความครอบคลุม</h3>
+    <div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="card lane"><h3>ความพร้อมของเว็บ</h3><span class="st found"><i></i>ตรวจแล้ว</span><span class="meta">ตรวจ <span class="mono">5/5</span> หน้า · พบ <span class="mono">3</span> จุดควรแก้</span></div>
+      <div class="card lane"><h3>การปรากฏในผลค้นเว็บ</h3><span class="st partial"><i></i>ได้บางส่วน</span><span class="meta">ค้นสำเร็จ <span class="mono">6/8</span> คำถาม · พบ <span class="mono">2</span></span></div>
+      <div class="card lane"><h3>AI พูดถึงแบรนด์</h3><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="meta">ต้องตกลงชุดคำถามก่อน</span></div>
+      <div class="card lane"><h3>AI อ้างอิงเว็บของคุณ</h3><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="meta">ต้องตกลงชุดคำถามก่อน</span></div>
+    </div>
+    <div class="cover"><span class="small">ความครอบคลุมของรายงานนี้: ตรวจแล้ว 2 จาก 4 ส่วน</span><div class="bar" aria-hidden="true"><span></span><span></span><span class="no"></span><span class="no"></span></div></div>
+  </div>
+  <div class="grid2">
+    <div class="sheet">
+      <h3>การ์ดหลักฐาน</h3>
+      <div class="card">
+        <span class="meta">หลักฐาน 1 จาก 2 · <span class="mono">/services/warehouse</span> · บันทึก 1 พ.ย. 2569 14:21</span>
+        <blockquote class="quote">“เรามีคลังสินค้าพร้อมให้เช่าหลายขนาด รองรับทั้งสินค้าทั่วไปและสินค้าควบคุมอุณหภูมิ”</blockquote>
+        <span class="st absent"><i></i>ไม่มีชื่อพื้นที่หรือจังหวัดในย่อหน้านี้</span>
+      </div>
+    </div>
+    <div class="sheet">
+      <h3>การ์ดสิ่งที่ควรทำ</h3>
+      <div class="card order">
+        <div class="head"><span class="n">1</span><h3>ระบุพื้นที่ให้บริการในหน้าบริการ</h3></div>
+        <dl class="facts"><dt>หน้า</dt><dd class="mono">/services/warehouse</dd><dt>ความมั่นใจ</dt><dd>สูง (หลักฐาน 2 จุด)</dd><dt>งาน</dt><dd>ประมาณ 1 ชั่วโมง</dd><dt>ใครทำได้</dt><dd>ทีมเว็บของคุณ</dd></dl>
+        <div class="row"><a class="btn text" href="#e">ดูหลักฐาน</a><a class="btn text" href="#e">ดูตัวอย่างข้อความที่ปรับแล้ว</a></div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet">
+    <h3>ข้อมูลที่ยืนยันแล้ว กับ ข้อมูลที่ระบบเดา</h3>
+    <dl class="facts" style="max-width:520px">
+      <dt>บริการหลัก</dt><dd>ให้เช่าคลังสินค้า<span class="lbl c">ลูกค้ายืนยัน</span></dd>
+      <dt>พื้นที่</dt><dd>บางนา สมุทรปราการ<span class="lbl g">ระบบเดาจากหน้าเว็บ</span></dd>
+      <dt>กลุ่มลูกค้า</dt><dd class="muted">ยังไม่ทราบ</dd>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">4 · ฟอร์ม หน้าว่าง และสื่อ</span>
+  <div class="grid2">
+    <div class="sheet">
+      <h3>ฟอร์มที่มีป้ายชื่อและข้อความผิดพลาด</h3>
+      <div class="field"><label for="u1">ที่อยู่เว็บไซต์</label><input id="u1" value="https://บริษัทตัวอย่าง.co.th"><span class="help">ไม่ต้องกรอกเบอร์โทรหรืออีเมลก่อนเห็นผล</span></div>
+      <div class="field err"><label for="u2">ที่อยู่เว็บไซต์</label><input id="u2" value="10.0.0.1" aria-invalid="true" aria-describedby="u2m"><span class="msg" id="u2m">ที่อยู่นี้ไม่ใช่เว็บไซต์สาธารณะ ลองพิมพ์แบบ example.co.th</span></div>
+    </div>
+    <div class="sheet">
+      <h3>หน้าว่างที่บอกความจริง</h3>
+      <div class="empty"><b>ยังไม่มีเคสลูกค้าที่ได้รับอนุญาตให้เผยแพร่</b><span class="small muted">เราจะแสดงเคสจริงเมื่อลูกค้าอนุญาตเป็นลายลักษณ์อักษรแล้วเท่านั้น ระหว่างนี้ดูรายงานตัวอย่างที่ใช้ข้อมูลสมมติได้</span><a class="btn secondary" href="#e">ดูตัวอย่างรายงาน</a></div>
+      <h3>สื่อที่ยังไม่มีวิดีโอจริง</h3>
+      <div class="media"><div class="small muted"><b style="color:var(--ink)">ภาพหน้าจอตัวอย่างรายงาน</b><br>ยังไม่มีวิดีโอสาธิตที่อนุมัติ จึงแสดงภาพนิ่งแทน ไม่มีปุ่มเล่นปลอม</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">5 · ประกอบเป็นหน้าแรกบนมือถือ</span>
+  <div class="phone"><div class="screen">
+    <div class="nav"><span class="logo" style="font-size:17px"><span class="dot"></span>เจอ<span class="ai">.AI</span></span><span class="who">ธุรกิจ · พาร์ตเนอร์</span></div>
+    <div class="body">
+      <span class="eyebrow">ตรวจฟรี ไม่ต้องสมัคร</span>
+      <div class="hero">ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?</div>
+      <div class="field"><label for="u3">ที่อยู่เว็บไซต์</label><input id="u3" placeholder="example.co.th"></div>
+      <button class="btn primary" type="button">ตรวจเว็บไซต์ของฉัน</button>
+      <div class="checks">
+        <div><span class="st found"><i></i></span>เนื้อหาบอกชัดไหมว่าคุณทำอะไร ที่ไหน</div>
+        <div><span class="st found"><i></i></span>ข้อมูลโครงสร้างที่ระบบอ่านได้</div>
+        <div><span class="st untested"><i></i></span>คำตอบจาก AI จริง: ไม่รวมในรอบแรก</div>
+      </div>
+      <div class="faq" id="faq"><details><summary>ใช้เวลานานไหม</summary><p class="small muted">ส่วนใหญ่ 1–3 นาที ขึ้นกับความเร็วเว็บไซต์ของคุณ</p></details></div>
+    </div>
+    <div class="actbar"><button class="btn primary" type="button">ตรวจเว็บไซต์</button><button class="btn secondary" type="button">คุยกับทีม</button></div>
+  </div></div>
+  <p class="small muted" style="text-align:center">แถบปุ่มล่างจอปรากฏเมื่อเลื่อนผ่านช่องกรอกด้านบนไปแล้วเท่านั้น</p>
+</section>
+
+<section>
+  <span class="eyebrow">6 · เทียบสามแนวก่อนเลือก</span>
+  <div class="sheet tbl"><table>
+    <thead><tr><th></th><th>ต่อยอดแบรนด์เดิม (หน้านี้)</th><th>แนว A รายงานที่ปรึกษา</th><th>แนว B ห้องแล็บโปร่งใส</th></tr></thead>
+    <tbody>
+      <tr><td>สี</td><td>ดำ + ส้มแดงเดิม</td><td>น้ำเงินหมึก + ทองหม่น</td><td>ขาว + เขียวน้ำทะเล</td></tr>
+      <tr><td>ฟอนต์</td><td>DM Sans + IBM Plex Sans Thai (เดิม)</td><td>IBM Plex Sans Thai + Noto Sans Thai</td><td>Anuphan + Noto Sans Thai</td></tr>
+      <tr><td>กระทบหน้าเดิม</td><td>ไม่กระทบ หน้าเก่ากับใหม่ดูเป็นชุดเดียวกัน</td><td>หน้าเก่า (รายงาน PDF, ใบเสนอราคา, หลังบ้าน) จะต่างสีจากหน้าใหม่ จนกว่าจะเปลี่ยนตามทั้งหมด</td><td>เหมือนแนว A</td></tr>
+      <tr><td>งานเพิ่ม</td><td>น้อย</td><td>มาก (ต้องตัดสินใจเรื่องแบรนด์ทั้งหมด)</td><td>มาก</td></tr>
+    </tbody></table></div>
+</section>
+</div>
