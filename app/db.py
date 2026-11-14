@@ -526,6 +526,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
         _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
+        _ensure_column(c, "leads", "snapshot_json", "TEXT")            # stage 04A: สถานะตรวจเว็บแบบเร็วทีละขั้น (เพิ่มอย่างเดียว)
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
         _ensure_column(c, "quotes", "vat_pct", "REAL DEFAULT 0")             # VAT ที่บวกเพิ่มจากราคา ณ วันออกใบ (ราคาไม่รวม VAT · 0 = ไม่บวก)
@@ -1460,7 +1461,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang",
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang", "snapshot_json",
                "deal_value", "next_action", "next_at", "next_kind", "next_alerted_at", "audit_by"}
 
 

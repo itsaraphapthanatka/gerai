@@ -1,0 +1,44 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# หน้าสถานะตรวจเว็บแบบเร็ว (stage 04A) — แสดงสถานะจริงทีละขั้นจาก leads.snapshot_json · ไม่มีเปอร์เซ็นต์
+   ระหว่างตรวจ: รีเฟรชเองทุก 3 วินาทีด้วย <meta refresh> (ไม่ต้องมี JavaScript) · ล้ม: บอกเหตุผล + ปุ่มตรวจใหม่ (ฟอร์ม /audit เดิม) #}
+{% set running = snap.state in ("queued", "running") %}
+{% block title %}กำลังตรวจ {{ lead["domain"] }} · เจอ.AI{% endblock %}
+{% block meta %}{% if running %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block content %}
+<section class="mk-wrap mk-section mk-stack" style="max-width:720px;gap:18px" aria-labelledby="h-snap">
+  {% if running %}
+    <span class="mk-eyebrow">{{ "รอคิว" if snap.state == "queued" else "กำลังตรวจ" }}</span>
+    <h1 id="h-snap" style="font-size:clamp(24px,4vw,34px)">กำลังตรวจ {{ lead["domain"] }}</h1>
+    <p class="mk-muted">หน้านี้อัปเดตเองทุก 3 วินาที ปิดหน้านี้แล้วกลับมาที่ลิงก์เดิมได้ ผลจะยังอยู่</p>
+  {% else %}
+    <span class="mk-eyebrow">ตรวจไม่สำเร็จ</span>
+    <h1 id="h-snap" style="font-size:clamp(24px,4vw,34px)">ตรวจ {{ lead["domain"] }} ไม่สำเร็จ</h1>
+    <p role="alert">{{ snap.error or "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้" }}</p>
+  {% endif %}
+
+  <ol class="mk-stack" style="list-style:none;margin:0;padding:0;gap:10px" aria-live="polite">
+    {% for s in snap.steps or [] %}
+      <li class="mk-card" style="grid-template-columns:1fr auto;align-items:center;padding:12px 14px">
+        <span>{{ s.label }}</span>
+        {% if s.state == "done" %}{{ ui.status("found", "เสร็จ") }}
+        {% elif s.state == "running" %}<span class="mk-st" style="color:var(--mk-ink)"><i aria-hidden="true" style="border:2px solid var(--mk-ink)"></i>กำลังทำ</span>
+        {% elif s.state == "skipped" %}{{ ui.status("not_tested", "หมดเวลา ไม่ได้ตรวจ") }}
+        {% elif s.state == "failed" %}{{ ui.status("unavailable", "ทำไม่สำเร็จ") }}
+        {% else %}<span class="mk-small mk-muted">รอ</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+
+  {% if running %}
+    <p class="mk-small mk-muted">ปกติใช้ไม่กี่นาที ขึ้นกับความเร็วของเว็บไซต์ · เราตรวจไม่เกิน {{ snap.budget_s or 90 }} วินาที ส่วนที่ไม่ทันจะบอกว่า "ไม่ได้ตรวจ" ไม่นับเป็นไม่ผ่าน</p>
+    <noscript><p class="mk-small"><a href="/audit/{{ token }}">โหลดหน้านี้ใหม่</a></p></noscript>
+  {% else %}
+    <form method="post" action="/audit" class="mk-stack" style="gap:10px">
+      <input type="hidden" name="url" value="{{ lead['site_url'] }}">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div>{{ ui.button("ตรวจใหม่อีกครั้ง", type="submit") }}</div>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

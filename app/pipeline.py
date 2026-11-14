@@ -97,7 +97,11 @@ def _cancel_pending(lead_id: int, kinds: set, why: str) -> None:
 @office.track("cto", lambda lead_id, site, ip="": f"ตรวจเว็บ {leads.domain_of(site)}")
 def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
     """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
-    report = site_health.run_checks(site)
+    return save_lead_audit(lead_id, site_health.run_checks(site), ip)
+
+
+def save_lead_audit(lead_id: int, report: dict, ip: str = "") -> str:
+    """เก็บผลตรวจ + คะแนน + token ของลีด (ใช้ทั้งตรวจแบบเดิมและ snapshot เบื้องหลัง) · คืน token"""
     lead = db.get_lead(lead_id)
     sc = leads.score_audit(report, leads.lead_ai(lead))          # ตรวจซ้ำ: ผลถาม AI รอบก่อนยังนับ
     token = lead["token"] or leads.new_token()

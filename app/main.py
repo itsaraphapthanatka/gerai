@@ -745,6 +745,12 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     if ref:
         from . import partners
         partners.attribute(lid, ref, "ลิงก์แนะนำ")              # มาจากพันธมิตร (ครั้งแรกเท่านั้น)
+    from . import flags, snapshot
+    if flags.active("snapshot_v2", request):                # stage 04A: ตรวจเบื้องหลัง แล้วพาไปหน้าสถานะจริงทันที (ไม่ให้รอค้างที่ปุ่ม)
+        token = db.get_lead(lid)["token"] or leads.new_token()
+        db.update_lead(lid, token=token, audit_by=by, audit_at=db.now(), **({"ip": ip} if ip else {}))   # นับโควตาตั้งแต่เข้าคิว
+        snapshot.start(lid, site, ip)
+        return _redirect(f"/audit/{token}")
     try:
         token = _run_lead_audit(lid, site, ip)
         db.update_lead(lid, audit_by=by)                  # None = คนทั่วไป (นับรวมโควตาของ IP)
@@ -770,10 +776,16 @@ def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, 
         return _redirect("/audit")
     if via == "mail":
         pipeline.mark_opened(lead)
+    from . import snapshot
+    snap = snapshot.view(lead)
+    if snap.get("state") in ("queued", "running", "failed"):   # stage 04A: ยังตรวจไม่เสร็จ/ล้ม → หน้าสถานะจริง (ลีดเดิมไม่มี snapshot_json → หน้าเดิม)
+        resp = templates.TemplateResponse(request, "mk/snapshot.html", {"lead": lead, "snap": snap, "preview": True, "token": token})
+        resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
+        return resp
     if lead["audit_json"] and deep_audit.progress(lead)["tier1"] in ("none", "error"):
         deep_audit.start(lead["id"])                      # ลีดเก่า/หาเอง: เปิดหน้าครั้งแรกค่อยทำรายงานเต็ม
         lead = db.get_lead(lead["id"])
-    return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)))
+    return templates.TemplateResponse(request, "audit_result.html", {**_audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)), "snap": snap})
 
 
 @app.get("/audit/{token}/progress")

@@ -501,20 +501,50 @@ def _client():
                         headers={"User-Agent": UA}, verify=True)
 
 
-def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None, wp=None, gsc=None) -> dict:
+def _partial_result(checks: list, base: str, skipped: list) -> dict:
+    """หมดเวลา (deadline) กลางทาง: สรุปเฉพาะที่ตรวจแล้ว + บอกส่วนที่ไม่ได้ตรวจ (ไม่นับเป็นไม่ผ่าน)"""
+    res = summarize(checks)
+    res["checked_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+    res["site"] = base
+    res["partial"] = True
+    res["skipped"] = list(skipped)
+    return res
+
+
+def run_checks(site_url: str, last_published=None, n_published: int = 0, today=None, wp=None, gsc=None,
+               progress=None, timeout: float = 20, deadline: float | None = None) -> dict:
+    """progress(key) = เรียกเมื่อเริ่มแต่ละส่วน (home/basics/robots/files/pages/index) · timeout = ต่อ request
+    deadline = time.monotonic() ที่ต้องหยุด → ส่วนที่เหลือไม่ตรวจ คืน partial=True + skipped
+    ค่าเริ่มต้นทั้งสาม = พฤติกรรมเดิมทุกอย่าง (ผู้เรียกเดิมไม่ต้องแก้)"""
+    return _run_checks(site_url, last_published, n_published, today, wp, gsc, progress, timeout, deadline)
+
+
+def _run_checks(site_url, last_published, n_published, today, wp, gsc, progress, timeout, deadline) -> dict:
     """ตรวจเว็บ 1 แบรนด์ — คืน dict พร้อมเก็บลง DB / แสดงผล
     wp  = ผล ping WordPress ที่ main ยิงให้ (None = แบรนด์โหมด hosted ไม่มี WordPress)
     gsc = สรุป index จาก Search Console (gsc.health_summary) ถ้าเชื่อมแล้ว — ใช้แทน Serper"""
     import httpx
+    import time as _time
     today = today or datetime.date.today()
     apex = host_of(site_url)
     base = f"https://{apex}"
     checks: list = []
 
+
+    def step(key):
+        if progress:
+            try:
+                progress(key)
+            except Exception:
+                pass
+
+    def due() -> bool:
+        return deadline is not None and _time.monotonic() >= deadline
+
     def fetch(url, redirects=True):
         """คืน (status, headers, text, final_url) — final_url บอกว่าตามรีไดเรกต์ไปจบที่โดเมนไหน"""
         try:
-            with netguard.client(follow_redirects=redirects, timeout=20,
+            with netguard.client(follow_redirects=redirects, timeout=timeout,
                               headers={"User-Agent": UA}) as c:
                 r = c.get(url)
                 return r.status_code, dict(r.headers), r.text, str(r.url)
@@ -523,30 +553,40 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
 
     def code(url, ua=UA):
         try:
-            with netguard.client(follow_redirects=True, timeout=20, headers={"User-Agent": ua}) as c:
+            with netguard.client(follow_redirects=True, timeout=timeout, headers={"User-Agent": ua}) as c:
                 return c.get(url).status_code
         except Exception:
             return 0
 
+    step("home")
     st, hd, home, _ = fetch(base + "/")
     checks += judge_home(st, hd, home)
     home_title = _title(home)
     checks += judge_csr(page_shape(home) if st == 200 and home else None)
 
+    if due():
+        return _partial_result(checks, base, ["basics", "robots", "files", "pages", "index"])
+    step("basics")
     checks += judge_soft404(code(f"{base}/zz-health-check-not-a-real-path"))
 
     try:
-        with netguard.client(follow_redirects=False, timeout=20, headers={"User-Agent": UA}) as c:
+        with netguard.client(follow_redirects=False, timeout=timeout, headers={"User-Agent": UA}) as c:
             r = c.get(f"https://www.{apex}/")
             checks += judge_www(r.status_code, r.headers.get("location", ""), apex)
     except Exception:
         checks += judge_www(0, "", apex)
 
+    if due():
+        return _partial_result(checks, base, ["robots", "files", "pages", "index"])
+    step("robots")
     rst, _, rtxt, _ = fetch(base + "/robots.txt")
     checks += judge_robots(rst, rtxt)
     if st == 200:
         checks = judge_bot_access(checks, {b: code(base + "/", ua) for b, ua in BOT_PROBES.items()}, hd.get("server", ""))
 
+    if due():
+        return _partial_result(checks, base, ["files", "pages", "index"])
+    step("files")
     lst, _, ltxt, lurl = fetch(base + "/llms.txt")
     llinks = re.findall(r"https?://\S+", ltxt or "")[1:]
     lprobe = {u: code(u) for u in llinks[:MAX_URL_PROBES]}
@@ -565,6 +605,9 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     if locs:
         checks += judge_sitemap_domain(locs, apex)
 
+    if due():
+        return _partial_result(checks, base, ["pages", "index"])
+    step("pages")
     pages = []
     for u in [x for x in locs if x.rstrip("/") != base][:3]:
         _, _, h, fu = fetch(u)
@@ -598,6 +641,9 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
                 crawled += 1
     checks += judge_orphan(len(content & seen_links), len(content), crawled)
 
+    if due():
+        return _partial_result(checks, base, ["index"])
+    step("index")
     # index: มี Search Console ใช้ของจริง ไม่เปลืองเครดิต · ไม่มีก็เดาจาก site: ผ่าน Serper (มีค่าใช้จ่าย)
     # · ไม่มีคีย์ก็ข้าม ไม่ทำให้ตก
     site_hits = page_hits = None
