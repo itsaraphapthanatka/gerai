@@ -88,6 +88,15 @@
   {% elif plan_on %}
     <h2 id="h-plan" style="font-size:22px">ขอแผนแก้จากทีมเจอ.AI</h2>
     <p class="mk-muted">ไม่มีค่าใช้จ่าย ทีมจะติดต่อกลับภายใน 1 วันทำการ พาดูรายงานนี้ และสรุปว่าควรแก้อะไรก่อน ราคาและขอบเขตงานคุยกันหลังจากนั้น</p>
+    {% if line_on and not errors %}
+    <div class="mk-card mk-stack" style="gap:10px" id="plan-line">
+      <b>เร็วที่สุด: คุยต่อใน LINE ไม่ต้องกรอกฟอร์ม</b>
+      <span class="mk-small">กดแล้วจะเปิด LINE ของเจอ.AI พร้อมข้อความที่มีรหัสของรายงานนี้ กดส่งข้อความนั้น แล้วตอบคำถามสั้นๆ 2 ข้อด้วยการกดปุ่ม</span>
+      <div>{{ ui.button("คุยต่อใน LINE", href="/audit/" ~ lead["token"] ~ "/line", id="b-line") }}</div>
+      <span class="mk-small mk-muted">เมื่อคุณกดส่งข้อความใน LINE ถือว่ายินยอมให้ทีมเจอ.AI ตอบคำขอนี้ในแชตนั้น เราไม่ขอเบอร์หรืออีเมล เว้นแต่คุณเลือกให้โทรหา · เปิดจากคอมพิวเตอร์ LINE จะแสดง QR ให้สแกนด้วยมือถือ</span>
+    </div>
+    <p class="mk-small mk-muted" style="margin:0">หรือกรอกฟอร์มด้านล่าง ถ้าไม่ใช้ LINE</p>
+    {% endif %}
     {% if errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down)"><b>ยังส่งไม่ได้</b>
       <ul class="rp-list mk-small">{% for k, m in errors.items() %}<li>{% if k != "_" %}<a href="#f-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
     <form method="post" action="/audit/{{ lead['token'] }}/plan#plan" class="rp-form" novalidate>

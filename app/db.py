@@ -476,6 +476,26 @@ def _tables() -> list[str]:
             ip TEXT,
             created_at TEXT NOT NULL
         )""",
+        # stage 06A-1: รหัสสั้นใช้ครั้งเดียว ผูกแชต LINE OA กับรายงาน (ไม่ส่ง token รายงานเข้า LINE)
+        """CREATE TABLE IF NOT EXISTS line_plan_codes (
+            code TEXT PRIMARY KEY,
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT,
+            used_by TEXT
+        )""",
+        # สถานะคุยต่อใน LINE ต่อผู้ใช้ 1 คน: คำถามข้อไหน · คำขอแผนไหน · บอทพักอยู่ไหม (คนในทีมตอบเอง)
+        """CREATE TABLE IF NOT EXISTS line_plan_sessions (
+            user_id TEXT PRIMARY KEY,
+            lead_id INTEGER,
+            plan_id INTEGER,
+            step TEXT,
+            paused_until TEXT,
+            fails INTEGER NOT NULL DEFAULT 0,
+            fail_at TEXT,
+            updated_at TEXT NOT NULL
+        )""",
     ]
 
 
@@ -1654,6 +1674,69 @@ def add_plan_request(lead_id: int, idem_key: str, **f) -> tuple[int, bool]:
         if not old or old["lead_id"] != lead_id:
             raise ValueError("idem_key ถูกใช้กับรายงานอื่น")
         return old["id"], False
+
+
+def update_plan_request(pid: int, **f) -> None:
+    cols = [k for k in ("contact_channel", "contact_value", "desired_window", "web_readiness", "consents_json", "status") if k in f]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE plan_requests SET {', '.join(k + '=?' for k in cols)} WHERE id=?"), (*[f[k] for k in cols], pid))
+
+
+def get_plan_request(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM plan_requests WHERE id=?"), (pid,)).fetchone()
+
+
+# ---- LINE: รหัสใช้ครั้งเดียว + สถานะแชต (stage 06A-1) ----
+def active_line_code(lead_id: int, at: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_codes WHERE lead_id=? AND used_at IS NULL AND expires_at>=? ORDER BY created_at DESC LIMIT 1"),
+                         (lead_id, at)).fetchone()
+
+
+def add_line_code(code: str, lead_id: int, expires_at: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO line_plan_codes(code, lead_id, created_at, expires_at) VALUES(?,?,?,?)"), (code, lead_id, now(), expires_at))
+
+
+def get_line_code(code: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_codes WHERE code=?"), (code,)).fetchone()
+
+
+def redeem_line_code(code: str, user_id: str, at: str) -> int | None:
+    """ใช้รหัสได้ครั้งเดียว (ทำในคำสั่งเดียว กันสองคนใช้พร้อมกัน) · คืน lead_id หรือ None"""
+    with get_conn() as c:
+        row = c.execute(q("UPDATE line_plan_codes SET used_at=?, used_by=? WHERE code=? AND used_at IS NULL AND expires_at>=? RETURNING lead_id"),
+                        (at, user_id, code, at)).fetchone()
+        return row["lead_id"] if row else None
+
+
+def get_line_session(user_id: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_sessions WHERE user_id=?"), (user_id,)).fetchone()
+
+
+def save_line_session(user_id: str, **f) -> None:
+    cols = [k for k in ("lead_id", "plan_id", "step", "paused_until", "fails", "fail_at") if k in f]
+    vals = [f[k] for k in cols]
+    with get_conn() as c:
+        c.execute(q(f"INSERT INTO line_plan_sessions(user_id,{''.join(k + ',' for k in cols)}updated_at) VALUES(?,{'?,' * len(cols)}?) "
+                    f"ON CONFLICT (user_id) DO UPDATE SET {''.join(k + '=excluded.' + k + ',' for k in cols)}updated_at=excluded.updated_at"),
+                  (user_id, *vals, now()))
+
+
+def line_users_of_lead(lead_id: int) -> list[str]:
+    """บัญชี LINE ที่คุยเรื่องลีดนี้ (ผูกตรงกับลีด + ที่มาจากรหัสในรายงาน)"""
+    with get_conn() as c:
+        rows = c.execute(q("SELECT user_id FROM line_plan_sessions WHERE lead_id=?"), (lead_id,)).fetchall()
+        lead = c.execute(q("SELECT line_user_id FROM leads WHERE id=?"), (lead_id,)).fetchone()
+    out = [r["user_id"] for r in rows]
+    if lead and lead["line_user_id"] and lead["line_user_id"] not in out:
+        out.append(lead["line_user_id"])
+    return out
 
 
 def list_plan_requests(lead_id: int, limit: int = 20):

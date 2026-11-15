@@ -83,7 +83,13 @@
       {% for x in brief.lanes %}<div><span class="muted">{{ x.title }}</span> {{ x.value or '' }} {{ x.detail }}</div>{% endfor %}</div>
     <div><b>สิ่งที่พบพร้อมหลักฐาน</b>{% for a in brief.findings %}<div>{{ loop.index }}. {{ a.title }}{% if a.evidence %} <span class="muted">({{ a.evidence }})</span>{% endif %}</div>{% else %}<div class="muted">ไม่มีข้อที่ต้องแก้ด่วน</div>{% endfor %}
       <div style="margin-top:6px"><b>ยังไม่ทราบ</b> {{ brief.unknown|join(', ') or '—' }}</div>
-      <div style="margin-top:6px"><b>ถัดไป</b> {{ brief.next }}</div></div>
+      <div style="margin-top:6px"><b>ถัดไป</b> {{ brief.next }}</div>
+      {% if line_bot and line_bot.linked %}<form method="post" action="/admin/leads/{{ lead['id'] }}/line-bot" style="margin-top:8px">{{ csrf_input(request) }}
+        {% if line_bot.paused_until %}<span class="pill">บอท LINE พักถึง {{ line_bot.paused_until[:16].replace('T',' ') }}</span>
+          <button type="submit" name="action" value="resume" class="btn ghost sm">เปิดบอทกลับ</button>
+        {% else %}<span class="muted" style="font-size:12px">บอท LINE ตอบอยู่ — พักก่อนตอบลูกค้าเองใน LINE OA Manager</span>
+          <button type="submit" name="action" value="pause" class="btn ghost sm">พักบอท {{ line_bot.hours }} ชม.</button>{% endif %}
+      </form>{% endif %}</div>
   </div>
 </div>
 {% endif %}

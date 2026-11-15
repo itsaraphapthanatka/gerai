@@ -37,7 +37,7 @@ ACTIONS = [
     (r"/admin/deals/\d+/activity", "บันทึกกิจกรรม"), (r"/admin/deals/\d+/contacts", "เพิ่มผู้ติดต่อ"),
     (r"/admin/deals/\d+/contacts/\d+", "แก้ผู้ติดต่อ"), (r"/admin/deals/\d+/contacts/\d+/delete", "ลบผู้ติดต่อ"),
     (r"/admin/deals/requests/\d+/link", "ผูกคำขอนัดคุยกับดีล"), (r"/admin/deals/requests/\d+/dismiss", "ปิดคำขอนัดคุย"),
-    (r"/admin/leads/import", "นำเข้าลีด"), (r"/admin/leads/\d+/status", "เปลี่ยนสถานะลีด"), (r"/admin/leads/\d+/note", "เพิ่มโน้ตลีด"),
+    (r"/admin/leads/import", "นำเข้าลีด"), (r"/admin/leads/\d+/status", "เปลี่ยนสถานะลีด"), (r"/admin/leads/\d+/note", "เพิ่มโน้ตลีด"), (r"/admin/leads/\d+/line-bot", "พัก/เปิดบอท LINE ของลีด"),
     (r"/admin/leads/\d+/quote", "สร้างใบเสนอราคา"), (r"/admin/leads/\d+/propose", "ร่างข้อเสนอ"), (r"/admin/leads/\d+/contact", "แก้ช่องทางติดต่อลีด"),
     (r"/admin/leads/\d+/buyer", "แก้ข้อมูลผู้ซื้อ"), (r"/admin/leads/\d+/mark-contacted", "ทำเครื่องหมายว่าทักแล้ว"),
     (r"/admin/leads/\d+/unsubscribe", "เลิกส่งอีเมลถึงลีด"), (r"/admin/leads/\d+/(audit|deep|find-email)", "สั่งตรวจ/หาข้อมูลลีด"),

@@ -66,11 +66,11 @@ def validate(form: dict) -> tuple[dict, dict]:
     return v, err
 
 
-def submit(lead, v: dict, ip: str = "") -> tuple[int, bool]:
+def submit(lead, v: dict, ip: str = "", source: str = "plan_form") -> tuple[int, bool]:
     """บันทึกคำขอ + ความยินยอม + ไทม์ไลน์ลีด · คืน (id, ใหม่ไหม) · บันทึกไม่สำเร็จ = exception (หน้าไม่บอกว่าสำเร็จ)"""
     at = db.now()
-    consents = [{"purpose": "fulfil_request", "granted": True, "notice_version": NOTICE_VERSION, "source": "plan_form", "at": at},
-                {"purpose": "marketing", "granted": v["marketing"], "notice_version": NOTICE_VERSION, "source": "plan_form", "at": at}]
+    consents = [{"purpose": "fulfil_request", "granted": True, "notice_version": NOTICE_VERSION, "source": source, "at": at},
+                {"purpose": "marketing", "granted": v["marketing"], "notice_version": NOTICE_VERSION, "source": source, "at": at}]
     pid, created = db.add_plan_request(lead["id"], v["idem_key"], name=v["name"], role=v["role"] or None,
                                        contact_channel=v["contact_channel"], contact_value=v["contact_value"],
                                        desired_window=v["desired_window"] or None, web_readiness=v["web_readiness"] or None,
@@ -86,11 +86,37 @@ def submit(lead, v: dict, ip: str = "") -> tuple[int, bool]:
     elif v["contact_channel"] != "email" and not lead["contact"]:
         fill["contact"] = f"{CHANNELS[v['contact_channel']]}: {v['contact_value']}"[:160]
     db.update_lead(lead["id"], **fill)
-    note = f"ขอแผนจากรายงาน: {v['name']}" + (f" ({v['role']})" if v["role"] else "") + f" · ติดต่อทาง {CHANNELS[v['contact_channel']]}"
+    note = ("ขอแผนผ่าน LINE OA: " if source == "line_oa" else "ขอแผนจากรายงาน: ") + v["name"] + (f" ({v['role']})" if v["role"] else "") + f" · ติดต่อทาง {CHANNELS[v['contact_channel']]}"
     if v["desired_window"]:
         note += f" · {WINDOWS[v['desired_window']]}"
     db.add_lead_event(lead["id"], "wants_call", note, "customer")       # ใช้ขั้น "อยากคุย" เดิม: ขึ้นบนสุดของรายการโทร
     return pid, True
+
+
+def after_submit(lead, pid: int, created: bool, via: str) -> None:
+    """แจ้งทีม (ไม่ส่งช่องทางติดต่อออกไปในข้อความแจ้ง) + เริ่มวัด AI · คำขอซ้ำใน 10 นาที = ไม่แจ้งซ้ำ"""
+    if not created or recent_alerted(lead["id"], pid):
+        return
+    from . import pipeline, deep_audit
+    pipeline.alert_admins(f"📋 ขอแผนจากรายงาน: {lead['domain']} · ติดต่อทาง {via}", f"/admin/leads/{lead['id']}#brief", "lead",
+                          subject=f"📋 ขอแผน: {lead['domain']}")
+    try:
+        deep_audit.start(lead["id"], ai=True)         # ขอแผน = สนใจจริง → วัด AI ให้ (เหมือนฟอร์มเดิม)
+    except Exception:
+        pass
+
+
+def set_marketing(pid: int, granted: bool, source: str) -> None:
+    """เปลี่ยนใจเรื่องรับข่าวสาร = เพิ่มบันทึกใหม่ (เก็บประวัติเดิมไว้) · brief อ่านรายการล่าสุด"""
+    row = db.get_plan_request(pid)
+    if not row:
+        return
+    try:
+        consents = json.loads(row["consents_json"] or "[]")
+    except ValueError:
+        consents = []
+    consents.append({"purpose": "marketing", "granted": bool(granted), "notice_version": NOTICE_VERSION, "source": source, "at": db.now()})
+    db.update_plan_request(pid, consents_json=json.dumps(consents, ensure_ascii=False))
 
 
 def recent_alerted(lead_id: int, pid: int) -> bool:
@@ -113,7 +139,7 @@ def brief(lead, report_vm: dict | None = None) -> dict | None:
         consents = json.loads(pr["consents_json"] or "[]")
     except ValueError:
         consents = []
-    mk = next((c for c in consents if c.get("purpose") == "marketing"), {})
+    mk = next((c for c in reversed(consents) if c.get("purpose") == "marketing"), {})   # รายการล่าสุด = ความต้องการปัจจุบัน
     confirmed = [("ชื่อ", pr["name"]), ("ตำแหน่ง", pr["role"]),
                  ("ติดต่อทาง", f"{CHANNELS.get(pr['contact_channel'], pr['contact_channel'])}: {pr['contact_value']}"),
                  ("ช่วงเวลาที่อยากเริ่ม", WINDOWS.get(pr["desired_window"] or "") if pr["desired_window"] else None),
@@ -126,4 +152,7 @@ def brief(lead, report_vm: dict | None = None) -> dict | None:
     unknown = [k for k, val in confirmed + inferred if not val]
     return {"request": pr, "confirmed": [(k, val) for k, val in confirmed if val], "inferred": [(k, val) for k, val in inferred if val],
             "unknown": unknown, "marketing": bool(mk.get("granted")), "notice_version": NOTICE_VERSION,
-            "findings": (vm.get("actions") or [])[:3], "lanes": vm.get("lanes") or [], "next": "โทรหรือทักกลับภายใน 1 วันทำการ ทางช่องทางที่ลูกค้าเลือก"}
+            "findings": (vm.get("actions") or [])[:3], "lanes": vm.get("lanes") or [], "withdrawn": pr["status"] == "withdrawn",
+            "next": ("ลูกค้าขอให้หยุดติดต่อเรื่องนี้แล้ว — ห้ามติดต่อ" if pr["status"] == "withdrawn"
+                     else "ทักกลับในแชต LINE OA ภายใน 1 วันทำการ (พักบอทก่อนตอบเอง)" if pr["contact_channel"] == "line" and (pr["contact_value"] or "").startswith("แชต LINE OA")
+                     else "โทรหรือทักกลับภายใน 1 วันทำการ ทางช่องทางที่ลูกค้าเลือก")}

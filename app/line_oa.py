@@ -44,6 +44,26 @@ def bot_name() -> str:
     return (db.get_setting("line_bot_name") or "").strip() or "เจอ.AI"
 
 
+_OA_ID = __import__("re").compile(r"^@[A-Za-z0-9._\-]{2,40}$")
+
+
+def oa_id() -> str:
+    """LINE ID ของ OA (Basic ID เช่น @jorai) ใช้สร้างลิงก์ "คุยต่อใน LINE" · env GEO_LINE_OA_ID ทับค่าในหน้าตั้งค่า · รูปแบบผิด = ว่าง"""
+    import os
+    v = (os.getenv("GEO_LINE_OA_ID") or db.get_setting("line_oa_id") or "").strip()
+    return v if _OA_ID.match(v) else ""
+
+
+def save_oa_id(v: str) -> bool:
+    v = (v or "").strip()
+    if v and not v.startswith("@"):
+        v = "@" + v
+    if v and not _OA_ID.match(v):
+        return False
+    db.set_setting("line_oa_id", v)
+    return True
+
+
 def link_code() -> str:
     """รหัสผูกเจ้าของ: พิมพ์รหัสนี้ใน OA ครั้งเดียว ระบบจำ userId ไว้ส่งแจ้งเตือน"""
     code = db.get_setting("line_link_code")
@@ -67,7 +87,7 @@ def public_config() -> dict:
     oid = owner_id()
     return {"token_set": bool(_get("line_channel_token")), "secret_set": bool(_get("line_channel_secret")), "ready": bool(c), "bot_name": bot_name(),
             "owner_set": bool(oid), "owner_mask": (oid[:4] + "…" + oid[-3:]) if oid else "", "link_code": link_code(),
-            "webhook_path": "/line/webhook", "status": status()}
+            "webhook_path": "/line/webhook", "status": status(), "oa_id": oa_id()}
 
 
 def status() -> str:
@@ -111,6 +131,13 @@ def reply(reply_token: str | None, texts: list[str]) -> bool:
     return _post("/message/reply", {"replyToken": reply_token, "messages": _messages(texts)})
 
 
+def reply_messages(reply_token: str | None, messages: list[dict]) -> bool:
+    """ตอบหลายแบบ (ข้อความ + ปุ่มตอบเร็ว) · สูงสุด 5 ข้อความต่อครั้งตามข้อกำหนดของ LINE"""
+    if not reply_token or not messages:
+        return False
+    return _post("/message/reply", {"replyToken": reply_token, "messages": messages[:5]})
+
+
 def push(user_id: str, texts: list[str]) -> bool:
     if not user_id:
         return False
@@ -133,7 +160,7 @@ def notify_owner(text: str) -> bool:
 
 
 def parse_events(body: dict) -> list[dict]:
-    """ย่อ event ของ LINE ให้เหลือที่ใช้: type (follow|message|unfollow) · user_id · text · reply_token"""
+    """ย่อ event ของ LINE ให้เหลือที่ใช้: type (follow|message|unfollow|postback) · user_id · text · reply_token · data (postback)"""
     out = []
     for ev in (body or {}).get("events") or []:
         src = ev.get("source") or {}
@@ -141,5 +168,6 @@ def parse_events(body: dict) -> list[dict]:
         out.append({"type": ev.get("type"), "user_id": src.get("userId") or "", "reply_token": ev.get("replyToken"),
                     "text": (msg.get("text") or "").strip() if msg.get("type") == "text" else "",
                     "event_id": ev.get("webhookEventId") or "",
+                    "data": ((ev.get("postback") or {}).get("data") or "")[:300],
                     "redelivery": bool((ev.get("deliveryContext") or {}).get("isRedelivery"))})
     return out

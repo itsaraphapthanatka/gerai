@@ -198,6 +198,8 @@
     <input type="password" name="secret" placeholder="{{ 'ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม' if line.secret_set else 'วางจาก Basic settings → Channel secret' }}" autocomplete="off">
     <label style="margin-top:12px">ชื่อที่บอทใช้แนะนำตัวในแชท</label>
     <input type="text" name="bot_name" value="{{ line.bot_name }}" placeholder="ตามชื่อ OA (ว่าง = เจอ.AI)" maxlength="60">
+    <label style="margin-top:12px">LINE ID ของ OA (Basic ID) — ใช้กับปุ่ม "คุยต่อใน LINE" ในรายงาน</label>
+    <input type="text" name="oa_id" value="{{ line.oa_id }}" placeholder="เช่น @jorai (ดูที่ LINE OA Manager → ตั้งค่าบัญชี)" maxlength="42" autocomplete="off">
     <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
   </form>
   <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">

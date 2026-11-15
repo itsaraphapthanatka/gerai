@@ -657,6 +657,15 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
         return "owner_linked"
     if user_id and user_id == line_oa.owner_id():          # เจ้าของพิมพ์ = สั่งงาน CEO
         return owner_command(user_id, t, reply_token)
+    from . import line_plan
+    if line_plan.paused(user_id):                           # คนในทีมกำลังตอบห้องนี้เอง → บอทเงียบ (บันทึกไว้ในไทม์ไลน์)
+        lead = db.get_lead_by_line_user(user_id)
+        if lead:
+            record(lead["id"], "line", "ข้อความลูกค้าใน LINE (บอทพัก ทีมตอบเอง)", "customer")
+        return "paused"
+    branch = line_plan.text(user_id, t, reply_token)        # stage 06A-1: รหัสจากรายงาน · เบอร์โทรที่ขอไว้ · ขอหยุดติดต่อ
+    if branch:
+        return branch
     url = leads.first_url(t)
     if url:
         return line_site_request(user_id, url, reply_token)
@@ -763,6 +772,9 @@ def handle_line_webhook(body: dict) -> list[str]:
             out.append("follow")
         elif ev["type"] == "message" and ev["text"]:
             out.append(line_text(ev["user_id"], ev["text"], ev["reply_token"]))
+        elif ev["type"] == "postback":
+            from . import line_plan
+            out.append(line_plan.postback(ev["user_id"], ev.get("data") or "", ev["reply_token"]))
         else:
             out.append(ev["type"] or "ignored")
     return out

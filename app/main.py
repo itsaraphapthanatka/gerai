@@ -775,8 +775,9 @@ def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, 
     vm = report_view.build(lead, snap)
     plan_on = flags.active("plan_request_v2", request)
     pr = plan_request.latest(lead["id"]) if plan_on else None
+    from . import line_plan
     resp = templates.TemplateResponse(request, "mk/report.html", {
-        "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr,
+        "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr, "line_on": plan_on and line_plan.active(request),
         "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
     resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
     return resp
@@ -824,15 +825,24 @@ async def audit_plan_request(request: Request, token: str):
     except Exception:
         return _report_v2(request, lead, snapshot.view(lead), form=v, status_code=500,
                           errors={"_": "บันทึกคำขอไม่สำเร็จ ยังไม่ได้ส่งถึงทีม ลองกดส่งอีกครั้ง หรือทัก LINE ของเจอ.AI"})
-    if created and not plan_request.recent_alerted(lead["id"], pid):
+    if created:
         _remember_lead_lang(request, lead["id"])
-        pipeline.alert_admins(f"📋 ขอแผนจากรายงาน: {lead['domain']} · {v['name']} · ติดต่อทาง {plan_request.CHANNELS[v['contact_channel']]}",
-                              f"/admin/leads/{lead['id']}#brief", "lead", subject=f"📋 ขอแผน: {lead['domain']}")   # ช่องทางติดต่อดูในแอป ไม่ส่งออกไปในข้อความแจ้ง
-        try:
-            deep_audit.start(lead["id"], ai=True)         # ขอแผน = สนใจจริง → วัด AI ให้ (เหมือนฟอร์มเดิม)
-        except Exception:
-            pass
+    plan_request.after_submit(lead, pid, created, plan_request.CHANNELS[v["contact_channel"]])   # ช่องทางติดต่อดูในแอป ไม่ส่งออกไปในข้อความแจ้ง
     return _redirect(f"/audit/{token}#plan")
+
+
+@app.get("/audit/{token}/line")
+def audit_line(request: Request, token: str):
+    """stage 06A-1: ปุ่ม "คุยต่อใน LINE" → ออกรหัสใช้ครั้งเดียว (ใช้ซ้ำถ้ายังไม่หมดอายุ) แล้วพาไปแชต OA พร้อมข้อความที่พิมพ์ไว้"""
+    from . import line_plan
+    from fastapi import HTTPException
+    if not (_flags.active("plan_request_v2", request) and line_plan.active(request)):
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    url = line_plan.oa_message_url(line_plan.prefill_text(lead, line_plan.code_for(lead)))
+    return RedirectResponse(url, status_code=303, headers={"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 
 @app.get("/audit/{token}/progress")
@@ -1267,7 +1277,12 @@ def _lead_ctx(lead, notice: str = "") -> dict:
         _brief = _pr.brief(lead, _rv.build(lead, _snap.view(lead)))
     except Exception:
         _brief = None
-    return {**_crm.lead_panel(lead), "brief": _brief, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    try:
+        from . import line_plan as _lp
+        _line_bot = _lp.lead_bot(lead["id"])
+    except Exception:
+        _line_bot = None
+    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -1295,6 +1310,20 @@ def admin_lead(request: Request, lead_id: int, notice: str = ""):
         return _redirect("/admin/leads")
     edits = [staff_audit.view(r) for r in db.list_staff_log(30, target=f"leads:{lead_id}")]   # ประวัติการแก้ไขลีดนี้โดยทีมงาน
     return templates.TemplateResponse(request, "admin_lead.html", {**_lead_ctx(lead, notice), "staff_edits": edits})
+
+
+@app.post("/admin/leads/{lead_id}/line-bot", dependencies=[Depends(_csrf.require_csrf)])
+def admin_lead_line_bot(request: Request, lead_id: int, action: str = Form("")):
+    """stage 06A-1: พักบอทในห้องแชต LINE ของลีดนี้ (ทีมตอบเอง) หรือเปิดกลับ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import line_plan
+    if not db.get_lead(lead_id) or action not in ("pause", "resume"):
+        return _redirect(f"/admin/leads/{lead_id}")
+    n = line_plan.set_lead_pause(lead_id, action == "pause")
+    db.add_lead_event(lead_id, "note", ("พักบอท LINE" if action == "pause" else "เปิดบอท LINE กลับ") + f" ({n} ห้องแชต)", request.session.get("email") or "admin")
+    msg = (f"พักบอทแล้ว {line_plan.PAUSE_HOURS} ชม. — ตอบลูกค้าเองใน LINE OA Manager" if action == "pause" else "เปิดบอทกลับแล้ว") if n else "ลีดนี้ยังไม่มีแชต LINE ที่ผูกไว้"
+    return _redirect(f"/admin/leads/{lead_id}?notice={quote(msg)}#brief")
 
 
 @app.post("/admin/leads/{lead_id}/note")
@@ -3845,7 +3874,8 @@ def admin_settings_llm(request: Request, task: str = Form(""), model: str = Form
 
 
 @app.post("/admin/settings/line")
-def admin_settings_line(request: Request, token: str = Form(""), secret: str = Form(""), unlink: str = Form(""), bot_name: str = Form("")):
+def admin_settings_line(request: Request, token: str = Form(""), secret: str = Form(""), unlink: str = Form(""), bot_name: str = Form(""),
+                        oa_id: str | None = Form(None)):
     if not _is_admin(request):
         return _redirect("/login")
     if unlink:
@@ -3853,6 +3883,8 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
     else:
         line_oa.save_config(token, secret)
         db.set_setting("line_bot_name", bot_name.strip()[:60])
+        if oa_id is not None and not line_oa.save_oa_id(oa_id):
+            return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error="LINE ID ของ OA ต้องเป็นแบบ @jorai (ตัวอักษรอังกฤษ ตัวเลข . _ -)"))
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 
