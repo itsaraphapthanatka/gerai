@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ key }} · ภาพรวมลูกค้า — เจอ.AI{% endblock %}
+{% block content %}
+<p><a href="/admin/today">← วันนี้</a></p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if not v %}
+<h1>ไม่พบข้อมูลที่คุณเปิดได้สำหรับ {{ key }}</h1>
+<p class="muted">อาจยังไม่มีลีด/ลูกค้าโดเมนนี้ หรือเป็นลีดที่มอบหมายให้คนอื่นอยู่</p>
+{% else %}
+<h1>{{ v.key }}</h1>
+<p class="muted">รวมจากข้อมูลที่ใช้โดเมนเดียวกัน (<b>จับคู่จากโดเมน = ระบบเดา</b> ยังไม่ใช่บัญชีที่ยืนยัน) · ไม่มีการรวมหรือแก้ข้อมูล
+{% if v.hidden_leads %} · มีอีก {{ v.hidden_leads }} ลีดที่มอบหมายให้คนอื่น (ไม่แสดง){% endif %}</p>
+
+{% if v.brands %}<div class="card"><h2 style="margin-top:0;font-size:16px">บัญชีลูกค้า / แบรนด์</h2>
+  {% for b in v.brands %}<div>{{ b.name }} · {{ b.domain }} · แผน {{ b.plan or "—" }}{% if b.is_internal %} <span class="pill">บัญชีภายใน</span>{% endif %}
+    · <a href="/admin/customers">หน้าลูกค้า</a></div>{% endfor %}
+  <p class="muted" style="font-size:12px">จับคู่จากโดเมน</p></div>{% endif %}
+
+{% if v.partner %}<div class="card" style="margin-top:12px"><b>มาจากพันธมิตร:</b> {{ v.partner.name or "—" }}
+  {% if v.partner.id %} · <a href="/admin/partners">หน้าพันธมิตร</a> · สถานะ {{ v.partner.status }}{% endif %}</div>{% endif %}
+
+{% for x in v.leads %}{% set l = x.lead %}
+<div class="card" style="margin-top:14px" id="lead-{{ l['id'] }}">
+  <h2 style="margin-top:0;font-size:17px"><a href="/admin/leads/{{ l['id'] }}">ลีด #{{ l['id'] }}</a> · {{ x.status }}</h2>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <span>ผู้รับผิดชอบ: <b>{{ x.owner }}</b></span>
+    {% if v.can.sales_edit %}<form method="post" action="/admin/c360/{{ v.key }}/assign" style="display:flex;gap:6px;align-items:center">{{ csrf_input(request) }}
+      <input type="hidden" name="lead_id" value="{{ l['id'] }}"><input type="hidden" name="expected" value="{{ x.owner_id or 0 }}">
+      <select name="owner" aria-label="มอบหมายให้"><option value="me">ให้ฉัน</option><option value="none">ไม่มีผู้รับผิดชอบ</option>
+        {% for s in staff_list %}<option value="{{ s['id'] }}">{{ s['name'] or s['email'] }}</option>{% endfor %}</select>
+      <button type="submit" class="btn sm">มอบหมาย</button></form>{% endif %}
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:10px;font-size:13.5px;line-height:1.7">
+    <div><b>คนและบทบาท</b>
+      {% for p in x.people %}<div>{{ p.name or "—" }}{% if p.role %} ({{ p.role }}){% endif %} · <span class="muted">{{ p.source }}</span><br>{{ p.channels|join(" · ") }}</div>
+      {% else %}<div class="muted">ยังไม่มีผู้ติดต่อ</div>{% endfor %}
+      {% if not v.can.sales %}<div class="muted" style="font-size:12px">ช่องทางติดต่อถูกซ่อน (ต้องมีสิทธิ์หมวดขาย)</div>{% endif %}</div>
+
+    <div><b>ข้อมูลธุรกิจ</b>
+      {% if x.context %}{% for r in x.context.rows %}<div><span class="muted">{{ r.label }}</span> {{ r.value or "ยังไม่ทราบ" }}
+        {% if r.value %}<span class="pill">{{ "ลูกค้ายืนยัน" if r.source == "confirmed" else "ระบบเดา" }}</span>{% endif %}</div>{% endfor %}
+      {% else %}<div class="muted">—</div>{% endif %}</div>
+
+    <div><b>สิ่งที่ตกลงเรื่องการติดต่อ</b>
+      <div>ยินยอมให้ติดต่อเรื่องคำขอ: {{ "ใช่" if x.prefs.consent else "ไม่มีบันทึก" }}</div>
+      <div>รับข่าวสาร: {% if x.prefs.marketing is none %}ไม่มีบันทึก{% else %}{{ "รับ" if x.prefs.marketing else "ไม่รับ" }} <span class="muted">({{ (x.prefs.marketing_at or "")[:16].replace("T"," ") }})</span>{% endif %}</div>
+      {% if x.prefs.unsub_at %}<div style="color:#b42318">ขอไม่รับการติดต่อ {{ x.prefs.unsub_at[:16].replace("T"," ") }}</div>{% endif %}
+      {% if x.prefs.plan_status == "withdrawn" %}<div style="color:#b42318">ขอให้หยุดติดต่อเรื่องคำขอแผน</div>{% endif %}
+      <div>LINE: {{ "ผูกแล้ว" if x.prefs.line_linked else "ไม่ได้ผูก" }}{% if x.prefs.line_paused %} · บอทพักถึง {{ x.prefs.line_paused[:16].replace("T"," ") }}{% endif %}</div></div>
+  </div>
+
+  {% if v.can.sales %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:10px;font-size:13.5px;line-height:1.7">
+    <div><b>รายงานและหลักฐาน</b>
+      {% if l['token'] %}<div><a href="/audit/{{ l['token'] }}" rel="noreferrer">เปิดรายงาน</a> · ตรวจเมื่อ {{ (l['audit_at'] or "")[:16].replace("T"," ") }}</div>{% endif %}
+      {% if x.evidence %}<div>สถานะ {{ x.evidence.status }} · ตรวจแล้ว {{ x.evidence.tested }}/{{ x.evidence.total }} ด้าน</div>
+        {% for s in x.evidence.lines %}<div class="muted">{{ s }}</div>{% endfor %}
+        {% if x.evidence.actions %}<div>ควรทำก่อน: {{ x.evidence.actions|join(" · ") }}</div>{% endif %}{% endif %}
+      {% if x.versions %}<div class="muted">ประวัติรายงาน: {% for r in x.versions %}รอบ {{ r.version }} ({{ r.created_at[:10] }}){% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}</div>
+
+    <div><b>โอกาสขาย</b>
+      <div>สถานะ {{ x.status }}{% if l['deal_value'] %} · มูลค่า ฿{{ "{:,}".format(l['deal_value']) }}{% endif %}</div>
+      {% if l['next_action'] %}<div>ถัดไป: {{ l['next_action'] }} ({{ (l['next_at'] or "")[:16].replace("T"," ") }})</div>{% endif %}
+      {% for q in x.quotes %}<div>ใบเสนอราคา {{ q.number }} · {{ q.package }} · {{ q.status }}{% if q.net %} · ฿{{ "{:,}".format(q.net) }}{% endif %}</div>{% endfor %}
+      {% if x.plan %}<div><a href="/admin/leads/{{ l['id'] }}#brief">Sales Brief</a> · ขอแผน {{ (x.plan['created_at'] or "")[:16].replace("T"," ") }}</div>{% endif %}</div>
+
+    <div><b>นัดคุยและงาน</b>
+      {% for a in x.appointments %}<div>{{ AP.label(a['slot_start']) if a['slot_start'] else "ยังไม่เลือกเวลา" }} · {{ AP.STATUS_LABEL.get(a['status'], a['status']) }}</div>{% else %}<div class="muted">ไม่มีนัด</div>{% endfor %}
+      {% for j in x.jobs %}<div class="muted">งาน #{{ j.id }} {{ j.kind }} · {{ j.status }}</div>{% endfor %}</div>
+  </div>
+
+  <details style="margin-top:10px"><summary><b>ประวัติการติดต่อ</b> ({{ x.events|length }} ล่าสุด · ดึงจากไทม์ไลน์ลีด ไม่ใช่สำเนา)</summary>
+    {% for e in x.events %}<div style="font-size:13px"><span class="muted">{{ (e.created_at or "")[:16].replace("T"," ") }} · {{ e.kind }} · {{ e.actor }}</span> {{ e.note }}</div>{% endfor %}
+  </details>
+  {% else %}<p class="muted">รายงาน ดีล และประวัติการติดต่อถูกซ่อน (ต้องมีสิทธิ์หมวดขาย)</p>{% endif %}
+
+  {% if v.can.finance %}<div style="margin-top:10px;font-size:13.5px"><b>การเงิน</b>
+    {% for d in x.docs %}<div>{{ d.kind }} {{ d.number }} · ฿{{ "{:,}".format(d.total or 0) }}</div>{% else %}<div class="muted">ยังไม่มีเอกสารบัญชี</div>{% endfor %}</div>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

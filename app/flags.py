@@ -20,6 +20,7 @@ FLAGS: dict[str, str] = {
     "plan_request_v2": "ฟอร์มขอแผน + ความยินยอม + sales brief — stage 06",
     "line_appointments": "นัดหมายผ่าน LINE — stage 06A",
     "durable_jobs": "คิวงานถาวร + งบ + การอนุมัติ — stage 10 · เริ่มจากการทดสอบ AI ของรายงาน · ปิด = thread แบบเดิม",
+    "customer360": "หน้า Today + Customer 360 + รายงานทดลองจับคู่ตัวตน ในหลังบ้าน — stage 09 · ปิด = 404 ไม่มีลิงก์",
     "analytics": "เก็บเหตุการณ์ funnel ภายใน (ไม่มี tracker ภายนอก ไม่มีคุกกี้) — stage 08B · ปิด = ไม่เก็บอะไรเลย",
 }
 PREVIEW_COOKIE = "jr_preview"

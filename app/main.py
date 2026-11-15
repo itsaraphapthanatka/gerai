@@ -3919,6 +3919,84 @@ def _settings_ctx(request: Request, saved=False, error=None):
     }
 
 
+def _c360_guard(request: Request):
+    """stage 09: flag ปิด = 404 · ต้องเป็นทีมงาน (middleware ตรวจสิทธิ์รายหมวดแล้ว) → คืนแถวทีมงาน"""
+    from fastapi import HTTPException
+    from . import c360
+    if not c360.enabled():
+        raise HTTPException(status_code=404)
+    t = getattr(request.state, "staff", None)
+    if t is None:
+        raise HTTPException(status_code=404)
+    return t
+
+
+@app.get("/admin/today")
+def admin_today(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    t = _c360_guard(request)
+    from . import c360
+    return templates.TemplateResponse(request, "admin_today.html", {"sections": c360.today(t), "t": t, "role": staff.role_label(t),
+                                                                     "scoped": c360.scoped(t), "now": db.now()[:16].replace("T", " ")})
+
+
+@app.get("/admin/c360")
+def admin_c360_search(request: Request, q: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    _c360_guard(request)
+    from . import c360
+    k = c360.account_key((q or "").strip())
+    return _redirect(f"/admin/c360/{quote(k)}" if k else "/admin/today")
+
+
+@app.get("/admin/c360/{key}")
+def admin_c360(request: Request, key: str, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    t = _c360_guard(request)
+    from . import c360, appointments as ap
+    v = c360.view(c360.account_key(key), t)
+    if v is None:                                          # ไม่มี หรือมองไม่เห็น — ตอบเหมือนกัน ไม่บอกว่ามีลีดนี้อยู่
+        return templates.TemplateResponse(request, "admin_c360.html", {"v": None, "key": key, "notice": notice, "AP": ap}, status_code=404)
+    return templates.TemplateResponse(request, "admin_c360.html", {"v": v, "key": v["key"], "notice": notice, "AP": ap, "t": t,
+                                                                    "staff_list": [s_ for s_ in db.list_staff() if not s_["disabled"]]})
+
+
+@app.post("/admin/c360/{key}/assign", dependencies=[Depends(_csrf.require_csrf)])
+def admin_c360_assign(request: Request, key: str, lead_id: int = Form(0), owner: str = Form(""), expected: int = Form(0)):
+    if not _is_admin(request):
+        return _redirect("/login")
+    t = _c360_guard(request)
+    from . import c360
+    lead = db.get_lead(lead_id)
+    if not lead or c360.account_key(lead["domain"]) != c360.account_key(key) or not c360.lead_visible(t, lead):
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('ไม่พบลีดนี้')}")
+    if owner == "me":
+        new = t["id"]
+    elif owner == "none":
+        new = None
+    elif owner.isdigit() and not c360.scoped(t) and any(s_["id"] == int(owner) and not s_["disabled"] for s_ in db.list_staff()):
+        new = int(owner)                                   # ฝ่ายขายมอบหมายได้แค่ตัวเอง/ปล่อยคืน · หัวหน้าเลือกคนได้
+    else:
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('มอบหมายแบบนี้ไม่ได้')}")
+    if c360.scoped(t) and new is None and lead["owner_staff_id"] != t["id"]:
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('ปล่อยคืนได้เฉพาะลีดของตัวเอง')}")
+    ok = c360.assign(lead_id, new, expected or None, request.session.get("email") or "staff")
+    msg = "มอบหมายแล้ว" if ok else "มีคนเปลี่ยนผู้รับผิดชอบก่อนหน้า โหลดหน้าใหม่แล้วลองอีกครั้ง"
+    return _redirect(f"/admin/c360/{quote(key)}?notice={quote(msg)}")
+
+
+@app.get("/admin/staff/identity")
+def admin_identity(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    _c360_guard(request)
+    from . import c360
+    return templates.TemplateResponse(request, "admin_identity.html", {"r": c360.identity_report()})
+
+
 @app.get("/admin/appointments")
 def admin_appointments(request: Request, notice: str = "", saved: int = 0):
     """stage 06A-2: นัดคุยทั้งหมด (รอยืนยันก่อน) + ตั้งช่องเวลาที่เปิดให้ลูกค้าเลือก"""

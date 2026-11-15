@@ -38,6 +38,8 @@ CUSTOM = "custom"
 RULES = [
     (r"/admin/?", None),
     (r"/admin/staff(/.*)?", "staff"),
+    (r"/admin/c360/[^/]+/assign", "sales"),                            # มอบหมายลีด = ต้องแก้ไขหมวดขายได้
+    (r"/admin/(today|c360)(/.*)?", None),                              # ทีมงานทุกคน — ส่วนย่อยกรองตามสิทธิ์รายหมวดใน app/c360.py
     (r"/admin/(settings|free-plan|agency-mode)(/.*)?", "settings"),
     (r"/admin/(email/smtp|inbox/settings|salesbot/settings|marketing/settings|marketing/fb-test|results/settings)", "settings"),
     (r"/admin/deliverability/.+", "settings"),                      # เพิ่มกล่องส่ง/รหัส SMTP/DKIM — หน้าดูอยู่หมวดการตลาด
