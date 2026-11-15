@@ -112,7 +112,7 @@
       {% if x.detail %}<span class="mk-small">{{ x.detail }}</span>{% endif %}
       {% if x.method %}<span class="mk-meta">วิธีวัด: {{ x.method }}</span>{% endif %}
       {% if x.m %}
-      <details class="rp-more">
+      <details class="rp-more" data-ev="lane" data-lane="{{ x.key }}">
         <summary>ตัวเลขดิบและหลักฐาน</summary>
         <dl class="mk-facts mk-small" style="margin-top:6px">
           <dt>วิธีวัด</dt><dd>{{ x.m.protocol_id or "รอบเก่า ไม่ได้บันทึก" }}{% if x.m.protocol_version %} v{{ x.m.protocol_version }}{% endif %}</dd>
@@ -145,7 +145,7 @@
         {% if a.confidence_label %}<dt>ความมั่นใจ</dt><dd>{{ a.confidence_label }}</dd>
         <dt>งานโดยประมาณ</dt><dd>{{ a.effort or "ประเมินหลังดูระบบเว็บ" }}{% if a.effort %} <span class="mk-meta">(ประมาณ)</span>{% endif %}</dd>
         <dt>ใครทำได้</dt><dd>{{ a.owner_label }}</dd>{% endif %}</dl>
-      {% if a.evidence_refs %}<details class="rp-more"><summary>ดูหลักฐาน</summary><div class="mk-stack" style="gap:8px;margin-top:6px">{{ ev_list(a.evidence_refs, vm.evidence) }}</div></details>{% endif %}
+      {% if a.evidence_refs %}<details class="rp-more" data-ev="action"><summary>ดูหลักฐาน</summary><div class="mk-stack" style="gap:8px;margin-top:6px">{{ ev_list(a.evidence_refs, vm.evidence) }}</div></details>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -174,7 +174,7 @@
 {% if vm.ai_tests %}
 <section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="ai-tests" aria-labelledby="h-ai">
   <h2 id="h-ai" style="font-size:20px">คำถามที่ใช้ทดสอบ AI และผลรายข้อ</h2>
-  <details class="rp-more">
+  <details class="rp-more" data-ev="ai_test">
     <summary>ดู {{ vm.ai_tests|length }} คำถาม</summary>
     <div class="rp-scroll"><table class="rp-tbl">
       <thead><tr><th scope="col">คำถาม</th><th scope="col">ผล</th><th scope="col">แหล่งที่ AI อ้าง</th></tr></thead>
@@ -297,6 +297,14 @@
     </form>
   {% endif %}
 </section>
+{% if an_on %}
+<script>
+/* stage 08B: นับ "เปิดดูหลักฐาน" ครั้งแรกต่อส่วน · ส่งกลับเว็บเราเอง (same-origin + CSRF) · ไม่มี tracker ภายนอก ไม่ส่งข้อความหลักฐาน/URL */
+(function(){if(!navigator.sendBeacon)return;document.querySelectorAll('details[data-ev]').forEach(function(d){d.addEventListener('toggle',function(){
+if(!d.open||d.dataset.sent)return;d.dataset.sent='1';var f=new FormData();f.append('csrf_token','{{ csrf_token(request) }}');f.append('name','evidence_opened');
+f.append('section',d.dataset.ev);if(d.dataset.lane){f.append('lane',d.dataset.lane);}navigator.sendBeacon('/audit/{{ lead["token"] }}/event',f);});});})();
+</script>
+{% endif %}
 {% if vm.running %}
 <script>
 /* ตรวจส่วนที่เหลือเสร็จ → โหลดหน้าใหม่ แต่ไม่โหลดทับถ้าผู้ใช้เริ่มพิมพ์ในฟอร์มแล้ว */

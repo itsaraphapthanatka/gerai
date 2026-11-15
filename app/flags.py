@@ -19,6 +19,7 @@ FLAGS: dict[str, str] = {
     "context_v2": "ลูกค้ายืนยัน/แก้ข้อมูลธุรกิจในรายงาน — stage 04B",
     "plan_request_v2": "ฟอร์มขอแผน + ความยินยอม + sales brief — stage 06",
     "line_appointments": "นัดหมายผ่าน LINE — stage 06A",
+    "analytics": "เก็บเหตุการณ์ funnel ภายใน (ไม่มี tracker ภายนอก ไม่มีคุกกี้) — stage 08B · ปิด = ไม่เก็บอะไรเลย",
 }
 PREVIEW_COOKIE = "jr_preview"
 _ON = ("1", "true", "yes", "on")

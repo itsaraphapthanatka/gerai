@@ -15,6 +15,18 @@
 | 04B ยืนยันข้อมูลธุรกิจ | **เสร็จ หลัง flag `context_v2` (ปิด · ต้องเปิดคู่ `report_v2`)** | 2026-11-15 | ภาพนิ่ง `previews/04b-*.html` · รายละเอียดด้านล่าง |
 | 05-full รายงานเต็ม | **เสร็จ หลัง flag `report_v2` (ปิด) · บางส่วนต้องเปิด `context_v2`** | 2026-11-15 | ภาพนิ่ง `previews/05-full-*.html` · รายละเอียดด้านล่าง |
 | 08A QA/SEO | **เสร็จ · พร้อม staging ยังไม่อนุญาต production** | 2026-11-15 | ดู `WEBSITE_RELEASE_CHECKLIST.md` · header หน้าลิงก์ลับมีผลทันที (ไม่ผ่าน flag) · รายละเอียดด้านล่าง |
+| 08B analytics | **เสร็จ หลัง flag `analytics` (ปิด)** | 2026-11-15 | ดู `ANALYTICS_CONTRACT.md` · ไม่มี tracker ภายนอก ไม่มีคุกกี้ · รายละเอียดด้านล่าง |
+
+## stage 08B — analytics ภายใน (ไม่มี tracker ภายนอก)
+- **เอกสารหลัก: `docs/rebuild/ANALYTICS_CONTRACT.md`** · flag ใหม่ `analytics` (ปิด = ไม่เก็บอะไรเลย ไม่มีช่องซ่อน ไม่มีสคริปต์ endpoint 404)
+- ตารางใหม่ `analytics_events` (เพิ่มอย่างเดียว · ไม่มีคอลัมน์ IP/UA/URL/ข้อมูลติดต่อ) · `app/analytics.py`
+- เหตุการณ์ฝั่งเซิร์ฟเวอร์ (บันทึกเมื่อสำเร็จจริง): `audit_started` (`POST /audit`) · `audit_completed` (`snapshot.run` / ทางเดิม) · `business_context_confirmed` · `plan_requested` (`plan_request.after_submit` เฉพาะคำขอใหม่ รวมจาก LINE) · `booking_link_clicked` (`GET /audit/{token}/line`)
+- ฝั่งเบราว์เซอร์: `evidence_opened` (เปิดส่วนพับหลักฐานครั้งแรก) → `POST /audit/{token}/event` same-origin + CSRF · ชื่อนอกรายการ/เหตุการณ์สำเร็จปลอม = 400 · กันซ้ำ 10 นาที · ≤100/ลีด/วัน
+- `meeting_booked` นิยามไว้แต่ยังไม่บันทึก (ไม่มีระบบนัดจริง) — ไม่นับคำขอแผนเป็นการนัด
+- ที่มาแบบ allowlist: พันธมิตร > utm_source ในรายการ > src ของลิงก์เรา > ประเภท Referer > direct · ส่งต่อด้วยช่องซ่อนในฟอร์มตรวจเว็บ (`att_fields`) ไม่ใช้คุกกี้ ไม่เก็บ URL
+- ไม่นับทีมงาน/แอดมิน/โหมด preview · หน้า `/admin/analytics` แสดงจำนวนลีดต่อขั้นแยกตามที่มา
+- เทสต์ `analytics_smoke.py`: โหมดปิด · ลำดับที่มา · ทุกเหตุการณ์ · กรอกผิด/ส่งซ้ำไม่นับ · CSRF · ค่านอกรายการถูกทิ้ง · เพดาน · ไม่มีชื่อ/เบอร์/token/โดเมน/IP/URL ในข้อมูลที่เก็บ · ทีมงานไม่ถูกนับ · ปิด flag แล้วหยุดเก็บทันที
+- **ข้อจำกัด:** ไม่นับ page view (วัดอัตราผู้เข้าชม→ตรวจเว็บไม่ได้) · คนที่อ่านหน้าอื่นก่อนมาตรวจจะเป็น direct · ยังไม่มีการลบข้อมูลเก่าอัตโนมัติ · ต้องเพิ่มในนโยบายความเป็นส่วนตัว
 
 ## stage 08A — QA/SEO + release checklist
 - **เอกสารหลัก: `docs/rebuild/WEBSITE_RELEASE_CHECKLIST.md`** — ผลตรวจจริง สิ่งที่ค้าง flag การเปลี่ยนฐานข้อมูล วิธีย้อนกลับ แคช และ checklist ก่อน staging / production · สถานะ: พร้อมขึ้น staging ให้เจ้าของลอง **ยังไม่อนุญาต production**
@@ -202,7 +214,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-15 (หลัง 08A): **72/72 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-15 (หลัง 08B): **73/73 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

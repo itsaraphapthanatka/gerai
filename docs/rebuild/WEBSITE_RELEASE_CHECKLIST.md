@@ -9,7 +9,7 @@
 ## 1. ผลตรวจที่ทำจริง
 
 ### 1.1 เทสต์อัตโนมัติ
-- ชุดเทสต์ทั้งหมด `*_smoke.py` (ข้าม `pg_smoke.py` ซึ่งต้องมี Postgres): **72/72 ผ่าน** (2026-11-15)
+- ชุดเทสต์ทั้งหมด `*_smoke.py` (ข้าม `pg_smoke.py` ซึ่งต้องมี Postgres): **73/73 ผ่าน** (2026-11-15 หลัง 08B)
 - `qa_release_smoke.py` (ใหม่ stage 08A) ตรวจ:
   - หน้าสาธารณะ 5 หน้า (`/`, `/how-it-works`, `/services`, `/services/foundation-sprint`, `/solutions/industrial-property`) เมื่อเปิด flag: title และ description ไม่ซ้ำกัน (description 50–200 ตัวอักษร) · canonical ชี้ตัวเองบนโดเมนเดียวกับ sitemap · h1 หน้าละ 1 · `lang="th"` · ไม่มี noindex
   - ทุกช่องกรอกมีป้าย (label for / ครอบด้วย label / aria-label) · ทุกฟอร์มส่งได้โดยไม่ต้องมี JS (มี action + method) ยกเว้นแชตเสริมที่ต้องใช้ JS อยู่แล้ว · รูปทุกรูปมี alt · ไม่มีลิงก์ `javascript:`
@@ -60,7 +60,7 @@
 | ยังไม่มีหน้านโยบายความเป็นส่วนตัว | ฟอร์มเก็บข้อมูลติดต่อโดยไม่มีลิงก์นโยบาย | เจ้าของ + กฎหมาย |
 | คำสัญญา "ติดต่อกลับภายใน 1 วันทำการ" | ต้องมีคนทำได้จริง | เจ้าของยืนยัน |
 | LINE ยังไม่ได้ทดสอบกับ OA จริง (มือถือมี/ไม่มีเพื่อน, คอมพิวเตอร์ QR) | ปุ่มอาจพาไปผิดที่ | เจ้าของทดสอบบน staging |
-| analytics ยังไม่มี (stage 08B) | วัด funnel ไม่ได้ | ทำ 08B |
+| analytics ภายในทำแล้ว (08B) แต่ไม่นับ page view และยังไม่มีการลบข้อมูลเก่าอัตโนมัติ | วัดอัตราผู้เข้าชม→ตรวจเว็บไม่ได้ | ดู ANALYTICS_CONTRACT.md · เพิ่มในนโยบายความเป็นส่วนตัว |
 | ยังไม่ได้ทดสอบบน Postgres | ตารางใหม่อาจมีปัญหาเฉพาะ PG | รัน `pg_smoke.py` + ซ้อมบน staging |
 | ตรวจ config production (ข้อ 4–5 ของ 00S: SESSION_SECRET, scheduler ซ้ำ) | ความปลอดภัย/งานรันซ้ำ | ผู้ดูแล server |
 | ของที่เจ้าของต้องเตรียม (วิดีโอ เคส ตัวอย่างรายงาน) | หน้า 07 ยังทำไม่ได้ | ดู OWNER_ASSET_CHECKLIST.md |
@@ -78,12 +78,13 @@
 | `plan_request_v2` | ฟอร์มขอแผน + Sales Brief | `report_v2` |
 | `context_v2` | ยืนยันข้อมูลธุรกิจ + ตัวอย่างร่าง | `report_v2` |
 | `line_appointments` | ปุ่มคุยต่อใน LINE | `plan_request_v2` |
+| `analytics` | เก็บเหตุการณ์ funnel ภายใน + หน้า /admin/analytics | — (ปิด = ไม่เก็บอะไร) |
 
 ลำดับเปิดบน staging ที่แนะนำ: `marketing_v2` → `snapshot_v2` + `report_v2` → `context_v2` → `plan_request_v2` (หลังตรวจกฎหมาย) → `line_appointments` (หลังทดสอบ OA)
 แอดมินดูก่อนเปิดจริงได้ด้วยโหมด preview (คุกกี้ `jr_preview`) โดยไม่กระทบผู้เยี่ยมชม
 
 ### การเปลี่ยนฐานข้อมูล (เพิ่มอย่างเดียว · สร้างเองตอนแอปเริ่ม · ไม่แก้/ลบข้อมูลเดิม)
-- ตารางใหม่: `plan_requests`, `business_contexts`, `report_versions`, `line_plan_codes`, `line_plan_sessions`
+- ตารางใหม่: `plan_requests`, `business_contexts`, `report_versions`, `line_plan_codes`, `line_plan_sessions`, `analytics_events`
 - คอลัมน์ใหม่ใน `leads`: `snapshot_json`
 - ข้อมูลเดิม (`audit_json`, `deep_json`, `deep_ai_json`) อ่านอย่างเดียว · การตรวจรอบใหม่เพิ่มฟิลด์ `protocol` และ `excerpt` ใน JSON (ของเก่าไม่มีก็แสดงได้)
 - ยังไม่มีตาราง `schema_migrations` (เสนอใน DATA_CONTRACTS) → ก่อน production ควรสำรองฐานข้อมูลก่อนเปิดแอปเวอร์ชันใหม่

@@ -45,7 +45,7 @@ RULES = [
     (r"/admin/quotes/[^/]+/(confirm|slip)", "finance"),
     (r"/admin/(deals|contacts|leads|calls|inbox|salesbot|prospect|quotes)(/.*)?", "sales"),
     (r"/admin/(customers|results)(/.*|\.csv)?", "customers"),
-    (r"/admin/(marketing|email|deliverability)(/.*)?", "marketing"),
+    (r"/admin/(marketing|email|deliverability|analytics)(/.*)?", "marketing"),   # analytics = funnel เว็บ (stage 08B)
     (r"/admin/(decisions|office|ceo|tasks|skills|agents|digest)(/.*)?", "agents"),
     (r"/admin/partners(/.*)?", "partners"),
     (r"/admin/tenants(/.*)?", "accounts"),

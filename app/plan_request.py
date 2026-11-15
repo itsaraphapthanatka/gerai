@@ -95,6 +95,11 @@ def submit(lead, v: dict, ip: str = "", source: str = "plan_form") -> tuple[int,
 
 def after_submit(lead, pid: int, created: bool, via: str) -> None:
     """แจ้งทีม (ไม่ส่งช่องทางติดต่อออกไปในข้อความแจ้ง) + เริ่มวัด AI · คำขอซ้ำใน 10 นาที = ไม่แจ้งซ้ำ"""
+    if created:                                       # stage 08B: นับเมื่อบันทึกคำขอใหม่จริง (กดซ้ำ idem_key เดิมไม่นับ)
+        from . import analytics
+        row = db.get_plan_request(pid)
+        ch = "line_oa" if via == "LINE OA" else (row["contact_channel"] if row else None)
+        analytics.emit("plan_requested", lead["id"], {"channel": ch})
     if not created or recent_alerted(lead["id"], pid):
         return
     from . import pipeline, deep_audit

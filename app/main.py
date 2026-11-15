@@ -155,6 +155,8 @@ from . import i18n as _i18n
 _i18n.install(templates.env)   # _("ข้อความไทย") · |tr · html_lang() · lang_links() — แปลตามภาษาที่เลือก
 from . import csrf as _csrf, flags as _flags
 _csrf.install(templates.env)   # {{ csrf_input(request) }} สำหรับฟอร์มของ route ใหม่ที่ใช้ require_csrf
+from . import analytics as _an
+_an.install(templates.env)     # {{ att_fields(request) }} ที่มาของผู้ตรวจเว็บ (stage 08B · flag analytics)
 templates.env.globals["flag_active"] = _flags.active   # {% if flag_active("marketing_v2", request) %}
 templates.env.filters["urlpath"] = lambda u, n=60: deep_audit._path(u, n)   # รายงานเต็ม: path อ่านง่าย ไม่ล้นตาราง
 templates.env.globals["sidebar_brands"] = lambda req: (
@@ -738,9 +740,11 @@ def audit_page(request: Request, src: str = "", ref: str = ""):
 
 
 @app.post("/audit")
-def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form(""), ref: str = Form("")):
+def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form(""), ref: str = Form(""),
+              utm_source: str = Form(""), ent: str = Form("")):
     src = _src(src)
     ref = _ref(request, ref)
+    att = _an.classify(partner=bool(ref), utm_source=utm_source, src=src, entry=ent)   # stage 08B: ที่มาแบบ allowlist
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
@@ -761,6 +765,7 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
         recent = None                                     # ลีดของคนอื่น → ไม่ส่งต่อ token/ข้อมูลของเขา สร้างลีดใหม่ให้ผู้ขอคนนี้
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
         _remember_lead_lang(request, recent["id"])
+        _an.emit("audit_started", recent["id"], {"reused": True}, request=request, **att)
         return _redirect(f"/audit/{recent['token']}")   # คนเดิม โดเมนเดิม ภายใน 24 ชม. ใช้ผลเดิม
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
     _remember_lead_lang(request, lid)                     # ภาษาของหน้า = ภาษาอีเมลที่ลีดจะได้รับ
@@ -769,6 +774,7 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     if ref:
         from . import partners
         partners.attribute(lid, ref, "ลิงก์แนะนำ")              # มาจากพันธมิตร (ครั้งแรกเท่านั้น)
+    _an.emit("audit_started", lid, {"reused": False}, request=request, **att)
     from . import flags, snapshot
     if flags.active("snapshot_v2", request):                # stage 04A: ตรวจเบื้องหลัง แล้วพาไปหน้าสถานะจริงทันที (ไม่ให้รอค้างที่ปุ่ม)
         token = db.get_lead(lid)["token"] or leads.new_token()
@@ -778,7 +784,9 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     try:
         token = _run_lead_audit(lid, site, ip)
         db.update_lead(lid, audit_by=by)                  # None = คนทั่วไป (นับรวมโควตาของ IP)
+        _an.emit("audit_completed", lid, {"status": "completed"}, request=request)
     except Exception:
+        _an.emit("audit_completed", lid, {"status": "failed"}, request=request)
         return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url, "src": src})
     deep_audit.start(lid)                                 # รายงานเต็มชั้น 1 ทำต่อเบื้องหลัง หน้าผลจะอัปเดตเอง
     return _redirect(f"/audit/{token}")
@@ -809,7 +817,7 @@ def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, 
     vm["history"] = report_view.history(lead)
     vm["next"] = report_view.next_step(ctx_on, bc, plan_on, pr, report_view.shown_quote(lead["id"]))
     resp = templates.TemplateResponse(request, "mk/report.html", {
-        "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
+        "an_on": _an.enabled() and not _an._excluded(request), "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
         "bc_note": business_context.ai_comparability(lead, deep_audit.tier2(lead)) if ctx_on else None,
         "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr, "line_on": plan_on and line_plan.active(request),
         "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
@@ -885,12 +893,13 @@ async def audit_context(request: Request, token: str):
     if err:
         return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors=err, status_code=422)
     try:
-        business_context.save(lead, v, "customer")
+        ver = business_context.save(lead, v, "customer")
     except ValueError as e:
         return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors={"_": str(e)}, status_code=409)
     except Exception:
         return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, status_code=500,
                           bc_errors={"_": "บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกเปลี่ยน ลองกดบันทึกอีกครั้ง"})
+    _an.emit("business_context_confirmed", lead["id"], {"version": ver}, request=request)   # หลังบันทึกสำเร็จเท่านั้น
     return _redirect(f"/audit/{token}?ctx=1#context")
 
 
@@ -905,7 +914,22 @@ def audit_line(request: Request, token: str):
     if not lead:
         return _redirect("/audit")
     url = line_plan.oa_message_url(line_plan.prefill_text(lead, line_plan.code_for(lead)))
+    _an.emit("booking_link_clicked", lead["id"], {"target": "line"}, request=request)   # นับฝั่งเซิร์ฟเวอร์ ไม่ต้องใช้ JS
     return RedirectResponse(url, status_code=303, headers={"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.post("/audit/{token}/event", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_event(request: Request, token: str):
+    """stage 08B: การกระทำจากเบราว์เซอร์ (เปิดหลักฐาน) · same-origin + CSRF · รับเฉพาะชื่อ/ค่าที่อยู่ในรายการ · flag ปิด = 404"""
+    from fastapi import HTTPException
+    if not _an.enabled():
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    res = _an.emit_browser(str(form.get("name") or ""), lead["id"], {"section": form.get("section"), "lane": form.get("lane")}, request=request)
+    return Response(status_code=204 if res in ("ok", "dup", "capped", "off") else 400)
 
 
 @app.get("/audit/{token}/progress")
@@ -3854,6 +3878,18 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "stripe": stripe_pay.public_config(),
         "saved": saved, "error": error,
     }
+
+
+@app.get("/admin/analytics")
+def admin_analytics(request: Request, days: int = 30):
+    """stage 08B: funnel ภายในจาก analytics_events (อ่านอย่างเดียว)"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    labels = {"audit_started": "เริ่มตรวจเว็บ", "audit_completed": "ตรวจเสร็จ (รวมบางส่วน/ล้ม)", "business_context_confirmed": "ยืนยันข้อมูลธุรกิจ",
+              "evidence_opened": "เปิดดูหลักฐาน", "plan_requested": "ขอแผน", "booking_link_clicked": "กดคุยต่อใน LINE",
+              "meeting_booked": "นัดคุยสำเร็จ"}
+    return templates.TemplateResponse(request, "admin_analytics.html",
+                                      {"f": _an.funnel(max(1, min(days, 365))), "labels": labels, "on": _an.enabled()})
 
 
 @app.get("/admin/settings")

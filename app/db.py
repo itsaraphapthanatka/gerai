@@ -486,6 +486,17 @@ def _tables() -> list[str]:
             created_at TEXT NOT NULL,
             UNIQUE (lead_id, version)
         )""",
+        # stage 08B: เหตุการณ์ funnel ภายใน — ไม่มี IP/UA/token/URL/ข้อมูลติดต่อ · lead_id ใช้ภายในเท่านั้น
+        f"""CREATE TABLE IF NOT EXISTS analytics_events (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            name TEXT NOT NULL,
+            origin TEXT NOT NULL,
+            lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+            source TEXT NOT NULL,
+            utm_source TEXT,
+            props_json TEXT NOT NULL DEFAULT '{{}}'
+        )""",
         # stage 05-full: ประวัติเวอร์ชันรายงาน — เพิ่มอย่างเดียว · บันทึกเมื่อผลวัดเปลี่ยน (fingerprint) · ข้อมูลดิบเดิมใน leads ไม่แตะ
         f"""CREATE TABLE IF NOT EXISTS report_versions (
             id {_PK},
@@ -1735,6 +1746,42 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
         except Exception as e:
             last = e
     raise RuntimeError(f"บันทึกข้อมูลธุรกิจไม่สำเร็จ ({type(last).__name__})")
+
+
+# ---- เหตุการณ์ funnel ภายใน (stage 08B) ----
+def add_analytics_event(name: str, origin: str, lead_id, source: str, utm_source, props_json: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO analytics_events(created_at, name, origin, lead_id, source, utm_source, props_json) VALUES(?,?,?,?,?,?,?)"),
+                  (now(), name, origin, lead_id, source, utm_source, props_json))
+
+
+def analytics_source_of(lead_id: int) -> str | None:
+    """ที่มาของลีด = ของ audit_started ครั้งแรก"""
+    with get_conn() as c:
+        r = c.execute(q("SELECT source FROM analytics_events WHERE lead_id=? AND name='audit_started' ORDER BY id LIMIT 1"), (lead_id,)).fetchone()
+    return r["source"] if r else None
+
+
+def analytics_recent(name: str, lead_id: int, props_json: str, since: str) -> bool:
+    with get_conn() as c:
+        return c.execute(q("SELECT 1 FROM analytics_events WHERE name=? AND lead_id=? AND props_json=? AND created_at>=? LIMIT 1"),
+                         (name, lead_id, props_json, since)).fetchone() is not None
+
+
+def analytics_count_since(lead_id: int, since: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM analytics_events WHERE lead_id=? AND created_at>=?"), (lead_id, since)).fetchone()["n"]
+
+
+def list_analytics_events(limit: int = 50):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM analytics_events ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def analytics_summary(since: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT name, source, COUNT(*) AS n, COUNT(DISTINCT lead_id) AS leads FROM analytics_events "
+                           "WHERE created_at>=? GROUP BY name, source"), (since,)).fetchall()
 
 
 # ---- ประวัติเวอร์ชันรายงาน (stage 05-full) ----

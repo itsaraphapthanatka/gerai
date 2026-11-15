@@ -80,6 +80,16 @@ def active(lead) -> bool:
     return view(lead).get("state") in ("queued", "running")
 
 
+def _done_event(lead_id: int, status: str) -> None:
+    """stage 08B: นับ audit_completed เฉพาะการตรวจที่มี audit_started (ไม่นับงานที่ทีมสั่งตรวจเอง)"""
+    try:
+        from . import analytics
+        if analytics.enabled() and db.analytics_source_of(lead_id):
+            analytics.emit("audit_completed", lead_id, {"status": status})
+    except Exception:
+        pass
+
+
 def start(lead_id: int, site: str, ip: str = "") -> str:
     """เริ่มตรวจเบื้องหลัง · กดซ้ำระหว่างกำลังตรวจ = ไม่เริ่มซ้ำ (คืน "running") · คืน "started" """
     with _LOCK:                                            # กันสอง request เริ่มงานของลีดเดียวกันพร้อมกัน (ใน process เดียว)
@@ -124,6 +134,7 @@ def run(lead_id: int, site: str, ip: str = "") -> dict:
             if s["state"] == "running":
                 s["state"] = "failed"
         _save(lead_id, d)
+        _done_event(lead_id, "failed")
         return d
     skipped = set(report.get("skipped") or [])
     for s in d["steps"]:
@@ -140,6 +151,7 @@ def run(lead_id: int, site: str, ip: str = "") -> dict:
     d["finished_at"] = d["updated_at"] = db.now()
     pipeline.save_lead_audit(lead_id, report, ip)
     _save(lead_id, d)
+    _done_event(lead_id, d["state"])
     try:
         from . import deep_audit
         deep_audit.start(lead_id)                         # รายงานเต็มชั้น 1 แบบเดิม (ไม่เปลี่ยนสิทธิ์/เพดานเดิม)

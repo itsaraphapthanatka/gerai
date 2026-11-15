@@ -18,7 +18,7 @@
 <form class="mk-stack" method="post" action="/audit" style="max-width:520px;gap:12px"{% if anchor %} data-actbar-anchor{% endif %}>
   {{ ui.field(fid, "ที่อยู่เว็บไซต์ของคุณ", name="url", placeholder="example.co.th", help="ไม่ต้องสมัคร ไม่ต้องกรอกเบอร์โทรหรืออีเมลก่อนเห็นผล", required=True, autocomplete="url") }}
   <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-  <input type="hidden" name="src" value="{{ src or '' }}"><input type="hidden" name="ref" value="{{ ref or '' }}">
+  <input type="hidden" name="src" value="{{ src or '' }}"><input type="hidden" name="ref" value="{{ ref or '' }}">{{ att_fields(request) }}
   <div>{{ ui.button("ตรวจเว็บไซต์ของฉัน", type="submit") }}</div>
 </form>
 {%- endmacro %}
