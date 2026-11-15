@@ -20,13 +20,27 @@ def _render(request: Request, name: str, ctx: dict | None = None, *, internal: b
     return resp
 
 
+def public_base(request: Request) -> str:
+    """stage 08A: ฐาน URL สำหรับ canonical/hreflang = โดเมนเดียวกับ sitemap (แบรนด์ของเจอ.AI เอง) · ยังไม่ตั้ง = host ของคำขอ
+    (กัน canonical เป็น http:// หลัง proxy หรือคนละ host กับ sitemap)"""
+    try:
+        from .main import _self_brand
+        from .geo_content import _site_url
+        b = _self_brand()
+        if b and (b["domain"] or "").strip():
+            return _site_url(b)
+    except Exception:
+        pass
+    return str(request.base_url).rstrip("/")
+
+
 def _home_ctx(request: Request) -> dict:
     """ข้อมูลจริงเท่านั้น: ราคาเริ่มต้นอ่านจาก billing.PLANS (ไม่พิมพ์ตัวเลขเอง) · src/ref ผ่านตัวกรองเดิมของ /audit
     SEO ต่อจากหน้าเดิม: canonical = /, hreflang ชี้หน้าภาษาอื่นเดิม, ลิงก์บทความล่าสุด"""
     from . import billing, landing_i18n as L
     from .main import _src, _ref, _home_articles
     pro = billing.PLANS.get("pro") or {}
-    base = str(request.base_url).rstrip("/")
+    base = public_base(request)
     return {"price_from": pro.get("price") or None,
             "src": _src(request.query_params.get("src", "")) or "home",
             "ref": _ref(request, request.query_params.get("ref", "")),

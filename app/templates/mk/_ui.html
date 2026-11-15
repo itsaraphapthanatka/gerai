@@ -87,6 +87,13 @@
   </figure>
 {%- endmacro %}
 
+{# stage 08A: ข้อมูลโครงสร้าง FAQPage จากรายการเดียวกับที่แสดงบนหน้า (ไม่มีคำถามที่ผู้อ่านมองไม่เห็น) · tojson escape < > & ให้แล้ว #}
+{% macro faq_ld(items) -%}
+  {%- set ents = [] -%}
+  {%- for q, a in items %}{% set _ = ents.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}) %}{% endfor -%}
+  <script type="application/ld+json">{{ {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": ents}|tojson }}</script>
+{%- endmacro %}
+
 {% macro faq(items) -%}
   <div class="mk-faq">{% for q, a in items %}<details><summary>{{ q }}</summary><p>{{ a }}</p></details>{% endfor %}</div>
 {%- endmacro %}

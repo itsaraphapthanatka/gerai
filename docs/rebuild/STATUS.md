@@ -14,6 +14,17 @@
 | 03 หน้าบริการ (เริ่ม 4 หน้า) | **เสร็จ หลัง flag `marketing_v2` (ปิด) · เจ้าของยืนยันขอบเขต Foundation Sprint แล้ว** | 2026-11-15 | ภาพนิ่ง `previews/03-*.html` · รายละเอียดด้านล่าง |
 | 04B ยืนยันข้อมูลธุรกิจ | **เสร็จ หลัง flag `context_v2` (ปิด · ต้องเปิดคู่ `report_v2`)** | 2026-11-15 | ภาพนิ่ง `previews/04b-*.html` · รายละเอียดด้านล่าง |
 | 05-full รายงานเต็ม | **เสร็จ หลัง flag `report_v2` (ปิด) · บางส่วนต้องเปิด `context_v2`** | 2026-11-15 | ภาพนิ่ง `previews/05-full-*.html` · รายละเอียดด้านล่าง |
+| 08A QA/SEO | **เสร็จ · พร้อม staging ยังไม่อนุญาต production** | 2026-11-15 | ดู `WEBSITE_RELEASE_CHECKLIST.md` · header หน้าลิงก์ลับมีผลทันที (ไม่ผ่าน flag) · รายละเอียดด้านล่าง |
+
+## stage 08A — QA/SEO + release checklist
+- **เอกสารหลัก: `docs/rebuild/WEBSITE_RELEASE_CHECKLIST.md`** — ผลตรวจจริง สิ่งที่ค้าง flag การเปลี่ยนฐานข้อมูล วิธีย้อนกลับ แคช และ checklist ก่อน staging / production · สถานะ: พร้อมขึ้น staging ให้เจ้าของลอง **ยังไม่อนุญาต production**
+- **แก้ 1 (มีผลทันที ไม่ผ่าน flag · เปลี่ยนแค่ header):** หน้าลิงก์ลับ/หลังล็อกอินรวม PDF (ใบเสนอราคา บิล เอกสาร) ได้ `X-Robots-Tag: noindex, nofollow` + `Cache-Control: private, no-store` (ถ้ายังไม่ได้ตั้ง no-store) + `Referrer-Policy: no-referrer` · middleware `_private_headers` + `PRIVATE_PREFIXES` ใน `app/main.py` · ก่อนแก้ PDF ไม่มี header เหล่านี้เลย
+- **แก้ 2 (หลัง `marketing_v2`):** canonical/hreflang ของหน้าใหม่ใช้โดเมนเดียวกับ sitemap (`marketing_web.public_base`) แทน host ของคำขอ
+- **แก้ 3 (หลัง `marketing_v2`):** ข้อมูลโครงสร้างบนหน้าแรก: Organization (ชื่อ ที่อยู่เว็บ คำอธิบาย) + FAQPage จากรายการคำถามเดียวกับที่แสดง (`ui.faq_ld`) · ไม่มีรีวิว/คะแนน/โลโก้ที่ไม่ได้แสดง
+- เทสต์ใหม่ `qa_release_smoke.py`: meta/canonical/h1 ทุกหน้า · ป้ายช่องกรอก · ฟอร์มไม่ต้องใช้ JS · alt · ลิงก์ภายในไม่เสีย · JSON-LD ตรงกับที่เห็น · sitemap/robots · header หน้าลิงก์ลับ 13 เส้นทาง · service worker · เส้นทางลูกค้าต้นจนจบถึง Sales Brief · flag ปิด/เปิด
+- ตรวจในเบราว์เซอร์จริง (local): 6 หน้า × 360/390/768/1280px ไม่มีล้นแนวนอน ไม่มีรูปไม่มี alt · คีย์บอร์ด: skip link มาก่อน กรอบโฟกัสเห็นชัด
+- **ไม่ได้รัน Lighthouse/axe** (เครื่องนี้ไม่มี Node) — ไม่มีคะแนนจากเครื่องมือ ต้องรันบน staging
+- analytics แยกไป stage 08B
 
 ## stage 05-full — รายงานเต็ม: หลักฐาน ตัวเลขดิบ เทียบคู่แข่ง ตัวอย่างร่าง ประวัติเวอร์ชัน
 - ยังอยู่หลัง flag `report_v2` (ปิด) · ส่วนที่ใช้ข้อมูลธุรกิจ (เทียบคู่แข่งที่ลูกค้าเลือก, ตัวอย่างร่าง, ป้ายคำถามที่ลูกค้าเลือก, ขั้น "ยืนยันข้อมูลธุรกิจ") ต้องเปิด `context_v2` ด้วย
@@ -191,7 +202,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-15 (หลัง 05-full): **71/71 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-15 (หลัง 08A): **72/72 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

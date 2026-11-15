@@ -95,6 +95,30 @@ async def _no_cache_html(request: Request, call_next):
     return resp
 
 
+# stage 08A: หน้าที่เปิดด้วยลิงก์ลับ/หลังล็อกอิน (รายงาน ใบเสนอราคา บิล เอกสาร PDF แอปลูกค้า หลังบ้าน) — ห้ามเก็บเข้า index
+# ห้ามแคชร่วม และไม่ส่ง URL ที่มี token ต่อไปเว็บอื่นทาง Referer · ใช้กับ PDF ด้วย (PDF ใส่ meta robots ไม่ได้)
+# robots.txt / noindex ไม่ใช่การป้องกัน: ใครมีลิงก์ก็ยังเปิดได้ (ดู WEBSITE_RELEASE_CHECKLIST.md)
+PRIVATE_PREFIXES = ("/audit/", "/q/", "/bill/", "/doc/", "/u/", "/partner/", "/contract", "/app", "/admin", "/account", "/brands",
+                    "/preview", "/chat/", "/upgrade", "/notifications", "/pay")
+
+
+def _is_private_path(path: str) -> bool:
+    """"/audit/" = เฉพาะใต้ /audit/ (ไม่รวมหน้าฟอร์ม /audit) · "/app" = /app และใต้ /app/ (ไม่รวม /apple)"""
+    return any(path.startswith(p) if p.endswith("/") else (path == p or path.startswith(p + "/")) for p in PRIVATE_PREFIXES)
+
+
+@app.middleware("http")
+async def _private_headers(request: Request, call_next):
+    resp = await call_next(request)
+    if _is_private_path(request.url.path):
+        resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        cc = resp.headers.get("cache-control", "")
+        if not cc or "public" in cc or "max-age" in cc and "no-store" not in cc:
+            resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
 @app.middleware("http")
 async def _remember_lang(request: Request, call_next):
     """?lang=xx บนหน้าใดก็ได้ = จำภาษาลงคุกกี้ (หน้าถัดไปทั้งเว็บใช้ภาษานี้) · หน้าแรก /en /zh /ja /ko ตั้งเอง"""

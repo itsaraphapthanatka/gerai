@@ -115,7 +115,8 @@ INDUSTRIAL = {
 def ctx(request) -> dict:
     """ข้อมูลร่วมทุกหน้า: canonical (เฉพาะเมื่อเปิดจริง) + ราคาแผนรายเดือนจาก billing.PLANS (ไม่พิมพ์ตัวเลขเอง)"""
     from . import billing
-    base = str(request.base_url).rstrip("/")
+    from .marketing_web import public_base
+    base = public_base(request)
     plans = [{"label": p["label"], "price": p["price"], "period": p["period"], "tagline": p["tagline"]}
              for k, p in billing.PLANS.items() if k in ("pro", "agency") and p.get("price")]
     return {"base": base, "canonical": base + request.url.path, "plans": plans, "scope_status": SCOPE_STATUS,

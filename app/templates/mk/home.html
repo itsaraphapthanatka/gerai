@@ -10,7 +10,9 @@
 {% for a in alternates or [] %}<link rel="alternate" hreflang="{{ a.hreflang }}" href="{{ a.href }}">
 {% endfor %}<link rel="alternate" hreflang="x-default" href="{{ canonical }}">
 <meta property="og:type" content="website"><meta property="og:url" content="{{ canonical }}"><meta property="og:locale" content="th_TH">
-<meta property="og:title" content="เจอ.AI · ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?"><meta property="og:description" content="{{ desc }}">{% endif %}{% endblock %}
+<meta property="og:title" content="เจอ.AI · ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?"><meta property="og:description" content="{{ desc }}">
+{# stage 08A: ข้อมูลองค์กรเท่าที่เห็นบนหน้า (ชื่อ ที่อยู่เว็บ คำอธิบาย) ไม่ใส่คะแนนรีวิว/ราคา/ที่อยู่ที่ไม่ได้แสดง #}
+<script type="application/ld+json">{{ {"@context": "https://schema.org", "@type": "Organization", "name": "เจอ.AI", "url": canonical, "description": desc}|tojson }}</script>{% endif %}{% endblock %}
 
 {% macro audit_form(fid, anchor=False) -%}
 <form class="mk-stack" method="post" action="/audit" style="max-width:520px;gap:12px"{% if anchor %} data-actbar-anchor{% endif %}>
@@ -122,13 +124,15 @@
 <section class="mk-section" aria-labelledby="h-faq" style="background:var(--mk-surface)">
   <div class="mk-wrap mk-stack" style="gap:18px;max-width:820px">
     <h2 id="h-faq">คำถามที่พบบ่อย</h2>
-    {{ ui.faq([
+    {% set faqs = [
       ("รับประกันไหมว่า AI จะแนะนำธุรกิจเรา", "ไม่มีใครรับประกันได้ เพราะ AI และระบบค้นหาตัดสินเอง สิ่งที่เราทำได้คือหาสิ่งที่ทำให้ข้อมูลของคุณถูกเข้าใจยาก แก้ตามขอบเขตที่ตกลง แล้ววัดผลด้วยวิธีเดิมและรายงานตามจริง"),
       ("ต้องกรอกเบอร์โทรหรืออีเมลก่อนไหม", "ไม่ต้อง ใส่ที่อยู่เว็บแล้วเห็นผลเบื้องต้นได้เลย จะทิ้งช่องทางติดต่อหรือไม่ก็ได้หลังเห็นผลแล้ว"),
       ("ข้อมูลอะไรของเราที่ถูกใช้", "เฉพาะหน้าเว็บที่เปิดสาธารณะ เราไม่เข้าระบบหลังบ้านของคุณ และไม่เผยแพร่ผลตรวจของคุณต่อสาธารณะ"),
       ("ต่างจากการทำ SEO อย่างไร", "SEO ดูอันดับในการค้นเว็บ เราดูทั้งการค้นเว็บและคำตอบของ AI แยกกันคนละช่อง งานหลายอย่างช่วยทั้งสองทาง เช่น ข้อมูลโครงสร้างและหน้าที่ตอบคำถามลูกค้าตรง ๆ"),
       ("ราคาเท่าไร", ("เริ่มต้น ฿" ~ "{:,}".format(price_from) ~ "/เดือน ยังไม่รวม VAT 7% ราคาจริงขึ้นกับขอบเขตงาน เราส่งข้อเสนอหลังคุยกัน") if price_from else "ราคาตามขอบเขตงาน เราส่งข้อเสนอหลังคุยกัน")
-    ]) }}
+    ] %}
+    {{ ui.faq(faqs) }}
+    {% if canonical and not preview %}{{ ui.faq_ld(faqs) }}{% endif %}
     <div class="mk-card mk-stack" style="gap:12px">
       <h3>เริ่มจากดูว่าเว็บไซต์ของคุณอยู่ตรงไหน</h3>
       {{ audit_form("home-url-2") }}
