@@ -110,9 +110,73 @@ def _q_marketing() -> dict:
                  [("รับข่าวสาร", "jp:mkt:1"), ("ไม่รับ", "jp:mkt:0")])
 
 
+def _appt_on() -> bool:
+    """stage 06A-2: เลือกเวลานัดได้เมื่อทีมตั้งช่องเวลาแล้ว (flag line_appointments เปิดอยู่แล้วในเส้นทางนี้)"""
+    from . import appointments, flags
+    return flags.enabled("line_appointments") and appointments.configured()
+
+
 def _done_msg() -> dict:
+    if _appt_on():
+        return _text("ขอบคุณครับ ทีมเจอ.AI จะทักกลับในแชตนี้ภายใน 1 วันทำการ เพื่อพาดูรายงานและสรุปว่าควรแก้อะไรก่อน "
+                     "ถ้าอยากนัดคุยกับทีม เลือกเวลาได้เลย หรือให้โทรหาก็ได้", [("เลือกเวลานัดคุย", "jp:appt:pick"), ("ขอให้โทรหาแทน", "jp:call:1")])
     return _text("ขอบคุณครับ ทีมเจอ.AI จะทักกลับในแชตนี้ภายใน 1 วันทำการ เพื่อพาดูรายงานและสรุปว่าควรแก้อะไรก่อน "
                  "ถ้าสะดวกให้โทรคุยมากกว่า กดปุ่มด้านล่างได้", [("ขอให้โทรหาแทน", "jp:call:1")])
+
+
+def _slot_msg(lead_id: int, intro: str = "") -> dict:
+    from . import appointments as AP
+    opts = AP.slots(exclude_lead=lead_id)
+    cur = AP.active_for_lead(lead_id)
+    if not opts:
+        return _text((intro + " " if intro else "") + "ช่วงนี้ยังไม่มีเวลาว่างที่เปิดไว้ ทีมจะทักกลับในแชตนี้เพื่อหาเวลาที่สะดวกครับ")
+    head = intro or ("เลือกเวลาใหม่ที่สะดวก" if cur and cur["slot_start"] else "เลือกเวลาที่สะดวกคุยกับทีม")
+    cfg = AP.config()
+    return _text(f"{head} ({cfg['duration_min']} นาที · {AP.FORMAT_LABEL.get(cfg['format'], cfg['format'])} · เวลาไทย) "
+                 "เลือกแล้วทีมจะยืนยันในแชตนี้อีกครั้ง",
+                 [(AP.label(x), f"jp:slot:{AP.slot_code(x)}") for x in opts] + [("ไม่สะดวกช่วงนี้", "jp:appt:none")])
+
+
+def _appt_postback(user_id: str, s, kind: str, val: str, reply_token: str | None) -> str:
+    from . import appointments as AP, pipeline
+    lid = s["lead_id"]
+    lead = db.get_lead(lid) if lid else None
+    if not lead or not _appt_on() or s["step"] == "stopped":
+        return "postback_ignored"
+    if kind == "appt" and val == "pick":
+        line_oa.reply_messages(reply_token, [_slot_msg(lid)])
+        return "appt_offered"
+    if kind == "appt" and val == "none":
+        db.add_lead_event(lid, "wants_call", "ลูกค้าไม่สะดวกช่วงเวลาที่เปิดไว้ (LINE) ขอให้ทีมทักหาเวลา", "customer")
+        pipeline.alert_admins(f"📅 ลูกค้าไม่สะดวกเวลาที่เปิดไว้ ขอให้ทักหาเวลา: {lead['domain']}", f"/admin/leads/{lid}#brief", "lead")
+        line_oa.reply(reply_token, ["ได้ครับ ทีมจะทักกลับในแชตนี้เพื่อหาเวลาที่สะดวก"])
+        return "appt_none"
+    if kind == "appt" and val == "cancel":
+        a = AP.active_for_lead(lid)
+        if not a or not AP.cancel(a["id"], "customer"):
+            line_oa.reply(reply_token, ["ตอนนี้ไม่มีนัดที่ยกเลิกได้ครับ"])
+            return "appt_nothing"
+        pipeline.alert_admins(f"📅 ลูกค้ายกเลิกนัด {AP.label(a['slot_start'])}: {lead['domain']}", f"/admin/leads/{lid}#brief", "lead")
+        line_oa.reply_messages(reply_token, [_text(f"ยกเลิกนัด {AP.label(a['slot_start'])} แล้วครับ ถ้าต้องการนัดใหม่ กดด้านล่างหรือพิมพ์ \"นัด\" ได้เลย",
+                                                   [("เลือกเวลาใหม่", "jp:appt:pick")])])
+        return "appt_cancelled"
+    if kind == "slot":
+        iso = AP.from_code(val)
+        try:
+            res = AP.request(lid, iso or "", by="customer", plan_id=s["plan_id"], line_user_id=user_id)
+        except AP.SlotTaken:
+            line_oa.reply_messages(reply_token, [_slot_msg(lid, "เวลานี้เพิ่งมีคนเลือกไป")])
+            return "appt_taken"
+        except AP.NotOffered:
+            line_oa.reply_messages(reply_token, [_slot_msg(lid, "เวลานี้เลือกไม่ได้แล้ว")])
+            return "appt_not_offered"
+        w = AP.label(iso)
+        verb = "ขอเลื่อนนัด" if res["kind"] == "rescheduled" else "ขอนัด"
+        pipeline.alert_admins(f"📅 {verb} {w} รอยืนยัน: {lead['domain']}", f"/admin/leads/{lid}#appointment", "lead")
+        line_oa.reply_messages(reply_token, [_text(f"รับคำ{verb}คุย {w} แล้วครับ ยังไม่ใช่นัดที่ยืนยัน ทีมจะยืนยันเวลาในแชตนี้อีกครั้ง",
+                                                   [("เปลี่ยนเวลา", "jp:appt:pick"), ("ยกเลิกนัด", "jp:appt:cancel")])])
+        return "appt_rescheduled" if res["kind"] == "rescheduled" else "appt_requested"
+    return "postback_ignored"
 
 
 def _summary(lead) -> str:
@@ -212,7 +276,7 @@ def redeem(user_id: str, code: str, reply_token: str | None) -> str:
 
 def postback(user_id: str, data: str, reply_token: str | None) -> str:
     """ปุ่มตอบเร็ว · ยอมรับเฉพาะผู้ใช้ที่มีสถานะแชตจากรหัสแล้ว และค่าที่อยู่ในรายการเท่านั้น"""
-    m = re.fullmatch(r"jp:(win|web|mkt|call):([a-z0-9_]{1,12})", data or "")
+    m = re.fullmatch(r"jp:(win|web|mkt|call|appt|slot):([a-z0-9_]{1,12})", data or "")
     s = db.get_line_session(user_id) if user_id else None
     if not m or not s or not s["plan_id"] or not db.get_plan_request(s["plan_id"]):
         return "postback_ignored"
@@ -220,6 +284,8 @@ def postback(user_id: str, data: str, reply_token: str | None) -> str:
         return "paused"
     kind, val = m.groups()
     pid = s["plan_id"]
+    if kind in ("appt", "slot"):
+        return _appt_postback(user_id, s, kind, val, reply_token)
     if kind == "win" and val in WIN_CHOICES:
         db.update_plan_request(pid, desired_window=val)
         db.save_line_session(user_id, step="web")
@@ -257,6 +323,12 @@ def text(user_id: str, t: str, reply_token: str | None) -> str | None:
         return None
     if any(w in t for w in STOP_WORDS):
         return stop(user_id, s, reply_token)
+    if s["step"] != "stopped" and s["lead_id"] and _appt_on():         # stage 06A-2: พิมพ์ขอนัด/เลื่อน/ยกเลิก
+        tt = t.strip()
+        if "ยกเลิกนัด" in tt:
+            return _appt_postback(user_id, s, "appt", "cancel", reply_token)
+        if "เลื่อนนัด" in tt or tt in ("นัด", "นัดคุย", "ขอนัด", "เลือกเวลา", "เลือกเวลานัด"):
+            return _appt_postback(user_id, s, "appt", "pick", reply_token)
     if s["step"] == "phone":
         digits = re.sub(r"\D", "", t)
         if PR._PHONE.match(t.strip()) and 9 <= len(digits) <= 12:

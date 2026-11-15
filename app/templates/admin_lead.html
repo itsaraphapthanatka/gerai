@@ -93,6 +93,13 @@
   </div>
 </div>
 {% endif %}
+{% if appt %}
+<div class="card" id="appointment">
+  <h2 style="margin-top:0;font-size:15px">📅 นัดคุย</h2>
+  {% with a=appt %}{% include "_appt_card.html" %}{% endwith %}
+  <a class="muted" style="font-size:12px" href="/admin/appointments">นัดทั้งหมดและช่องเวลา →</a>
+</div>
+{% endif %}
 {% if lead['status'] == 'unsubscribed' %}<div class="err-banner">ลูกค้าขอไม่รับการติดต่อเมื่อ {{ (lead['unsub_at'] or '')[:16].replace('T',' ') }} — ระบบไม่ส่งข้อความใด ๆ ถึงรายนี้อีก</div>{% endif %}
 
 <div class="card ld-deal" id="deal-{{ lead['id'] }}">

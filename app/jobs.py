@@ -434,8 +434,14 @@ def handle_test_message(job, worker: str) -> dict:
     return {"outbox_id": oid, "created": created}
 
 
-HANDLERS = {"deep_ai": handle_deep_ai, "test_message": handle_test_message}
-KIND_LABEL = {"deep_ai": "ทดสอบ AI ของรายงาน", "test_message": "ข้อความทดสอบ (outbox ไม่ส่งจริง)"}
+def handle_appt_message(job, worker: str) -> dict:
+    from . import appointments
+    return appointments.handle_message(job, worker)
+
+
+HANDLERS = {"deep_ai": handle_deep_ai, "test_message": handle_test_message, "appt_message": handle_appt_message}
+KIND_LABEL = {"deep_ai": "ทดสอบ AI ของรายงาน", "test_message": "ข้อความทดสอบ (outbox ไม่ส่งจริง)",
+              "appt_message": "ข้อความนัดคุย LINE (outbox ไม่ส่งจริง)"}
 
 
 # ---------- worker ----------

@@ -820,7 +820,12 @@ def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, 
     if bc and bc_form is not None:
         bc["form"] = bc_form
     vm["history"] = report_view.history(lead)
-    vm["next"] = report_view.next_step(ctx_on, bc, plan_on, pr, report_view.shown_quote(lead["id"]))
+    try:
+        from . import appointments as _ap
+        _appt = _ap.active_for_lead(lead["id"]) if _flags.active("line_appointments", request) else None
+    except Exception:
+        _appt = None
+    vm["next"] = report_view.next_step(ctx_on, bc, plan_on, pr, report_view.shown_quote(lead["id"]), _appt)
     resp = templates.TemplateResponse(request, "mk/report.html", {
         "an_on": _an.enabled() and not _an._excluded(request), "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
         "bc_note": business_context.ai_comparability(lead, deep_audit.tier2(lead)) if ctx_on else None,
@@ -1374,7 +1379,12 @@ def _lead_ctx(lead, notice: str = "") -> dict:
         _line_bot = _lp.lead_bot(lead["id"])
     except Exception:
         _line_bot = None
-    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    try:                                                                # stage 06A-2: นัดคุยล่าสุดของลีด
+        from . import appointments as _ap
+        _appt = _ap.latest_for_lead(lead["id"])
+    except Exception:
+        _appt, _ap = None, None
+    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "appt": _appt, "AP": _ap, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -1416,6 +1426,30 @@ def admin_lead_line_bot(request: Request, lead_id: int, action: str = Form("")):
     db.add_lead_event(lead_id, "note", ("พักบอท LINE" if action == "pause" else "เปิดบอท LINE กลับ") + f" ({n} ห้องแชต)", request.session.get("email") or "admin")
     msg = (f"พักบอทแล้ว {line_plan.PAUSE_HOURS} ชม. — ตอบลูกค้าเองใน LINE OA Manager" if action == "pause" else "เปิดบอทกลับแล้ว") if n else "ลีดนี้ยังไม่มีแชต LINE ที่ผูกไว้"
     return _redirect(f"/admin/leads/{lead_id}?notice={quote(msg)}#brief")
+
+
+@app.post("/admin/appointments/{appt_id}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_appointment_action(request: Request, appt_id: int, action: str, version: int = Form(0), reason: str = Form("")):
+    """stage 06A-2: ทีมยืนยัน (= นัดสำเร็จ) / ยกเลิก / คุยแล้ว / ลูกค้าไม่มา"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import appointments as ap
+    a = ap.get(appt_id)
+    if not a or action not in ("confirm", "cancel", "complete", "no-show"):
+        return _redirect("/admin/appointments")
+    who = request.session.get("email") or "admin"
+    if action == "confirm":
+        ok, why = ap.confirm(appt_id, who, version)
+        msg = f"ยืนยันนัด {ap.label(a['slot_start'])} แล้ว — ระบบยังไม่ส่งข้อความยืนยันให้ลูกค้าเอง (โหมดทดสอบ) แจ้งลูกค้าใน LINE OA Manager ด้วย" if ok else why
+    elif action == "cancel":
+        ok = ap.cancel(appt_id, who, reason)
+        msg = "ยกเลิกนัดแล้ว — แจ้งลูกค้าใน LINE OA Manager ด้วย" if ok else "ยกเลิกไม่ได้ (นัดไม่ได้อยู่ในสถานะที่ยกเลิกได้)"
+    else:
+        ok, why = ap.mark(appt_id, "completed" if action == "complete" else "no_show", who)
+        msg = "บันทึกแล้ว" if ok else why
+    back = request.headers.get("referer") or ""
+    dest = "/admin/appointments" if "/admin/appointments" in back else f"/admin/leads/{a['lead_id']}"
+    return _redirect(f"{dest}?notice={quote(msg)}#appointment")
 
 
 @app.post("/admin/leads/{lead_id}/note")
@@ -3883,6 +3917,32 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "stripe": stripe_pay.public_config(),
         "saved": saved, "error": error,
     }
+
+
+@app.get("/admin/appointments")
+def admin_appointments(request: Request, notice: str = "", saved: int = 0):
+    """stage 06A-2: นัดคุยทั้งหมด (รอยืนยันก่อน) + ตั้งช่องเวลาที่เปิดให้ลูกค้าเลือก"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import appointments as ap, line_plan
+    return templates.TemplateResponse(request, "admin_appointments.html", {
+        "AP": ap, "rows": ap.list_upcoming(), "cfg": ap.config(), "preview": ap.slots(limit=8), "notice": notice, "saved": saved,
+        "errors": {}, "flag_on": _flags.enabled("line_appointments"), "line_ready": line_plan.ready()})
+
+
+@app.post("/admin/appointments/settings", dependencies=[Depends(_csrf.require_csrf)])
+async def admin_appointments_settings(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import appointments as ap, line_plan
+    form = await request.form()
+    c, err = ap.validate_config({**dict(form), "days": form.getlist("days")})
+    if err:
+        return templates.TemplateResponse(request, "admin_appointments.html", {
+            "AP": ap, "rows": ap.list_upcoming(), "cfg": c, "preview": [], "notice": "", "saved": 0, "errors": err,
+            "flag_on": _flags.enabled("line_appointments"), "line_ready": line_plan.ready()}, status_code=422)
+    ap.save_config(c)
+    return _redirect("/admin/appointments?saved=1")
 
 
 @app.get("/admin/jobs")

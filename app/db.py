@@ -486,6 +486,25 @@ def _tables() -> list[str]:
             created_at TEXT NOT NULL,
             UNIQUE (lead_id, version)
         )""",
+        # stage 06A-2: นัดคุย (DATA_CONTRACTS §6) — แยกจากสถานะดีล · version + history ทุกครั้งที่เปลี่ยน · นัดสำเร็จ = ทีมยืนยันเท่านั้น
+        f"""CREATE TABLE IF NOT EXISTS appointments (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            plan_id INTEGER,
+            line_user_id TEXT,
+            status TEXT NOT NULL,
+            slot_start TEXT,
+            duration_min INTEGER NOT NULL DEFAULT 30,
+            timezone TEXT NOT NULL DEFAULT 'Asia/Bangkok',
+            format TEXT NOT NULL DEFAULT 'video',
+            version INTEGER NOT NULL DEFAULT 1,
+            history_json TEXT NOT NULL DEFAULT '[]',
+            confirmed_by TEXT,
+            confirmed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
         # stage 10: คิวงานถาวร — at-least-once + lease + idempotency (ผลภายนอกต้อง idempotent เอง ผ่าน outbox)
         f"""CREATE TABLE IF NOT EXISTS jobs (
             id {_PK},
@@ -1835,7 +1854,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments")
 
 
 def record_schema_versions() -> None:

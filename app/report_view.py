@@ -427,13 +427,21 @@ def shown_quote(lead_id: int):
     return None
 
 
-def next_step(ctx_on: bool, bc: dict | None, plan_on: bool, plan, quote) -> dict:
+def next_step(ctx_on: bool, bc: dict | None, plan_on: bool, plan, quote, appt=None) -> dict:
     if quote is not None:
         return {"key": "view_quote", "title": "ดูใบเสนอราคาที่ทีมส่งให้", "href": f"/q/{quote['token']}",
                 "text": "ทีมเจอ.AI ส่งใบเสนอราคาสำหรับงานนี้แล้ว เปิดดูขอบเขตและราคาได้"}
     if ctx_on and bc and not bc.get("confirmed"):
         return {"key": "confirm_context", "title": "ยืนยันข้อมูลธุรกิจ", "href": "#context",
                 "text": "ช่วยตรวจว่าบริการหลักและคู่แข่งที่ระบบเดาถูกไหม ผลทดสอบรอบถัดไปจะตรงกับธุรกิจคุณมากขึ้น"}
+    if appt is not None and appt["status"] in ("pending_confirmation", "confirmed"):      # stage 06A-2
+        from . import appointments as AP
+        w = AP.label(appt["slot_start"])
+        if appt["status"] == "confirmed":
+            return {"key": "meeting_confirmed", "title": f"นัดคุย {w}", "href": "#plan",
+                    "text": f"ทีมยืนยันนัดแล้ว ({appt['duration_min']} นาที) ถ้าต้องการเลื่อน พิมพ์ \"เลื่อนนัด\" ในแชต LINE"}
+        return {"key": "meeting_pending", "title": f"รอทีมยืนยันเวลานัด {w}", "href": "#plan",
+                "text": "คุณเลือกเวลานี้ใน LINE แล้ว ยังไม่ใช่นัดที่ยืนยัน ทีมจะยืนยันในแชตอีกครั้ง"}
     if plan:
         return {"key": "request_meeting", "title": "รอทีมติดต่อกลับเพื่อนัดคุย", "href": "#plan",
                 "text": "ได้รับคำขอแผนแล้ว ทีมจะติดต่อกลับภายใน 1 วันทำการเพื่อนัดเวลาคุย"}
