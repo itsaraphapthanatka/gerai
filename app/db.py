@@ -476,6 +476,16 @@ def _tables() -> list[str]:
             ip TEXT,
             created_at TEXT NOT NULL
         )""",
+        # stage 04B: ข้อมูลธุรกิจที่ลูกค้ายืนยัน — เก็บทุกเวอร์ชัน ไม่แก้ทับ (DATA_CONTRACTS §1)
+        f"""CREATE TABLE IF NOT EXISTS business_contexts (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            updated_by TEXT NOT NULL,
+            fields_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (lead_id, version)
+        )""",
         # stage 06A-1: รหัสสั้นใช้ครั้งเดียว ผูกแชต LINE OA กับรายงาน (ไม่ส่ง token รายงานเข้า LINE)
         """CREATE TABLE IF NOT EXISTS line_plan_codes (
             code TEXT PRIMARY KEY,
@@ -1687,6 +1697,33 @@ def update_plan_request(pid: int, **f) -> None:
 def get_plan_request(pid: int):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM plan_requests WHERE id=?"), (pid,)).fetchone()
+
+
+# ---- ข้อมูลธุรกิจ (stage 04B) · เพิ่มเวอร์ชันใหม่เสมอ ----
+def latest_business_context(lead_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM business_contexts WHERE lead_id=? ORDER BY version DESC LIMIT 1"), (lead_id,)).fetchone()
+
+
+def count_business_contexts(lead_id: int) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM business_contexts WHERE lead_id=?"), (lead_id,)).fetchone()["n"]
+
+
+def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int:
+    """คืนเลขเวอร์ชันใหม่ · ชนกันพร้อมกัน (UNIQUE lead_id+version) = ลองเลขถัดไป"""
+    last = None
+    for _ in range(3):
+        try:
+            with get_conn() as c:                        # error ใน with = rollback ทั้งก้อน แล้วลองใหม่ด้วย connection ใหม่
+                row = c.execute(q("SELECT COALESCE(MAX(version), 0) AS v FROM business_contexts WHERE lead_id=?"), (lead_id,)).fetchone()
+                ver = (row["v"] or 0) + 1
+                c.execute(q("INSERT INTO business_contexts(lead_id, version, updated_by, fields_json, created_at) VALUES(?,?,?,?,?)"),
+                          (lead_id, ver, updated_by, fields_json, now()))
+            return ver
+        except Exception as e:
+            last = e
+    raise RuntimeError(f"บันทึกข้อมูลธุรกิจไม่สำเร็จ ({type(last).__name__})")
 
 
 # ---- LINE: รหัสใช้ครั้งเดียว + สถานะแชต (stage 06A-1) ----

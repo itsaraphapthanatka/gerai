@@ -769,14 +769,21 @@ def _audit_result_ctx(lead, sent=False, error="", replied=False):
             "progress": deep_audit.progress(lead), "highlights": deep_audit.highlights(t1, t2), "benchmark": deep_audit.BENCHMARK}
 
 
-def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, errors: dict | None = None, status_code: int = 200):
+def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, errors: dict | None = None, status_code: int = 200,
+               bc_form: dict | None = None, bc_errors: dict | None = None, bc_saved: bool = False):
     """stage 05/06: รายงาน 4 ช่อง + ฟอร์มขอแผน (หน้าไทย · flag report_v2) · ข้อมูลทั้งหมดอ่านจากของเดิม ไม่เขียน DB"""
     from . import report_view, plan_request, flags
     vm = report_view.build(lead, snap)
     plan_on = flags.active("plan_request_v2", request)
     pr = plan_request.latest(lead["id"]) if plan_on else None
-    from . import line_plan
+    from . import line_plan, business_context
+    ctx_on = flags.active("context_v2", request)
+    bc = business_context.view(lead) if ctx_on else None
+    if bc and bc_form is not None:
+        bc["form"] = bc_form
     resp = templates.TemplateResponse(request, "mk/report.html", {
+        "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
+        "bc_note": business_context.ai_comparability(lead, deep_audit.tier2(lead)) if ctx_on else None,
         "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr, "line_on": plan_on and line_plan.active(request),
         "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
     resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
@@ -784,7 +791,7 @@ def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, 
 
 
 @app.get("/audit/{token}")
-def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = "", view: str = ""):
+def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = "", view: str = "", ctx: int = 0):
     lead = db.get_lead_by_token(token)
     if not lead:
         return _redirect("/audit")
@@ -800,7 +807,7 @@ def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, 
         deep_audit.start(lead["id"])                      # ลีดเก่า/หาเอง: เปิดหน้าครั้งแรกค่อยทำรายงานเต็ม
         lead = db.get_lead(lead["id"])
     if view != "full" and _i18n.lang_of(request) == "th" and _flags.active("report_v2", request):
-        return _report_v2(request, lead, snap)          # stage 05: รายงาน 4 ช่อง (ตารางละเอียดเดิมอยู่ที่ ?view=full)
+        return _report_v2(request, lead, snap, bc_saved=bool(ctx))          # stage 05: รายงาน 4 ช่อง (ตารางละเอียดเดิมอยู่ที่ ?view=full)
     return templates.TemplateResponse(request, "audit_result.html", {**_audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)), "snap": snap})
 
 
@@ -829,6 +836,34 @@ async def audit_plan_request(request: Request, token: str):
         _remember_lead_lang(request, lead["id"])
     plan_request.after_submit(lead, pid, created, plan_request.CHANNELS[v["contact_channel"]])   # ช่องทางติดต่อดูในแอป ไม่ส่งออกไปในข้อความแจ้ง
     return _redirect(f"/audit/{token}#plan")
+
+
+@app.post("/audit/{token}/context", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_context(request: Request, token: str):
+    """stage 04B: ลูกค้ายืนยัน/แก้ข้อมูลธุรกิจ · บันทึกเป็นเวอร์ชันใหม่ · ข้อมูลผิด = แสดงฟอร์มพร้อมค่าที่กรอกไว้ (422)"""
+    from . import business_context, snapshot
+    from fastapi import HTTPException
+    if not (_flags.active("report_v2", request) and _flags.active("context_v2", request)):
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    form = dict(await request.form())
+    if (form.get("website") or "").strip():
+        return _redirect(f"/audit/{token}")
+    v, err = business_context.validate(form, lead)
+    shown = {**{k: v[k] for k, _ in business_context.FIELDS},
+             "questions": "\n".join(v["questions"]) if not err.get("questions") else (form.get("questions") or "")}
+    if err:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors=err, status_code=422)
+    try:
+        business_context.save(lead, v, "customer")
+    except ValueError as e:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors={"_": str(e)}, status_code=409)
+    except Exception:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, status_code=500,
+                          bc_errors={"_": "บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกเปลี่ยน ลองกดบันทึกอีกครั้ง"})
+    return _redirect(f"/audit/{token}?ctx=1#context")
 
 
 @app.get("/audit/{token}/line")

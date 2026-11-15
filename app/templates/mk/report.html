@@ -29,6 +29,39 @@
   {% if vm.running %}<p class="rp-note mk-small" role="status" id="rp-running">กำลังตรวจส่วนที่เหลือเบื้องหลัง หน้านี้จะโหลดผลใหม่เองเมื่อเสร็จ (ถ้ายังไม่ได้พิมพ์ในฟอร์ม) · <a href="/audit/{{ lead['token'] }}">โหลดใหม่</a></p>{% endif %}
 </section>
 
+{% if ctx_on and bc %}
+{# stage 04B: ข้อมูลธุรกิจที่รายงานใช้ — แยกลูกค้ายืนยัน / ระบบเดา / ยังไม่ทราบ · แก้ได้ (บันทึกเป็นเวอร์ชันใหม่) · ทำงานได้โดยไม่ต้องมี JS (<details>) #}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="context" aria-labelledby="h-ctx">
+  <div class="mk-card mk-stack" style="gap:10px">
+    <h2 id="h-ctx" style="font-size:18px;margin:0">ข้อมูลธุรกิจที่รายงานนี้ใช้</h2>
+    {% if bc_saved and not bc_errors %}<p class="rp-note mk-small" role="status">บันทึกแล้ว (เวอร์ชัน {{ bc.version }}) · การทดสอบ AI รอบถัดไปจะใช้คำถามและคู่แข่งชุดนี้</p>
+    {% elif not bc.confirmed %}<p class="mk-small mk-muted" style="margin:0">ระบบเดาจากหน้าเว็บของคุณ ส่วนที่ติดป้าย "ระบบเดา" ยังไม่ได้ยืนยัน ช่วยตรวจและแก้ให้ถูก ผลทดสอบรอบถัดไปจะตรงกับธุรกิจคุณมากขึ้น</p>{% endif %}
+    <dl class="mk-facts">{% for r in bc.rows %}{{ ui.fact(r.label, r.value, r.source) }}{% endfor %}</dl>
+    {% if bc.questions %}<div class="mk-stack" style="gap:4px"><span class="mk-small"><b>คำถามที่ใช้ทดสอบ AI</b>{% if not bc.confirmed %} <span class="mk-lbl mk-lbl-inferred">ระบบเสนอ</span>{% endif %}</span>
+      <ul class="rp-list mk-small">{% for q in bc.questions %}<li>{{ q.text }}</li>{% endfor %}</ul>
+      <span class="mk-meta">คำถามเหล่านี้เป็นตัวอย่างที่ลูกค้าอาจถาม ไม่ใช่ข้อมูลปริมาณการค้น</span></div>{% endif %}
+    <details{% if bc_open %} open{% endif %}>
+      <summary class="mk-btn mk-btn-secondary outline" style="display:inline-flex">{% if bc.confirmed %}แก้ข้อมูลธุรกิจ{% else %}ยืนยันหรือแก้ข้อมูลธุรกิจ{% endif %}</summary>
+      {% if bc_errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down);margin-top:12px"><b>ยังบันทึกไม่ได้</b>
+        <ul class="rp-list mk-small">{% for k, m in bc_errors.items() %}<li>{% if k != "_" %}<a href="#c-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+      <form method="post" action="/audit/{{ lead['token'] }}/context#context" class="rp-form" style="margin-top:14px" novalidate>
+        {{ csrf_input(request) }}
+        <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        {{ ui.field("c-primary_service", "บริการหลักที่อยากให้ลูกค้าค้นเจอ", name="primary_service", value=bc.form.primary_service, error=bc_errors.primary_service, required=True, placeholder="เช่น ให้เช่าคลังสินค้า") }}
+        {{ ui.field("c-region", "พื้นที่ให้บริการ (ไม่บังคับ)", name="region", value=bc.form.region, error=bc_errors.region, placeholder="เช่น บางนา สมุทรปราการ") }}
+        {{ ui.field("c-audience", "ลูกค้าเป้าหมาย (ไม่บังคับ)", name="audience", value=bc.form.audience, error=bc_errors.audience, placeholder="เช่น บริษัทนำเข้า-ส่งออก") }}
+        {{ ui.field("c-competitor", "เว็บคู่แข่งที่อยากเทียบ (ไม่บังคับ)", name="competitor", value=bc.form.competitor, error=bc_errors.competitor, placeholder="competitor.co.th") }}
+        <div class="mk-field full{% if bc_errors.questions %} mk-field-err{% endif %}"><label for="c-questions">คำถามที่ลูกค้าของคุณน่าจะถาม (ไม่บังคับ บรรทัดละ 1 คำถาม สูงสุด 5 ข้อ)</label>
+          <textarea id="c-questions" name="questions" rows="5" maxlength="900" aria-describedby="c-questions-help">{{ bc.form.questions }}</textarea>
+          <span class="mk-help" id="c-questions-help">ไม่ต้องใส่ชื่อแบรนด์ของคุณ เพราะเราอยากรู้ว่า AI จะพูดถึงคุณเองหรือไม่ · เว้นช่องไหนว่าง = ยังไม่ทราบ</span>
+          {% if bc_errors.questions %}<span class="mk-err">{{ bc_errors.questions }}</span>{% endif %}</div>
+        <div class="full">{{ ui.button("บันทึกข้อมูลธุรกิจ", type="submit") }}</div>
+      </form>
+    </details>
+  </div>
+</section>
+{% endif %}
+
 <section class="mk-wrap mk-stack" style="gap:14px" aria-labelledby="h-lanes">
   <h2 id="h-lanes" style="font-size:20px">ภาพรวม 4 ด้าน</h2>
   <div class="mk-grid">
@@ -42,6 +75,7 @@
     </div>
     {% endfor %}
   </div>
+  {% if bc_note %}<p class="rp-note mk-small" role="note">{{ bc_note }}</p>{% endif %}
   {{ ui.coverage(vm.tested, vm.total) }}
   <p class="mk-small mk-muted">"ยังไม่ได้ทดสอบ" และ "ระบบไม่พร้อม" ไม่ใช่ผลว่าไม่ผ่าน และไม่นับเป็นศูนย์ · การปรากฏในผลค้นเว็บวัดจาก Google ไม่ใช่จากคำตอบของ AI</p>
 </section>
@@ -144,7 +178,7 @@
 {% if vm.running %}
 <script>
 /* ตรวจส่วนที่เหลือเสร็จ → โหลดหน้าใหม่ แต่ไม่โหลดทับถ้าผู้ใช้เริ่มพิมพ์ในฟอร์มแล้ว */
-(function(){var dirty=false,f=document.querySelector('#plan form');if(f){f.addEventListener('input',function(){dirty=true;});}
+(function(){var dirty=false;document.querySelectorAll('#plan form, #context form').forEach(function(f){f.addEventListener('input',function(){dirty=true;});});
 var start=null;function poll(){fetch('/audit/{{ lead["token"] }}/progress',{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
 var k=p.tier1+'|'+p.ai;if(start===null){start=k;}if(k!==start&&p.tier1!=='running'&&p.ai!=='running'){if(!dirty){location.reload();return;}
 var n=document.getElementById('rp-running');if(n){n.textContent='ตรวจส่วนที่เหลือเสร็จแล้ว ส่งฟอร์มหรือโหลดหน้าใหม่เพื่อดูผลล่าสุด';}return;}setTimeout(poll,6000);}).catch(function(){setTimeout(poll,12000);});}

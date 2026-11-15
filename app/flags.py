@@ -16,6 +16,7 @@ FLAGS: dict[str, str] = {
     "marketing_v2": "หน้าเว็บสาธารณะชุดใหม่ (design system, หน้าแรก, หน้าบริการ) — stage 01–03",
     "snapshot_v2": "ตรวจเว็บแบบเร็วจำกัดหน้า + สถานะจริงทีละขั้น — stage 04A",
     "report_v2": "รายงาน 4 ช่องตัวชี้วัดแยกกัน — stage 05",
+    "context_v2": "ลูกค้ายืนยัน/แก้ข้อมูลธุรกิจในรายงาน — stage 04B",
     "plan_request_v2": "ฟอร์มขอแผน + ความยินยอม + sales brief — stage 06",
     "line_appointments": "นัดหมายผ่าน LINE — stage 06A",
 }

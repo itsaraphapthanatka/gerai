@@ -589,10 +589,22 @@ def run_ai(lead_id: int, force: bool = False, ask=None, llm=None, engine: str | 
     try:
         with office.working("cto", f"ถาม AI 20 คำถามเรื่อง {lead['domain']}"):
             comps = [c["domain"] for c in t1["ranking"].get("competitors", [])][:3]
-            prompts = make_prompts({"site": lead["site_url"], "pages": t1.get("pages", [])}, t1["brand"], t1["keywords"], llm=llm)
+            try:                                           # stage 04B: ข้อมูลธุรกิจที่ลูกค้ายืนยัน → คำถามของลูกค้ามาก่อน + คู่แข่งที่ระบุ
+                from . import business_context as _bc
+                ctx = _bc.for_ai(lead)
+            except Exception:
+                ctx = None
+            kws = t1["keywords"]
+            if ctx and ctx.get("primary_service") and ctx["primary_service"] not in kws:
+                kws = [ctx["primary_service"], *kws]
+            prompts = make_prompts({"site": lead["site_url"], "pages": t1.get("pages", [])}, t1["brand"], kws, llm=llm)
+            if ctx:
+                mine = [q for q in ctx["questions"] if t1["brand"].lower() not in q.lower()]
+                prompts = list(dict.fromkeys(mine + prompts))[:N_PROMPTS]
+                comps = list(dict.fromkeys(ctx["competitors"] + comps))[:3]
             res = ask_prompts(prompts, L.domain_of(lead["site_url"]), t1["brand"], comps, ask=ask, engine=engine)
         _ai_count_up()
-        d = {"state": "done", "at": db.now(), **res}
+        d = {"state": "done", "at": db.now(), **res, "context_version": ctx["version"] if ctx else 0}
         _save(lead_id, "deep_ai_json", d)
         db.add_lead_event(lead_id, "ai_check", f"{res['engine']}: ถูกเอ่ยถึง {res['mentioned']}/{res['asked']} · ถูกอ้างอิง {res['cited']} · ค่าใช้จ่าย ${res['cost_usd']}", "cto")
         sc = L.score_lead(db.get_lead(lead_id))           # คะแนนโอกาสนับผลถาม AI ด้วย → อัปเดตที่เก็บไว้ (รายการโทร/CEO ใช้ค่านี้)

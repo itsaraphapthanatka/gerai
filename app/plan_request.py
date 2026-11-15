@@ -149,6 +149,25 @@ def brief(lead, report_vm: dict | None = None) -> dict | None:
     vm = report_vm or {}
     inferred = [("ชื่อแบรนด์", vm.get("brand")), ("คำค้นหลัก", ", ".join(vm.get("keywords") or []) or None),
                 ("คู่แข่งบน Google", ", ".join(vm.get("competitors") or []) or None)]
+    try:                                              # stage 04B: ข้อมูลธุรกิจ แยกตามที่มา (ลูกค้ายืนยัน / ระบบเดา)
+        from . import business_context as BC
+        bc = BC.current(lead)
+        for k, lb in BC.FIELDS:
+            f = bc["fields"].get(k) or {}
+            if f.get("source") == "confirmed":
+                confirmed.append((lb, f.get("value")))
+            elif f.get("source") == "inferred":
+                inferred.append((lb, f.get("value")))
+            else:
+                confirmed.append((lb, None))          # ยังไม่ทราบ → ขึ้นในรายการ "ยังไม่ทราบ" ให้ทีมถามตอนโทร
+        qs = [q["text"] for q in bc["fields"].get("questions") or []]
+        if bc["confirmed"]:
+            confirmed.append(("คำถามที่ลูกค้าเลือก", " · ".join(qs) or None))
+            confirmed.append(("ข้อมูลธุรกิจเวอร์ชัน", str(bc["version"])))
+        else:
+            confirmed.append(("ข้อมูลธุรกิจ", None))     # ยังไม่ยืนยัน → ขึ้นใน "ยังไม่ทราบ"
+    except Exception:
+        pass
     unknown = [k for k, val in confirmed + inferred if not val]
     return {"request": pr, "confirmed": [(k, val) for k, val in confirmed if val], "inferred": [(k, val) for k, val in inferred if val],
             "unknown": unknown, "marketing": bool(mk.get("granted")), "notice_version": NOTICE_VERSION,
