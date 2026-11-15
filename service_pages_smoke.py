@@ -23,6 +23,8 @@ adm = TestClient(app)
 assert adm.post("/login", data={"email": "admin@sp.test", "password": "pw123456"}).status_code == 200
 adm.cookies.set(F.PREVIEW_COOKIE, "marketing_v2")
 anon = TestClient(app)
+assert SP.SCOPE_STATUS == "confirmed"                                                # เจ้าของยืนยันขอบเขตแล้ว 2026-11-15
+SP.SCOPE_STATUS = "draft"                                                             # ทดสอบกรณีร่างก่อน (ยังต้องกันได้ถ้าตั้งกลับเป็นร่าง)
 ALL = SP.PATHS
 SCOPED = ["/services", "/services/foundation-sprint"]
 visible = lambda html: re.sub(r"(?s)<(style|script)\b.*?</\1>|<[^>]+>", " ", html)
@@ -83,7 +85,6 @@ for p in SCOPED:
     r = fresh.get(p)
     assert r.status_code == 200 and "ร่าง รอเจ้าของยืนยัน" not in r.text and "x-robots-tag" not in r.headers, p
 assert 'href="/services"' in fresh.get("/").text and "/services/foundation-sprint" in sm_of()
-SP.SCOPE_STATUS = "draft"
 F.set_enabled("marketing_v2", False)
 assert TestClient(app).get("/how-it-works").status_code == 404
 assert "/how-it-works" not in sm_of()
