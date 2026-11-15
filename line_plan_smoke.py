@@ -69,9 +69,37 @@ F.set_enabled("report_v2", True); F.set_enabled("plan_request_v2", True)
 assert c.get(f"/audit/{tok}/line", follow_redirects=False).status_code == 404
 assert 'id="b-line"' not in c.get(f"/audit/{tok}").text
 F.set_enabled("line_appointments", True)
-assert c.get(f"/audit/{tok}/line", follow_redirects=False).status_code == 404       # ยังไม่ได้ใส่ LINE ID ของ OA
+
+# LINE ID ของ OA: ถามจาก OA ที่เชื่อมอยู่ (GET /v2/bot/info) · ไม่ได้ = ไม่มีปุ่ม และไม่ถามซ้ำทุกครั้งที่เปิดหน้า
+calls = []
+
+
+class _R:
+    def __init__(self, code, data):
+        self.status_code, self._d = code, data
+
+    def json(self):
+        return self._d
+
+
+def _down(url, **kw):
+    calls.append(url)
+    raise OSError("LINE down")
+
+
+LO.httpx.get = _down
+assert c.get(f"/audit/{tok}/line", follow_redirects=False).status_code == 404       # ถาม LINE ไม่ได้ = ไม่มีลิงก์
 assert 'id="b-line"' not in c.get(f"/audit/{tok}").text
-assert LO.save_oa_id("bad id!") is False and LO.oa_id() == ""
+assert len(calls) == 1 and calls[0].endswith("/v2/bot/info")                         # ถามครั้งเดียว แล้วเว้น 1 ชม.
+LO.httpx.get = lambda url, **kw: calls.append(url) or _R(200, {"basicId": "@123abcde", "displayName": "x"})
+assert LO.oa_id() == "" and len(calls) == 1
+assert LO.fetch_basic_id(force=True) == "@123abcde" and LO.oa_id() == "@123abcde" and LO.oa_id_source() == "auto"
+assert "@123abcde" in TestClient(app).get(f"/audit/{tok}/line", follow_redirects=False).headers.get("location", "").replace("%40", "@")
+LO.save_config("new-token", "")                                                       # เปลี่ยน OA → ลืมค่าที่ถามไว้
+assert db.get_setting("line_oa_id_auto") == ""
+LO.httpx.get = _down
+
+assert LO.save_oa_id("bad id!") is False
 assert LO.save_oa_id("jorai") is True and LO.oa_id() == "@jorai"                  # ลืม @ = เติมให้
 F.set_enabled("plan_request_v2", False)
 assert c.get(f"/audit/{tok}/line", follow_redirects=False).status_code == 404       # ต้องเปิดคู่กับฟอร์มขอแผน

@@ -33,8 +33,10 @@ def config() -> dict | None:
 
 def save_config(token: str, secret: str) -> None:
     """เว้นว่าง = คงค่าเดิม (เหมือนคีย์อื่นในหน้าตั้งค่า)"""
-    if token.strip():
+    if token.strip() and token.strip() != _get("line_channel_token"):
         db.set_setting("line_channel_token", wp_client.encrypt(token.strip()))
+        db.set_setting("line_oa_id_auto", "")          # เปลี่ยน OA → ลืม LINE ID ที่ถามไว้ ถามใหม่ครั้งถัดไป
+        db.set_setting("line_oa_info_tried", "")
     if secret.strip():
         db.set_setting("line_channel_secret", wp_client.encrypt(secret.strip()))
 
@@ -47,11 +49,47 @@ def bot_name() -> str:
 _OA_ID = __import__("re").compile(r"^@[A-Za-z0-9._\-]{2,40}$")
 
 
-def oa_id() -> str:
-    """LINE ID ของ OA (Basic ID เช่น @jorai) ใช้สร้างลิงก์ "คุยต่อใน LINE" · env GEO_LINE_OA_ID ทับค่าในหน้าตั้งค่า · รูปแบบผิด = ว่าง"""
+INFO_RETRY_MIN = 60          # ถาม LINE ไม่สำเร็จ → เว้น 1 ชม. ก่อนถามใหม่ (ไม่ยิงทุกครั้งที่เปิดรายงาน)
+
+
+def oa_id(fetch: bool = True) -> str:
+    """LINE ID ของ OA (Basic ID เช่น @jorai) ใช้สร้างลิงก์ "คุยต่อใน LINE"
+    ลำดับ: env GEO_LINE_OA_ID → ค่าที่แอดมินใส่เอง → ค่าที่ถามจาก OA ที่เชื่อมอยู่ (GET /v2/bot/info · เก็บไว้ ไม่ถามซ้ำ) · รูปแบบผิด = ว่าง"""
     import os
-    v = (os.getenv("GEO_LINE_OA_ID") or db.get_setting("line_oa_id") or "").strip()
+    v = (os.getenv("GEO_LINE_OA_ID") or db.get_setting("line_oa_id") or db.get_setting("line_oa_id_auto") or "").strip()
+    if not v and fetch and config():
+        v = fetch_basic_id()
     return v if _OA_ID.match(v) else ""
+
+
+def fetch_basic_id(force: bool = False) -> str:
+    """ถาม LINE ว่า OA ที่ใช้ token นี้มี Basic ID อะไร (อ่านอย่างเดียว) · สำเร็จ = เก็บไว้ใน settings line_oa_id_auto"""
+    import datetime as _dt
+    c = config()
+    if not c:
+        return ""
+    last = db.get_setting("line_oa_info_tried") or ""
+    if not force and last and last >= (_dt.datetime.now() - _dt.timedelta(minutes=INFO_RETRY_MIN)).isoformat(timespec="seconds"):
+        return ""
+    db.set_setting("line_oa_info_tried", db.now())
+    try:
+        r = httpx.get(f"{API}/info", timeout=5, headers={"Authorization": f"Bearer {c['token']}"})
+        bid = (r.json().get("basicId") or "").strip() if r.status_code < 300 else ""
+    except Exception:
+        bid = ""
+    if _OA_ID.match(bid):
+        db.set_setting("line_oa_id_auto", bid)
+        return bid
+    return ""
+
+
+def oa_id_source() -> str:
+    import os
+    if os.getenv("GEO_LINE_OA_ID"):
+        return "env"
+    if db.get_setting("line_oa_id"):
+        return "manual"
+    return "auto" if db.get_setting("line_oa_id_auto") else ""
 
 
 def save_oa_id(v: str) -> bool:
@@ -87,7 +125,8 @@ def public_config() -> dict:
     oid = owner_id()
     return {"token_set": bool(_get("line_channel_token")), "secret_set": bool(_get("line_channel_secret")), "ready": bool(c), "bot_name": bot_name(),
             "owner_set": bool(oid), "owner_mask": (oid[:4] + "…" + oid[-3:]) if oid else "", "link_code": link_code(),
-            "webhook_path": "/line/webhook", "status": status(), "oa_id": oa_id()}
+            "webhook_path": "/line/webhook", "status": status(), "oa_id": oa_id(fetch=False),
+            "oa_id_manual": (db.get_setting("line_oa_id") or ""), "oa_id_source": oa_id_source()}
 
 
 def status() -> str:

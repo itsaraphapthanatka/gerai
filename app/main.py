@@ -3885,6 +3885,8 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
         db.set_setting("line_bot_name", bot_name.strip()[:60])
         if oa_id is not None and not line_oa.save_oa_id(oa_id):
             return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error="LINE ID ของ OA ต้องเป็นแบบ @jorai (ตัวอักษรอังกฤษ ตัวเลข . _ -)"))
+        if not db.get_setting("line_oa_id") and line_oa.available():
+            line_oa.fetch_basic_id(force=True)            # ใช้ OA ที่เชื่อมอยู่: ถาม LINE ID จาก LINE ให้เลย (อ่านอย่างเดียว)
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 

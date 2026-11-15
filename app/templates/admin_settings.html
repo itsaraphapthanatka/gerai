@@ -199,7 +199,8 @@
     <label style="margin-top:12px">ชื่อที่บอทใช้แนะนำตัวในแชท</label>
     <input type="text" name="bot_name" value="{{ line.bot_name }}" placeholder="ตามชื่อ OA (ว่าง = เจอ.AI)" maxlength="60">
     <label style="margin-top:12px">LINE ID ของ OA (Basic ID) — ใช้กับปุ่ม "คุยต่อใน LINE" ในรายงาน</label>
-    <input type="text" name="oa_id" value="{{ line.oa_id }}" placeholder="เช่น @jorai (ดูที่ LINE OA Manager → ตั้งค่าบัญชี)" maxlength="42" autocomplete="off">
+    <input type="text" name="oa_id" value="{{ line.oa_id_manual }}" placeholder="{{ ('ใช้ ' ~ line.oa_id ~ ' จาก OA ที่เชื่อมอยู่ — เว้นว่างไว้ได้') if line.oa_id_source == 'auto' else 'เว้นว่าง = ใช้ LINE ID ของ OA ที่เชื่อมอยู่ (ระบบถามจาก LINE ให้)' }}" maxlength="42" autocomplete="off">
+    {% if line.oa_id %}<div class="muted" style="font-size:11.5px;margin-top:4px">ปุ่ม "คุยต่อใน LINE" จะพาไป <code>{{ line.oa_id }}</code>{% if line.oa_id_source == 'auto' %} (ระบบอ่านจาก OA ที่เชื่อมอยู่){% endif %}</div>{% endif %}
     <div style="margin-top:16px"><button type="submit">บันทึก</button></div>
   </form>
   <div class="muted" style="font-size:11.5px;margin-top:14px;line-height:1.8">
