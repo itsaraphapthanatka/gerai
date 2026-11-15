@@ -422,7 +422,7 @@ def execute(action: str, args: dict) -> str:
         lead, err = _need_lead(args)
         if err:
             return err
-        deep_audit.start(lead["id"], ai=True, force_ai=True)
+        deep_audit.start(lead["id"], ai=True, force_ai=True, reason="staff")
         return f"เริ่มถาม ChatGPT 20 คำถามเรื่อง {lead['domain']} แล้ว ราว 3 นาที ดูผลที่ {pipeline.result_url(lead)}#ai"
     if action == "find_leads":
         seg, area, n = args["segment"].strip(), (args.get("area") or "").strip(), int(args["n"])

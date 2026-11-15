@@ -979,7 +979,7 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
         _ceo_propose(db.get_lead(lead["id"]))
     except Exception:
         pass   # ข้อเสนอสร้างทีหลังได้จากหน้าแอดมิน ไม่ให้ลูกค้าเห็น error
-    deep_audit.start(lead["id"], ai=True)                 # ทิ้งช่องทางติดต่อ = สนใจจริง → วัด AI 20 คำถาม (ชั้น 2)
+    deep_audit.start(lead["id"], ai=True, reason="contact_form")   # ทิ้งช่องทางติดต่อ = สนใจจริง → วัด AI 20 คำถาม (ชั้น 2)
     return _redirect(f"/audit/{token}?sent=1")
 
 
@@ -4072,11 +4072,12 @@ def admin_jobs(request: Request, status: str = "", notice: str = ""):
     """stage 10: คิวงานถาวร — สถานะ งานที่ล้ม (dead-letter) จุดหยุด งบวันนี้ outbox ทดสอบ"""
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
-    from . import jobs
+    from . import jobs, ai_tests
     st = status if status in jobs.STATUS_LABEL else ""
     return templates.TemplateResponse(request, "admin_jobs.html", {
         "on": jobs.enabled(), "jobs": jobs.list_jobs(st or None, 100), "counts": jobs.counts(), "status": st, "J": jobs,
         "pauses": jobs.pauses(), "budget": jobs.budget_used("ai_usd"), "outbox": jobs.outbox_list(20), "notice": notice,
+        "ai_live": ai_tests.live(), "est": ai_tests.estimate(),
         "schema": db.list_schema_versions()})
 
 
@@ -4099,6 +4100,16 @@ def admin_job_cancel(request: Request, job_id: int):
     r = jobs.cancel(job_id, request.session.get("email") or "admin")
     msg = {"cancelled": "ยกเลิกแล้ว", "requested": "ขอให้หยุดแล้ว (งานกำลังทำอยู่ จะหยุดก่อนทำผลภายนอก)", "noop": "ยกเลิกไม่ได้ (เสร็จไปแล้ว)"}[r]
     return _redirect(f"/admin/jobs?notice={quote(f'งาน #{job_id}: {msg}')}")
+
+
+@app.post("/admin/jobs/ai-live", dependencies=[Depends(_csrf.require_csrf)])
+def admin_jobs_ai_live(request: Request, on: str = Form("")):
+    """stage 04C: สวิตช์ทดสอบ AI แบบเสียเงิน (ค่าเริ่มต้นปิด) — มีผลกับเส้นทางคิวงานเท่านั้น"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import ai_tests
+    ai_tests.set_live(on == "1")
+    return _redirect(f"/admin/jobs?notice={quote('เปิดการทดสอบ AI แบบเสียเงินแล้ว' if on == '1' else 'ปิดการทดสอบ AI แบบเสียเงินแล้ว')}")
 
 
 @app.post("/admin/jobs/pause", dependencies=[Depends(_csrf.require_csrf)])
@@ -4597,7 +4608,7 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
     if not lead:
         return _redirect("/admin/leads")
     if ai:
-        st = deep_audit.start(lead_id, ai=True, force_ai=True)
+        st = deep_audit.start(lead_id, ai=True, force_ai=True, reason="staff")
         note = "เริ่มถาม AI 20 คำถามแล้ว (ราว 3 นาที ≈ ฿40)" if st == "started" else "กำลังทำอยู่แล้ว"
     else:
         db.update_lead(lead_id, deep_json=None)

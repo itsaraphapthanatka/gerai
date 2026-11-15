@@ -10,6 +10,12 @@
   <div class="card" style="flex:1;min-width:280px">
     <h2 style="margin-top:0;font-size:17px">สถานะ</h2>
     <p>{% for k, lb in J.STATUS_LABEL.items() %}<a href="/admin/jobs?status={{ k }}">{{ lb }}: <b>{{ counts.get(k, 0) }}</b></a>{% if not loop.last %} · {% endif %}{% endfor %} · <a href="/admin/jobs">ทั้งหมด</a></p>
+    <h3 style="font-size:15px">การทดสอบ AI แบบเสียเงิน: {{ "เปิด" if ai_live else "ปิด" }}</h3>
+    <form method="post" action="/admin/jobs/ai-live">{{ csrf_input(request) }}<input type="hidden" name="on" value="{{ '0' if ai_live else '1' }}">
+      <button type="submit" class="btn {{ '' if ai_live else 'danger' }}">{{ "ปิดการทดสอบ AI" if ai_live else "เปิดการทดสอบ AI (มีค่าใช้จ่ายจริง)" }}</button></form>
+    <p class="muted" style="font-size:12.5px">ประมาณ ${{ est.est_per_run_usd }} ต่อรายงาน ({{ est.prompts }} คำถาม) · งบวันละ ${{ "%.2f"|format(est.daily_budget_usd) }} ≈ {{ est.max_runs_per_day }} รายงาน · เพดานจำนวนเดิม {{ est.count_cap_per_day }} ราย/วัน
+      <br>ทำเองได้เมื่อ: ลูกค้าขอแผน / ทิ้งช่องทางติดต่อ / ขอนัด (1 ครั้งต่อลีดต่อ 30 วัน) · ทีมกดเอง (3 ครั้ง/30 วัน) · ตอบกลับเฉย ๆ หรือเอเจนต์ AI เสนอ = รอทีมกด
+      <br>มีผลเมื่อเปิด <code>durable_jobs</code> เท่านั้น (ตอนปิด ระบบเดิมยังถาม AI ตามเพดานรายวันเหมือนเดิม)</p>
     <h3 style="font-size:15px">งบทดสอบ AI วันนี้ ({{ budget.day }})</h3>
     <p>ใช้จริง ${{ "%.2f"|format(budget.committed) }} · จองอยู่ ${{ "%.2f"|format(budget.reserved) }} · เพดาน ${{ "%.2f"|format(budget.limit) }}
       <br><span class="muted">ตั้งเพดานที่ setting <code>budget_ai_usd_daily</code> · ไม่ตั้ง = เพดานจำนวนรายต่อวันเดิม × ${{ J.AI_RUN_EST_USD }}</span></p>

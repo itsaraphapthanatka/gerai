@@ -110,7 +110,9 @@ def _ai_lane(key: str, title: str, t2: dict, prog: str, field: str, word: str) -
         return _lane(key, title, "not_tested", detail="กำลังถาม AI", method=method)
     st = t2.get("state")
     if st == "queued":
-        return _lane(key, title, "not_tested", detail="อยู่ในคิว ทีมจะวัดให้ภายใน 1 วันทำการ", method=method)
+        return _lane(key, title, "not_tested", detail=t2.get("reason") or "อยู่ในคิว ทีมจะวัดให้ภายใน 1 วันทำการ", method=method)
+    if st in ("disabled", "needs_input", "awaiting_staff", "cancelled", "not_configured"):   # stage 04C: ไม่ได้ทดสอบ (ไม่ใช่ระบบล่ม)
+        return _lane(key, title, "not_tested", detail=t2.get("reason") or "ยังไม่ได้ทดสอบ", method=method)
     if st == "error":
         return _lane(key, title, "unavailable", detail="ถาม AI ไม่สำเร็จรอบนี้", method=method)
     if st != "done":

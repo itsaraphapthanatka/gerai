@@ -195,7 +195,11 @@ def run_task(tid: int) -> str:
                 res = f"หาซ้ำ {len(args.get('lead_ids', []))} ราย เจออีเมลเพิ่ม {found}"
             elif t["kind"] == "ai_report":
                 lead = db.get_lead(args["lead_id"])
-                d = deep_audit.run_ai(lead["id"]) if deep_audit.tier1(lead).get("state") == "done" else (deep_audit.run_tier1(lead["id"]) and deep_audit.run_ai(lead["id"]))
+                from . import jobs as _jobs
+                if _jobs.enabled():                       # stage 04C: เอเจนต์สั่งเองไม่ได้จ่ายเอง → ผ่านนโยบาย (รอทีมกด)
+                    d = {"state": deep_audit.start(lead["id"], ai=True, reason="agent")}
+                else:
+                    d = deep_audit.run_ai(lead["id"]) if deep_audit.tier1(lead).get("state") == "done" else (deep_audit.run_tier1(lead["id"]) and deep_audit.run_ai(lead["id"]))
                 res = f"{d.get('state')} · เอ่ยถึง {d.get('mentioned', '—')}/{d.get('asked', '—')}" if isinstance(d, dict) else str(d)
             elif t["kind"] == "marketing_round":
                 r = marketing.run()

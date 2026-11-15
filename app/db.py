@@ -505,6 +505,14 @@ def _tables() -> list[str]:
             updated_at TEXT NOT NULL
         )""",
         """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 04C: คำตอบ AI ที่จ่ายแล้วต่องาน — งานเดิมที่ทำซ้ำหลังเครื่องล่มใช้ของเดิม ไม่จ่ายซ้ำ
+        """CREATE TABLE IF NOT EXISTS ai_answer_cache (
+            cache_key TEXT PRIMARY KEY,
+            job_key TEXT NOT NULL,
+            response_json TEXT NOT NULL,
+            cost_usd REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )""",
         # stage 10: คิวงานถาวร — at-least-once + lease + idempotency (ผลภายนอกต้อง idempotent เอง ผ่าน outbox)
         f"""CREATE TABLE IF NOT EXISTS jobs (
             id {_PK},
@@ -1857,7 +1865,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache")
 
 
 def record_schema_versions() -> None:

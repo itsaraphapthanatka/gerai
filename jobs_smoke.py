@@ -50,6 +50,8 @@ assert D.tier2(db.get_lead(lid0))["state"] == "done" and J.list_jobs() == []
 assert J.run_once() == []                                                                # worker ไม่ทำอะไรเมื่อ flag ปิด
 
 F.set_enabled("durable_jobs", True)
+import app.ai_tests as AT
+AT.set_live(True)                                                                        # stage 04C: สวิตช์ทดสอบจริง (ตัวถาม AI เป็นของปลอม)
 
 # ================= เหตุการณ์ซ้ำ / idempotency =================
 j1, st = J.enqueue("test_message", {"x": 1}, idem_key="dup-1")
@@ -219,7 +221,7 @@ assert J.budget_used("race")["reserved"] == 0.0
 asked.clear()
 J.KICK_INLINE = True
 lid2 = mk_lead("queued-ai.co.th")
-assert D.start(lid2, ai=True) == "queued"
+assert D.start(lid2, ai=True, reason="plan_requested") == "queued"
 t2 = D.tier2(db.get_lead(lid2))
 assert t2["state"] == "done" and t2["asked"] > 0 and asked                               # worker รอบ kick ทำให้แล้ว
 jd = [j for j in J.list_jobs() if j["kind"] == "deep_ai"][0]
@@ -227,7 +229,7 @@ assert jd["status"] == "succeeded" and jd["lead_id"] == lid2
 u = J.budget_used("ai_usd")
 assert u["committed"] == float(t2["cost_usd"]) and u["reserved"] == 0                     # ปิดยอดด้วยค่าจริง
 n_jobs = len(J.list_jobs())
-D.start(lid2, ai=True)
+D.start(lid2, ai=True, reason="plan_requested")
 assert len(J.list_jobs()) == n_jobs                                                      # เสร็จแล้ว ไม่เข้าคิวซ้ำ
 
 # รอชั้นแรก: ยังไม่มีรายงานชั้นแรก → เลื่อนโดยไม่นับความพยายาม

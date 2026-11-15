@@ -230,8 +230,15 @@ def cancel(job_id: int, by: str = "") -> str:
     with db.get_conn() as c:
         cur = c.execute(db.q("UPDATE jobs SET status='cancelled', updated_at=?, finished_at=?, note=? WHERE id=? AND status IN ('queued','dead')"),
                         (db.now(), db.now(), f"ยกเลิกโดย {by}"[:300], job_id))
-        if (cur.rowcount or 0) == 1:
-            return "cancelled"
+        done = (cur.rowcount or 0) == 1
+    if done:
+        j = get(job_id)
+        if j and j["kind"] == "deep_ai" and j["lead_id"]:                               # stage 04C: รายงานบอกตามจริงว่ายกเลิก
+            from . import deep_audit
+            if deep_audit.tier2(db.get_lead(j["lead_id"])).get("state") in ("queued", "running"):
+                deep_audit._save(j["lead_id"], "deep_ai_json", {"state": "cancelled", "at": db.now(), "reason": "ทีมยกเลิกการทดสอบ AI รอบนี้"})
+        return "cancelled"
+    with db.get_conn() as c:
         cur = c.execute(db.q("UPDATE jobs SET cancel_requested=1, updated_at=? WHERE id=? AND status='running'"), (db.now(), job_id))
         return "requested" if (cur.rowcount or 0) == 1 else "noop"
 
@@ -392,6 +399,14 @@ def handle_deep_ai(job, worker: str) -> dict:
         if not deep_audit._running(t1):
             deep_audit.start(lid)                                # ชั้นแรก (ไต่เว็บ+อันดับ) ทำแบบเดิม แล้วค่อยกลับมา
         raise Defer(60, "รอรายงานชั้นแรกเสร็จ")
+    from . import ai_tests
+    if not ai_tests.live():                                       # stage 04C: ปิดสวิตช์หลังเข้าคิว = ไม่เรียก AI
+        deep_audit._save(lid, "deep_ai_json", {"state": "disabled", "at": db.now(), "reason": "ยังไม่เปิดการทดสอบ AI แบบเสียเงิน"})
+        raise Cancelled("ปิดการทดสอบ AI แบบเสียเงินอยู่")
+    engine = deep_audit.HOOKS.get("engine") or deep_audit._engine()
+    if not engine and not deep_audit.HOOKS.get("ask"):
+        deep_audit._save(lid, "deep_ai_json", {"state": "not_configured", "at": db.now(), "reason": "ยังไม่ได้ตั้งค่าผู้ให้บริการ AI"})
+        raise Cancelled("ไม่มีคีย์ผู้ให้บริการ AI")
     try:
         rid = reserve("ai_usd", AI_RUN_EST_USD, job["id"])
     except BudgetExhausted as e:
@@ -401,15 +416,20 @@ def handle_deep_ai(job, worker: str) -> dict:
     if stop_requested(job["id"]):
         release(rid)
         raise Cancelled("ยกเลิกก่อนเริ่มเรียก AI")
+    from . import ai_visibility as _av
+    base_ask = deep_audit.HOOKS.get("ask") or (lambda q: _av.ask(engine, q))
+    ask = ai_tests.cached_ask(job["idem_key"], engine or "custom", base_ask)          # ลองใหม่ = ใช้คำตอบที่จ่ายแล้ว
+    before = ai_tests.cached_cost(job["idem_key"])
     try:
-        d = deep_audit.run_ai(lid, force=bool(p.get("force")))
+        d = deep_audit.run_ai(lid, force=bool(p.get("force")), ask=ask, engine=engine)
     except Exception:
-        release(rid)
+        settle(rid, ai_tests.cached_cost(job["idem_key"]) - before)                  # จ่ายไปแล้วเท่าไรนับตามจริง
         raise
+    spent = ai_tests.cached_cost(job["idem_key"]) - before
     if d.get("state") == "done":
-        settle(rid, float(d.get("cost_usd") or 0))
-        return {"state": "done", "cost_usd": d.get("cost_usd"), "asked": d.get("asked")}
-    release(rid)
+        settle(rid, spent)
+        return {"state": "done", "cost_usd": d.get("cost_usd"), "spent_usd": round(spent, 4), "asked": d.get("asked")}
+    settle(rid, spent) if spent else release(rid)
     if d.get("state") == "error":
         raise RuntimeError(d.get("error") or "ทดสอบ AI ไม่สำเร็จ")
     return {"state": d.get("state"), "reason": d.get("reason")}   # queued (เพดานจำนวนรายต่อวันเดิม) = ทำเหมือนเดิม

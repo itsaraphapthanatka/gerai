@@ -20,6 +20,16 @@
 | 06A-2 LINE เลือกเวลานัด | **เสร็จ หลัง flag `line_appointments` (ปิด) + ต้องตั้งช่องเวลาก่อน · ยังไม่ได้ทดสอบกับ OA จริง** | 2026-11-16 | นัดสำเร็จ = ทีมยืนยันเท่านั้น · ข้อความยืนยัน/เตือนอยู่ใน outbox ทดสอบ (ไม่ส่งจริง) · รายละเอียดด้านล่าง |
 | 09 Today/Customer 360 | **เสร็จ หลัง flag `customer360` (ปิด) · ยังไม่สร้างตาราง account** | 2026-11-16 | รายงานทดลองจับคู่ตัวตนไม่เขียนข้อมูล · รายละเอียดด้านล่าง |
 | 11 ขาย/ติดตาม | **เสร็จ · 2 ข้อมีผลทันที (เข้มขึ้นอย่างเดียว) · ที่เหลือหลัง flag `sales_v2` (ปิด)** | 2026-11-16 | เปิด flag แล้วทักลีดที่หาเองด้วยอีเมลสาธารณะไม่ได้จนเจ้าของอนุญาต · รายละเอียดด้านล่าง |
+| 04C ทดสอบ AI (นโยบาย+ต้นทุน) | **เสร็จ หลัง flag `durable_jobs` + สวิตช์ `ai_live_tests` (ปิดทั้งคู่) · ไม่ได้เรียก AI จริง** | 2026-11-16 | เส้นทางเดิมยังถาม AI ตามเพดานรายวันเดิม · รายละเอียดด้านล่าง |
+
+## stage 04C — ทดสอบ AI แบบเสียเงิน (นโยบาย + ควบคุมต้นทุน)
+- **ไม่ได้เรียก AI จริงระหว่างทำ** (เทสต์ใช้ตัวถามปลอม) · การทดสอบจริงยังปิด ตามข้อกำหนด "Live paid tests remain disabled here"
+- มีผลกับเส้นทางคิวงาน (flag `durable_jobs`) เท่านั้น · `app/ai_tests.py` · ตารางใหม่ `ai_answer_cache` · รายละเอียดใน `JOBS_CONTRACT.md` §7a
+- สวิตช์ `ai_live_tests` (ปิด) ที่ `/admin/jobs` + ค่าประมาณต่อรายงานและจำนวนรายงานต่อวันจากงบ
+- สิทธิ์ตามเหตุผล: ขอแผน/ทิ้งช่องทาง/ขอนัด = อัตโนมัติ 1 ครั้ง/ลีด/30 วัน · ทีมกด 3 ครั้ง/30 วัน · ตอบกลับเฉย ๆ / เอเจนต์ AI / ไม่ระบุ = รอทีมกด · ทุกจุดที่เรียกส่งเหตุผลแล้ว (`contact_form`, `plan_requested`, `replied`, `meeting_request`, `staff`, `agent`) · `orchestrator` ไม่เรียก `run_ai` ตรงเมื่อเปิดคิวงาน
+- ลองใหม่ไม่จ่ายซ้ำ (แคชคำตอบต่องาน) · งบนับตามที่จ่ายจริงแม้รอบที่ล่ม · ไม่มีคีย์ = ยังไม่ได้ทดสอบ · ผู้ให้บริการไม่ตอบ = ระบบไม่พร้อม · ยกเลิก/ปิดสวิตช์ = บอกในรายงาน
+- เทสต์ `ai_tests_smoke.py` (+ ปรับ `jobs_smoke.py` ให้เปิดสวิตช์และส่งเหตุผล)
+- **ต้องตัดสินใจ:** เปิดสวิตช์และตั้งงบ `budget_ai_usd_daily` เมื่อพร้อมใช้จ่ายจริงผ่านคิว · **ตอนนี้ production (flag คิวงานปิด) ยังถาม AI แบบเดิมทุกครั้งที่ลูกค้าตอบกลับ** (เพดาน 5 ราย/วัน) — นโยบายใหม่ไม่ได้ใช้จนกว่าจะเปิด `durable_jobs`
 
 ## stage 11 — ขาย/ติดตาม
 - `app/sales.py` · flag ใหม่ `sales_v2` (ปิด) · คอลัมน์ใหม่ `leads.opp_override`, `leads.lost_reason` (ว่างไว้ ไม่ backfill)
@@ -273,7 +283,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-16 (หลัง 11): **77/77 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-16 (หลัง 04C): **78/78 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

@@ -392,7 +392,7 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
                      subject=f"💬 {lead['domain']} ตอบกลับ")
     try:
         from . import deep_audit
-        deep_audit.start(lead["id"], ai=True)          # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ) — ข้อมูลไว้คุยในสาย
+        deep_audit.start(lead["id"], ai=True, reason="replied")   # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ) — ข้อมูลไว้คุยในสาย
     except Exception:
         pass
     return None

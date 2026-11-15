@@ -106,7 +106,7 @@ def after_submit(lead, pid: int, created: bool, via: str) -> None:
     pipeline.alert_admins(f"📋 ขอแผนจากรายงาน: {lead['domain']} · ติดต่อทาง {via}", f"/admin/leads/{lead['id']}#brief", "lead",
                           subject=f"📋 ขอแผน: {lead['domain']}")
     try:
-        deep_audit.start(lead["id"], ai=True)         # ขอแผน = สนใจจริง → วัด AI ให้ (เหมือนฟอร์มเดิม)
+        deep_audit.start(lead["id"], ai=True, reason="plan_requested")   # ขอแผน = สนใจจริง → วัด AI ให้ (เหมือนฟอร์มเดิม)
     except Exception:
         pass
 
