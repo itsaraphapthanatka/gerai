@@ -16,6 +16,21 @@
 | 05-full รายงานเต็ม | **เสร็จ หลัง flag `report_v2` (ปิด) · บางส่วนต้องเปิด `context_v2`** | 2026-11-15 | ภาพนิ่ง `previews/05-full-*.html` · รายละเอียดด้านล่าง |
 | 08A QA/SEO | **เสร็จ · พร้อม staging ยังไม่อนุญาต production** | 2026-11-15 | ดู `WEBSITE_RELEASE_CHECKLIST.md` · header หน้าลิงก์ลับมีผลทันที (ไม่ผ่าน flag) · รายละเอียดด้านล่าง |
 | 08B analytics | **เสร็จ หลัง flag `analytics` (ปิด)** | 2026-11-15 | ดู `ANALYTICS_CONTRACT.md` · ไม่มี tracker ภายนอก ไม่มีคุกกี้ · รายละเอียดด้านล่าง |
+| 10 คิวงาน/อนุมัติ/งบ | **เสร็จ หลัง flag `durable_jobs` (ปิด) · ย้ายแค่การทดสอบ AI ของรายงาน** | 2026-11-15 | ดู `JOBS_CONTRACT.md` · ไม่มีการส่งข้อความจริงผ่านคิว · รายละเอียดด้านล่าง |
+
+## stage 10 — คิวงานถาวร · จุดหยุด · งบ · การอนุมัติ
+- **เอกสารหลัก: `docs/rebuild/JOBS_CONTRACT.md`** (รวมตารางเจ้าของการตั้งเวลางานที่สำรวจจากโค้ด) · flag ใหม่ `durable_jobs` (ปิด = thread แบบเดิมทั้งหมด worker ไม่ทำอะไร)
+- ตารางใหม่ (เพิ่มอย่างเดียว): `jobs`, `job_pauses`, `approvals`, `budget_reservations`, `outbox`, `schema_migrations` (บันทึกเวอร์ชันโครงสร้างของทุกขั้นที่ทำมา)
+- `app/jobs.py`: เข้าคิวแบบ idempotent · claim แบบ compare-and-set · lease 15 นาที + heartbeat + กู้คืนเมื่อหมดอายุ · ลองใหม่แบบเว้นระยะ · dead-letter · เลื่อนโดยไม่นับครั้ง · ยกเลิก (รวมขอให้หยุดระหว่างทำ) · **at-least-once** (ผลภายนอกต้อง idempotent)
+- จุดหยุด global (kill switch) / ประเภทงาน / ช่องทาง / ลีด — เช็กตอนเข้าคิวและตอนจะทำ
+- งบ: จองแบบ atomic → ปิดยอดด้วยค่าจริง / คืน · เพดาน `ai_usd` ต่อวัน (ค่าเริ่มต้น $6 = 5 ราย × $1.20 · ตั้งที่ `budget_ai_usd_daily`)
+- การอนุมัติ: ผูก action/ลีด/ผู้รับ(hash)/ช่องทาง/hash เนื้อหา+version/หลักฐาน/ค่าใช้จ่ายสูงสุด/นโยบาย/ผู้อนุมัติ/หมดอายุ · ใช้ได้ครั้งเดียวแบบ atomic · เปลี่ยนอะไร = ใช้ไม่ได้
+- outbox **โหมดทดสอบเท่านั้น** (บันทึก ไม่ส่ง) + งานตัวอย่าง `test_message` · **ไม่มีงานส่งข้อความจริงผ่านคิว**
+- **ย้ายแล้ว 1 ตระกูล:** ทดสอบ AI ของรายงาน (`deep_ai`) — เปิด flag แล้วเข้าคิว จองงบก่อนเรียก AI ไม่ทำสองทางพร้อมกัน · ชั้นแรก (ไต่เว็บ) ยังเป็น thread เดิม
+- worker: `kick()` หลังเข้าคิว + ลูป `geo-autorun` + `run_monitors.py --jobs` (ซ้อนกันได้)
+- หน้าแอดมิน `/admin/jobs` (หมวดสิทธิ์ "เอเจนต์ AI"): สถานะ งานที่ล้ม สั่งใหม่/ยกเลิก kill switch จุดหยุด งบวันนี้ outbox ทดสอบ เวอร์ชันโครงสร้าง (POST มี CSRF + บันทึกใน staff_audit)
+- เทสต์ `jobs_smoke.py`: เข้าคิวซ้ำ · 4 worker แย่ง 6 งาน · lease หมด/worker เก่าฟื้น · ลองใหม่→dead→สั่งใหม่ · อนุมัติซ้ำ/เนื้อหาเปลี่ยน/ผู้รับเปลี่ยน/หมดอายุ/ถอน/เกินค่าใช้จ่าย/ใช้พร้อมกัน 5 ราย · ขอไม่รับหลังเข้าคิว · ยกเลิกก่อน/ระหว่างทำ · จุดหยุดทั้ง 4 แบบ · งบหมด + จองพร้อมกัน 12 ราย · การทดสอบ AI ผ่านคิว (ปิดยอดค่าจริง ไม่เข้าคิวซ้ำ รอชั้นแรก งบหมดเลื่อนวันถัดไป) · scheduler 3 ตัวพร้อมกันทำแต่ละงานครั้งเดียว · ปิด flag กลับทางเดิม · หน้าแอดมิน
+- **ข้อจำกัด:** ยังไม่ทดสอบบน Postgres · งานอื่นทั้งหมดยังเป็น thread/cron เดิม · ผู้ดูแล server ต้องยืนยันว่ามี scheduler ตัวเดียวและ crontab มีอะไร · ยังไม่ผูกกับ `decisions` เดิม · ยังไม่มีการลบงานเก่า
 
 ## stage 08B — analytics ภายใน (ไม่มี tracker ภายนอก)
 - **เอกสารหลัก: `docs/rebuild/ANALYTICS_CONTRACT.md`** · flag ใหม่ `analytics` (ปิด = ไม่เก็บอะไรเลย ไม่มีช่องซ่อน ไม่มีสคริปต์ endpoint 404)
@@ -214,7 +229,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-15 (หลัง 08B): **73/73 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-15 (หลัง 10): **74/74 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

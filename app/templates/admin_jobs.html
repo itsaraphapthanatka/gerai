@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}คิวงาน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>คิวงานถาวร</h1>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if not on %}<div class="err">flag <code>durable_jobs</code> ปิดอยู่ — งานทดสอบ AI ใช้ thread แบบเดิม · งานที่ค้างในคิวจะรอจนกว่าจะเปิด</div>{% endif %}
+<p class="muted">รับประกันแบบ at-least-once: งานอาจถูกทำซ้ำเมื่อเครื่องล่ม ผลภายนอกจึงต้องผ่าน outbox ที่กันซ้ำ · งานส่งข้อความภายนอกยังปิด (มีแค่ outbox ทดสอบ ไม่ส่งจริง)</p>
+
+<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:280px">
+    <h2 style="margin-top:0;font-size:17px">สถานะ</h2>
+    <p>{% for k, lb in J.STATUS_LABEL.items() %}<a href="/admin/jobs?status={{ k }}">{{ lb }}: <b>{{ counts.get(k, 0) }}</b></a>{% if not loop.last %} · {% endif %}{% endfor %} · <a href="/admin/jobs">ทั้งหมด</a></p>
+    <h3 style="font-size:15px">งบทดสอบ AI วันนี้ ({{ budget.day }})</h3>
+    <p>ใช้จริง ${{ "%.2f"|format(budget.committed) }} · จองอยู่ ${{ "%.2f"|format(budget.reserved) }} · เพดาน ${{ "%.2f"|format(budget.limit) }}
+      <br><span class="muted">ตั้งเพดานที่ setting <code>budget_ai_usd_daily</code> · ไม่ตั้ง = เพดานจำนวนรายต่อวันเดิม × ${{ J.AI_RUN_EST_USD }}</span></p>
+  </div>
+  <div class="card" style="flex:1;min-width:280px">
+    <h2 style="margin-top:0;font-size:17px">จุดหยุด</h2>
+    {% set g = pauses|selectattr("scope", "equalto", "global")|list %}
+    <form method="post" action="/admin/jobs/pause">{{ csrf_input(request) }}<input type="hidden" name="scope" value="global"><input type="hidden" name="key" value="*">
+      <input type="hidden" name="on" value="{{ '0' if g else '1' }}">
+      <button type="submit" class="btn {{ '' if g else 'danger' }}">{{ "เปิดคิวทั้งหมดกลับ" if g else "หยุดคิวทั้งหมด (kill switch)" }}</button></form>
+    <ul>{% for p in pauses %}<li><code>{{ p.scope }}:{{ p.key }}</code> {{ p.reason or "" }} <span class="muted">{{ p.created_by }} · {{ p.created_at }}</span>
+      <form method="post" action="/admin/jobs/pause" style="display:inline">{{ csrf_input(request) }}<input type="hidden" name="scope" value="{{ p.scope }}"><input type="hidden" name="key" value="{{ p.key }}"><input type="hidden" name="on" value="0"><button type="submit" class="btn">เปิด</button></form></li>
+      {% else %}<li class="muted">ไม่มีจุดที่หยุดอยู่</li>{% endfor %}</ul>
+    <form method="post" action="/admin/jobs/pause" style="display:flex;gap:6px;flex-wrap:wrap">{{ csrf_input(request) }}<input type="hidden" name="on" value="1">
+      <label>หยุด <select name="scope"><option value="workflow">ประเภทงาน</option><option value="channel">ช่องทาง</option><option value="account">ลีด (id)</option></select></label>
+      <label>ค่า <input name="key" size="12" placeholder="deep_ai"></label><label>เหตุผล <input name="reason" size="16"></label><button type="submit" class="btn">หยุด</button></form>
+  </div>
+</div>
+
+<div class="card" style="overflow-x:auto;margin-top:18px">
+<h2 style="margin-top:0;font-size:17px">งาน{% if status %} · {{ J.STATUS_LABEL[status] }}{% endif %}</h2>
+<table>
+  <thead><tr><th>#</th><th>ประเภท</th><th>ลีด</th><th>สถานะ</th><th>ครั้ง</th><th>ทำได้ตั้งแต่</th><th>หมายเหตุ / ข้อผิดพลาด</th><th></th></tr></thead>
+  <tbody>{% for j in jobs %}<tr>
+    <td>{{ j.id }}</td><td>{{ J.KIND_LABEL.get(j.kind, j.kind) }}</td>
+    <td>{% if j.lead_id %}<a href="/admin/leads/{{ j.lead_id }}">{{ j.lead_id }}</a>{% endif %}</td>
+    <td>{{ J.STATUS_LABEL.get(j.status, j.status) }}{% if j.cancel_requested %} (ขอหยุด){% endif %}</td>
+    <td>{{ j.attempts }}/{{ j.max_attempts }}</td><td class="muted">{{ j.available_at }}</td>
+    <td class="muted">{{ j.note or "" }}{% if j.last_error %}<br>{{ j.last_error }}{% endif %}</td>
+    <td>{% if j.status == "dead" %}<form method="post" action="/admin/jobs/{{ j.id }}/retry" style="display:inline">{{ csrf_input(request) }}<button type="submit" class="btn">สั่งใหม่</button></form>{% endif %}
+      {% if j.status in ("queued", "dead", "running") %}<form method="post" action="/admin/jobs/{{ j.id }}/cancel" style="display:inline">{{ csrf_input(request) }}<button type="submit" class="btn">ยกเลิก</button></form>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="8" class="muted">ไม่มีงาน</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+
+<div class="card" style="overflow-x:auto;margin-top:18px">
+<h2 style="margin-top:0;font-size:17px">Outbox (โหมดทดสอบ · ไม่ส่งจริง)</h2>
+<table><thead><tr><th>#</th><th>งาน</th><th>ช่องทาง</th><th>ข้อความ (200 ตัวแรก)</th><th>เมื่อ</th></tr></thead>
+  <tbody>{% for o in outbox %}<tr><td>{{ o.id }}</td><td>{{ o.job_id }}</td><td>{{ o.channel }}</td><td>{{ o.preview }}</td><td class="muted">{{ o.created_at }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">ว่าง</td></tr>{% endfor %}</tbody></table>
+</div>
+<p class="muted">โครงสร้างฐานข้อมูลที่บันทึกแล้ว: {% for v in schema %}<code>{{ v.version }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+{% endblock %}

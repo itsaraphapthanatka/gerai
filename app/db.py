@@ -486,6 +486,87 @@ def _tables() -> list[str]:
             created_at TEXT NOT NULL,
             UNIQUE (lead_id, version)
         )""",
+        # stage 10: คิวงานถาวร — at-least-once + lease + idempotency (ผลภายนอกต้อง idempotent เอง ผ่าน outbox)
+        f"""CREATE TABLE IF NOT EXISTS jobs (
+            id {_PK},
+            kind TEXT NOT NULL,
+            idem_key TEXT NOT NULL UNIQUE,
+            payload_json TEXT NOT NULL DEFAULT '{{}}',
+            lead_id INTEGER,
+            channel TEXT,
+            status TEXT NOT NULL DEFAULT 'queued',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            max_attempts INTEGER NOT NULL DEFAULT 5,
+            available_at TEXT NOT NULL,
+            lease_owner TEXT,
+            lease_until TEXT,
+            cancel_requested INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            note TEXT,
+            result_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            finished_at TEXT
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_jobs_due ON jobs(status, available_at)""",
+        # จุดหยุด: global (kill switch) / workflow (kind) / channel / account (lead) — เช็กทั้งตอนเข้าคิวและตอนจะทำ
+        """CREATE TABLE IF NOT EXISTS job_pauses (
+            scope TEXT NOT NULL,
+            key TEXT NOT NULL,
+            reason TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (scope, key)
+        )""",
+        # การอนุมัติแบบผูกกับการกระทำเป๊ะ ๆ: เปลี่ยนเนื้อหา/ผู้รับ/ช่องทาง = ใช้ไม่ได้ · ใช้ได้ครั้งเดียว · หมดอายุ
+        f"""CREATE TABLE IF NOT EXISTS approvals (
+            id {_PK},
+            action TEXT NOT NULL,
+            lead_id INTEGER,
+            recipient_hash TEXT,
+            channel TEXT,
+            content_hash TEXT NOT NULL,
+            content_version INTEGER NOT NULL DEFAULT 1,
+            evidence_ref TEXT,
+            max_cost REAL NOT NULL DEFAULT 0,
+            policy TEXT NOT NULL,
+            approver TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'granted',
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT,
+            consumed_job_id INTEGER,
+            created_at TEXT NOT NULL
+        )""",
+        # จองงบก่อนเรียกบริการที่เสียเงิน → ปิดยอดด้วยค่าจริง / คืนเมื่อล้ม
+        f"""CREATE TABLE IF NOT EXISTS budget_reservations (
+            id {_PK},
+            budget_key TEXT NOT NULL,
+            day TEXT NOT NULL,
+            amount REAL NOT NULL,
+            actual REAL,
+            status TEXT NOT NULL DEFAULT 'reserved',
+            job_id INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        # outbox ผลภายนอก — stage 10 เป็นโหมดทดสอบเท่านั้น (บันทึก ไม่ส่งจริง) · idem_key กันผลซ้ำเมื่องานถูกทำซ้ำ
+        f"""CREATE TABLE IF NOT EXISTS outbox (
+            id {_PK},
+            idem_key TEXT NOT NULL UNIQUE,
+            job_id INTEGER,
+            lead_id INTEGER,
+            channel TEXT NOT NULL,
+            recipient_hash TEXT,
+            content_hash TEXT NOT NULL,
+            preview TEXT,
+            mode TEXT NOT NULL DEFAULT 'test',
+            status TEXT NOT NULL DEFAULT 'recorded',
+            created_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )""",
         # stage 08B: เหตุการณ์ funnel ภายใน — ไม่มี IP/UA/token/URL/ข้อมูลติดต่อ · lead_id ใช้ภายในเท่านั้น
         f"""CREATE TABLE IF NOT EXISTS analytics_events (
             id {_PK},
@@ -640,6 +721,10 @@ def init_db() -> None:
         for row in rows:
             c.execute(q("UPDATE brands SET embed_key=? WHERE id=?"),
                       (_s.token_urlsafe(16), row["id"]))
+    try:
+        record_schema_versions()                          # stage 10: บันทึกว่าโครงสร้างแต่ละขั้นถูกสร้างแล้ว (ไม่มีผลกับข้อมูล)
+    except Exception:
+        pass
 
 
 # ---- tenants ----
@@ -1746,6 +1831,23 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
         except Exception as e:
             last = e
     raise RuntimeError(f"บันทึกข้อมูลธุรกิจไม่สำเร็จ ({type(last).__name__})")
+
+
+# ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
+SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs")
+
+
+def record_schema_versions() -> None:
+    with get_conn() as c:
+        for v in SCHEMA_VERSIONS:
+            if not c.execute(q("SELECT 1 FROM schema_migrations WHERE version=?"), (v,)).fetchone():
+                c.execute(q("INSERT INTO schema_migrations(version, applied_at) VALUES(?,?)"), (v, now()))
+
+
+def list_schema_versions():
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM schema_migrations ORDER BY version")).fetchall()
 
 
 # ---- เหตุการณ์ funnel ภายใน (stage 08B) ----

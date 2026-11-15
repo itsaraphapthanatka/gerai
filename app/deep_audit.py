@@ -645,6 +645,23 @@ def _bg(fn) -> None:
     threading.Thread(target=runner, daemon=False).start()
 
 
+def _queue_ai(lead_id: int, force: bool) -> bool:
+    """เข้าคิวงาน deep_ai (ไม่ซ้ำวันละครั้งต่อลีด · สั่งวัดใหม่ = งานใหม่) · flag ปิด = False (ใช้ thread แบบเดิม)
+    ไม่ทำทั้งสองทางพร้อมกัน: เมื่อเข้าคิวแล้ว thread เดิมจะไม่เรียก run_ai"""
+    from . import jobs
+    if not jobs.enabled():
+        return False
+    key = f"deep_ai:{lead_id}:{office.today_bkk()}" + (f":force:{db.now()[:16]}" if force else "")
+    jid, st = jobs.enqueue("deep_ai", {"lead_id": lead_id, "force": bool(force)}, idem_key=key, lead_id=lead_id, max_attempts=2)
+    if st.startswith("paused"):
+        _save(lead_id, "deep_ai_json", {"state": "queued", "at": db.now(), "reason": "หยุดทดสอบ AI ชั่วคราว ทีมจะวัดให้ภายใน 1 วันทำการ"})
+        return True
+    if st == "queued":
+        _save(lead_id, "deep_ai_json", {"state": "queued", "at": db.now(), "reason": "อยู่ในคิวทดสอบ AI", "job_id": jid})
+        jobs.kick()
+    return True
+
+
 def start(lead_id: int, ai: bool = False, force_ai: bool = False) -> str:
     """เริ่มรายงานเต็มเบื้องหลัง (ถ้ายังไม่มีหรือเก่าเกิน 7 วัน) · ai=True ต่อชั้น 2 ด้วย · คืนสถานะสั้น ๆ"""
     if not enabled():
@@ -660,6 +677,10 @@ def start(lead_id: int, ai: bool = False, force_ai: bool = False) -> str:
     need2 = ai and not _running(t2) and (force_ai or t2.get("state") not in ("done",))
     if not (need1 or need2):
         return "running" if (_running(t1) or _running(t2)) else "done"
+    if need2 and _queue_ai(lead_id, force_ai):               # stage 10: flag durable_jobs → ทดสอบ AI ผ่านคิว (จองงบ) แทน thread
+        need2 = False
+        if not need1:
+            return "queued"
     if need2:
         _save(lead_id, "deep_ai_json", {"state": "running", "started_at": db.now()})
 

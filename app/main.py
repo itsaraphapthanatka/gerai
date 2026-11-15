@@ -357,6 +357,11 @@ def _maybe_start_scheduler():
                         pass  # แบรนด์นี้พลาด ไม่ให้กระทบแบรนด์อื่น
             except Exception:
                 pass
+            try:                                           # stage 10: คิวงานถาวร (flag durable_jobs ปิด = ไม่ทำอะไร) · ชนกับ cron --jobs ได้ เพราะ claim เป็น CAS
+                from . import jobs as _jobs
+                _jobs.run_once(limit=5)
+            except Exception:
+                pass
             time.sleep(60)  # เช็คทุก 60 วิ → ยิงตรงเวลาเป๊ะระดับนาที
 
     threading.Thread(target=loop, daemon=True, name="geo-autorun").start()
@@ -3878,6 +3883,51 @@ def _settings_ctx(request: Request, saved=False, error=None):
         "stripe": stripe_pay.public_config(),
         "saved": saved, "error": error,
     }
+
+
+@app.get("/admin/jobs")
+def admin_jobs(request: Request, status: str = "", notice: str = ""):
+    """stage 10: คิวงานถาวร — สถานะ งานที่ล้ม (dead-letter) จุดหยุด งบวันนี้ outbox ทดสอบ"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import jobs
+    st = status if status in jobs.STATUS_LABEL else ""
+    return templates.TemplateResponse(request, "admin_jobs.html", {
+        "on": jobs.enabled(), "jobs": jobs.list_jobs(st or None, 100), "counts": jobs.counts(), "status": st, "J": jobs,
+        "pauses": jobs.pauses(), "budget": jobs.budget_used("ai_usd"), "outbox": jobs.outbox_list(20), "notice": notice,
+        "schema": db.list_schema_versions()})
+
+
+@app.post("/admin/jobs/{job_id}/retry", dependencies=[Depends(_csrf.require_csrf)])
+def admin_job_retry(request: Request, job_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    ok = jobs.retry(job_id)
+    if ok:
+        jobs.kick()
+    return _redirect(f"/admin/jobs?notice={quote('สั่งงาน #%d ใหม่แล้ว' % job_id if ok else 'สั่งใหม่ได้เฉพาะงานที่ล้ม')}")
+
+
+@app.post("/admin/jobs/{job_id}/cancel", dependencies=[Depends(_csrf.require_csrf)])
+def admin_job_cancel(request: Request, job_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    r = jobs.cancel(job_id, request.session.get("email") or "admin")
+    msg = {"cancelled": "ยกเลิกแล้ว", "requested": "ขอให้หยุดแล้ว (งานกำลังทำอยู่ จะหยุดก่อนทำผลภายนอก)", "noop": "ยกเลิกไม่ได้ (เสร็จไปแล้ว)"}[r]
+    return _redirect(f"/admin/jobs?notice={quote(f'งาน #{job_id}: {msg}')}")
+
+
+@app.post("/admin/jobs/pause", dependencies=[Depends(_csrf.require_csrf)])
+def admin_jobs_pause(request: Request, scope: str = Form(""), key: str = Form(""), on: str = Form(""), reason: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    if scope not in jobs.PAUSE_SCOPES or (scope == "workflow" and key not in jobs.HANDLERS) or (scope in ("channel", "account") and not key.strip()):
+        return _redirect(f"/admin/jobs?notice={quote('จุดหยุดไม่ถูกต้อง')}")
+    jobs.set_pause(scope, key.strip()[:80], on == "1", reason, request.session.get("email") or "admin")
+    return _redirect(f"/admin/jobs?notice={quote(('หยุด' if on == '1' else 'เปิด') + ' ' + scope + ':' + (key or '*') + ' แล้ว')}")
 
 
 @app.get("/admin/analytics")
