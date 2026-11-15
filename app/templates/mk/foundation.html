@@ -1,0 +1,44 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# Foundation Sprint (stage 03) — เป้าหมาย สิ่งที่ส่งมอบ ไม่รวม สิ่งที่ลูกค้าเตรียม ใครทำอะไร เกณฑ์ตรวจรับ · ราคา "ประเมินตามขอบเขต" #}
+{% block title %}Foundation Sprint · ขอบเขตงาน · เจอ.AI{% endblock %}
+{% block meta %}{% with desc=fs.summary, og_title="Foundation Sprint · เจอ.AI" %}{% include "mk/_page_meta.html" %}{% endwith %}{% endblock %}
+{% block content %}
+{% include "mk/_draft_note.html" %}
+<section class="mk-wrap mk-section" aria-labelledby="h-fs" style="padding-block:48px 24px">
+  <div class="mk-stack" style="gap:14px;max-width:760px">
+    <span class="mk-eyebrow"><a href="/services">บริการ</a> · งานครั้งเดียว</span>
+    <h1 id="h-fs">{{ fs.name }}</h1>
+    <p style="font-size:17px">{{ fs.summary }}</p>
+    <dl class="mk-facts"><dt>เป้าหมาย</dt><dd>{{ fs.goal }}</dd><dt>ราคา</dt><dd>{{ fs.price }} · <span class="mk-muted">{{ fs.price_note }}</span></dd></dl>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:14px;padding-top:0" aria-labelledby="h-del">
+  <h2 id="h-del">สิ่งที่ส่งมอบ</h2>
+  <ol class="mk-grid" style="list-style:none;margin:0;padding:0">
+    {% for t, d in fs.deliverables %}<li class="mk-card"><span class="mk-order-n">{{ loop.index }}</span><h3>{{ t }}</h3><p class="mk-muted mk-small">{{ d }}</p></li>{% endfor %}
+  </ol>
+</section>
+<section class="mk-section" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+    <div class="mk-card"><h2 id="h-ex" style="font-size:20px">ไม่รวมในงานนี้</h2>
+      <ul class="mk-stack" style="gap:8px;margin:0;padding-left:20px">{% for x in fs.exclusions %}<li>{{ x }}</li>{% endfor %}</ul></div>
+    <div class="mk-card"><h2 id="h-in" style="font-size:20px">สิ่งที่คุณต้องเตรียม</h2>
+      <ul class="mk-stack" style="gap:8px;margin:0;padding-left:20px">{% for x in fs.inputs %}<li>{{ x }}</li>{% endfor %}</ul></div>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+  <div class="mk-card"><h2 id="h-who" style="font-size:20px">ใครทำอะไร</h2>
+    <dl class="mk-facts">{% for t, who in fs.responsibility %}<dt>{{ t }}</dt><dd>{{ who }}</dd>{% endfor %}</dl></div>
+  <div class="mk-card"><h2 id="h-acc" style="font-size:20px">การตรวจรับ</h2>
+    <ul class="mk-stack" style="gap:8px;margin:0;padding-left:20px">{% for x in fs.acceptance %}<li>{{ x }}</li>{% endfor %}</ul></div>
+</section>
+<section class="mk-section" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:12px">
+    <h2>เริ่มอย่างไร</h2>
+    <p class="mk-muted">ตรวจเว็บฟรีก่อน ทีมจะใช้ผลนั้นคุยกับคุณ แล้วส่งข้อเสนอที่ระบุงานและราคา ยังไม่มีค่าใช้จ่ายจนกว่าคุณยืนยันข้อเสนอ</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">{{ ui.button("ตรวจเว็บไซต์ฟรี", href="/audit") }} {{ ui.button("นัดคุย 30 นาที", href="/callback", kind="secondary") }}</div>
+    <p class="mk-small"><a href="/how-it-works">ดูวิธีทำงานและหลักการวัด</a></p>
+  </div>
+</section>
+{% endblock %}

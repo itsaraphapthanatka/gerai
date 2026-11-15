@@ -1,0 +1,41 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# วิธีทำงาน (stage 03) — อธิบายสิ่งที่ระบบทำจริงทีละขั้น พร้อมข้อจำกัด + หลักการวัด (ฉบับย่อของ /methodology ที่ยังไม่ได้ทำ) #}
+{% block title %}วิธีทำงานของเจอ.AI · ตรวจ ยืนยัน รายงาน ตกลงขอบเขต วัดซ้ำ{% endblock %}
+{% block meta %}{% with desc="เจอ.AI ตรวจเว็บไซต์อย่างไร วัดอะไร ไม่วัดอะไร และทำงานกับคุณทีละขั้นอย่างไร ตั้งแต่ตรวจฟรีจนถึงวัดผลซ้ำ", og_title="วิธีทำงานของเจอ.AI" %}{% include "mk/_page_meta.html" %}{% endwith %}{% endblock %}
+{% block content %}
+<section class="mk-wrap mk-section" aria-labelledby="h-how" style="padding-block:48px 24px">
+  <div class="mk-stack" style="gap:16px;max-width:760px">
+    <span class="mk-eyebrow">วิธีทำงาน</span>
+    <h1 id="h-how">ตรวจจากหน้าเว็บจริง บอกตรง ๆ ว่าวัดอะไรได้ และอะไรยังไม่ได้วัด</h1>
+    <p class="mk-muted" style="font-size:17px">ทุกขั้นมีสิ่งที่คุณได้ และข้อจำกัดที่ควรรู้ เริ่มได้จากการตรวจฟรี และหยุดตรงไหนก็ได้</p>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:14px;padding-top:0" aria-label="ขั้นตอน">
+  <ol class="mk-stack" style="list-style:none;margin:0;padding:0;gap:14px">
+    {% for s in how %}
+    <li class="mk-card mk-stack" style="gap:8px">
+      <div style="display:flex;gap:12px;align-items:baseline"><span class="mk-order-n">{{ loop.index }}</span><h2 style="font-size:20px;margin:0">{{ s.t }}</h2></div>
+      <p style="margin:0">{{ s.d }}</p>
+      <dl class="mk-facts"><dt>สิ่งที่ได้</dt><dd>{{ s.out }}</dd><dt>ข้อจำกัด</dt><dd>{{ s.limit }}</dd></dl>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+<section class="mk-section" id="method" aria-labelledby="h-method" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:16px">
+    <h2 id="h-method">หลักการวัดที่ใช้ทุกรายงาน</h2>
+    <div class="mk-grid">
+      {% for t, d in method %}<div class="mk-card"><h3>{{ t }}</h3><p class="mk-muted mk-small">{{ d }}</p></div>{% endfor %}
+    </div>
+    <div class="mk-stack" style="gap:6px">
+      <span class="mk-small">สถานะที่คุณจะเห็นในรายงาน</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px">{{ ui.status("found") }} {{ ui.status("absent") }} {{ ui.status("partial") }} {{ ui.status("not_tested") }} {{ ui.status("unavailable") }}</div>
+    </div>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:14px" aria-labelledby="h-next">
+  <h2 id="h-next">เริ่มจากตรงไหนก็ได้</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">{{ ui.button("ตรวจเว็บไซต์ฟรี", href="/audit") }} {% if show_services %}{{ ui.button("ดูบริการ", href="/services", kind="secondary") }}{% endif %} {{ ui.button("นัดคุย 30 นาที", href="/callback", kind="text") }}</div>
+</section>
+{% endblock %}

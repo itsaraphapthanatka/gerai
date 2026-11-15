@@ -5,6 +5,8 @@
     {% include "_logo.html" %}
     <ul>
       <li><a href="/audit"{% if active == "audit" %} aria-current="page"{% endif %}>ตรวจเว็บไซต์ (สำหรับธุรกิจ)</a></li>
+      <li><a href="/how-it-works"{% if active == "how" %} aria-current="page"{% endif %}>วิธีทำงาน</a></li>
+      {% if show_services %}<li><a href="/services"{% if active == "services" %} aria-current="page"{% endif %}>บริการ</a></li>{% endif %}
       <li><a href="/partners"{% if active == "partners" %} aria-current="page"{% endif %}>สำหรับเว็บสตูดิโอและเอเจนซี</a></li>
       <li><a href="/login">เข้าสู่ระบบ</a></li>
       <li>{% if home_langs %}<details class="ds-lang">

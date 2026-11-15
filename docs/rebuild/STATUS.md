@@ -11,6 +11,20 @@
 | 05-core รายงาน 4 ช่อง | **เสร็จ หลัง flag `report_v2` (ปิด)** | 2026-11-15 | ภาพนิ่ง `previews/05-report.html` · แก้ชื่อ SoV ที่เรียกว่า AI แล้ว (มีผลทันที ไม่ผ่าน flag) |
 | 06-core ขอแผน + นัดคุย | **เสร็จ หลัง flag `plan_request_v2` / `marketing_v2` (ปิด)** | 2026-11-15 | ภาพนิ่ง `previews/06-*.html` · ข้อความความยินยอมยังเป็นร่าง ต้องให้คนตรวจกฎหมาย |
 | 06A-1 คุยต่อใน LINE | **เสร็จ หลัง flag `line_appointments` (ปิด) · ยังไม่ได้ทดสอบกับ OA จริง** | 2026-11-15 | ใช้ LINE OA ตัวเดิมที่เชื่อมอยู่และส่งรายงานอยู่แล้ว (เจ้าของยืนยัน) · LINE ID อ่านจาก OA เอง · รายละเอียดด้านล่าง |
+| 03 หน้าบริการ (เริ่ม 4 หน้า) | **เสร็จ หลัง flag `marketing_v2` (ปิด) · ขอบเขต Foundation Sprint เป็นร่าง รอเจ้าของยืนยัน** | 2026-11-15 | ภาพนิ่ง `previews/03-*.html` · รายละเอียดด้านล่าง |
+
+## stage 03 — วิธีทำงาน · บริการ · กลุ่มธุรกิจ (เริ่ม 4 หน้า)
+- `/how-it-works` วิธีทำงาน 6 ขั้น (สิ่งที่ได้ + ข้อจำกัดทุกขั้น) + หลักการวัด (ผลค้นเว็บ ≠ AI · ตัวหาร = ที่ทดสอบสำเร็จ · ยังไม่ได้ทดสอบ ≠ ไม่พบ · ผล AI เปลี่ยนตามรุ่น/เวลา · ไม่วัดผลธุรกิจแทน) — ฉบับย่อของ `/methodology`
+- `/services` งานครั้งเดียว (Foundation Sprint, "ประเมินตามขอบเขต") + เครื่องมือรายเดือน (ราคา Pro/Agency อ่านจาก `billing.PLANS` ไม่เปลี่ยน · บอกชัดว่าแผนรายเดือนคือสิทธิ์ใช้เครื่องมือ ไม่ใช่ทีมลงมือแก้เว็บ)
+- `/services/foundation-sprint` เป้าหมาย · สิ่งที่ส่งมอบ 6 ข้อ · ไม่รวม · สิ่งที่ลูกค้าเตรียม · ใครทำอะไร · การตรวจรับ · ไม่มีราคาตัวเลข
+- `/solutions/industrial-property` คำถามเฉพาะของผู้เช่าโกดัง/โรงงาน (ติดป้ายว่าไม่ใช่ปริมาณการค้น) · ข้อมูลที่ควรเป็นข้อความบนหน้า · ปัญหาที่พบบ่อย · ตัวอย่างก่อน/หลัง ติดป้าย "ตัวอย่างสาธิต ไม่ใช่ข้อมูลทรัพย์จริง"
+- เนื้อหาทั้งหมดอยู่ใน `app/service_pages.py` (แก้ข้อความที่เดียว) · route ใน `app/marketing_web.py` · เทมเพลต `mk/how.html`, `services.html`, `foundation.html`, `solution.html`, `_page_meta.html`, `_draft_note.html`
+- **กันขอบเขตร่างหลุดออกไป:** `service_pages.SCOPE_STATUS = "draft"` → `/services` และ `/services/foundation-sprint` เป็น 404 สำหรับคนทั่วไป **แม้เปิด `marketing_v2` แล้ว** · เมนู ท้ายหน้า และปุ่มในหน้าอื่นไม่ลิงก์ไปหน้าบริการ · แอดมินที่ preview เห็นพร้อมแถบ "ร่าง รอเจ้าของยืนยัน" · เปลี่ยนเป็น `"confirmed"` เมื่อเจ้าของยืนยัน
+- เมนูและท้ายหน้าชุดใหม่ลิงก์ "วิธีทำงาน" (+ "บริการ" เมื่อยืนยันแล้ว) และหน้ากลุ่มธุรกิจ · เมนูภาษาในหน้าเหล่านี้พาไปหน้าแรกของภาษานั้น (หน้ามีแต่ภาษาไทย)
+- SEO: description ทุกหน้า · canonical/og เมื่อเปิดจริงเท่านั้น (preview = noindex) · sitemap เพิ่มหน้าใหม่เมื่อเปิด `marketing_v2` จริง (หน้าบริการเมื่อยืนยันแล้ว)
+**เทสต์:** `service_pages_smoke.py` — flag ปิด/เปิด, noindex/canonical, แถบร่าง, หน้าบริการ 404 จนกว่ายืนยัน, ลิงก์ภายในทุกลิงก์, ไม่มีคำโฆษณาเกินจริง, ราคาจาก `billing.PLANS`, ไม่มีราคาตัวเลขใน Foundation Sprint, sitemap · ปรับ `mk_smoke.py` ให้เช็กลิงก์หน้าหลัง flag ด้วยแอดมิน
+**ก่อนเปิดหน้าบริการ (เจ้าของ):** ยืนยันหรือแก้สิ่งที่ส่งมอบ / ไม่รวม / สิ่งที่ลูกค้าเตรียม / ใครทำอะไร / เกณฑ์ตรวจรับใน `service_pages.FOUNDATION` แล้วเปลี่ยน `SCOPE_STATUS` · ยืนยันชื่อ "Foundation Sprint" · ยืนยันว่าตัวอย่างคำถามและข้อมูลในหน้าอสังหาฯ ตรงกับลูกค้าจริง
+**ยังไม่ได้ทำ (03 ส่วนที่เหลือ):** `/methodology` ฉบับเต็ม · `/services/managed-growth` · `/solutions/b2b-services` (รอเลือกกลุ่มธุรกิจที่ 2) · ปรับ `/partners` (รอเงื่อนไขพาร์ตเนอร์ referral/co-delivery และคอมมิชชันที่ตกลงจริง — หน้าเดิมไม่แตะ) · หน้าภาษาอื่น · ลิงก์จากหน้าแรกเดิม (flag ปิด)
 
 ## stage 06A-1 — คุยต่อใน LINE จากรายงาน
 **เส้นทาง:** ปุ่ม "คุยต่อใน LINE" ในส่วนขอแผนของรายงาน → `GET /audit/{token}/line` ออกรหัส 6 ตัวใช้ครั้งเดียว (อายุ 72 ชม. · กดซ้ำได้รหัสเดิม) → พาไป `https://line.me/R/oaMessage/@<OA>/?ขอแผนจากรายงาน <โดเมน> · รหัส XXXXXX` → ลูกค้ากดส่งเอง → webhook จับรหัส
@@ -139,7 +153,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-15 (หลัง 06A-1): **68/68 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-15 (หลัง 03): **69/69 ผ่าน** (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

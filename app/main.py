@@ -3515,7 +3515,14 @@ def _self_pages(base: str) -> list:
     alts = {L.HTML_LANG[c]: base + L.PATHS[c] for c in L.LANGS}
     alts["x-default"] = base + "/"
     home = [{"loc": base + L.PATHS[c], "alternates": alts} for c in L.LANGS]
-    return home + [{"loc": base + "/audit"}, {"loc": base + "/partners"}, {"loc": base + "/geo"}]
+    extra = []
+    try:                                               # stage 03: หน้าใหม่เข้า sitemap เมื่อเปิด marketing_v2 จริงเท่านั้น (บริการ: เมื่อยืนยันขอบเขตแล้ว)
+        from . import flags as _fl, service_pages as _sp
+        if _fl.enabled("marketing_v2"):
+            extra = [{"loc": base + p} for p in _sp.PATHS if _sp.SCOPE_STATUS == "confirmed" or not p.startswith("/services")]
+    except Exception:
+        extra = []
+    return home + [{"loc": base + "/audit"}, {"loc": base + "/partners"}, {"loc": base + "/geo"}] + extra
 
 
 @app.api_route("/llms.txt", methods=["GET", "HEAD"])

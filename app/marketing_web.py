@@ -35,7 +35,13 @@ def _home_ctx(request: Request) -> dict:
             # ตัวเลือกภาษาแบบหน้าแรกเดิม: ไปหน้าแรกของภาษานั้นตรง ๆ (ไม่ใช่ ?lang= ซึ่งจะยังได้หน้าไทย)
             "home_langs": [{"name": L.NAMES[c], "href": "/?lang=th" if c == "th" else L.PATHS[c],
                             "hreflang": L.HTML_LANG[c], "current": c == "th"} for c in L.LANGS],
-            "articles": _home_articles()}
+            "articles": _home_articles(),
+            "show_services": _services_visible(request)}
+
+
+def _services_visible(request: Request) -> bool:
+    from . import service_pages as SP
+    return SP.SCOPE_STATUS == "confirmed" or flags.previewing("marketing_v2", request)
 
 
 def home(request: Request):
@@ -57,6 +63,44 @@ def ui_kit(request: Request):
     if not flags.previewing("marketing_v2", request):
         raise HTTPException(status_code=404)
     return _render(request, "mk/ui_kit.html", internal=True)
+
+
+# ---------- stage 03: วิธีทำงาน · บริการ · กลุ่มธุรกิจ ----------
+def _sp_page(request: Request, name: str, *, needs_scope: bool = False):
+    """หลัง flag marketing_v2 เหมือนหน้าแรก · หน้าที่มีขอบเขตบริการ (needs_scope) เปิดให้คนทั่วไปได้เมื่อเจ้าของยืนยันขอบเขตแล้วเท่านั้น
+    (service_pages.SCOPE_STATUS = "confirmed") — ก่อนนั้นเห็นเฉพาะแอดมินที่ preview พร้อมแถบร่าง"""
+    from . import service_pages as SP
+    if not flags.active("marketing_v2", request):
+        raise HTTPException(status_code=404)
+    previewing = flags.previewing("marketing_v2", request)
+    if needs_scope and SP.SCOPE_STATUS != "confirmed" and not previewing:
+        raise HTTPException(status_code=404)
+    from . import landing_i18n as L
+    ctx = SP.ctx(request)
+    ctx["home_langs"] = [{"name": L.NAMES[c], "href": "/?lang=th" if c == "th" else L.PATHS[c],     # หน้าเหล่านี้มีแต่ภาษาไทย → เมนูภาษาพาไปหน้าแรกของภาษานั้น
+                          "hreflang": L.HTML_LANG[c], "current": c == "th"} for c in L.LANGS]
+    resp = _render(request, name, {**ctx, "show_services": SP.SCOPE_STATUS == "confirmed" or previewing}, internal=previewing)
+    return resp
+
+
+@router.get("/how-it-works")
+def how_it_works(request: Request):
+    return _sp_page(request, "mk/how.html")
+
+
+@router.get("/services")
+def services(request: Request):
+    return _sp_page(request, "mk/services.html", needs_scope=True)
+
+
+@router.get("/services/foundation-sprint")
+def foundation_sprint(request: Request):
+    return _sp_page(request, "mk/foundation.html", needs_scope=True)
+
+
+@router.get("/solutions/industrial-property")
+def industrial_property(request: Request):
+    return _sp_page(request, "mk/solution.html")
 
 
 # ---------- นัดคุย 30 นาที (stage 06) — แทนปุ่มเดิมของหน้าแรกเก่า · ขอให้โทรกลับ ไม่ใช่การจองเวลา (ยังไม่มีปฏิทินจริง) ----------

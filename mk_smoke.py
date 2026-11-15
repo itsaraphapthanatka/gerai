@@ -49,8 +49,9 @@ assert 'disabled aria-describedby="b-sample-why"' in html and "stage 07" in html
 ids = re.findall(r'<input id="([^"]+)"', html)
 assert ids and all(f'<label for="{i}">' in html for i in ids), ids
 # ลิงก์ในเมนู/ท้ายหน้าชี้ไป route ที่มีอยู่จริงเท่านั้น
+FLAGGED = ("/callback", "/how-it-works", "/services", "/solutions/industrial-property")             # หน้าหลัง flag marketing_v2 (คนนอกเห็นเมื่อเปิด flag)
 for href in {h for h in re.findall(r'<a [^>]*href="(/[^"#]*)"', html) if not h.startswith("/preview/")}:
-    st = anon.get(href, follow_redirects=False).status_code
+    st = (admin if href in FLAGGED else anon).get(href, follow_redirects=False).status_code
     assert st in (200, 302, 303, 307), (href, st)
 
 # ---- flag เปิดจริง: หน้าภายในยังติด noindex เสมอ และยังต้องเป็นแอดมิน ----
@@ -84,7 +85,7 @@ main_html = home.split('<main id="main">')[1].split("</main>")[0]               
 ids = re.findall(r'<input id="([^"]+)"', main_html)
 assert ids and all(f'<label for="{i}">' in main_html for i in ids)
 for href in {h for h in re.findall(r'<a [^>]*href="(/[^"#]*)"', home) if not h.startswith("/preview/")}:
-    cl = admin if href == "/callback" else anon                                                  # /callback อยู่หลัง flag เดียวกับหน้าแรกใหม่ (คนนอกเห็นเมื่อเปิด flag)
+    cl = admin if href in FLAGGED else anon
     assert cl.get(href, follow_redirects=False).status_code in (200, 302, 303, 307), href
 
 # ---- stage 02: ต่อหน้าแรก / หลัง flag ----
