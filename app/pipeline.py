@@ -179,7 +179,20 @@ def ceo_propose(lead) -> int | None:
 
 
 def send_channel(lead) -> str:
-    """ช่องทางที่ระบบส่งถึงลูกค้ารายนี้ได้เอง ('' = ไม่มี): อีเมลที่ส่งได้ > LINE ที่เขาทักเรามา"""
+    """ช่องทางที่ระบบส่งถึงลูกค้ารายนี้ได้เอง ('' = ไม่มี): อีเมลที่ส่งได้ > LINE ที่เขาทักเรามา
+    stage 11 (flag sales_v2): ช่องทางเดียวที่มีที่มาของสิทธิ์ (sales.pick_channel) ไม่มี = ''"""
+    from . import sales as _sales
+    if _sales.enabled():
+        ch = _sales.pick_channel(lead)
+        if ch == "email":
+            return f"อีเมล {lead['email']}"
+        if ch == "line":
+            return "LINE (แชตที่ลูกค้าทักมา)"
+        if ch == "sms":
+            from . import sms
+            m = sms.lead_mobile(lead)
+            return f"SMS {m[:3]}-{m[3:6]}-{m[6:]}" if m and sms.available() else ""
+        return ""
     if lead["email"] and mailer.is_deliverable(lead["email"]):
         return f"อีเมล {lead['email']}"
     if lead["line_user_id"]:
@@ -196,7 +209,11 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
     plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)
     ข้อความมาเป็นภาษาของลีดแล้ว (lead.lang) — กรอบอีเมลแปลตามภาษาเดียวกัน"""
     lang = lead_lang(lead)
-    if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
+    from . import sales as _sales
+    only = _sales.pick_channel(lead) if _sales.enabled() else None      # stage 11: ช่องทางเดียว ไม่ไล่ข้ามช่องทางเมื่อส่งไม่ได้
+    if only == "":
+        return ""
+    if only in (None, "email") and lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
         from . import deliverability
         if not deliverability.mx_ok(lead["email"]):          # โดเมนผู้รับไม่มีเซิร์ฟเวอร์รับอีเมล → ส่งไปเด้งแน่ ไม่ส่ง และล้างอีเมลทิ้ง
             record(lead["id"], "note", f"ไม่ส่งถึง {lead['email']} — โดเมนนี้ไม่มีเซิร์ฟเวอร์รับอีเมล (ไม่มี MX) ล้างอีเมลออกแล้ว ใช้ช่องทางอื่นแทน", "deliv")
@@ -209,11 +226,15 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
         else:
             mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>", lang=lang), text=body)
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
-    if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
+    if only == "email":
+        return ""
+    if only in (None, "line") and lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
         return "ส่งทาง LINE แล้ว"
+    if only == "line":
+        return ""
     from . import sms
     m = sms.lead_mobile(lead)
-    if m and sms.available():
+    if only in (None, "sms") and m and sms.available():
         try:
             return sms.send(m, sms.compact(subject, body, unsubscribe_url(lead)))   # QuietHours โยนต่อ → ข้อเสนอค้างไว้ส่งรอบถัดไป
         except sms.QuietHours:
@@ -227,6 +248,12 @@ def execute_decision(d, who: str) -> str:
     """ทำตามข้อเสนอที่อนุมัติ (หรือ auto): ทัก · ปิดลูกค้าที่ไม่รับ · ส่งใบเสนอราคา · ยืนยันยอดเข้าแล้วเปิดบัญชี"""
     pl = json.loads(d["payload_json"] or "{}")
     lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+    if d["kind"] in ("outreach", "reply", "followup") and lead:      # stage 11: เช็กความยินยอมกลางอีกครั้งตอนจะส่ง (ทุกช่องทาง)
+        from . import sales as _sales
+        blk = _sales.contact_block(db.get_lead(lead["id"]))
+        if blk:
+            record(lead["id"], "note", f"ไม่ส่ง{ {'outreach': 'ข้อความทัก', 'reply': 'คำตอบ', 'followup': 'ข้อความติดตาม'}[d['kind']] } — {blk}", who)
+            return f"ไม่ส่ง — {blk}"
     if d["kind"] == "outreach" and lead:
         if lead["status"] in leads.NO_CONTACT:
             return f"ไม่ส่ง — ลูกค้าอยู่ในสถานะ {leads.STATUS_LABEL.get(lead['status'], lead['status'])}"

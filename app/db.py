@@ -723,7 +723,9 @@ def init_db() -> None:
             _ensure_column(c, "leads", col, ddl)
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
         _ensure_column(c, "leads", "audit_by", "INTEGER")
-        _ensure_column(c, "leads", "owner_staff_id", "INTEGER")         # stage 09: ทีมงานที่รับผิดชอบลีด (NULL = ยังไม่มอบหมาย) · ไม่ backfill             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
+        _ensure_column(c, "leads", "owner_staff_id", "INTEGER")
+        _ensure_column(c, "leads", "opp_override", "TEXT")              # stage 11: ขั้นที่ทีมตั้งเอง (nurture) · NULL = คำนวณจากข้อมูล
+        _ensure_column(c, "leads", "lost_reason", "TEXT")               # stage 11: เหตุผลที่ไม่ได้ดีล/รอจังหวะ         # stage 09: ทีมงานที่รับผิดชอบลีด (NULL = ยังไม่มอบหมาย) · ไม่ backfill             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
         c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
             id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
         # ทีมงานหลังบ้าน (app/staff.py): บทบาท · สิทธิ์รายหมวดถ้ากำหนดเอง (JSON) · ปิดบัญชี · ประวัติการทำงาน
@@ -1855,7 +1857,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity")
 
 
 def record_schema_versions() -> None:

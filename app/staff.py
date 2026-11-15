@@ -43,7 +43,8 @@ RULES = [
     (r"/admin/(settings|free-plan|agency-mode)(/.*)?", "settings"),
     (r"/admin/(email/smtp|inbox/settings|salesbot/settings|marketing/settings|marketing/fb-test|results/settings)", "settings"),
     (r"/admin/deliverability/.+", "settings"),                      # เพิ่มกล่องส่ง/รหัส SMTP/DKIM — หน้าดูอยู่หมวดการตลาด
-    (r"/admin/appointments/settings", "settings"),                    # ช่องเวลานัด (stage 06A-2)
+    (r"/admin/appointments/settings", "settings"),
+    (r"/admin/sales/policy", "settings"),                             # stage 11: นโยบายช่องทาง + น้ำหนักคะแนนคัดกรอง                    # ช่องเวลานัด (stage 06A-2)
     (r"/admin/(payments|slip|accounting|acct)(/.*|\.csv)?", "finance"),
     (r"/admin/quotes/[^/]+/(confirm|slip)", "finance"),
     (r"/admin/(deals|contacts|leads|calls|inbox|salesbot|prospect|quotes|appointments)(/.*)?", "sales"),

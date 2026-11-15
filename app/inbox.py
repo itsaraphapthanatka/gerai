@@ -18,7 +18,7 @@ from email.utils import parseaddr
 from . import db, leads as L, office, wp_client
 
 CATS = {"interested": "สนใจ/ถามราคา", "question": "ถามคำถาม", "not_interested": "ไม่สนใจ", "unsubscribe": "ขอไม่รับ",
-        "auto": "ตอบกลับอัตโนมัติ", "bounce": "อีเมลเด้ง", "other": "อื่น ๆ"}
+        "auto": "ตอบกลับอัตโนมัติ", "bounce": "อีเมลเด้ง", "other": "อื่น ๆ", "ooo": "ไม่อยู่ (พักติดตาม)", "not_now": "ยังไม่ใช่ตอนนี้ (รอจังหวะ)"}
 AUTO_RE = re.compile(r"(out of office|automatic reply|auto.?reply|autoreply|ตอบกลับอัตโนมัติ|ไม่อยู่ที่สำนักงาน|vacation|ลาพักร้อน)", re.I)
 BOUNCE_FROM = re.compile(r"(mailer-daemon|postmaster|mail delivery)", re.I)
 UNSUB_RE = re.compile(r"(unsubscribe|ไม่รับ|เลิกส่ง|หยุดส่ง|อย่าส่ง|remove me|ลบออก|stop)", re.I)
@@ -180,7 +180,14 @@ def process(m: dict, llm=None) -> dict:
     if not lead and not BOUNCE_FROM.search(m["from"]):
         lead = new_lead_from_email(m, llm)
         created = bool(lead)
+    if lead and not created and not BOUNCE_FROM.search(m["from"]) and not m.get("auto")             and not AUTO_RE.search(m.get("subject") or "") and not AUTO_RE.search((m.get("body") or "")[:300]):
+        pipeline._cancel_pending(lead["id"], {"followup", "outreach"}, "ลูกค้าตอบกลับ — หยุดข้อความติดตามก่อนจัดประเภท")   # stage 11
     cat = classify(m, llm) if lead or BOUNCE_FROM.search(m["from"]) else "unmatched"
+    from . import sales as _sales
+    if lead and _sales.enabled() and cat == "auto" and _sales.OOO_RE.search((m.get("subject") or "") + " " + (m.get("body") or "")[:600]):
+        cat = "ooo"
+    if lead and _sales.enabled() and cat == "not_interested" and _sales.NOT_NOW_RE.search((m.get("body") or "")[:400]):
+        cat = "not_now"
     action = "ลีดใหม่จากอีเมล · " if created else ""
     if cat == "unmatched":
         action = "ไม่ตรงกับลีดรายไหน — ไม่เก็บเนื้อหา"
@@ -196,6 +203,17 @@ def process(m: dict, llm=None) -> dict:
             action = "อีเมลเด้งแต่ไม่รู้ว่าของลีดไหน"
     elif cat == "auto":
         action += "ตอบกลับอัตโนมัติ — ไม่นับ"
+    elif cat == "ooo":                                             # stage 11: ไม่อยู่ → พักติดตามผลถึงวันที่กลับ (ไม่นับเป็นตอบกลับ)
+        until = _sales.ooo_until((m.get("subject") or "") + " " + (m.get("body") or ""))
+        pipeline.record(lead["id"], "ooo", f"ตอบกลับอัตโนมัติว่าไม่อยู่ — พักติดตามผลถึง {until.isoformat(timespec='seconds')}", "inbox")
+        pipeline._cancel_pending(lead["id"], {"followup"}, "ลูกค้าไม่อยู่ — พักติดตามผล")
+        action = f"ไม่อยู่ — พักติดตามผลถึง {until:%Y-%m-%d}"
+    elif cat == "not_now":                                         # stage 11: ยังไม่ใช่ตอนนี้ = รอจังหวะ (ไม่ปิดเป็นแพ้)
+        with db.get_conn() as c:
+            c.execute(db.q("UPDATE leads SET opp_override='nurture', lost_reason='not_now' WHERE id=?"), (lead["id"],))
+        pipeline.record(lead["id"], "replied", f"ตอบว่ายังไม่ใช่ตอนนี้ (รอจังหวะ): {(m.get('body') or '')[:200]}", "customer")
+        pipeline._cancel_pending(lead["id"], {"outreach", "followup", "lead_review", "quote"}, "ลูกค้าบอกว่ายังไม่ใช่ตอนนี้")
+        action = "ตั้งเป็นรอจังหวะ · ยกเลิกข้อความที่ค้าง (ไม่ปิดเป็นไม่สนใจ)"
     elif cat == "unsubscribe":
         pipeline.unsubscribe(lead, actor="customer (อีเมล)")
         action = "บันทึกขอไม่รับการติดต่อ"
@@ -228,7 +246,7 @@ def process(m: dict, llm=None) -> dict:
         c.execute(db.q("INSERT INTO inbox_messages(received_at,message_id,from_addr,subject,body,lead_id,category,action) VALUES(?,?,?,?,?,?,?,?)"),
                   (db.now(), mid, m["from"] if keep else "", (m.get("subject") or "")[:300] if keep else "", (m.get("body") or "")[:4000] if keep else "",
                    lead["id"] if lead else None, cat, action))
-    if lead and cat not in ("auto", "unmatched"):
+    if lead and cat not in ("auto", "unmatched", "ooo"):
         try:
             pipeline.alert_admins(f"📥 {lead['domain']} ตอบอีเมล ({CATS.get(cat, cat)}): {(m.get('body') or '')[:100]}", f"/admin/leads/{lead['id']}", "lead")
         except Exception:

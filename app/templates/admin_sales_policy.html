@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}นโยบายการติดต่อ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>นโยบายการติดต่อและคะแนนคัดกรอง</h1>
+{% if saved %}<div class="ok-banner">บันทึกแล้ว ✓</div>{% endif %}
+{% if not on %}<div class="err">flag <code>sales_v2</code> ปิดอยู่ — ค่าเหล่านี้ยังไม่มีผล (ระบบใช้ลำดับช่องทางแบบเดิม)</div>{% endif %}
+<form method="post" action="/admin/sales/policy" class="card" style="max-width:640px;display:grid;gap:12px">{{ csrf_input(request) }}
+  <fieldset style="border:0;padding:0"><legend><b>อีเมลที่หาเจอบนเว็บสาธารณะ</b></legend>
+    <label><input type="checkbox" name="public_email" value="1"{% if public_email %} checked{% endif %}> อนุญาตให้ระบบส่งข้อความทักไปที่อีเมลที่หาเจอบนเว็บของลูกค้า</label>
+    <p class="muted" style="font-size:12.5px">อีเมลสาธารณะไม่ใช่การยินยอมทางกฎหมาย — เจ้าของต้องตัดสินใจเอง (ควรปรึกษาผู้รู้กฎหมาย) · ปิด = ทักได้เฉพาะคนที่ให้อีเมลเองหรือส่งอีเมลมาหาเรา</p></fieldset>
+  <fieldset style="border:0;padding:0"><legend><b>น้ำหนักคะแนนคัดกรอง ({{ S.QUAL_VERSION }}) — เป็นสมมติฐาน ปรับได้</b></legend>
+    {% for k, lb in S.FACTOR_LABEL.items() %}<label style="display:block">{{ lb }} <input name="w_{{ k }}" value="{{ w[k] }}" size="4"></label>{% endfor %}</fieldset>
+  <div><button type="submit" class="btn">บันทึก</button></div>
+</form>
+<p class="muted">กฎที่ไม่ปรับได้: ไม่ไล่ข้ามช่องทาง (อีเมล → LINE → SMS) เพราะลูกค้าเงียบ · เช็กการขอไม่รับ/ขอหยุดติดต่อทุกครั้งก่อนส่ง · การเปิดดูรายงานหรือหน้าราคาไม่นับเป็นความพร้อมซื้อ</p>
+{% endblock %}

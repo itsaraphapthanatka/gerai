@@ -1384,7 +1384,13 @@ def _lead_ctx(lead, notice: str = "") -> dict:
         _appt = _ap.latest_for_lead(lead["id"])
     except Exception:
         _appt, _ap = None, None
-    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "appt": _appt, "AP": _ap, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    try:                                                                # stage 11: ขั้นโอกาสขาย + คะแนนคัดกรอง (flag sales_v2)
+        from . import sales as _sl
+        _opp = {"opp": _sl.opportunity(lead), "qual": _sl.qualify(lead), "basis": _sl.channel_basis(lead), "pick": _sl.pick_channel(lead),
+                "S": _sl} if _sl.enabled() else None
+    except Exception:
+        _opp = None
+    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "appt": _appt, "AP": _ap, "sales_v2": _opp, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -1450,6 +1456,44 @@ def admin_appointment_action(request: Request, appt_id: int, action: str, versio
     back = request.headers.get("referer") or ""
     dest = "/admin/appointments" if "/admin/appointments" in back else f"/admin/leads/{a['lead_id']}"
     return _redirect(f"{dest}?notice={quote(msg)}#appointment")
+
+
+@app.post("/admin/leads/{lead_id}/opportunity", dependencies=[Depends(_csrf.require_csrf)])
+def admin_lead_opportunity(request: Request, lead_id: int, action: str = Form(""), reason: str = Form(""), expected_status: str = Form("")):
+    """stage 11: ตั้งรอจังหวะ / ปิดเป็นไม่ได้ดีล (ต้องมีเหตุผล) / ล้าง · compare-and-set กับสถานะที่ทีมเห็นอยู่"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import sales
+    if not sales.enabled() or not db.get_lead(lead_id):
+        return _redirect(f"/admin/leads/{lead_id}")
+    ok, why = sales.set_opportunity(lead_id, action, reason or None, request.session.get("email") or "staff", expected_status)
+    return _redirect(f"/admin/leads/{lead_id}?notice={quote('บันทึกแล้ว' if ok else why)}#opportunity")
+
+
+@app.get("/admin/sales/policy")
+def admin_sales_policy(request: Request, saved: int = 0):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import sales
+    return templates.TemplateResponse(request, "admin_sales_policy.html", {"S": sales, "w": sales.weights(), "saved": saved, "on": sales.enabled(),
+                                                                         "public_email": (db.get_setting("allow_public_email_outreach") or "0") == "1"})
+
+
+@app.post("/admin/sales/policy", dependencies=[Depends(_csrf.require_csrf)])
+async def admin_sales_policy_save(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import sales
+    form = await request.form()
+    w = {}
+    for k in sales.DEFAULT_WEIGHTS:
+        try:
+            w[k] = max(0.0, min(10.0, float(form.get(f"w_{k}") or sales.DEFAULT_WEIGHTS[k])))
+        except ValueError:
+            w[k] = sales.DEFAULT_WEIGHTS[k]
+    db.set_setting("qual_weights", json.dumps(w))
+    db.set_setting("allow_public_email_outreach", "1" if form.get("public_email") == "1" else "0")
+    return _redirect("/admin/sales/policy?saved=1")
 
 
 @app.post("/admin/leads/{lead_id}/note")

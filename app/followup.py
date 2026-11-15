@@ -67,6 +67,13 @@ def next_step(lead, now: dt.datetime | None = None) -> dict | None:
         return None
     day, kind = STEPS[h["n"]]
     due_at = max(h["first"] + dt.timedelta(days=day), (h["last"] or h["first"]) + dt.timedelta(days=MIN_GAP_DAYS))
+    from . import sales as _sales
+    if _sales.enabled():                                          # stage 11: ลูกค้าไม่อยู่ (OOO) = เลื่อนถึงวันที่กลับ · รอจังหวะ = ไม่ติดตามชุดขาย
+        if "opp_override" in lead.keys() and lead["opp_override"] == "nurture":
+            return None
+        pu = _sales.followup_paused_until(lead["id"])
+        if pu:
+            due_at = max(due_at, dt.datetime.fromisoformat(pu))
     return {"step": h["n"] + 1, "kind": kind, "day": day, "due_at": due_at.isoformat(timespec="seconds"), "due": now >= due_at}
 
 

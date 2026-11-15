@@ -93,6 +93,25 @@
   </div>
 </div>
 {% endif %}
+{% if sales_v2 %}{% set o = sales_v2.opp %}{% set qv = sales_v2.qual %}
+<div class="card" id="opportunity">
+  <h2 style="margin-top:0;font-size:15px">🎯 โอกาสขาย: {{ o.label }} <span class="muted" style="font-size:12px">({{ o.why }})</span>
+    {% if o.permission == "blocked" %}<span class="pill" style="background:#fde8e8">ห้ามติดต่อ</span>{% endif %}</h2>
+  {% if o.lost_reason_label %}<div class="muted">เหตุผล: {{ o.lost_reason_label }}</div>{% endif %}
+  <div style="font-size:13.5px;line-height:1.7;margin-top:6px"><b>คะแนนคัดกรอง {{ qv.version }}:</b> {{ qv.score if qv.score is not none else "ยังไม่พอคำนวณ" }}{% if qv.score is not none %}/100{% endif %}
+    <span class="muted">(รู้ {{ qv.known }}/{{ qv.total }} ปัจจัย · {{ qv.note }})</span>
+    {% for f in qv.factors %}<div>{{ "✓" if f.points == 1 else ("✗" if f.points == -1 else ("•" if f.points == 0 else "?")) }} {{ f.label }} <span class="muted">— {{ f.reason }} (น้ำหนัก {{ f.weight }})</span></div>{% endfor %}</div>
+  <div style="font-size:13px;margin-top:6px"><b>ช่องทางที่ส่งได้:</b> {% for ch, why in sales_v2.basis.items() %}{{ sales_v2.S.CH_LABEL[ch] }} <span class="muted">({{ why }})</span>{% if not loop.last %} · {% endif %}{% else %}<span style="color:#b42318">ไม่มีช่องทางที่ได้รับอนุญาต — ระบบจะไม่ส่งเอง</span>{% endfor %}
+    {% if sales_v2.pick %} · ระบบใช้: <b>{{ sales_v2.S.CH_LABEL[sales_v2.pick] }}</b> อย่างเดียว{% endif %}</div>
+  <form method="post" action="/admin/leads/{{ lead['id'] }}/opportunity" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">{{ csrf_input(request) }}
+    <input type="hidden" name="expected_status" value="{{ lead['status'] }}">
+    <select name="reason" aria-label="เหตุผล"><option value="">เหตุผล…</option>{% for k, lb in sales_v2.S.LOST_REASONS.items() %}<option value="{{ k }}">{{ lb }}</option>{% endfor %}</select>
+    <button type="submit" name="action" value="nurture" class="btn ghost sm">ตั้งเป็นรอจังหวะ</button>
+    <button type="submit" name="action" value="lost" class="btn ghost sm">ปิดเป็นไม่ได้ดีล</button>
+    {% if lead['opp_override'] %}<button type="submit" name="action" value="clear" class="btn ghost sm">ล้างขั้นที่ตั้งเอง</button>{% endif %}
+  </form>
+</div>
+{% endif %}
 {% if appt %}
 <div class="card" id="appointment">
   <h2 style="margin-top:0;font-size:15px">📅 นัดคุย</h2>
