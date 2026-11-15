@@ -486,6 +486,17 @@ def _tables() -> list[str]:
             created_at TEXT NOT NULL,
             UNIQUE (lead_id, version)
         )""",
+        # stage 05-full: ประวัติเวอร์ชันรายงาน — เพิ่มอย่างเดียว · บันทึกเมื่อผลวัดเปลี่ยน (fingerprint) · ข้อมูลดิบเดิมใน leads ไม่แตะ
+        f"""CREATE TABLE IF NOT EXISTS report_versions (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            fingerprint TEXT NOT NULL,
+            summary_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (lead_id, version),
+            UNIQUE (lead_id, fingerprint)
+        )""",
         # stage 06A-1: รหัสสั้นใช้ครั้งเดียว ผูกแชต LINE OA กับรายงาน (ไม่ส่ง token รายงานเข้า LINE)
         """CREATE TABLE IF NOT EXISTS line_plan_codes (
             code TEXT PRIMARY KEY,
@@ -1724,6 +1735,31 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
         except Exception as e:
             last = e
     raise RuntimeError(f"บันทึกข้อมูลธุรกิจไม่สำเร็จ ({type(last).__name__})")
+
+
+# ---- ประวัติเวอร์ชันรายงาน (stage 05-full) ----
+def list_report_versions(lead_id: int, limit: int = 20):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM report_versions WHERE lead_id=? ORDER BY version DESC LIMIT ?"), (lead_id, limit)).fetchall()
+
+
+def add_report_version(lead_id: int, fingerprint: str, summary_json: str, cap: int = 100) -> int | None:
+    """คืนเลขเวอร์ชันใหม่ · fingerprint เดิม (ผลวัดไม่เปลี่ยน) หรือครบเพดาน = None · ชนกันพร้อมกัน = ลองใหม่"""
+    for _ in range(3):
+        try:
+            with get_conn() as c:
+                if c.execute(q("SELECT 1 FROM report_versions WHERE lead_id=? AND fingerprint=?"), (lead_id, fingerprint)).fetchone():
+                    return None
+                row = c.execute(q("SELECT COALESCE(MAX(version), 0) AS v, COUNT(*) AS n FROM report_versions WHERE lead_id=?"), (lead_id,)).fetchone()
+                if (row["n"] or 0) >= cap:
+                    return None
+                ver = (row["v"] or 0) + 1
+                c.execute(q("INSERT INTO report_versions(lead_id, version, fingerprint, summary_json, created_at) VALUES(?,?,?,?,?)"),
+                          (lead_id, ver, fingerprint, summary_json, now()))
+            return ver
+        except Exception:
+            continue
+    return None
 
 
 # ---- LINE: รหัสใช้ครั้งเดียว + สถานะแชต (stage 06A-1) ----

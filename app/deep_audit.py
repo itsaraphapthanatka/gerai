@@ -438,6 +438,17 @@ def make_prompts(cr: dict, brand: str, keywords: list[str], llm=None) -> list[st
     return _fallback_prompts(keywords)
 
 
+EXCERPT_CHARS = 400
+
+
+def _rank_provider() -> str:
+    try:
+        from . import geo_worker as gw
+        return gw.rank_backend() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def _engine() -> str | None:
     from . import ai_visibility as av
     eng = av.available_engines()
@@ -471,7 +482,8 @@ def ask_prompts(prompts: list[str], apex: str, brand: str, competitors: list[str
                 comp_urls[h][u.split("#")[0]] += 1
         body = (r.get("text") or "").lower()
         comp = {c: ("cited" if c in hosts else "named" if (c in body or (len(n) >= 4 and n in body)) else "") for c, n in comp_names.items()}
-        rows.append({"prompt": q, "status": j["status"], "cited": j["cited"], "named": j["named"], "competitors": comp, "sources": sorted(set(h for h in hosts if h))[:6]})
+        rows.append({"prompt": q, "status": j["status"], "cited": j["cited"], "named": j["named"], "competitors": comp, "sources": sorted(set(h for h in hosts if h))[:6],
+                     "excerpt": " ".join((r.get("text") or "").split())[:EXCERPT_CHARS]})     # stage 05-full: หลักฐานคำตอบ (ข้อความดิบ escape ตอนแสดง)
     done = [r for r in rows if "status" in r]
     return {"engine": engine, "rows": rows, "asked": len(done), "mentioned": sum(1 for r in done if r["cited"] or r["named"]),
             "cited": sum(1 for r in done if r["cited"]), "competitors": competitors,
@@ -558,9 +570,11 @@ def run_tier1(lead_id: int, search=None, llm=None, client=None) -> dict:
             brand = _brand_name(cr, lead)
             kws = pick_keywords(cr, brand, llm=llm)
             rk = ranking(cr["apex"], kws, search=search) if kws else {"rows": [], "competitors": [], "page1": 0, "n": 0, "depth": 20}
+            rk["protocol"] = {"id": "search-rank-v1", "version": 1, "provider": "custom" if search else _rank_provider()}
         slim = [{k: p.get(k) for k in ("url", "status", "title", "h1", "desc", "inbound", "no_alt", "found_on")} for p in cr["pages"]]
         d = {"state": "done", "at": db.now(), "brand": brand, "crawl": {k: cr[k] for k in ("n", "queued", "blocked", "truncated", "https_redirect", "seconds", "at")},
-             "pages": slim, "issues": iss, "health": hl, "keywords": kws, "ranking": rk}
+             "pages": slim, "issues": iss, "health": hl, "keywords": kws, "ranking": rk,
+             "protocol": {"id": "crawl-v1", "version": 1, "provider": "httpx"}}
         _save(lead_id, "deep_json", d)
         db.add_lead_event(lead_id, "deep_audit", f"ไต่ {cr['n']} หน้า · health {hl['score']}/100 · error {hl['errors']} · ติดหน้าแรก {rk['page1']}/{rk['n']} คำ", "cto")
         return d
@@ -604,7 +618,8 @@ def run_ai(lead_id: int, force: bool = False, ask=None, llm=None, engine: str | 
                 comps = list(dict.fromkeys(ctx["competitors"] + comps))[:3]
             res = ask_prompts(prompts, L.domain_of(lead["site_url"]), t1["brand"], comps, ask=ask, engine=engine)
         _ai_count_up()
-        d = {"state": "done", "at": db.now(), **res, "context_version": ctx["version"] if ctx else 0}
+        d = {"state": "done", "at": db.now(), **res, "context_version": ctx["version"] if ctx else 0,
+             "protocol": {"id": "ai-ask-v1", "version": 1, "provider": res.get("engine") or "custom"}}
         _save(lead_id, "deep_ai_json", d)
         db.add_lead_event(lead_id, "ai_check", f"{res['engine']}: ถูกเอ่ยถึง {res['mentioned']}/{res['asked']} · ถูกอ้างอิง {res['cited']} · ค่าใช้จ่าย ${res['cost_usd']}", "cto")
         sc = L.score_lead(db.get_lead(lead_id))           # คะแนนโอกาสนับผลถาม AI ด้วย → อัปเดตที่เก็บไว้ (รายการโทร/CEO ใช้ค่านี้)

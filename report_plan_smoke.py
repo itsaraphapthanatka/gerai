@@ -48,7 +48,7 @@ t = visible(r.text)
 assert r.status_code == 200 and "ภาพรวม 4 ด้าน" in t, t[:400]
 for title in ("ความพร้อมของเว็บ", "การปรากฏในผลค้นเว็บ", "AI พูดถึงแบรนด์", "AI อ้างอิงเว็บของคุณ"):
     assert title in t, title
-assert "noindex" in r.headers.get("x-robots-tag", "") and r.headers.get("cache-control") == "no-store"
+assert "noindex" in r.headers.get("x-robots-tag", "") and "no-store" in r.headers.get("cache-control", "")
 assert "2/3" in t and "มีข้อที่ต้องแก้" in t                                        # หน้าแรกผ่าน 2 จาก 3
 assert t.count("ยังไม่ได้ทดสอบ") >= 3 and "ตรวจแล้ว 1 จาก 4 ส่วน" in t
 assert not re.search(r"0/\d", t)                                                    # ช่องที่ไม่ได้ทดสอบไม่มีตัวเลข 0

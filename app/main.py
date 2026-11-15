@@ -773,20 +773,24 @@ def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, 
                bc_form: dict | None = None, bc_errors: dict | None = None, bc_saved: bool = False):
     """stage 05/06: รายงาน 4 ช่อง + ฟอร์มขอแผน (หน้าไทย · flag report_v2) · ข้อมูลทั้งหมดอ่านจากของเดิม ไม่เขียน DB"""
     from . import report_view, plan_request, flags
-    vm = report_view.build(lead, snap)
-    plan_on = flags.active("plan_request_v2", request)
-    pr = plan_request.latest(lead["id"]) if plan_on else None
     from . import line_plan, business_context
     ctx_on = flags.active("context_v2", request)
     bc = business_context.view(lead) if ctx_on else None
+    vm = report_view.build(lead, snap, bc)
+    report_view.record(lead, vm, bc["version"] if bc else 0)             # stage 05-full: เก็บประวัติเมื่อผลวัดเปลี่ยน (เพิ่มอย่างเดียว)
+    plan_on = flags.active("plan_request_v2", request)
+    pr = plan_request.latest(lead["id"]) if plan_on else None
     if bc and bc_form is not None:
         bc["form"] = bc_form
+    vm["history"] = report_view.history(lead)
+    vm["next"] = report_view.next_step(ctx_on, bc, plan_on, pr, report_view.shown_quote(lead["id"]))
     resp = templates.TemplateResponse(request, "mk/report.html", {
         "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
         "bc_note": business_context.ai_comparability(lead, deep_audit.tier2(lead)) if ctx_on else None,
         "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr, "line_on": plan_on and line_plan.active(request),
         "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
-    resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
+    # รายงานส่วนตัว: เข้าถึงด้วยลิงก์ token เท่านั้น · ห้ามแคชร่วม/เก็บ · noindex ไม่ใช่การป้องกัน (ดู STATUS 05-full ข้อจำกัด)
+    resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer"})
     return resp
 
 
