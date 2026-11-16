@@ -26,7 +26,9 @@ KINDS = {"investigate": "ตรวจหาสาเหตุ/วัดเพิ
          "create_page": "สร้างหน้าใหม่", "create_article": "เขียนบทความ", "internal_links": "เชื่อมลิงก์ภายใน", "wait": "รอวัดผลรอบถัดไป",
          "no_action": "ยังไม่ต้องทำอะไร"}
 OWNERS = {"us": "ทีมเจอ.AI", "customer_team": "ทีมเว็บของคุณ", "customer": "คุณ"}
+STAFF_OWNERS = {"us": "ทีมเจอ.AI", "customer_team": "ทีมเว็บของลูกค้า", "customer": "ลูกค้า"}
 ACCESS = {"connector": "ติดตั้งตัวเชื่อม /geo", "wordpress": "เชื่อม WordPress", "existing_team": "ทีมเว็บเดิมของคุณเป็นคนแก้/เผยแพร่"}
+STAFF_ACCESS = {**ACCESS, "existing_team": "ทีมเว็บเดิมของลูกค้าเป็นคนแก้/เผยแพร่"}
 OPEN_ITEM = ("planned", "in_progress", "review", "blocked")
 DONE_ITEM = ("delivered", "accepted")
 MAX_TECH = 5
