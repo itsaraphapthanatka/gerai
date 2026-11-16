@@ -130,7 +130,9 @@ def _origin_ok(request: Request) -> bool:
     if origin is None:
         return True
     if origin == "null":
-        return False
+        # หน้าส่วนตัวตั้ง Referrer-Policy: no-referrer → Chrome ส่ง Origin: null แม้ฟอร์มมาจากเว็บเราเอง
+        # เชื่อ Sec-Fetch-Site ที่เบราว์เซอร์ตั้งเอง (สคริปต์ในหน้าเว็บปลอมค่านี้ไม่ได้) · ไม่มี header นี้ = ไม่ผ่าน
+        return request.headers.get("sec-fetch-site", "").lower() == "same-origin"
     from urllib.parse import urlparse as _up
     o = _up(origin)
     allowed = {request.headers.get("host", "").lower()}

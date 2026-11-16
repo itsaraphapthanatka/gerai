@@ -158,6 +158,9 @@ assert adm.post("/admin/tasks/plan", headers={"origin": "https://evil.example"})
 F.set_enabled("origin_check", True)
 assert adm.post("/admin/tasks/plan", headers={"origin": "https://evil.example"}).status_code == 403
 assert adm.post("/admin/tasks/plan", headers={"origin": "null"}).status_code == 403
+assert adm.post("/admin/tasks/plan", headers={"origin": "null", "sec-fetch-site": "cross-site"}).status_code == 403
+# หน้าส่วนตัว (no-referrer) → Chrome ส่ง Origin: null + Sec-Fetch-Site: same-origin = ฟอร์มจากเว็บเราเอง ต้องผ่าน (พบตอนเดิน UAT)
+assert adm.post("/admin/tasks/plan", headers={"origin": "null", "sec-fetch-site": "same-origin"}).status_code in (200, 303)
 assert adm.post("/admin/tasks/plan", headers={"origin": "http://testserver"}).status_code in (200, 303)
 assert adm.post("/admin/tasks/plan").status_code in (200, 303)                                    # ไม่มี Origin (ฟอร์มเก่า/เซิร์ฟเวอร์) = ผ่าน
 assert anon.post("/line/webhook", content=b'{"events":[]}', headers={"origin": "https://evil.example", "x-line-signature": "bad"}).status_code == 403
