@@ -17,6 +17,8 @@ from . import db, flags
 
 STATES = {"awaiting_customer": "รอข้อมูลจากคุณ", "awaiting_access": "รอสิทธิ์เข้าถึงเว็บ", "ready": "พร้อมวางแผน", "in_progress": "กำลังทำ",
           "review": "รอคุณตรวจ", "delivered": "ส่งมอบแล้ว", "accepted": "รับงานแล้ว", "blocked": "ติดปัญหา", "cancelled": "ยกเลิก"}
+# ป้ายเดียวกันแต่พูดจากมุมทีม (หน้า /admin/delivery และการแจ้งเตือนภายใน) — STATES ข้างบนพูดกับลูกค้า
+STAFF_STATES = {**STATES, "awaiting_customer": "รอข้อมูลจากลูกค้า", "review": "รอลูกค้าตรวจ"}
 ITEM_STATES = {"planned": "ในแผน", "in_progress": "กำลังทำ", "review": "รอตรวจ", "delivered": "ส่งแล้ว", "accepted": "รับแล้ว",
                "blocked": "ติดปัญหา", "stale": "ข้อมูลเปลี่ยน ต้องร่างใหม่", "cancelled": "ยกเลิก"}
 KINDS = {"investigate": "ตรวจหาสาเหตุ/วัดเพิ่ม", "fix_technical": "แก้ปัญหาทางเทคนิค", "confirm_facts": "ยืนยันข้อมูลธุรกิจ",
@@ -495,6 +497,10 @@ def _waiting_on_customer(ws, items, g) -> list[str]:
     return out
 
 
+def _staff_wording(lines: list[str]) -> list[str]:
+    return [s.replace("ทีมเว็บของคุณ", "ทีมเว็บของลูกค้า") for s in lines]
+
+
 def view(wid: int) -> dict:
     sync_facts(wid)
     ws = get(wid)
@@ -506,10 +512,11 @@ def view(wid: int) -> dict:
         nxt = f"{KINDS.get(op['kind'], op['kind'])}: {op['title']}" if op else ("รับงานที่ส่งแล้ว" if ws["state"] == "delivered" else "วัดผลรอบถัดไป")
     live = [{**i, "evidence": _j(i["evidence_json"], [])} for i in items if i["status"] not in ("cancelled",)]
     tenant = db.get_tenant(ws["tenant_id"]) if ws.get("tenant_id") else None
-    return {"ws": ws, "brand": db.get_brand(ws["brand_id"]), "state_label": STATES.get(ws["state"], ws["state"]), "gates": g, "scope": scope(wid),
+    return {"ws": ws, "brand": db.get_brand(ws["brand_id"]), "state_label": STATES.get(ws["state"], ws["state"]),
+            "staff_label": STAFF_STATES.get(ws["state"], ws["state"]), "gates": g, "scope": scope(wid),
             "facts": facts(ws), "access": access(ws), "baseline": _j(ws.get("baseline_json")),
             "done": [i for i in live if i["status"] in DONE_ITEM], "ongoing": [i for i in live if i["status"] in OPEN_ITEM or i["status"] == "stale"],
-            "waiting": _waiting_on_customer(ws, live, g), "next": nxt, "work": live, "ent": entitlements(tenant) if tenant else None,
+            "waiting": (w := _waiting_on_customer(ws, live, g)), "waiting_staff": _staff_wording(w), "next": nxt, "work": live, "ent": entitlements(tenant) if tenant else None,
             "usage": usage(ws["tenant_id"]) if ws.get("tenant_id") else None}
 
 
@@ -521,5 +528,5 @@ def partner_rows(partner_id: int) -> list[dict]:
         if ws.get("lead_id") in ids:
             g = gates(ws)
             nxt = next((GATE_LABEL[k] for k in ("facts", "access", "baseline", "plan") if not g[k]), "กำลังดำเนินงานตามแผน")
-            out.append({"domain": ids[ws["lead_id"]], "state": STATES.get(ws["state"], ws["state"]), "next": nxt})
+            out.append({"domain": ids[ws["lead_id"]], "state": STAFF_STATES.get(ws["state"], ws["state"]), "next": nxt})
     return out

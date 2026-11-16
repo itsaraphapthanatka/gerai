@@ -9,10 +9,10 @@
 {% set LN = {'ai_mention': 'AI พูดถึงแบรนด์', 'site_health': 'สุขภาพเว็บ', 'search_console': 'Search Console'} %}
 {% for v in views %}{% set ws = v.ws %}
 <div class="card" style="margin-top:16px" id="ws{{ ws.id }}">
-  <h2 style="margin-top:0;font-size:18px">{{ v.brand.name if v.brand else ('แบรนด์ #' ~ ws.brand_id) }} <span class="pill" style="font-size:11px">{{ v.state_label }}</span></h2>
+  <h2 style="margin-top:0;font-size:18px">{{ v.brand.name if v.brand else ('แบรนด์ #' ~ ws.brand_id) }} <span class="pill" style="font-size:11px">{{ v.staff_label if admin else v.state_label }}</span></h2>
   {% if ws.blocked_reason %}<div class="err">{{ ws.blocked_reason }}</div>{% endif %}
   <p><b>ขั้นถัดไป:</b> {{ v.next }}</p>
-  {% if v.waiting %}<div class="card" style="background:var(--warn-subtle, #fff7e6)"><b>รอคุณอยู่</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in v.waiting %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if v.waiting %}<div class="card" style="background:var(--warn-subtle, #fff7e6)"><b>{{ "รอลูกค้าอยู่" if admin else "รอคุณอยู่" }}</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in (v.waiting_staff if admin else v.waiting) %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
 
   <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">
     <div style="flex:1;min-width:260px">

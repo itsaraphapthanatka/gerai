@@ -100,10 +100,10 @@ def cs_step(c: dict, ws: dict, now: dt.datetime, done: dict, record, send_report
     if st in ("awaiting_customer", "awaiting_access", "blocked") and (now - since).days >= BLOCKER_DAYS:
         key = f"blocker:{st}"
         if not any(n.startswith(key) for n in done.get("cs_risk", [])):
-            record(c, "cs_risk", f"{key} ค้างที่ \"{delivery.STATES[st]}\" {(now - since).days} วัน")
+            record(c, "cs_risk", f"{key} ค้างที่ \"{delivery.STAFF_STATES[st]}\" {(now - since).days} วัน")
             try:
                 from . import pipeline
-                pipeline.alert_admins(f"⏳ {c['lead']['domain']} ค้างที่ {delivery.STATES[st]} {(now - since).days} วัน", "/admin/delivery", "lead")
+                pipeline.alert_admins(f"⏳ {c['lead']['domain']} ค้างที่ {delivery.STAFF_STATES[st]} {(now - since).days} วัน", "/admin/delivery", "lead")
             except Exception:
                 pass
             out.append(key)
@@ -134,7 +134,7 @@ def fit_reason(c: dict, s: dict, opp: str) -> str | None:
     if opp in ("agency", "content"):
         if s["published"] < 3 or not s["installed"]:
             return None                                               # ใช้เยอะอย่างเดียวไม่พอ ต้องเห็นว่างานเดิมเดินได้
-        return f"ใช้ใกล้เต็มสิทธิ์ และงานเดิมเดินได้ (ติดตั้งแล้ว · เผยแพร่ {s['published']} ชิ้น)" + (f" · พื้นที่งาน: {delivery.STATES[ws['state']]}" if ws else "")
+        return f"ใช้ใกล้เต็มสิทธิ์ และงานเดิมเดินได้ (ติดตั้งแล้ว · เผยแพร่ {s['published']} ชิ้น)" + (f" · พื้นที่งาน: {delivery.STAFF_STATES[ws['state']]}" if ws else "")
     if opp == "yearly":
         return f"ใช้มา {s['days']} วัน ติดตั้งแล้ว ใกล้รอบบิล — ให้ลูกค้าเลือกเอง ไม่ตัดเงินอัตโนมัติ"
     if opp == "advocate":
