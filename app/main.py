@@ -439,7 +439,19 @@ def _dashboard_ctx(request: Request, error=None):
     return {"brands": brands, "brand_gaps": brand_gaps, "name": request.session.get("name"),
             "brand_stats": {b["id"]: _managed_stats(b["id"]) for b in brands} if _managed(request) else {},
             "plan": billing.plan_of(tenant), "usage": billing.usage(tid), "error": error,
-            "is_admin": bool(tenant and tenant["is_admin"])}
+            "is_admin": bool(tenant and tenant["is_admin"]), "delivery_ws": _deliv_banner(tid)}
+
+
+def _deliv_banner(tid) -> list:
+    """stage 15: ลูกค้าที่มีพื้นที่งาน → แถบสถานะ + ขั้นถัดไปบนหน้าหลัก (เครื่องมือเดิมยังอยู่ครบ)"""
+    from . import delivery
+    if not (tid and delivery.on()):
+        return []
+    out = []
+    for w in delivery.list_all(tid):
+        v = delivery.view(w["id"])
+        out.append({"state_label": v["state_label"], "next": v["next"]})
+    return out
 
 
 def _brand_ctx(brand, error=None):
@@ -3001,6 +3013,10 @@ def _autopilot_notify(brand, log) -> bool:
 @office.track("delivery", lambda brand_id: f"รอบ Autopilot แบรนด์ #{brand_id}")
 def run_autopilot(brand_id: int) -> dict:
     """รอบ Autopilot ของแบรนด์ — ต่อสายทุกขั้นเข้ากับฟังก์ชันจริง แล้วเก็บ log"""
+    from . import delivery
+    allowed, forced_mode, why = delivery.autopilot_gate(brand_id)          # stage 15: พื้นที่งานยังไม่พร้อม = ไม่วิ่ง · ไม่ได้รับอนุญาตเผยแพร่ = ร่างเท่านั้น
+    if not allowed:
+        return {"ok": True, "errors": 0, "skipped": True, "summary": "ข้าม: " + why, "steps": []}
     brand = dict(db.get_brand(brand_id))
     last = {
         "sov": brand.get("last_run_at"),
@@ -3018,7 +3034,7 @@ def run_autopilot(brand_id: int) -> dict:
         "content": _autopilot_content, "report": _autopilot_report, "notify": _autopilot_notify,
     }
     n = brand.get("autopilot_content") if brand.get("autopilot_content") is not None else 1
-    log = autopilot.run(brand, actions, last, content_n=int(n), mode=brand.get("autopilot_mode") or "draft")
+    log = autopilot.run(brand, actions, last, content_n=int(n), mode=forced_mode or brand.get("autopilot_mode") or "draft")
     db.add_autopilot_run(brand_id, log)
     return log
 
@@ -4644,12 +4660,19 @@ def partners_apply(request: Request, name: str = Form(""), company: str = Form("
     return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(done=True))
 
 
+def _deliv_partner(pid: int) -> list:
+    """stage 15: พันธมิตรเห็นเฉพาะสถานะ/ขั้นถัดไปของลูกค้าที่ตัวเองแนะนำ"""
+    from . import delivery
+    return delivery.partner_rows(pid) if delivery.on() else []
+
+
 def _partner_dash(request: Request, p, notice: str = "", error: str = ""):
     from . import partners
     st = partners.stats(p)
     return templates.TemplateResponse(request, "partner_dash.html", {"p": dict(p), "st": st, "ref_url": partners.ref_url(p) if p["code"] else "",
                                       "notice": notice, "error": error, "cst": partners.CSTATUS_TH, "lst": leads.STATUS_LABEL,
-                                      "pct": partners.pct(), "months": partners.months()})
+                                      "pct": partners.pct(), "months": partners.months(),
+                                      "deliv": _deliv_partner(p["id"])})
 
 
 @app.get("/partner/{token}")
@@ -5309,6 +5332,116 @@ def admin_tasks_retry(request: Request, tid: int):
     db.update_task(tid, status="queued", result="สั่งใหม่")
     orchestrator.dispatch([tid], notify=False)
     return _redirect("/admin/tasks?notice=" + quote(f"สั่งงาน #{tid} ใหม่แล้ว"))
+
+
+# ---------- stage 15: ส่งมอบตามขอบเขต + พื้นที่งานลูกค้า (flag delivery_v2) ----------
+def _ws_of_tenant(request: Request, wid: int):
+    from . import delivery
+    ws = delivery.get(wid) if delivery.on() else None
+    return ws if (ws and _tid(request) and ws["tenant_id"] == _tid(request)) else None
+
+
+@app.get("/app/delivery")
+def app_delivery(request: Request, notice: str = "", error: str = ""):
+    from . import delivery
+    if not _tid(request):
+        return _redirect("/login")
+    if not delivery.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    views = [delivery.view(w["id"]) for w in delivery.list_all(_tid(request))]
+    return templates.TemplateResponse(request, "app_delivery.html", {"views": views, "D": delivery, "notice": notice, "error": error, "admin": False})
+
+
+@app.post("/app/delivery/{wid}/facts", dependencies=[Depends(_csrf.require_csrf)])
+async def app_delivery_facts(request: Request, wid: int):
+    from . import delivery, business_context as BC
+    ws = _ws_of_tenant(request, wid)
+    if not ws:
+        return _redirect("/app/delivery")
+    form = dict(await request.form())
+    lead = db.get_lead(ws["lead_id"])
+    v, err = BC.validate(form, lead)
+    if err:
+        return _redirect("/app/delivery?error=" + quote(" · ".join(err.values())))
+    cur = delivery.facts(ws)["fields"]
+    if any((cur.get(k) or "") != (v.get(k) or "") for k, _ in BC.FIELDS) or not delivery.facts(ws)["confirmed"]:
+        BC.save(lead, v, "customer")
+    ok, msg = delivery.confirm_facts(wid, form.get("approver") or "")
+    return _redirect("/app/delivery?" + ("notice=" + quote("ยืนยันข้อมูลแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/{wid}/access", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_access(request: Request, wid: int, mode: str = Form(""), team_contact: str = Form(""), publish: str = Form("")):
+    from . import delivery
+    if not _ws_of_tenant(request, wid):
+        return _redirect("/app/delivery")
+    ok, msg = delivery.set_access(wid, mode, team_contact, publish_allowed=publish == "1")
+    return _redirect("/app/delivery?" + ("notice=" + quote("บันทึกสิทธิ์เข้าถึงแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/{wid}/approve-plan", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_approve(request: Request, wid: int):
+    from . import delivery
+    ws = _ws_of_tenant(request, wid)
+    if not ws:
+        return _redirect("/app/delivery")
+    ok, msg = delivery.approve_plan(wid, ws.get("approver") or request.session.get("email") or "customer")
+    return _redirect("/app/delivery?" + ("notice=" + quote("อนุมัติแผนแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/items/{iid}/accept", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_accept(request: Request, iid: int):
+    from . import delivery
+    it = delivery.item(iid) if delivery.on() else None
+    if not it or not _ws_of_tenant(request, it["workspace_id"]):
+        return _redirect("/app/delivery")
+    ok, msg = delivery.move(iid, "accept", "ลูกค้ารับงาน")
+    return _redirect("/app/delivery?" + ("notice=" + quote("รับงานแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.get("/admin/delivery")
+def admin_delivery(request: Request, notice: str = "", error: str = ""):
+    from . import delivery
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not delivery.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    views = [delivery.view(w["id"]) for w in delivery.list_all()]
+    return templates.TemplateResponse(request, "app_delivery.html", {"views": views, "D": delivery, "notice": notice, "error": error, "admin": True,
+                                                                     "offers": delivery.offer_drafts()})
+
+
+@app.post("/admin/delivery/items/{iid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_delivery_item(request: Request, iid: int, action: str, note: str = Form("")):
+    from . import delivery
+    if not _is_admin(request) or not delivery.on():
+        return _redirect("/login")
+    ok, msg = delivery.move(iid, action, note)
+    return _redirect("/admin/delivery?" + ("notice=" + quote("อัปเดตงานแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/admin/delivery/{wid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_delivery_ws(request: Request, wid: int, action: str, reason: str = Form(""), version: int = Form(0)):
+    from . import delivery
+    if not _is_admin(request) or not delivery.on() or not delivery.get(wid):
+        return _redirect("/login")
+    ok, msg = True, ""
+    if action == "baseline":
+        delivery.take_baseline(wid)
+    elif action == "plan":
+        ok, msg = delivery.plan(wid)
+    elif action == "accept-scope":
+        ok = delivery.accept_scope(wid, version, request.session.get("email") or "owner")
+        msg = "" if ok else "ยอมรับขอบเขตเวอร์ชันนี้ไม่ได้"
+    elif action == "block":
+        delivery.set_blocked(wid, reason or "ติดปัญหา")
+    elif action == "unblock":
+        delivery.set_blocked(wid, "")
+    elif action == "cancel":
+        delivery.cancel(wid, reason)
+    else:
+        ok, msg = False, "ไม่รู้จักคำสั่ง"
+    return _redirect("/admin/delivery?" + ("notice=" + quote("บันทึกแล้ว") if ok else "error=" + quote(msg)))
 
 
 @app.post("/admin/tasks/rules", dependencies=[Depends(_csrf.require_csrf)])

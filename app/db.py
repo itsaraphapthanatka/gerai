@@ -505,6 +505,57 @@ def _tables() -> list[str]:
             updated_at TEXT NOT NULL
         )""",
         """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 15: พื้นที่งานส่งมอบต่อแบรนด์ · ขอบเขตมีเวอร์ชัน · งานแต่ละชิ้น (ไม่แตะสิทธิ์แพ็กเกจเดิม)
+        f"""CREATE TABLE IF NOT EXISTS delivery_workspaces (
+            id {_PK},
+            brand_id INTEGER NOT NULL UNIQUE,
+            tenant_id INTEGER,
+            lead_id INTEGER,
+            quote_id INTEGER,
+            state TEXT NOT NULL,
+            approver TEXT,
+            facts_version INTEGER,
+            facts_hash TEXT,
+            access_json TEXT,
+            publish_allowed INTEGER NOT NULL DEFAULT 0,
+            baseline_json TEXT,
+            baseline_at TEXT,
+            plan_approved_at TEXT,
+            plan_approved_by TEXT,
+            blocked_reason TEXT,
+            cancelled_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS delivery_scopes (
+            id {_PK},
+            workspace_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            scope_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            accepted_at TEXT,
+            accepted_by TEXT,
+            UNIQUE(workspace_id, version)
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS delivery_items (
+            id {_PK},
+            workspace_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            target TEXT,
+            evidence_json TEXT,
+            owner TEXT NOT NULL,
+            acceptance TEXT,
+            status TEXT NOT NULL,
+            depends_on INTEGER,
+            facts_hash TEXT,
+            scope_version INTEGER,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_delivery_items_ws ON delivery_items(workspace_id, status)""",
         # stage 14: บันทึกทุกครั้งที่เอเจนต์ขอทำงาน — ใครขอ ระดับอำนาจ ผลการตัดสิน เหตุผล (ข้อมูลส่วนตัวถูกปิดก่อนบันทึก)
         f"""CREATE TABLE IF NOT EXISTS agent_actions (
             id {_PK},
@@ -1887,7 +1938,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery")
 
 
 def record_schema_versions() -> None:

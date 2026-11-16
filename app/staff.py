@@ -50,6 +50,7 @@ RULES = [
     (r"/admin/quotes/[^/]+/(confirm|slip)", "finance"),
     (r"/admin/(deals|contacts|leads|calls|inbox|salesbot|prospect|quotes|appointments)(/.*)?", "sales"),
     (r"/admin/(customers|results)(/.*|\.csv)?", "customers"),
+    (r"/admin/delivery(/.*)?", "customers"),                    # stage 15: พื้นที่งานส่งมอบ
     (r"/admin/(marketing|email|deliverability|analytics)(/.*)?", "marketing"),   # analytics = funnel เว็บ (stage 08B)
     (r"/admin/(decisions|office|ceo|tasks|skills|agents|digest|jobs)(/.*)?", "agents"),   # jobs = คิวงานถาวร (stage 10)
     (r"/admin/partners(/.*)?", "partners"),
