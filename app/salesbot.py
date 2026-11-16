@@ -103,6 +103,12 @@ def escalation(text: str) -> str | None:
     return None
 
 
+def _shown(q: str) -> str:
+    """stage 14: คำถามลูกค้า = ข้อมูลภายนอก ห่อไว้ไม่ให้โมเดลทำตามคำสั่งในนั้น (flag agent_policy ปิด = ข้อความเดิม)"""
+    from . import agent_policy
+    return agent_policy.fence(q, "ลูกค้า") if agent_policy.on() else q
+
+
 def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str | None = None, add_call: bool = True) -> dict:
     """คืน {answer, escalate (เหตุผล|None), source, intent} — เรื่องนอกกรอบ = HOLD + escalate · ตัวเลขนอกคลัง = ไม่ใช้คำตอบโมเดล
     · intent = สัญญาณซื้อ (ต่อท้ายคำตอบด้วยการชวนนัดคุย 30 นาที เว้น add_call=False เมื่อผู้เรียกบอกเองแล้ว) · ขอคุยกับคน = ข้อความนัดคุย
@@ -132,7 +138,7 @@ def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str 
               "ข้อเท็จจริง:\n- " + "\n- ".join(facts)
               + "\nอย่าเสนอเมนูแพ็กเกจให้เลือก ถ้าถามราคา บอกราคาเริ่มต้นและว่าราคาสุดท้ายขึ้นกับขอบเขตงาน ทีมเราสรุปให้หลังคุยกัน 30 นาที"
               + ("\nลูกค้าขอส่วนลด: บอกส่วนลดรายปีตามข้อเท็จจริง และบอกว่าส่วนลดอื่นต้องให้ผู้ดูแลพิจารณา" if why else "")
-              + f"\n\nคำถามลูกค้า: {q}\n"
+              + f"\n\nคำถามลูกค้า: {_shown(q)}\n"
               'ตอบ JSON {"answer": "...", "needs_human": false}') + D.write_in(lang).replace("หัวข้อและเนื้อหา", "คำตอบ").replace("the subject and body", "the answer")
     try:
         raw = llm([{"role": "user", "content": prompt}])

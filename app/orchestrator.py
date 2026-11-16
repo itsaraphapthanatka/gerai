@@ -164,56 +164,84 @@ def plan(now: dt.datetime | None = None) -> list[int]:
 # ---------- ลงมือ ----------
 def run_task(tid: int) -> str:
     from . import ceo_chat, prospecting, followup, marketing, deep_audit, closer, pipeline, line_oa
+    from . import agent_policy as AP
     t = db.get_task(tid)
     if not t or t["status"] not in ("queued", "held"):
         return t["result"] if t else ""
     args = json.loads(t["args_json"] or "{}")
+    act = None
+    if AP.on():                                    # stage 14: ตัดสินก่อนลงมือทุกครั้ง (หยุดฉุกเฉินก่อนส่งงานก็ยังกันได้)
+        spec = AP.TOOLS.get(t["kind"]) or {}
+        acc = args.get("lead_id") if spec.get("scope") == "lead" else None
+        d = AP.authorize(t["kind"], args, source="orchestrator", actor=t["agent"], account=acc, task_id=tid, approval_id=t["approval_id"])
+        if d["decision"] != "allow":
+            st = {"held": "held", "needs_approval": "blocked"}.get(d["decision"], "denied")
+            db.update_task(tid, status=st, finished_at=None if st != "denied" else db.now(), result=d["reason"][:500])
+            return d["reason"]
+        act = d["action_id"]
     db.update_task(tid, status="running", started_at=db.now())
     try:
-        with office.working(t["agent"] if t["agent"] != "owner" else "ceo", t["title"]):
-            if t["kind"] == "call":
-                lead = db.get_lead(args["lead_id"])
-                closer.prepare(lead)
-                res = f"ฝากเจ้าของโทร · บท: {pipeline.public_base()}/admin/calls/{lead['id']}"
-            elif t["kind"] == "find_leads":
-                r = prospecting.run(limit=int(args["n"]), queries=[f"{args['segment']} {args['area']}"], force=True)
-                res = r.get("skipped") or f"เพิ่ม {r['added']} ราย · ตรวจ {r['audited']} · มีอีเมล {r['with_email']} · ทัก {r['proposed']}"
-            elif t["kind"] == "refind":
-                found = 0
-                for lid in args.get("lead_ids", []):
-                    lead = db.get_lead(lid)
-                    if lead and not lead["email"]:
-                        c = prospecting.refind_contact(lead)
-                        found += 1 if c.get("email") else 0
-                        try:
-                            ph = closer.find_phone(db.get_lead(lid))
-                            if ph:
-                                d = closer._data(db.get_lead(lid)); d["phone"] = ph; closer._save(lid, d)
-                        except Exception:
-                            pass
-                        pipeline.record(lid, "note", "หาช่องทางติดต่อซ้ำ (CEO แจกงาน)", "prospecting")
-                res = f"หาซ้ำ {len(args.get('lead_ids', []))} ราย เจออีเมลเพิ่ม {found}"
-            elif t["kind"] == "ai_report":
-                lead = db.get_lead(args["lead_id"])
-                from . import jobs as _jobs
-                if _jobs.enabled():                       # stage 04C: เอเจนต์สั่งเองไม่ได้จ่ายเอง → ผ่านนโยบาย (รอทีมกด)
-                    d = {"state": deep_audit.start(lead["id"], ai=True, reason="agent")}
-                else:
-                    d = deep_audit.run_ai(lead["id"]) if deep_audit.tier1(lead).get("state") == "done" else (deep_audit.run_tier1(lead["id"]) and deep_audit.run_ai(lead["id"]))
-                res = f"{d.get('state')} · เอ่ยถึง {d.get('mentioned', '—')}/{d.get('asked', '—')}" if isinstance(d, dict) else str(d)
-            elif t["kind"] == "marketing_round":
-                r = marketing.run()
-                res = r.get("skipped") or f"เสนอ/โพสต์ {r.get('proposed', 0)} ชิ้น"
-            elif t["kind"] == "followup_round":
-                r = followup.run()
-                res = followup.status_text() or str(r)
-            else:
-                res = "ไม่รู้จักงานนี้"
-        db.update_task(tid, status="done", finished_at=db.now(), result=res[:500])
-        return res
+        res = _run_kind(t, args)
     except Exception as e:
-        db.update_task(tid, status="failed", finished_at=db.now(), result=f"{type(e).__name__}: {str(e)[:200]}")
+        res = f"{type(e).__name__}: {str(e)[:200]}"
+        db.update_task(tid, status="failed", finished_at=db.now(), result=res)
+        if act:
+            AP.finish(act, "failed", res)
         return f"ล้ม: {type(e).__name__}"
+    st = "done"
+    if act and (res.startswith(AP.SKIP_PREFIX) or res == "ไม่รู้จักงานนี้"):
+        st = "skipped"                                               # ไม่ได้ทำจริง = แสดงว่าข้าม ไม่ใช่ "เสร็จ"
+    db.update_task(tid, status=st, finished_at=db.now(), result=res[:500])
+    if act:
+        AP.finish(act, st, res)
+    return res
+
+
+def _run_kind(t, args: dict) -> str:
+    from . import ceo_chat, prospecting, followup, marketing, deep_audit, closer, pipeline, line_oa
+    from . import agent_policy as AP
+    skip = AP.SKIP_PREFIX if AP.on() else ""
+    tid = t["id"]
+    with office.working(t["agent"] if t["agent"] != "owner" else "ceo", t["title"]):
+        if t["kind"] == "call":
+            lead = db.get_lead(args["lead_id"])
+            closer.prepare(lead)
+            res = f"ฝากเจ้าของโทร · บท: {pipeline.public_base()}/admin/calls/{lead['id']}"
+        elif t["kind"] == "find_leads":
+            r = prospecting.run(limit=int(args["n"]), queries=[f"{args['segment']} {args['area']}"], force=True)
+            res = (skip + r["skipped"]) if r.get("skipped") else f"เพิ่ม {r['added']} ราย · ตรวจ {r['audited']} · มีอีเมล {r['with_email']} · ทัก {r['proposed']}"
+        elif t["kind"] == "refind":
+            found = 0
+            for lid in args.get("lead_ids", []):
+                lead = db.get_lead(lid)
+                if lead and not lead["email"]:
+                    c = prospecting.refind_contact(lead)
+                    found += 1 if c.get("email") else 0
+                    try:
+                        ph = closer.find_phone(db.get_lead(lid))
+                        if ph:
+                            d = closer._data(db.get_lead(lid)); d["phone"] = ph; closer._save(lid, d)
+                    except Exception:
+                        pass
+                    pipeline.record(lid, "note", "หาช่องทางติดต่อซ้ำ (CEO แจกงาน)", "prospecting")
+            res = f"หาซ้ำ {len(args.get('lead_ids', []))} ราย เจออีเมลเพิ่ม {found}"
+        elif t["kind"] == "ai_report":
+            lead = db.get_lead(args["lead_id"])
+            from . import jobs as _jobs
+            if _jobs.enabled():                       # stage 04C: เอเจนต์สั่งเองไม่ได้จ่ายเอง → ผ่านนโยบาย (รอทีมกด)
+                d = {"state": deep_audit.start(lead["id"], ai=True, reason="agent")}
+            else:
+                d = deep_audit.run_ai(lead["id"]) if deep_audit.tier1(lead).get("state") == "done" else (deep_audit.run_tier1(lead["id"]) and deep_audit.run_ai(lead["id"]))
+            res = f"{d.get('state')} · เอ่ยถึง {d.get('mentioned', '—')}/{d.get('asked', '—')}" if isinstance(d, dict) else str(d)
+        elif t["kind"] == "marketing_round":
+            r = marketing.run()
+            res = (skip + r["skipped"]) if r.get("skipped") else f"เสนอ/โพสต์ {r.get('proposed', 0)} ชิ้น"
+        elif t["kind"] == "followup_round":
+            r = followup.run()
+            res = followup.status_text() or str(r)
+        else:
+            res = "ไม่รู้จักงานนี้"
+    return res
 
 
 def dispatch(ids: list[int], notify: bool = True) -> None:
@@ -237,7 +265,13 @@ def dispatch(ids: list[int], notify: bool = True) -> None:
 
 @office.track("ceo", "วางแผนและแจกงานให้ทีม")
 def plan_and_run(notify: bool = True) -> dict:
+    from . import agent_policy as AP
     ids = plan()
+    if AP.on() and ids:                            # stage 14: เรียงตามลำดับที่เจ้าของตั้ง · เกินกำลังต่อวัน = พักไว้ให้เห็น
+        before = len([r for r in db.list_tasks(_today_start(), None, 500) if r["id"] not in ids])
+        ids, over = AP.prioritize(ids, before)
+        for tid in over:
+            db.update_task(tid, status="held", result=f"เกินกำลังวันนี้ ({AP.capacity()} งาน · ตั้งที่ agent_capacity_daily)")
     if execs.paused():
         for tid in ids:
             db.update_task(tid, status="held", result="พักไว้ — หยุดฉุกเฉินอยู่")

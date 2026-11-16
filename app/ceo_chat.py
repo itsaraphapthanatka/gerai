@@ -9,6 +9,7 @@ import re
 import threading
 
 from . import db, execs, leads as L, office
+from . import agent_policy as AP
 
 LOG_KEY, PENDING_KEY = "ceo_chat_log", "ceo_chat_pending"
 CONFIRM_WORDS = re.compile(r"^\s*(ยืนยัน|ใช่|ตกลง|โอเค|ok|okay|yes|y|จัดไป|เอา|ได้)\s*[.!✓]*\s*$", re.I)
@@ -274,6 +275,8 @@ def plan(action: str, args: dict) -> tuple[str, str | None]:
         k = args.get("kind") if args.get("kind") in ("insight", "ai_test", "tip") else "insight"
         args["kind"] = k
         return f"จะโพสต์ {k} ทาง LINE OA และ Facebook ทันที (นอกโควตารายสัปดาห์)", "ok"
+    if action == "resume":
+        return "จะกลับมาทำงานตามโหมดเดิม — เรื่องที่เปิดให้ระบบทำเองจะทำเองอีกครั้ง", "ok"
     if action == "pause":
         return "จะหยุดฉุกเฉิน — ทุกเรื่องที่ทำเองจะกลับมารอคุณอนุมัติ", "ok"
     return "", None
@@ -550,6 +553,37 @@ def answer(question: str, llm=None) -> str:
 
 
 # ---------- ทางเข้า ----------
+# ---------- stage 14: ยืนยันผูกกับงานและเวอร์ชันที่เห็น ----------
+def _bind(action: str, args: dict, msg: str) -> str:
+    return AP.args_hash(action, {"args": {k: v for k, v in args.items() if k not in AP.ESCALATION_KEYS}, "msg": msg})
+
+
+def _run_checked(action: str, args: dict, who: str, confirmed: bool) -> str:
+    d = AP.authorize(action, args, source="owner", actor=who, confirmed=confirmed)
+    if d["decision"] != "allow":
+        return "ยังทำไม่ได้: " + d["reason"]
+    try:
+        reply = execute(action, {k: v for k, v in args.items() if k not in AP.ESCALATION_KEYS})
+        AP.finish(d["action_id"], "done", reply)
+    except Exception as e:
+        reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+        AP.finish(d["action_id"], "failed", reply)
+    return reply
+
+
+def _confirm_bound(p: dict, who: str) -> str:
+    """"ยืนยัน" ใช้ได้กับงานและรายละเอียดที่เจ้าของเห็นตอนถามเท่านั้น · ราคา/สถานะเปลี่ยนระหว่างนั้น = ถามใหม่ ไม่ทำ"""
+    args = dict(p["args"])
+    msg, need = plan(p["action"], args)
+    if not need:
+        return msg or "ทำงานนี้ไม่ได้แล้ว"
+    h = _bind(p["action"], args, msg)
+    if h != p.get("h"):
+        _set_pending({"action": p["action"], "args": args, "at": db.now(), "h": h})
+        return "ข้อมูลเปลี่ยนตั้งแต่ถามยืนยัน — ยังไม่ได้ทำ\n" + msg + "\nพิมพ์ \"ยืนยัน\" อีกครั้งเพื่อทำตามนี้ หรือ \"ยกเลิก\""
+    return _run_checked(p["action"], args, who, confirmed=True)
+
+
 def handle(text: str, who: str = "owner", llm=None) -> str:
     """ข้อความจากเจ้าของ → คำตอบของ CEO (ทำงานจริงตามคำสั่ง)"""
     text = (text or "").strip()
@@ -567,10 +601,13 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
         p = _pending()
         if p and CONFIRM_WORDS.match(text):
             _set_pending(None)
-            try:
-                reply = execute(p["action"], p["args"])
-            except Exception as e:
-                reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+            if AP.on():
+                reply = _confirm_bound(p, who)
+            else:
+                try:
+                    reply = execute(p["action"], p["args"])
+                except Exception as e:
+                    reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
         elif p and CANCEL_WORDS.match(text):
             _set_pending(None)
             reply = "ยกเลิกแล้ว"
@@ -579,15 +616,19 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
             cmd = {"action": last["action"], "args": dict(last["args"])} if (last and REDO_WORDS.match(text)) else parse(text, llm)
             _set_last_cmd(cmd)
             msg, need = plan(cmd["action"], cmd["args"])
-            needs_confirm = ACTIONS[cmd["action"]][2]
+            needs_confirm = ACTIONS[cmd["action"]][2] or (AP.on() and AP.needs_confirm(cmd["action"]))   # stage 14: ระดับจากตารางในโค้ด
             if needs_confirm and need:
-                _set_pending({"action": cmd["action"], "args": cmd["args"], "at": db.now()})
+                _set_pending({"action": cmd["action"], "args": cmd["args"], "at": db.now(), "h": _bind(cmd["action"], cmd["args"], msg)})
                 reply = msg + "\nพิมพ์ \"ยืนยัน\" เพื่อทำ หรือ \"ยกเลิก\""
             elif needs_confirm and not need:
                 reply = msg or "ยังทำงานนี้ไม่ได้"
+            elif msg and need is None and cmd["action"] in ("contact_lead", "quote", "followup", "ai_report"):
+                reply = msg
+            elif AP.on():
+                reply = _run_checked(cmd["action"], cmd["args"], who, confirmed=False)
             else:
                 try:
-                    reply = msg if (msg and need is None and cmd["action"] in ("contact_lead", "quote", "followup", "ai_report")) else execute(cmd["action"], cmd["args"])
+                    reply = execute(cmd["action"], cmd["args"])
                 except Exception as e:
                     reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
     _log("ceo", reply)

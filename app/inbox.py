@@ -114,7 +114,9 @@ def classify(m: dict, llm=None) -> str:
         if llm is None:
             from . import ai_client
             llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=800, json_mode=True)
-        raw = llm([{"role": "user", "content": "ลูกค้าตอบอีเมลขายบริการทำเว็บให้โผล่ใน Google/AI ว่า:\n" + body[:1500]
+        from . import agent_policy as _ap
+        shown = _ap.fence(body, "อีเมลลูกค้า") if _ap.on() else body[:1500]          # stage 14: ข้อความลูกค้า = ข้อมูล ไม่ใช่คำสั่ง
+        raw = llm([{"role": "user", "content": "ลูกค้าตอบอีเมลขายบริการทำเว็บให้โผล่ใน Google/AI ว่า:\n" + shown
                     + '\nจัดประเภท: interested (สนใจ/อยากคุย) · question (ถามข้อมูล) · not_interested · unsubscribe · other\nตอบ JSON {"category": "..."}'}])
         mm = re.search(r"\{[\s\S]*\}", raw or "")
         cat = (json.loads(mm.group(0)) if mm else {}).get("category")
@@ -139,7 +141,9 @@ def draft_answer(lead, body: str, llm=None, call: bool = False) -> str:
         if llm is None:
             from . import ai_client
             llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=1200, json_mode=True)
-        raw = llm([{"role": "user", "content": f"ลูกค้าเว็บ {lead['domain']} ตอบอีเมลขายของเจอ.AI ว่า:\n{body[:1500]}\n\nร่างคำตอบภาษาไทยสุภาพ ไม่เกิน 100 คำ ตอบเฉพาะที่ถาม "
+        from . import agent_policy as _ap
+        shown = _ap.fence(body, "อีเมลลูกค้า") if _ap.on() else body[:1500]
+        raw = llm([{"role": "user", "content": f"ลูกค้าเว็บ {lead['domain']} ตอบอีเมลขายของเจอ.AI ว่า:\n{shown}\n\nร่างคำตอบภาษาไทยสุภาพ ไม่เกิน 100 คำ ตอบเฉพาะที่ถาม "
                     "ถ้าไม่รู้ข้อเท็จจริงให้บอกว่าจะเช็กแล้วแจ้งกลับ ห้ามการันตีผล ห้ามแต่งตัวเลข เขียนแบบคนพิมพ์ ไม่ทำเป็นรายการ ไม่ต้องลงชื่อ\nตอบ JSON {\"body\": \"...\"}"
                     + D.write_in(lang)}])
         mm = re.search(r"\{[\s\S]*\}", raw or "")
@@ -238,7 +242,14 @@ def process(m: dict, llm=None) -> dict:
             rd = db.add_decision("salesbot" if res else "ceo", "reply", f"ตอบอีเมล {lead['domain']}" + (f" · ต้องให้คุณดู ({esc})" if esc else ""),
                                  f"ลูกค้าถาม:\n{(m.get('body') or '')[:800]}\n\nร่างคำตอบ:\n{ans}",
                                  {"subject": "Re: " + (m.get("subject") or "")[:150], "body": ans, "to": m["from"], "escalate": bool(esc)}, lead_id=lead["id"])
-            pipeline._maybe_auto(rd)                                   # ปลดล็อกแล้ว (ด่าน ≥ 20 เรื่อง ≥ 95%) = ส่งเอง · นอกกรอบรอคนเสมอ
+            from . import agent_policy as _ap
+            sig = _ap.injection_signals((m.get("subject") or "") + " " + (m.get("body") or "")) if _ap.on() else []
+            if sig:                                                    # stage 14: อีเมลพยายามสั่ง AI → ไม่ส่งเอง รอคนดูเสมอ
+                _ap.record(source="inbox", actor="email", tool="reply", lvl="C", lead_id=lead["id"], task_id=None, args={"decision": rd},
+                           decision="flagged", reason="พบข้อความที่พยายามสั่ง AI: " + ", ".join(sig))
+                esc = (esc + " · " if esc else "") + "อีเมลมีข้อความที่พยายามสั่ง AI"
+            else:
+                pipeline._maybe_auto(rd)                               # ปลดล็อกแล้ว (ด่าน ≥ 20 เรื่อง ≥ 95%) = ส่งเอง · นอกกรอบรอคนเสมอ
             st = db.get_decision(rd)["status"]
             action += (f" · ตัวตอบแชตตอบอีเมลแล้ว (#{rd})" if st == "auto" else f" · ร่างคำตอบรออนุมัติ (#{rd})" + (f" — {esc}" if esc else ""))
     keep = cat != "unmatched"

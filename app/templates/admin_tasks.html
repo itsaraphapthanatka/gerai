@@ -5,20 +5,61 @@
 <p class="muted">ทุกเช้า 07:00 CEO ดูตัวเลขด่านที่ยังขาด แล้วแจกงานให้ทีมพร้อมเหตุผล ทุกงานทำผ่านระบบเดิม จึงอยู่ใต้เพดานและกรอบอำนาจเหมือนเดิม · สั่งเพิ่มได้ด้วยคำว่า "วางแผนวันนี้" ในแชต CEO</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if paused %}<div class="ok-banner" style="background:var(--danger-subtle);color:var(--danger-text)">หยุดฉุกเฉินอยู่ — งานที่แจกจะพักไว้จนกว่าจะสั่งทำงานต่อ</div>{% endif %}
-<form method="post" action="/admin/tasks/plan" style="margin-bottom:12px"><button class="btn sm" type="submit">ให้ CEO วางแผนและแจกงานตอนนี้</button></form>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  <form method="post" action="/admin/tasks/plan"><button class="btn sm" type="submit">ให้ CEO วางแผนและแจกงานตอนนี้</button></form>
+  {% if policy %}<form method="post" action="/admin/agents/pause"><input type="hidden" name="on" value="{{ '0' if paused else '1' }}">
+    <button class="btn sm {{ '' if paused else 'danger' }}" type="submit">{{ "ทำงานต่อ" if paused else "หยุดเอเจนต์ทั้งหมด (kill switch)" }}</button></form>{% endif %}
+</div>
+{% set ST = {'queued':'รอทำ','running':'กำลังทำ','done':'เสร็จ','failed':'ล้ม','held':'พักไว้','blocked':'รออนุมัติ','denied':'ไม่อนุญาต','skipped':'ข้าม (ไม่ได้ทำ)'} %}
 <div class="card" style="padding:0;overflow:hidden">
   {% if tasks %}
   <div style="overflow-x:auto"><table>
-    <thead><tr><th>เมื่อ</th><th>ให้</th><th>งาน</th><th>เหตุผล</th><th>ผล</th></tr></thead>
+    <thead><tr><th>เมื่อ</th><th>ให้</th><th>งาน</th>{% if policy %}<th>ระดับ</th>{% endif %}<th>เหตุผล</th><th>ผล</th></tr></thead>
     <tbody>{% for t in tasks %}
       <tr><td class="muted" style="white-space:nowrap;font-size:12px">{{ t['created_at'][5:16].replace('T',' ') }}</td>
         <td style="white-space:nowrap"><b>{{ names.get(t['agent'], t['agent']) }}</b></td>
         <td style="font-size:13px">{{ t['title'] }}</td>
+        {% if policy %}{% set lv = AP.level(t['kind']) %}<td style="font-size:12px;white-space:nowrap" title="{{ AP.LEVELS.get(lv, 'ไม่รองรับ') }}">{{ lv or '—' }} · {{ AP.LEVELS.get(lv, 'ไม่รองรับ') }}</td>{% endif %}
         <td class="muted" style="font-size:12.5px">{{ t['reason'] or '' }}</td>
-        <td style="font-size:12.5px"><span class="pill {{ 'ok' if t['status'] == 'done' else ('no' if t['status'] == 'failed' else '') }}" style="font-size:10.5px">{{ {'queued':'รอทำ','running':'กำลังทำ','done':'เสร็จ','failed':'ล้ม','held':'พักไว้'}.get(t['status'], t['status']) }}</span>
-          {% if t['result'] %}<div class="muted" style="margin-top:3px">{{ t['result'][:160] }}</div>{% endif %}</td></tr>
+        <td style="font-size:12.5px"><span class="pill {{ 'ok' if t['status'] == 'done' else ('no' if t['status'] in ('failed', 'denied') else '') }}" style="font-size:10.5px">{{ ST.get(t['status'], t['status']) }}</span>
+          {% if t['result'] %}<div class="muted" style="margin-top:3px">{{ t['result'][:160] }}</div>{% endif %}
+          {% if policy and t['status'] == 'blocked' %}<form method="post" action="/admin/tasks/{{ t['id'] }}/approve" style="margin-top:4px">{{ csrf_input(request) }}
+            <button class="btn sm" type="submit">อนุมัติงานนี้ครั้งเดียว</button></form>{% endif %}
+          {% if policy and t['status'] in ('failed', 'skipped', 'denied', 'held') %}<form method="post" action="/admin/tasks/{{ t['id'] }}/retry" style="margin-top:4px">{{ csrf_input(request) }}
+            <button class="btn sm" type="submit">สั่งใหม่ ({{ attempts.get(t['id'], 0) }}/{{ AP.MAX_RETRIES + 1 }})</button></form>{% endif %}</td></tr>
     {% endfor %}</tbody>
   </table></div>
   {% else %}<div style="text-align:center;padding:36px"><p class="muted">ยังไม่มีงาน — CEO จะเริ่มแจกงานรอบ 07:00 หรือกดปุ่มด้านบน</p></div>{% endif %}
 </div>
+
+{% if policy %}
+<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;align-items:flex-start">
+  <div class="card" style="flex:1;min-width:280px">
+    <h2 style="margin-top:0;font-size:17px">กติกาที่บังคับในโค้ด</h2>
+    <ul style="font-size:13px;padding-left:18px">{% for k, v in AP.LEVELS.items() %}<li><b>{{ k }}</b> {{ v }} — {{ {'A':'ทำได้','B':'ทำได้ถ้างบเหลือ','C':'ต้องอนุมัติทีละงาน หรือเปิดกฎประจำด้านล่าง','D':'ต้องอนุมัติทีละงานเสมอ'}[k] }}</li>{% endfor %}</ul>
+    <p class="muted" style="font-size:12.5px">โมเดลเลื่อนระดับตัวเองไม่ได้ · ข้อความจากเว็บ/อีเมลถือเป็นข้อมูล ไม่ใช่คำสั่ง · งานเดิมข้อมูลเดิมเกิน {{ AP.LOOP_MAX }} ครั้ง/ชม. = หยุด · กำลังต่อวัน {{ capacity }} งาน (setting <code>agent_capacity_daily</code>)
+      <br>ลำดับความสำคัญ (setting <code>agent_priority</code>): {% for k, v in prio.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  </div>
+  <div class="card" style="flex:1;min-width:280px">
+    <h2 style="margin-top:0;font-size:17px">กฎประจำ (ค่าเริ่มต้นปิด)</h2>
+    <p class="muted" style="font-size:12.5px">เปิด = เอเจนต์ทำงานติดต่อคนนอกประเภทนั้นได้เองโดยไม่ต้องกดอนุมัติทีละงาน (ยังอยู่ใต้โหมดอนุมัติ/เพดานเดิมของระบบ) · เรื่องราคา/สิทธิ์ไม่มีกฎประจำ</p>
+    <table>{% for n, onr in rules.items() %}<tr><td><code>{{ n }}</code> <span class="muted" style="font-size:12px">{{ AP.TOOLS[n].outputs }}</span></td>
+      <td><form method="post" action="/admin/tasks/rules">{{ csrf_input(request) }}<input type="hidden" name="tool" value="{{ n }}"><input type="hidden" name="on" value="{{ '0' if onr else '1' }}">
+        <button class="btn sm {{ 'danger' if onr else '' }}" type="submit">{{ "เปิดอยู่ · ปิด" if onr else "ปิดอยู่ · เปิด" }}</button></form></td></tr>{% endfor %}</table>
+  </div>
+</div>
+<div class="card" style="overflow-x:auto;margin-top:18px">
+  <h2 style="margin-top:0;font-size:17px">บันทึกการตัดสินของนโยบาย (ปิดข้อมูลส่วนตัวแล้ว)</h2>
+  <table><thead><tr><th>#</th><th>เมื่อ</th><th>ที่มา</th><th>งาน</th><th>ระดับ</th><th>ผล</th><th>เหตุผล</th><th>ข้อมูล</th><th>ค่าใช้จ่าย</th><th>สถานะ / ผลลัพธ์</th></tr></thead>
+    <tbody>{% for a in actions %}<tr><td>{{ a.id }}</td><td class="muted" style="white-space:nowrap;font-size:12px">{{ a.created_at[5:16].replace('T',' ') }}</td>
+      <td style="font-size:12px">{{ a.source }}{% if a.actor %} · {{ a.actor }}{% endif %}{% if a.task_id %} · งาน #{{ a.task_id }}{% endif %}</td>
+      <td><code>{{ a.tool }}</code></td><td>{{ a.level or '—' }}</td>
+      <td><span class="pill {{ 'ok' if a.decision == 'allow' else ('no' if a.decision in ('deny', 'flagged') else '') }}" style="font-size:10.5px">{{ {'allow':'อนุญาต','deny':'ไม่อนุญาต','needs_approval':'รออนุมัติ','held':'พักไว้','flagged':'ตั้งธงเตือน'}.get(a.decision, a.decision) }}</span></td>
+      <td class="muted" style="font-size:12px">{{ a.reason or '' }}{% if a.approval_id %} · อนุมัติ #{{ a.approval_id }}{% endif %}</td>
+      <td class="muted" style="font-size:11.5px;max-width:220px;word-break:break-all">{{ (a.args_redacted or '')[:160] }}</td>
+      <td style="font-size:12px">{% if a.cost_est %}${{ "%.2f"|format(a.cost_est) }}{% endif %}</td>
+      <td class="muted" style="font-size:12px">{{ a.status or '' }}{% if a.result %} · {{ a.result[:120] }}{% endif %}</td></tr>
+    {% else %}<tr><td colspan="10" class="muted">ยังไม่มีบันทึก</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
 {% endblock %}

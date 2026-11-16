@@ -5274,8 +5274,50 @@ def admin_tasks(request: Request, notice: str = ""):
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
     from . import orchestrator
-    return templates.TemplateResponse(request, "admin_tasks.html", {"tasks": db.list_tasks(None, None, 100), "names": orchestrator.NAME, "notice": notice,
-                                                                    "paused": execs.paused()})
+    from . import agent_policy as AP
+    ctx = {"tasks": db.list_tasks(None, None, 100), "names": orchestrator.NAME, "notice": notice, "paused": execs.paused(), "policy": AP.on()}
+    if AP.on():                                    # stage 14: ที่มา ระดับ ผลการตัดสิน (ปิดข้อมูลส่วนตัวแล้ว) · กฎประจำ · สั่งใหม่
+        ctx.update(AP=AP, actions=AP.recent(80), rules={n: AP.standing_rule(n) for n in sorted(AP.STANDING_ELIGIBLE)},
+                   attempts={t["id"]: AP.attempts(t["id"]) for t in ctx["tasks"]}, prio=AP.priorities(), capacity=AP.capacity())
+    return templates.TemplateResponse(request, "admin_tasks.html", ctx)
+
+
+@app.post("/admin/tasks/{tid}/approve", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_approve(request: Request, tid: int):
+    """stage 14: อนุมัติงานที่แจกแบบผูกงาน+ข้อมูล+id (ใช้ครั้งเดียว ภายใน 24 ชม.) แล้วสั่งทำ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP, orchestrator
+    t = db.get_task(tid)
+    if not AP.on() or not t or t["status"] != "blocked":
+        return _redirect("/admin/tasks?notice=" + quote("งานนี้ไม่ได้รออนุมัติ"))
+    AP.approve_task(tid, request.session.get("email") or "owner")
+    orchestrator.dispatch([tid], notify=False)
+    return _redirect("/admin/tasks?notice=" + quote(f"อนุมัติงาน #{tid} แล้ว กำลังทำ"))
+
+
+@app.post("/admin/tasks/{tid}/retry", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_retry(request: Request, tid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP, orchestrator
+    t = db.get_task(tid)
+    if not AP.on() or not t or t["status"] not in ("failed", "skipped", "denied", "held"):
+        return _redirect("/admin/tasks?notice=" + quote("งานนี้สั่งใหม่ไม่ได้"))
+    if AP.attempts(tid) > AP.MAX_RETRIES:
+        return _redirect("/admin/tasks?notice=" + quote(f"ลองครบ {AP.MAX_RETRIES + 1} ครั้งแล้ว — ต้องดูสาเหตุก่อน"))
+    db.update_task(tid, status="queued", result="สั่งใหม่")
+    orchestrator.dispatch([tid], notify=False)
+    return _redirect("/admin/tasks?notice=" + quote(f"สั่งงาน #{tid} ใหม่แล้ว"))
+
+
+@app.post("/admin/tasks/rules", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_rules(request: Request, tool: str = Form(""), on: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP
+    ok, err = AP.set_standing_rule(tool, on == "1")
+    return _redirect("/admin/tasks?notice=" + quote(err if not ok else (f"เปิดกฎประจำ {tool} แล้ว — เอเจนต์ทำงานนี้ได้โดยไม่ต้องอนุมัติทีละงาน" if on == "1" else f"ปิดกฎประจำ {tool} แล้ว")))
 
 
 @app.post("/admin/tasks/plan")

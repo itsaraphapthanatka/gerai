@@ -58,7 +58,10 @@ def reset(name: str) -> None:
 def system_for(task: str) -> str:
     """system prompt สำหรับงานของโมเดล (ว่าง = ไม่มีทักษะผูก)"""
     name = TASK_SKILL.get(task)
-    return load(name) if name else ""
+    if not name:
+        return ""
+    from . import agent_policy
+    return load(name) + (agent_policy.CAPABILITY_NOTE if agent_policy.on() else "")     # stage 14: ขอบเขตจริงต่อท้ายเสมอ แก้ทับไม่ได้
 
 
 def with_skill(task: str, messages: list[dict]) -> list[dict]:
