@@ -296,6 +296,14 @@ def step(c: dict, now: dt.datetime) -> list[str]:
     if "cs_kickoff" not in done:
         out.append("kickoff · " + kickoff(c))
         return out
+    from . import delivery, retention
+    ws = delivery.for_brand(b["id"]) if (delivery.on() and retention.on()) else None
+    if ws:                                         # stage 16: ลูกค้าที่มีพื้นที่งาน → ดูแลตามขั้นที่ติด ไม่ใช่ตามวันอย่างเดียว
+        def _report(month):
+            s_, h_, t_, l_ = report_message(c, month)
+            _record(c, "cs_report", f"เดือน {month} · {_send(c, s_, h_, t_, l_)}")
+            return f"report:{month}"
+        return out + retention.cs_step(c, ws, now, done, _record, _report)
     if days >= 3 and "cs_installed" not in done:
         _health(b["id"])
         ok, det = installed(b)

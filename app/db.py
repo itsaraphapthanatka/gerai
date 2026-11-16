@@ -505,6 +505,30 @@ def _tables() -> list[str]:
             updated_at TEXT NOT NULL
         )""",
         """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 16: คำขอเผยแพร่ — อนุมัติผูกเนื้อหา/ปลายทาง/เวอร์ชัน · ต้องยืนยันจากปลายทาง · เก็บเวอร์ชันที่เผยแพร่ไว้คืนได้
+        f"""CREATE TABLE IF NOT EXISTS publish_requests (
+            id {_PK},
+            content_id INTEGER NOT NULL,
+            brand_id INTEGER NOT NULL,
+            destination TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            idem_key TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL,
+            checks_json TEXT,
+            approval_id INTEGER,
+            prior_request_id INTEGER,
+            remote_id TEXT,
+            remote_link TEXT,
+            published_snapshot_json TEXT,
+            error TEXT,
+            requested_by TEXT,
+            reviewed_by TEXT,
+            approved_by TEXT,
+            published_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_publish_requests_content ON publish_requests(content_id, status)""",
         # stage 15: พื้นที่งานส่งมอบต่อแบรนด์ · ขอบเขตมีเวอร์ชัน · งานแต่ละชิ้น (ไม่แตะสิทธิ์แพ็กเกจเดิม)
         f"""CREATE TABLE IF NOT EXISTS delivery_workspaces (
             id {_PK},
@@ -1938,7 +1962,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests")
 
 
 def record_schema_versions() -> None:

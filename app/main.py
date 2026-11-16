@@ -288,6 +288,9 @@ def _publish_item(item, conn, brand, status="publish"):
 
 def _auto_publish_tick(b, days, now_local):
     """เผยแพร่ร่าง auto ที่ถึง review window (days) — มี WP → ดันเข้า WP, ไม่มี (เว็บ dev) → ขึ้นหน้า hosted"""
+    from . import publishing
+    if publishing.on():                            # stage 16: ไม่มีการเผยแพร่อัตโนมัติ — ต้องผ่านประตูและคนอนุมัติ
+        return
     import datetime as _dt
     cutoff = (now_local - _dt.timedelta(days=days)).isoformat(timespec="seconds")
     drafts = db.due_auto_drafts(b["id"], cutoff)
@@ -2858,6 +2861,38 @@ def brand_ai_serp(request: Request, brand_id: int):
 
 
 # ---------- รายงานสรุป + ส่งออกไฟล์ ----------
+@app.get("/brands/{brand_id}/publishing")
+def brand_publishing(request: Request, brand_id: int, notice: str = ""):
+    """stage 16: คำขอเผยแพร่ (ประตูตรวจ สถานะจริงจากปลายทาง คืนเวอร์ชัน) + ผลรายเดือนแยก 4 หมวด"""
+    from . import publishing, retention
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    if not publishing.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    reqs = [{**r, "checks": json.loads(r["checks_json"] or "[]"), "title": (db.get_content(r["content_id"]) or {"title": "—"})["title"]}
+            for r in publishing.list_brand(brand_id)]
+    return templates.TemplateResponse(request, "brand_publishing.html", {"brand": brand, "reqs": reqs, "P": publishing, "rv": retention.review(brand_id),
+                                                                         "notice": notice})
+
+
+@app.post("/brands/{brand_id}/publishing/{rid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def brand_publishing_action(request: Request, brand_id: int, rid: int, action: str):
+    from . import publishing
+    brand = _brand_for(request, brand_id)
+    r = publishing.get(rid) if publishing.on() else None
+    if not brand or not r or r["brand_id"] != brand_id:
+        return _redirect("/app" if _tid(request) else "/login")
+    who = request.session.get("email") or "customer"
+    if action == "reconcile":
+        st, msg = publishing.reconcile(rid)
+    elif action == "rollback":
+        st, msg = publishing.rollback(rid, who)
+    else:
+        st, msg = r["status"], "ไม่รู้จักคำสั่ง"
+    return _redirect(f"/brands/{brand_id}/publishing?notice=" + quote(f"{publishing.STATES.get(st, st)} — {msg}"))
+
+
 @app.get("/brands/{brand_id}/report")
 def brand_report(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)
@@ -3205,6 +3240,9 @@ def _fix_all_worker(brand_id: int, tenant_id: int, publish_drafts: bool):
                     _attach_image(brand, it["id"], question)
                 fixed += 1
                 do_pub = (it["status"] == "published") or publish_drafts
+                from . import publishing
+                if publishing.on():
+                    do_pub = False                 # stage 16: เขียนใหม่แล้ว = เวอร์ชันใหม่ ต้องผ่านประตูและอนุมัติก่อนขึ้นจริง
                 if do_pub:
                     if conn:
                         _publish_item(db.get_content(it["id"]), conn, brand, status="publish")
@@ -3436,7 +3474,13 @@ def publish_content(request: Request, content_id: int, status: str = Form("draft
         return _redirect("/app" if _tid(request) else "/login")
     wp_status = "publish" if status == "publish" else "draft"  # validate
     conn = db.get_wp_connection(item["brand_id"])
-    if not conn:
+    from . import publishing
+    if publishing.on() and wp_status == "publish":   # stage 16: ผ่านประตู → อนุมัติผูกเวอร์ชัน → ส่ง → ปลายทางยืนยัน
+        own = item["brand_id"] in [b["id"] for b in db.list_brands(_tid(request) or 0)]
+        st, msg = publishing.publish_now(content_id, request.session.get("email") or "customer", "customer" if own else "staff")
+        item = db.get_content(content_id)
+        notice = {"ok": st == "published", "msg": f"{publishing.STATES.get(st, st)} — {msg}"}
+    elif not conn:
         # เว็บ dev (ไม่มี WP) → เผยแพร่ = ขึ้นหน้า hosted ของแพลตฟอร์ม
         if wp_status == "publish":
             site = geo_content._site_url(brand)

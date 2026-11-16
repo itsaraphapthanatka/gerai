@@ -255,7 +255,9 @@ def take_baseline(wid: int) -> dict:
     av = db.last_ai_visibility(bid)
     if av and (av["asked"] or 0) > 0:
         hits = (av["cited"] or 0) + (av["named"] or 0)
-        lanes["ai_mention"] = {"state": "found" if hits else "absent", "value": hits, "of": av["asked"], "at": str(av["checked_at"])[:16]}
+        from . import retention
+        lanes["ai_mention"] = {"state": "found" if hits else "absent", "value": hits, "of": av["asked"], "at": str(av["checked_at"])[:16],
+                               "qset": retention.qset(av)}                      # stage 16: เทียบได้เฉพาะชุดคำถามเดียวกัน
     else:
         lanes["ai_mention"] = {"state": "not_tested", "value": None, "at": None}
     hc = db.last_health_check(bid)

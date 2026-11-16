@@ -75,6 +75,9 @@ def opportunities(c: dict, now: dt.datetime | None = None) -> list[str]:
         out.append("content")
     if s["days"] >= ADVOCATE_AFTER_DAYS and s["installed"] and s["published"] >= ADVOCATE_MIN_PUBLISHED:
         out.append("advocate")
+    from . import retention
+    if retention.on():                             # stage 16: ต้องมีเหตุผลที่เหมาะ ไม่ใช่แค่ใช้เยอะ · ไม่ติดต่อคนที่ไม่ควรติดต่อ
+        out = [o for o in out if retention.fit_reason(c, s, o)]
     return out
 
 
@@ -124,6 +127,10 @@ def propose(c: dict, opp: str, s: dict, key: str | None = None) -> int:
     d = draft(c, opp, s)
     facts = (f"ใช้มา {s['days']} วัน · {s['package']} {('รายปี' if s['cycle'] == 'year' else 'รายเดือน')} · ติดตั้ง {'แล้ว' if s['installed'] else 'ยัง'} · "
              f"เผยแพร่ {s['published']} ชิ้น · แบรนด์ {s['brands']}/{s['brands_cap']} · คอนเทนต์เดือนนี้ {s['content_month']}/{s['content_cap']}")
+    from . import retention
+    fit = retention.fit_reason(c, s, opp) if retention.on() else None
+    if fit:
+        facts += f" · เหมาะเพราะ: {fit}"
     did = db.add_decision("expand", "expansion", f"{OPPS[opp]} — {c['lead']['domain']}",
                           f"เหตุผล: {facts}\n" + ("อนุมัติ = ออกใบเสนอราคาใหม่และส่งพร้อมข้อความนี้\n" if opp in ("yearly", "agency") else "อนุมัติ = ส่งข้อความนี้\n")
                           + f"\nถึง {c['tenant']['email']}\nหัวข้อ: {d['subject']}\n\n{d['body']}",
