@@ -33,6 +33,9 @@
 - `scripts/uat_seed.py`: สร้าง DB SQLite แยกขาด (ข้อมูลสมมติ · นอก repo · ฟัง 127.0.0.1 · งบ AI = 0 · ไม่มีบริการภายนอก) + บัญชีทุกบทบาท (รหัสสุ่มเขียนในไฟล์ข้าง DB) · รีเซ็ต = ลบโฟลเดอร์
 - เทสต์ `uat_fixture_smoke.py`: ทุกบทบาทเปิดหน้าเริ่มต้นได้ · ขาย/การตลาดเปิดหน้าการเงินไม่ได้ · พันธมิตรเห็นแค่สถานะ · ไม่มี route ทดสอบ/fixture สาธารณะ
 - `UAT_TH.md` (ผู้เยี่ยมชม/ผู้ซื้อ/ขาย/การตลาด/ส่งมอบ/บัญชี/พันธมิตร/เจ้าของ) · `CONTENT_READINESS.md` (ขวาง/ไม่ขวาง) · `HANDOVER.md` (traceability · route · schema · flag · worker · อำนาจเอเจนต์ · หน้าที่คน · ความเสี่ยง · เลื่อนได้ vs ต้องมี) · `PRODUCTION_CHANGE_REQUEST.md` (**NOT EXECUTED**)
+- **เดินทดลองบนเซิร์ฟเวอร์ UAT (Claude, 2026-11-16 · ไม่ใช่ UAT โดยคน):** เส้นทางส่งมอบครบ — ลูกค้ายืนยันข้อมูลธุรกิจ → ให้สิทธิ์แบบทีมเว็บเดิม → ทีมบันทึกผลวัดตั้งต้น (ทุกตัวชี้วัด "ยังไม่ได้ทดสอบ" เพราะข้อมูลสมมติไม่มีผลวัด) → ทีมร่างแผน 2 งาน → ลูกค้าอนุมัติ → "กำลังทำ"
+    - พบและแก้: บั๊ก `origin_check` (ดู stage 18) · หน้า `/admin/delivery` ใช้คำพูดกับลูกค้า ("รอคุณอยู่", "ทีมเว็บของคุณ" ฯลฯ) → แยกป้ายฝั่งทีม รวมถึงการแจ้งเตือนภายในและหน้าพันธมิตร (`eb48ad9`, `47c7b1b`, `ba931e8`)
+    - ยังไม่ได้เดิน: เริ่ม/ส่งตรวจ/ส่งมอบงาน · หน้าเผยแพร่ · บทบาทขาย/การตลาด/บัญชี/พันธมิตรแบบละเอียด
 - **ยังไม่ได้ทำ:** UAT โดยคน · staging · Postgres · stage 07/12/13 (รอของจริง)
 
 ## stage 18 — regression ข้ามขั้น · ซ้อมย้ายข้อมูล · runbook
@@ -42,6 +45,7 @@
 - **พบ:** POST เดิม 131 route (admin 73) ไม่มีโทเคน CSRF — กันด้วย SameSite=Lax ของคุกกี้ session อยู่แล้ว · เพิ่ม flag `origin_check` (ปฏิเสธ Origin ข้ามโดเมน ยกเว้น webhook/API/วิดเจ็ต) · แช่รายการไว้ที่ `tests_data/csrf_legacy_post_routes.json` เทสต์ล้มถ้ามี route ใหม่ไม่มี CSRF · การเติมโทเคนให้ route เดิมทั้งหมดเป็นงานแยก (ต้องแก้ฟอร์ม/JS ทุกหน้า)
 - **พบ:** GEO_AUTORUN หลาย worker วิ่งรอบซ้ำ → เพิ่ม flag `scheduler_lease` (`app/scheduler_lease.py`, ตาราง `scheduler_leases`)
 - runbook: `OPERATIONS_RUNBOOK.md` · `MIGRATION_RUNBOOK.md` · `ROLLBACK_RUNBOOK.md` · `STAGING_ACCEPTANCE.md` (ยังไม่ได้ทำบน staging)
+- **พบตอนเดิน UAT (แก้แล้ว 2026-11-16, `94ea75a`):** เปิด `origin_check` แล้วทุก POST จากหน้าส่วนตัว (`/app/*`, `/admin/*`) ได้ 403 — หน้าเหล่านี้ตั้ง `Referrer-Policy: no-referrer` (08A) ทำให้ Chrome ส่ง `Origin: null` · ตอนนี้ Origin null ผ่านเฉพาะเมื่อ `Sec-Fetch-Site: same-origin` (เบราว์เซอร์ตั้งเอง หน้าเว็บปลอมไม่ได้) · ข้ามเว็บ/ไม่มี header ยังถูกปฏิเสธ · เทสต์อัตโนมัติเดิมจับไม่ได้เพราะไม่ส่งค่าแบบ Chrome จริง → เพิ่มใน `release_regression_smoke.py` แล้ว
 - **ต้องตัดสินใจ/ทำ:** เครื่อง staging + Postgres · เปิด `origin_check` หลังตั้ง `PUBLIC_BASE_URL` · เลือกตัวตั้งเวลาเจ้าของเดียว · อนุมัติใช้ข้อมูลจริงที่ปกปิดตัวตนเพื่อวัดเวลาย้าย (ถ้าต้องการ)
 
 ## stage 17 — รายได้ ที่มา ต้นทุน
@@ -348,7 +352,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-16 (หลัง 19): **84/84 ผ่าน** (รอบเต็ม 83 หลัง 18 + `uat_fixture_smoke.py` รันแยก · stage 19 ไม่แก้โค้ดแอป) · หลัง 18: 83/83 · หลัง 17: 82/82 · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-16 (หลังแก้จากการเดิน UAT): **84/84 ผ่าน** (รอบเต็ม 83 ผ่าน · `delivery_smoke.py` ล้มในรอบนั้นเพราะรันขณะกำลังแก้ไฟล์ — รันซ้ำบนโค้ดสุดท้ายผ่าน 2 รอบติด) · หลัง 19: 84/84 · หลัง 18: 83/83 · หลัง 17: 82/82 · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers
