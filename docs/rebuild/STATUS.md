@@ -25,6 +25,16 @@
 | 15 ส่งมอบตามขอบเขต + พื้นที่งานลูกค้า | **เสร็จ หลัง flag `delivery_v2` (ปิด)** | 2026-11-16 | จ่ายแล้วไม่สั่ง Autopilot เองจนครบข้อมูล/สิทธิ์/วัดผลตั้งต้น/แผน · ลูกค้าเดิมไม่กระทบ · ดู `DELIVERY_CONTRACT.md` |
 | 16 เผยแพร่ + ผลรายเดือน + ดูแลต่อ | **เสร็จ หลัง flag `publish_v2` (ปิด) · ไม่ได้ส่งเข้า WordPress จริง** | 2026-11-16 | เปิด flag แล้วไม่มี auto-publish · ดู `PUBLISHING_CONTRACT.md` |
 | 17 รายได้ ที่มา ต้นทุน | **เสร็จ หลัง flag `revenue_v2` (ปิด) · เห็นเฉพาะหมวดบัญชี** | 2026-11-16 | เงินจากใบเสร็จจริง · ที่มาหลายมุมไม่บวกข้ามกัน · ไม่บอกกำไรถ้าข้อมูลต้นทุนไม่ครบ · ดู `REVENUE_CONTRACT.md` |
+| 18 regression + ซ้อมย้ายข้อมูล + runbook | **เสร็จ (ทดสอบในเครื่อง SQLite) · Postgres/staging ยังไม่ได้ทดสอบ** | 2026-11-16 | ซ้อมย้ายบนข้อมูลสมมติผ่าน · POST เดิม 131 route ยังไม่มีโทเคน CSRF (แช่รายการ + flag origin_check) · ดู runbook 4 ฉบับ |
+
+## stage 18 — regression ข้ามขั้น · ซ้อมย้ายข้อมูล · runbook
+- **ไม่มีผลกับ production** · ทดสอบบน SQLite ในเครื่องเท่านั้น · **Postgres ยังไม่ได้ทดสอบ** (ไม่มี Postgres, Docker ไม่ได้รัน) · ยังไม่มี staging
+- เทสต์ `release_regression_smoke.py`: ปิด flag ทั้งหมดแล้วระบบเดิมใช้ได้ ข้อมูลไม่หาย/เปิดกลับสถานะอยู่ · แก้เนื้อหาตอนปิด flag แล้วคำขอเผยแพร่เดิมส่งไม่ได้ · คิวงานแย่งกันไม่ซ้ำ · ลูกค้าขอหยุดระหว่างรอส่ง · lease ตัวตั้งเวลา · แยกบัญชี · webhook ลายเซ็นผิด · หัว no-store/no-referrer · crawler · redaction · inventory CSRF · origin check
+- ซ้อมย้าย `scripts/migration_rehearsal.py` (ลีดสมมติ 2,000): schema ก่อน rebuild → ย้าย → แถวหาย 0 · integrity ok · ย้ายซ้ำไม่เปลี่ยน · โค้ดเก่าอ่าน DB ใหม่ได้ · กู้คืนตรง · dry-run จับคู่ตัวตนไม่เขียน · ผล `docs/rebuild/rehearsal/sqlite_2000.json`
+- **พบ:** POST เดิม 131 route (admin 73) ไม่มีโทเคน CSRF — กันด้วย SameSite=Lax ของคุกกี้ session อยู่แล้ว · เพิ่ม flag `origin_check` (ปฏิเสธ Origin ข้ามโดเมน ยกเว้น webhook/API/วิดเจ็ต) · แช่รายการไว้ที่ `tests_data/csrf_legacy_post_routes.json` เทสต์ล้มถ้ามี route ใหม่ไม่มี CSRF · การเติมโทเคนให้ route เดิมทั้งหมดเป็นงานแยก (ต้องแก้ฟอร์ม/JS ทุกหน้า)
+- **พบ:** GEO_AUTORUN หลาย worker วิ่งรอบซ้ำ → เพิ่ม flag `scheduler_lease` (`app/scheduler_lease.py`, ตาราง `scheduler_leases`)
+- runbook: `OPERATIONS_RUNBOOK.md` · `MIGRATION_RUNBOOK.md` · `ROLLBACK_RUNBOOK.md` · `STAGING_ACCEPTANCE.md` (ยังไม่ได้ทำบน staging)
+- **ต้องตัดสินใจ/ทำ:** เครื่อง staging + Postgres · เปิด `origin_check` หลังตั้ง `PUBLIC_BASE_URL` · เลือกตัวตั้งเวลาเจ้าของเดียว · อนุมัติใช้ข้อมูลจริงที่ปกปิดตัวตนเพื่อวัดเวลาย้าย (ถ้าต้องการ)
 
 ## stage 17 — รายได้ ที่มา ต้นทุน
 - `app/revenue.py` · หน้า `/admin/revenue` (หมวดบัญชีเท่านั้น) · ตาราง `finance_adjustments`, `cost_entries` · คอลัมน์ `leads.self_reported_source` · รายละเอียด `REVENUE_CONTRACT.md`
@@ -331,7 +341,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-16 (หลัง 17): **82/82 ผ่าน** · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-16 (หลัง 18): **83/83 ผ่าน** · หลัง 17: 82/82 · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

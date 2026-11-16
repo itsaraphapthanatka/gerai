@@ -505,6 +505,13 @@ def _tables() -> list[str]:
             updated_at TEXT NOT NULL
         )""",
         """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 18: lease ของตัวตั้งเวลา (กันหลายโปรเซสวิ่งรอบเดียวกัน)
+        """CREATE TABLE IF NOT EXISTS scheduler_leases (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
         # stage 17: คืนเงิน/ลดหนี้ (กันซ้ำด้วย ref) และต้นทุนที่กรอกเอง (จริง/ประมาณ) — ไม่แก้เอกสารบัญชีเดิม
         f"""CREATE TABLE IF NOT EXISTS finance_adjustments (
             id {_PK},
@@ -1988,7 +1995,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests", "2026-11-16-17-revenue")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests", "2026-11-16-17-revenue", "2026-11-16-18-scheduler-lease")
 
 
 def record_schema_versions() -> None:

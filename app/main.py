@@ -119,6 +119,39 @@ async def _private_headers(request: Request, call_next):
     return resp
 
 
+# stage 18: กัน CSRF ชั้นนอก (flag origin_check) — route เดิมหลายตัวยังไม่มีโทเคน CSRF จึงพึ่ง SameSite=Lax ของคุกกี้อย่างเดียว
+# เปิด flag: POST/PUT/PATCH/DELETE ที่มีหัว Origin ไม่ตรงโฮสต์ของเรา (หรือ "null") = 403 · ไม่มี Origin (เซิร์ฟเวอร์/ฟอร์มเก่า) = ผ่าน
+# ยกเว้น webhook ที่ตรวจลายเซ็นเอง และ API/วิดเจ็ตที่ตั้งใจให้เว็บลูกค้าเรียกข้ามโดเมน
+ORIGIN_EXEMPT = ("/line/webhook", "/stripe/webhook", "/inbox/hook", "/api/", "/chat/")
+
+
+def _origin_ok(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    if origin is None:
+        return True
+    if origin == "null":
+        return False
+    from urllib.parse import urlparse as _up
+    o = _up(origin)
+    allowed = {request.headers.get("host", "").lower()}
+    for extra in (os.getenv("PUBLIC_BASE_URL", ""), *[x.strip() for x in (os.getenv("GEO_ALLOWED_ORIGINS", "")).split(",")]):
+        if extra:
+            allowed.add((_up(extra).netloc or extra).lower())
+    return bool(o.netloc) and o.netloc.lower() in allowed
+
+
+@app.middleware("http")
+async def _origin_check(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and not any(request.url.path.startswith(p) for p in ORIGIN_EXEMPT):
+        try:
+            on = _flags.enabled("origin_check")
+        except Exception:
+            on = False
+        if on and not _origin_ok(request):
+            return Response("cross-origin request blocked", status_code=403)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _remember_lang(request: Request, call_next):
     """?lang=xx บนหน้าใดก็ได้ = จำภาษาลงคุกกี้ (หน้าถัดไปทั้งเว็บใช้ภาษานี้) · หน้าแรก /en /zh /ja /ko ตั้งเอง"""
@@ -310,6 +343,10 @@ def _auto_publish_tick(b, days, now_local):
             pass
 
 
+class _SkipTick(Exception):
+    pass
+
+
 def _maybe_start_scheduler():
     """(ออปชัน) auto-run มอนิเตอร์ในแอป เมื่อ GEO_AUTORUN=1 — ดีฟอลต์ปิด (ใช้ run_monitors.py + cron แทนได้)."""
     if os.getenv("GEO_AUTORUN", "").strip().lower() not in ("1", "true", "yes"):
@@ -344,6 +381,9 @@ def _maybe_start_scheduler():
     def loop():
         while True:
             try:
+                from . import scheduler_lease as _lease
+                if not _lease.acquire():                   # stage 18: มีโปรเซสอื่นถือ lease อยู่ → ข้ามรอบแบรนด์ (คิวงานยังทำได้ เพราะ claim เป็น CAS)
+                    raise _SkipTick()
                 now_local = datetime.datetime.now()  # server TZ = Asia/Bangkok → เวลาไทย
                 for b in db.list_all_brands():
                     try:
