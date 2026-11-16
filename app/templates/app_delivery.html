@@ -2,7 +2,7 @@
 {% block title %}{{ "พื้นที่งานส่งมอบ" if admin else "งานของคุณ" }} — เจอ.AI{% endblock %}
 {% block content %}
 <h1>{{ "พื้นที่งานส่งมอบ (ทุกลูกค้า)" if admin else "งานของคุณกับเจอ.AI" }}</h1>
-<p class="muted">ลำดับงาน: ยืนยันข้อมูลธุรกิจ → สิทธิ์เข้าถึงเว็บ → วัดผลตั้งต้น → แผนที่อนุมัติ → ลงมือ · การชำระเงินไม่ได้แปลว่าเราจะเผยแพร่บนเว็บของคุณ จนกว่าคุณอนุญาต</p>
+<p class="muted">ลำดับงาน: ยืนยันข้อมูลธุรกิจ → สิทธิ์เข้าถึงเว็บ → วัดผลตั้งต้น → แผนที่อนุมัติ → ลงมือ · {{ "การชำระเงินไม่ได้แปลว่าเราเผยแพร่บนเว็บของลูกค้าได้ จนกว่าลูกค้าอนุญาต" if admin else "การชำระเงินไม่ได้แปลว่าเราจะเผยแพร่บนเว็บของคุณ จนกว่าคุณอนุญาต" }}</p>
 {% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 {% set LS = {'found': 'พบแล้ว', 'absent': 'ไม่พบ (ทดสอบแล้ว)', 'partial': 'บางส่วน', 'not_tested': 'ยังไม่ได้ทดสอบ', 'unavailable': 'ระบบไม่พร้อม'} %}
@@ -66,7 +66,7 @@
     {% if v.scope %}{% set s = v.scope.scope %}
     <p><b>สิ่งที่ส่งมอบ</b></p><ul>{% for x in s.deliverables %}<li>{{ x }}</li>{% endfor %}</ul>
     <p><b>ไม่รวม</b></p><ul>{% for x in s.exclusions %}<li>{{ x }}</li>{% endfor %}</ul>
-    <p><b>สิ่งที่ต้องได้จากคุณ</b></p><ul>{% for x in s.customer_inputs %}<li>{{ x }}</li>{% endfor %}</ul>
+    <p><b>{{ "สิ่งที่ต้องได้จากลูกค้า" if admin else "สิ่งที่ต้องได้จากคุณ" }}</b></p><ul>{% for x in s.customer_inputs %}<li>{{ x }}</li>{% endfor %}</ul>
     <p>รอบแก้ {{ s.review_rounds }} รอบ · เกณฑ์รับงาน: {{ s.acceptance }} · เวลา: {{ s.timing }}</p>
     {% if admin and v.scope.status == 'draft' %}<form method="post" action="/admin/delivery/{{ ws.id }}/accept-scope">{{ csrf_input(request) }}<input type="hidden" name="version" value="{{ v.scope.version }}"><button class="btn sm" type="submit">บันทึกว่าลูกค้ายอมรับขอบเขตเวอร์ชันนี้</button></form>{% endif %}
     {% endif %}
