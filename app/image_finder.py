@@ -32,18 +32,22 @@ _SKIP_ALT = re.compile(r"logo|โลโก้|ตราสัญลักษณ�
 
 def _fetch_text(url: str) -> str:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": _UA})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return r.read(2_000_000).decode("utf-8", "ignore")
+        from . import netguard                # กันลิงก์ที่ชี้เข้าเครือข่ายภายใน (รวมทุกจุด redirect)
+        r = netguard.get(url, follow_redirects=True, timeout=15, headers={"User-Agent": _UA})
+        if r.status_code >= 400:                # urlopen เดิมโยน HTTPError → คืน ""
+            return ""
+        return r.content[:2_000_000].decode("utf-8", "ignore")
     except Exception:
         return ""
 
 
 def _fetch_bytes(url: str) -> bytes | None:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": _UA})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return r.read(8_000_000)
+        from . import netguard
+        r = netguard.get(url, follow_redirects=True, timeout=30, headers={"User-Agent": _UA})
+        if r.status_code >= 400:
+            return None
+        return r.content[:8_000_000]
     except Exception:
         return None
 

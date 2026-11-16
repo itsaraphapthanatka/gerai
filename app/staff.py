@@ -38,15 +38,22 @@ CUSTOM = "custom"
 RULES = [
     (r"/admin/?", None),
     (r"/admin/staff(/.*)?", "staff"),
+    (r"/admin/c360/[^/]+/assign", "sales"),                            # มอบหมายลีด = ต้องแก้ไขหมวดขายได้
+    (r"/admin/(today|c360)(/.*)?", None),                              # ทีมงานทุกคน — ส่วนย่อยกรองตามสิทธิ์รายหมวดใน app/c360.py
     (r"/admin/(settings|free-plan|agency-mode)(/.*)?", "settings"),
     (r"/admin/(email/smtp|inbox/settings|salesbot/settings|marketing/settings|marketing/fb-test|results/settings)", "settings"),
     (r"/admin/deliverability/.+", "settings"),                      # เพิ่มกล่องส่ง/รหัส SMTP/DKIM — หน้าดูอยู่หมวดการตลาด
+    (r"/admin/appointments/settings", "settings"),
+    (r"/admin/sales/policy", "settings"),
+    (r"/admin/jobs/ai-live", "settings"),                              # stage 04C: สวิตช์ใช้จ่าย AI = หมวดตั้งค่า                             # stage 11: นโยบายช่องทาง + น้ำหนักคะแนนคัดกรอง                    # ช่องเวลานัด (stage 06A-2)
     (r"/admin/(payments|slip|accounting|acct)(/.*|\.csv)?", "finance"),
     (r"/admin/quotes/[^/]+/(confirm|slip)", "finance"),
-    (r"/admin/(deals|contacts|leads|calls|inbox|salesbot|prospect|quotes)(/.*)?", "sales"),
+    (r"/admin/(deals|contacts|leads|calls|inbox|salesbot|prospect|quotes|appointments)(/.*)?", "sales"),
     (r"/admin/(customers|results)(/.*|\.csv)?", "customers"),
-    (r"/admin/(marketing|email|deliverability)(/.*)?", "marketing"),
-    (r"/admin/(decisions|office|ceo|tasks|skills|agents|digest)(/.*)?", "agents"),
+    (r"/admin/delivery(/.*)?", "customers"),                    # stage 15: พื้นที่งานส่งมอบ
+    (r"/admin/revenue(/.*)?", "finance"),                       # stage 17: เงิน/ต้นทุน = ฝ่ายบัญชีเท่านั้น
+    (r"/admin/(marketing|email|deliverability|analytics)(/.*)?", "marketing"),   # analytics = funnel เว็บ (stage 08B)
+    (r"/admin/(decisions|office|ceo|tasks|skills|agents|digest|jobs)(/.*)?", "agents"),   # jobs = คิวงานถาวร (stage 10)
     (r"/admin/partners(/.*)?", "partners"),
     (r"/admin/tenants(/.*)?", "accounts"),
 ]

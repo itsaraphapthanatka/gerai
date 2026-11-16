@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}รายได้ ที่มา ต้นทุน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>รายได้ · ที่มา · ต้นทุน</h1>
+<p class="muted">นิยามเวอร์ชัน <code>{{ fin.def_version }}</code> · เงินนับจากใบเสร็จที่ออกจริง (ไม่นับใบที่ยกเลิก) ก่อน VAT · ไม่นับจากหน้าขอบคุณหรือใบเสนอราคา</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+  <label>ตั้งแต่ <input type="date" name="start" value="{{ s.isoformat() }}"></label><label>ถึง <input type="date" name="end" value="{{ e.isoformat() }}"></label>
+  <button class="btn sm" type="submit">ดู</button></form>
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+  <div class="card" style="flex:1;min-width:260px">
+    <h2 style="margin-top:0;font-size:17px">เงิน ({{ s }} – {{ e }})</h2>
+    <table>
+      <tr><td>ใบเสร็จ / บัญชี</td><td><b>{{ fin.receipts }}</b> / {{ fin.accounts }}</td></tr>
+      <tr><td>รายรอบ</td><td>฿{{ "{:,.0f}".format(fin.recurring) }}</td></tr>
+      <tr><td>ครั้งเดียว (Setup)</td><td>฿{{ "{:,.0f}".format(fin.one_time) }}</td></tr>
+      <tr><td>คืนเงิน/ลดหนี้</td><td>−฿{{ "{:,.0f}".format(fin.refunds) }}</td></tr>
+      <tr><td><b>เงินสุทธิ</b></td><td><b>฿{{ "{:,.0f}".format(fin.cash_net) }}</b></td></tr>
+      <tr><td>MRR วันนี้</td><td>฿{{ "{:,.0f}".format(fin.mrr) }}</td></tr>
+    </table>
+    <p class="muted" style="font-size:12px">MRR: {{ R.DEFINITIONS.mrr }}</p>
+  </div>
+  <div class="card" style="flex:1;min-width:260px">
+    <h2 style="margin-top:0;font-size:17px">ขั้นของบัญชี (ทั้งหมด {{ fu.accounts }} บัญชี)</h2>
+    <table>{% for k, lb in R.STAGES %}<tr><td title="{{ R.DEFINITIONS[k] }}">{{ lb }}</td><td>{{ fu.counts[k] }}</td></tr>{% endfor %}</table>
+    <p class="muted" style="font-size:12px">หลายผู้ติดต่อของโดเมนเดียวกัน = 1 บัญชี · ขอไม่รับการติดต่อไม่ใช่ "ไม่ได้ดีล"</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;overflow-x:auto">
+  <h2 style="margin-top:0;font-size:17px">ที่มาของบัญชีที่ปิดได้ ({{ att.won_accounts }} บัญชี)</h2>
+  <div style="display:flex;gap:16px;flex-wrap:wrap">{% for view, lb in [("first", "แรกที่รู้จัก"), ("last_meaningful", "ล่าสุดที่มีความหมาย"), ("partner", "พันธมิตรแนะนำ"), ("self_reported", "ลูกค้าบอกเอง")] %}
+    <div style="min-width:200px"><b>{{ lb }}</b><table>{% for k, v in att.views[view].items() %}<tr><td>{{ {"not_partner": "ไม่ใช่พันธมิตร", "not_asked": "ยังไม่ได้ถาม", "partner": "พันธมิตร"}.get(k, k) }}</td><td>{{ v.accounts }}</td><td>฿{{ "{:,.0f}".format(v.net) }}</td></tr>{% endfor %}</table></div>{% endfor %}</div>
+  <ul class="muted" style="font-size:12.5px">{% for g in att.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+  <details><summary>รายบัญชี (ภายในเท่านั้น)</summary><table><tr><th>บัญชี</th><th>สุทธิ</th><th>แรก</th><th>ล่าสุด</th><th>พันธมิตร</th><th>บอกเอง</th></tr>
+    {% for r in att.rows %}<tr><td>{{ r.account }}</td><td>฿{{ "{:,.0f}".format(r.net) }}</td><td>{{ r.first }}</td><td>{{ r.last_meaningful }}</td><td>{{ "ใช่" if r.partner else "—" }}</td><td>{{ r.self_reported or "—" }}</td></tr>{% endfor %}</table></details>
+  <p class="muted" style="font-size:12px">ส่งออกสาธารณะได้เฉพาะ: <code>{{ pub|tojson }}</code></p>
+</div>
+
+<div class="card" style="margin-top:16px;overflow-x:auto">
+  <h2 style="margin-top:0;font-size:17px">ต้นทุนงวด {{ period }}</h2>
+  <table><tr><th></th><th>ค่า API จริง</th><th>กรอกเอง (จริง)</th><th>กรอกเอง (ประมาณ)</th><th>รายหมวด</th></tr>
+    {% for a, lb in R.ALLOC.items() %}{% set b = cst.by_alloc[a] %}<tr><td><b>{{ lb }}</b></td>
+      <td>${{ b.api_usd }}{% if b.api_thb is not none %} (฿{{ "{:,.0f}".format(b.api_thb) }}){% endif %}</td><td>฿{{ "{:,.0f}".format(b.actual_thb) }}</td><td>฿{{ "{:,.0f}".format(b.estimate_thb) }}</td>
+      <td class="muted" style="font-size:12px">{% for k, v in b.entries.items() %}{{ R.COST_CATEGORIES[k] }} ฿{{ "{:,.0f}".format(v) }}<br>{% endfor %}</td></tr>{% endfor %}</table>
+  <p class="muted" style="font-size:12px">งบ AI ที่จองไว้ยังไม่ปิดยอด ${{ cst.reserved_usd }} (ไม่นับเป็นค่าใช้จ่าย) · งานที่ล้มและคืนงบไม่นับ</p>
+  {% if mg.available %}<p><b>กำไรขั้นต้นจากการส่งมอบ:</b> ฿{{ "{:,.0f}".format(mg.gross) }} (รายได้ ฿{{ "{:,.0f}".format(mg.revenue) }} − ต้นทุนส่งมอบ ฿{{ "{:,.0f}".format(mg.delivery_cost) }}){% if mg.includes_estimates %} · <span class="pill">มีค่าประมาณ</span>{% endif %} · ต้นทุนหาลูกค้าแยกต่างหาก</p>
+  {% else %}<div class="err">ยังคำนวณกำไรไม่ได้ — ขาด: {{ mg.why|join(" · ") }}</div>{% endif %}
+  <form method="post" action="/admin/revenue/cost" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">{{ csrf_input(request) }}
+    <select name="category">{% for k, v in R.COST_CATEGORIES.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+    <select name="alloc">{% for k, v in R.ALLOC.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+    <input name="amount_thb" placeholder="บาท" size="8" required><input name="period" value="{{ period }}" size="7">
+    <select name="basis"><option value="actual">จริง</option><option value="estimate">ประมาณ</option></select>
+    <input name="note" placeholder="หมายเหตุ/สมมติฐาน" size="20"><button class="btn sm" type="submit">บันทึกต้นทุน</button></form>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2 style="margin-top:0;font-size:17px">คืนเงิน / ลดหนี้ (ที่ไม่ได้มาจาก Stripe)</h2>
+  <form method="post" action="/admin/revenue/adjustment" style="display:flex;gap:6px;flex-wrap:wrap">{{ csrf_input(request) }}
+    <select name="kind"><option value="refund">คืนเงิน</option><option value="credit">ลดหนี้</option><option value="cancellation">ยกเลิก</option></select>
+    <input name="receipt_number" placeholder="เลขใบเสร็จ" required><input name="amount" placeholder="ยอดรวม VAT" size="10" required>
+    <input name="note" placeholder="เหตุผล" size="20"><button class="btn sm" type="submit">บันทึก</button></form>
+  {% if fin.adjustments %}<ul style="font-size:13px">{% for a in fin.adjustments %}<li>{{ a.kind }} ฿{{ "{:,.0f}".format(a.amount) }} · {{ a.ref }} · {{ a.created_at[:10] }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endblock %}

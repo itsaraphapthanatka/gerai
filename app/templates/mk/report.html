@@ -1,0 +1,318 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# รายงานตรวจเว็บแบบ 4 ช่อง (stage 05-core, flag report_v2) + ฟอร์มขอแผน (stage 06-core, flag plan_request_v2)
+   ตัวเลขทุกตัวมาจาก app/report_view.py · ช่องที่ไม่ได้ทดสอบ/ระบบไม่พร้อม ไม่มีตัวเลข (ไม่แสดง 0)
+   ตารางละเอียดเดิมทั้งหมดอยู่ที่ ?view=full #}
+{% block title %}ผลตรวจ {{ lead["domain"] }} · เจอ.AI{% endblock %}
+{% block head %}<style>
+  body.mk .rp-num{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+  body.mk .rp-note{border-left:3px solid var(--mk-slate);padding:2px 0 2px 10px}
+  body.mk .rp-note.down{border-color:var(--mk-down)}
+  body.mk .rp-list{margin:0;padding-left:20px;display:grid;gap:4px}
+  body.mk fieldset{border:0;margin:0;padding:0;display:grid;gap:6px;min-width:0}
+  body.mk legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:6px}
+  body.mk .rp-radios{display:flex;gap:8px;flex-wrap:wrap}
+  body.mk .rp-radios label{display:flex;gap:6px;align-items:center;border:1.5px solid var(--mk-hair);border-radius:12px;padding:10px 14px;font-weight:500;cursor:pointer}
+  body.mk .rp-radios label:has(input:checked){border-color:var(--mk-ink)}
+  body.mk .rp-check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+  body.mk .rp-check input{margin-top:4px;width:18px;height:18px;flex:none}
+  body.mk .rp-form{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+  body.mk .rp-form > .full{grid-column:1/-1}
+  @media (max-width:640px){body.mk .rp-form{grid-template-columns:1fr}}
+  body.mk details.rp-more > summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--mk-ink);padding:4px 0}
+  body.mk .rp-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  body.mk .rp-tbl th,body.mk .rp-tbl td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--mk-hair);vertical-align:top}
+  body.mk .rp-scroll{overflow-x:auto;max-width:100%}
+  body.mk .rp-ba{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){body.mk .rp-ba{grid-template-columns:1fr}}
+</style>{% endblock %}
+{# หลักฐานตาม id (ข้อความดิบจากเว็บ/AI ถูก escape อัตโนมัติ ห้ามใช้ |safe) · ลิงก์ออกเฉพาะ URL ที่ผ่าน report_view.safe_url #}
+{% macro ev_list(refs, ev) -%}
+  {%- for r in refs if ev[r] %}{% set e = ev[r] %}
+  <div class="mk-card" id="{{ e.id }}" style="gap:6px">
+    <span class="mk-meta">{{ e.kind_label }}{% if e.captured_at %} · บันทึก {{ e.captured_at }}{% endif %}{% if e.provider %} · {{ e.provider }}{% endif %}{% if e.protocol %} · {{ e.protocol }}{% endif %}</span>
+    <blockquote class="mk-quote">{{ e.excerpt }}</blockquote>
+    {% if e.urls %}<span class="mk-small">{% for u in e.urls %}{% if u.href %}<a class="mk-mono" href="{{ u.href }}" rel="nofollow noopener noreferrer" target="_blank">{{ u.text }}</a>{% else %}<span class="mk-mono">{{ u.text }}</span>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endif %}
+  </div>
+  {%- endfor %}
+{%- endmacro %}
+{% block content %}
+<section class="mk-wrap mk-section mk-stack" style="gap:14px;padding-bottom:8px" aria-labelledby="h-rp">
+  <span class="mk-eyebrow">รายงานตรวจเว็บ</span>
+  <h1 id="h-rp" style="font-size:clamp(26px,4.5vw,38px);overflow-wrap:anywhere">ผลตรวจ {{ lead["domain"] }}</h1>
+  <p class="mk-muted mk-small">ตรวจเมื่อ {{ vm.audit_at or "—" }}{% if vm.identity and vm.identity.pages_checked %} · อ่านได้ {{ vm.identity.pages_checked }} หน้า{% if vm.identity.pages_failed %} (เปิดไม่ได้ {{ vm.identity.pages_failed }} หน้า){% endif %}{% endif %}{% if vm.summary %} · สถานะรายงาน: {{ vm.summary.status_label }}{% endif %} · ข้อมูล ณ วันที่ตรวจ ใช้ประกอบการตัดสินใจ ไม่ใช่การรับประกันอันดับหรือผลลัพธ์</p>
+  {% if snap and snap.state == "partial" %}<p class="rp-note mk-small" role="note">ตรวจได้บางส่วน: หมดเวลาก่อนตรวจครบ ส่วนที่ไม่ได้ตรวจไม่นับเป็นไม่ผ่าน · {% for s in snap.steps if s.state == "skipped" %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if vm.running %}<p class="rp-note mk-small" role="status" id="rp-running">กำลังตรวจส่วนที่เหลือเบื้องหลัง หน้านี้จะโหลดผลใหม่เองเมื่อเสร็จ (ถ้ายังไม่ได้พิมพ์ในฟอร์ม) · <a href="/audit/{{ lead['token'] }}">โหลดใหม่</a></p>{% endif %}
+</section>
+
+{% if vm.summary %}
+{# stage 05-full: สรุปจากผลที่วัดได้จริง + ข้อจำกัด + ขั้นต่อไปตามสถานะจริง #}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="summary" aria-labelledby="h-sum">
+  <div class="mk-grid">
+    <div class="mk-card mk-stack" style="gap:8px">
+      <h2 id="h-sum" style="font-size:18px;margin:0">สรุป</h2>
+      {% if vm.summary.lines %}<ul class="rp-list mk-small">{% for t in vm.summary.lines %}<li>{{ t }}</li>{% endfor %}</ul>
+      {% else %}<span class="mk-small mk-muted">ยังไม่มีส่วนที่ตรวจสำเร็จ จึงยังสรุปไม่ได้</span>{% endif %}
+      {% if vm.summary.uncertainty %}<b class="mk-small">ข้อจำกัดของผลนี้</b>
+      <ul class="rp-list mk-small mk-muted">{% for t in vm.summary.uncertainty %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% if vm.next %}
+    <div class="mk-card mk-stack" style="gap:8px" id="next-step" data-step="{{ vm.next.key }}">
+      <span class="mk-eyebrow">ขั้นต่อไป</span>
+      <b>{{ vm.next.title }}</b>
+      <span class="mk-small">{{ vm.next.text }}</span>
+      <div>{{ ui.button(vm.next.title, href=vm.next.href, kind="secondary") }}</div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if ctx_on and bc %}
+{# stage 04B: ข้อมูลธุรกิจที่รายงานใช้ — แยกลูกค้ายืนยัน / ระบบเดา / ยังไม่ทราบ · แก้ได้ (บันทึกเป็นเวอร์ชันใหม่) · ทำงานได้โดยไม่ต้องมี JS (<details>) #}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="context" aria-labelledby="h-ctx">
+  <div class="mk-card mk-stack" style="gap:10px">
+    <h2 id="h-ctx" style="font-size:18px;margin:0">ข้อมูลธุรกิจที่รายงานนี้ใช้</h2>
+    {% if bc_saved and not bc_errors %}<p class="rp-note mk-small" role="status">บันทึกแล้ว (เวอร์ชัน {{ bc.version }}) · การทดสอบ AI รอบถัดไปจะใช้คำถามและคู่แข่งชุดนี้</p>
+    {% elif not bc.confirmed %}<p class="mk-small mk-muted" style="margin:0">ระบบเดาจากหน้าเว็บของคุณ ส่วนที่ติดป้าย "ระบบเดา" ยังไม่ได้ยืนยัน ช่วยตรวจและแก้ให้ถูก ผลทดสอบรอบถัดไปจะตรงกับธุรกิจคุณมากขึ้น</p>{% endif %}
+    <dl class="mk-facts">{% for r in bc.rows %}{{ ui.fact(r.label, r.value, r.source) }}{% endfor %}</dl>
+    {% if bc.questions %}<div class="mk-stack" style="gap:4px"><span class="mk-small"><b>คำถามที่ใช้ทดสอบ AI</b>{% if not bc.confirmed %} <span class="mk-lbl mk-lbl-inferred">ระบบเสนอ</span>{% endif %}</span>
+      <ul class="rp-list mk-small">{% for q in bc.questions %}<li>{{ q.text }}</li>{% endfor %}</ul>
+      <span class="mk-meta">คำถามเหล่านี้เป็นตัวอย่างที่ลูกค้าอาจถาม ไม่ใช่ข้อมูลปริมาณการค้น</span></div>{% endif %}
+    <details{% if bc_open %} open{% endif %}>
+      <summary class="mk-btn mk-btn-secondary outline" style="display:inline-flex">{% if bc.confirmed %}แก้ข้อมูลธุรกิจ{% else %}ยืนยันหรือแก้ข้อมูลธุรกิจ{% endif %}</summary>
+      {% if bc_errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down);margin-top:12px"><b>ยังบันทึกไม่ได้</b>
+        <ul class="rp-list mk-small">{% for k, m in bc_errors.items() %}<li>{% if k != "_" %}<a href="#c-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+      <form method="post" action="/audit/{{ lead['token'] }}/context#context" class="rp-form" style="margin-top:14px" novalidate>
+        {{ csrf_input(request) }}
+        <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        {{ ui.field("c-primary_service", "บริการหลักที่อยากให้ลูกค้าค้นเจอ", name="primary_service", value=bc.form.primary_service, error=bc_errors.primary_service, required=True, placeholder="เช่น ให้เช่าคลังสินค้า") }}
+        {{ ui.field("c-region", "พื้นที่ให้บริการ (ไม่บังคับ)", name="region", value=bc.form.region, error=bc_errors.region, placeholder="เช่น บางนา สมุทรปราการ") }}
+        {{ ui.field("c-audience", "ลูกค้าเป้าหมาย (ไม่บังคับ)", name="audience", value=bc.form.audience, error=bc_errors.audience, placeholder="เช่น บริษัทนำเข้า-ส่งออก") }}
+        {{ ui.field("c-competitor", "เว็บคู่แข่งที่อยากเทียบ (ไม่บังคับ)", name="competitor", value=bc.form.competitor, error=bc_errors.competitor, placeholder="competitor.co.th") }}
+        <div class="mk-field full{% if bc_errors.questions %} mk-field-err{% endif %}"><label for="c-questions">คำถามที่ลูกค้าของคุณน่าจะถาม (ไม่บังคับ บรรทัดละ 1 คำถาม สูงสุด 5 ข้อ)</label>
+          <textarea id="c-questions" name="questions" rows="5" maxlength="900" aria-describedby="c-questions-help">{{ bc.form.questions }}</textarea>
+          <span class="mk-help" id="c-questions-help">ไม่ต้องใส่ชื่อแบรนด์ของคุณ เพราะเราอยากรู้ว่า AI จะพูดถึงคุณเองหรือไม่ · เว้นช่องไหนว่าง = ยังไม่ทราบ</span>
+          {% if bc_errors.questions %}<span class="mk-err">{{ bc_errors.questions }}</span>{% endif %}</div>
+        <div class="full">{{ ui.button("บันทึกข้อมูลธุรกิจ", type="submit") }}</div>
+      </form>
+    </details>
+  </div>
+</section>
+{% endif %}
+
+<section class="mk-wrap mk-stack" style="gap:14px" aria-labelledby="h-lanes">
+  <h2 id="h-lanes" style="font-size:20px">ภาพรวม 4 ด้าน</h2>
+  <div class="mk-grid">
+    {% for x in vm.lanes %}
+    <div class="mk-card" id="lane-{{ x.key }}">
+      <h3 style="font-size:16px">{{ x.title }}</h3>
+      {{ ui.status(x.state, x.label) }}
+      {% if x.value %}<span class="rp-num">{{ x.value }}</span>{% endif %}
+      {% if x.detail %}<span class="mk-small">{{ x.detail }}</span>{% endif %}
+      {% if x.method %}<span class="mk-meta">วิธีวัด: {{ x.method }}</span>{% endif %}
+      {% if x.m %}
+      <details class="rp-more" data-ev="lane" data-lane="{{ x.key }}">
+        <summary>ตัวเลขดิบและหลักฐาน</summary>
+        <dl class="mk-facts mk-small" style="margin-top:6px">
+          <dt>วิธีวัด</dt><dd>{{ x.m.protocol_id or "รอบเก่า ไม่ได้บันทึก" }}{% if x.m.protocol_version %} v{{ x.m.protocol_version }}{% endif %}</dd>
+          <dt>ผู้ให้บริการ</dt><dd>{{ x.m.provider or "ไม่ได้บันทึก (รอบเก่า)" }}</dd>
+          <dt>วัดเมื่อ</dt><dd>{{ x.m.measured_at or "—" }}</dd>
+          {% if x.m.attempted is not none %}<dt>ทดสอบ</dt><dd>{{ x.m.attempted }} · สำเร็จ {{ x.m.succeeded }} · ล้ม {{ x.m.failed }} · ตัวหาร {{ x.m.denominator }}</dd>{% endif %}
+        </dl>
+        {% if x.evidence_refs %}<div class="mk-stack" style="gap:8px;margin-top:8px">{{ ev_list(x.evidence_refs[:5], vm.evidence) }}</div>
+        {% if x.evidence_refs|length > 5 %}<span class="mk-meta">และอีก {{ x.evidence_refs|length - 5 }} รายการ ดูได้ในส่วนคำถามที่ใช้ทดสอบหรือตารางละเอียด</span>{% endif %}
+        {% elif x.state in ("found", "absent", "partial") %}<span class="mk-meta">ไม่มีหลักฐานรายข้อสำหรับช่องนี้ (ผลรวมจากข้อที่ตรวจทั้งหมด)</span>{% endif %}
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if bc_note %}<p class="rp-note mk-small" role="note">{{ bc_note }}</p>{% endif %}
+  {{ ui.coverage(vm.tested, vm.total) }}
+  <p class="mk-small mk-muted">"ยังไม่ได้ทดสอบ" และ "ระบบไม่พร้อม" ไม่ใช่ผลว่าไม่ผ่าน และไม่นับเป็นศูนย์ · การปรากฏในผลค้นเว็บวัดจาก Google ไม่ใช่จากคำตอบของ AI</p>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" style="gap:14px" aria-labelledby="h-act">
+  <h2 id="h-act" style="font-size:20px">สิ่งที่ควรทำก่อน</h2>
+  {% if vm.actions %}
+  <div class="mk-stack" style="gap:10px">
+    {% for a in vm.actions %}
+    <div class="mk-card">
+      <h3 style="font-size:16px"><span class="mk-order-n">{{ loop.index }}</span>{{ a.title }}</h3>
+      {% if a.why %}<span class="mk-small">{{ a.why }}</span>{% endif %}
+      <dl class="mk-facts"><dt>หน้า</dt><dd class="mk-mono">{{ a.page or "—" }}</dd>{% if a.evidence %}<dt>หลักฐาน</dt><dd>{{ a.evidence }}</dd>{% endif %}<dt>มาจาก</dt><dd>{{ a.source }}</dd>
+        {% if a.confidence_label %}<dt>ความมั่นใจ</dt><dd>{{ a.confidence_label }}</dd>
+        <dt>งานโดยประมาณ</dt><dd>{{ a.effort or "ประเมินหลังดูระบบเว็บ" }}{% if a.effort %} <span class="mk-meta">(ประมาณ)</span>{% endif %}</dd>
+        <dt>ใครทำได้</dt><dd>{{ a.owner_label }}</dd>{% endif %}</dl>
+      {% if a.evidence_refs %}<details class="rp-more" data-ev="action"><summary>ดูหลักฐาน</summary><div class="mk-stack" style="gap:8px;margin-top:6px">{{ ev_list(a.evidence_refs, vm.evidence) }}</div></details>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif vm.lanes[0].state in ("found", "absent", "partial") %}
+  {{ ui.empty("ยังไม่พบข้อที่ต้องแก้ด่วนจากส่วนที่ตรวจ", "ขั้นต่อไปคือทำให้ AI พูดถึงแบรนด์คุณ ซึ่งต้องมีเนื้อหาที่ตอบคำถามจริงของลูกค้า") }}
+  {% else %}
+  {{ ui.empty("ยังสรุปสิ่งที่ควรทำไม่ได้", "ต้องตรวจเว็บได้ก่อน ลองตรวจใหม่เมื่อเว็บเปิดได้", "ตรวจใหม่", "/audit") }}
+  {% endif %}
+  <p class="mk-small"><a href="/audit/{{ lead['token'] }}?view=full">ดูตารางรายละเอียดทั้งหมด (อันดับ คำถาม AI ปัญหารายหน้า)</a></p>
+</section>
+
+{% if vm.draft %}
+{# ตัวอย่างประกอบ 1 ชิ้น — สร้างจากข้อมูลธุรกิจเท่านั้น ไม่ใช่ข้อความพร้อมใช้ #}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="draft" aria-labelledby="h-draft">
+  <h2 id="h-draft" style="font-size:20px">ตัวอย่าง: ชื่อหน้าและคำอธิบายหน้าแรกที่บอกชัดว่าทำอะไร</h2>
+  <p class="mk-small mk-muted" style="margin:0">ตัวอย่างประกอบเท่านั้น สร้างจากข้อมูลธุรกิจด้านบน ไม่ได้เติมข้อเท็จจริงใหม่ ต้องตรวจให้ตรงกับธุรกิจจริงก่อนใช้{% if vm.draft.guessed %} · ส่วนที่ระบบเดา ({{ vm.draft.guessed|join(", ") }}) ต้องยืนยันก่อน{% endif %}</p>
+  <div class="rp-ba">
+    <div class="mk-card"><span class="mk-eyebrow">ตอนนี้ ({{ vm.draft.page }})</span>
+      <dl class="mk-facts mk-small"><dt>ชื่อหน้า</dt><dd>{{ vm.draft.before.title or "ไม่มี" }}</dd><dt>คำอธิบาย</dt><dd>{{ vm.draft.before.desc or "ไม่มี" }}</dd></dl></div>
+    <div class="mk-card"><span class="mk-eyebrow">ตัวอย่างที่ปรับแล้ว</span>
+      <dl class="mk-facts mk-small"><dt>ชื่อหน้า</dt><dd>{{ vm.draft.after.title }}</dd><dt>คำอธิบาย</dt><dd>{{ vm.draft.after.desc }}</dd></dl></div>
+  </div>
+</section>
+{% endif %}
+
+{% if vm.ai_tests %}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="ai-tests" aria-labelledby="h-ai">
+  <h2 id="h-ai" style="font-size:20px">คำถามที่ใช้ทดสอบ AI และผลรายข้อ</h2>
+  <details class="rp-more" data-ev="ai_test">
+    <summary>ดู {{ vm.ai_tests|length }} คำถาม</summary>
+    <div class="rp-scroll"><table class="rp-tbl">
+      <thead><tr><th scope="col">คำถาม</th><th scope="col">ผล</th><th scope="col">แหล่งที่ AI อ้าง</th></tr></thead>
+      <tbody>{% for t in vm.ai_tests %}<tr>
+        <td>{{ t.q }}{% if t.origin == "customer" %} <span class="mk-lbl mk-lbl-confirmed">ลูกค้าเลือก</span>{% endif %}
+          {% if t.ref %}<details><summary class="mk-meta">ข้อความคำตอบ</summary>{{ ev_list([t.ref], vm.evidence) }}</details>{% endif %}</td>
+        <td>{{ t.result_label }}</td>
+        <td class="mk-small">{{ t.sources|join(", ") or "—" }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <span class="mk-meta">ผลแต่ละข้อคือสิ่งที่เห็นในคำตอบรอบนี้ ไม่ได้บอกว่าเพราะอะไร · ชื่อแหล่งแสดงเป็นข้อความ ไม่ทำลิงก์</span>
+  </details>
+</section>
+{% endif %}
+
+{% if vm.competitor %}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="competitor" aria-labelledby="h-comp">
+  <h2 id="h-comp" style="font-size:20px">เทียบกับ {{ vm.competitor.domain }}{% if vm.competitor.source == "inferred" %} <span class="mk-lbl mk-lbl-inferred">ระบบเลือก</span>{% else %} <span class="mk-lbl mk-lbl-confirmed">ลูกค้าเลือก</span>{% endif %}</h2>
+  <div class="mk-card mk-stack" style="gap:8px">
+    <ul class="rp-list mk-small">{% for f in vm.competitor.facts %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% if vm.competitor.gaps %}<span class="mk-small"><b>คำค้นที่ {{ vm.competitor.domain }} ติดหน้าแรก แต่เว็บคุณไม่ติด:</b> {{ vm.competitor.gaps|join(", ") }}</span>{% endif %}
+    <span class="mk-meta">เป็นสิ่งที่สังเกตได้ในรอบนี้เท่านั้น ไม่ได้บอกสาเหตุ และไม่ได้แปลว่าคู่แข่งได้ลูกค้ามากกว่า</span>
+  </div>
+</section>
+{% endif %}
+
+{% if vm.history and vm.history|length > 1 %}
+<section class="mk-wrap mk-stack" style="gap:12px;padding-bottom:24px" id="history" aria-labelledby="h-hist">
+  <h2 id="h-hist" style="font-size:20px">ประวัติรายงานนี้</h2>
+  <div class="rp-scroll"><table class="rp-tbl">
+    <thead><tr><th scope="col">รอบ</th>{% for c in vm.history[0].cells %}<th scope="col">{{ c.title }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for h in vm.history %}<tr>
+      <td>{{ h.version }}<br><span class="mk-meta">{{ h.at }}</span></td>
+      {% for c in h.cells %}<td>{% if c.value %}{{ c.value }}{% else %}{{ ui.status(c.state or "not_tested") }}{% endif %}
+        {% if c.cmp_label %}<br><span class="mk-meta" data-cmp="{{ c.cmp }}">{{ c.cmp_label }}{% if c.why and c.cmp != "comparable" %}: {{ c.why }}{% endif %}</span>{% endif %}</td>{% endfor %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <span class="mk-meta">ป้ายใต้ตัวเลขบอกว่าเทียบกับรอบก่อนหน้าได้แค่ไหน · รอบที่วิธีวัดเปลี่ยนห้ามอ่านเป็นแนวโน้ม · เก็บเฉพาะรอบที่ผลวัดเปลี่ยน</span>
+</section>
+{% endif %}
+
+<section class="mk-wrap mk-stack" style="gap:14px" aria-labelledby="h-scope">
+  <h2 id="h-scope" style="font-size:20px">ขอบเขตของรายงานนี้</h2>
+  <div class="mk-grid">
+    <div class="mk-card"><h3 style="font-size:15px">ตรวจแล้ว</h3>
+      {% if vm.scope.checked %}<ul class="rp-list mk-small">{% for t in vm.scope.checked %}<li>{{ t }}</li>{% endfor %}</ul>{% else %}<span class="mk-small mk-muted">ยังไม่มีส่วนที่ตรวจสำเร็จ</span>{% endif %}</div>
+    <div class="mk-card"><h3 style="font-size:15px">ยังไม่ได้ตรวจ</h3>
+      <ul class="rp-list mk-small">{% for t in vm.scope.not_checked %}<li>{{ t }}</li>{% endfor %}</ul></div>
+  </div>
+  {% if vm.methodology %}
+  <details class="rp-more" id="methodology">
+    <summary>วิธีวัดของรายงานนี้</summary>
+    <dl class="mk-facts mk-small" style="margin-top:6px">{% for t, pid, d in vm.methodology %}<dt>{{ t }}</dt><dd>{{ d }} <span class="mk-meta mk-mono">{{ pid }}</span></dd>{% endfor %}</dl>
+    <p class="mk-small mk-muted">ตัวเลขทุกตัวนับจากส่วนที่ทดสอบสำเร็จเท่านั้น · "ยังไม่ได้ทดสอบ" และ "ระบบไม่พร้อม" ไม่มีตัวเลขและไม่นับเป็นศูนย์ · เปลี่ยนผู้ให้บริการหรือชุดคำถามแล้วเทียบได้แบบมีเงื่อนไข เปลี่ยนวิธีวัดแล้วเทียบไม่ได้ · ไม่มีการประเมินยอดขายหรือจำนวนลูกค้าที่เสียไป</p>
+  </details>
+  {% endif %}
+</section>
+
+<section class="mk-wrap mk-section mk-stack" style="gap:16px" id="plan" aria-labelledby="h-plan">
+  {% if plan_on and plan %}
+    <h2 id="h-plan" style="font-size:22px">ได้รับคำขอแผนแล้ว</h2>
+    <div class="mk-card" role="status">
+      {{ ui.status("found", "บันทึกแล้ว") }}
+      <dl class="mk-facts"><dt>เมื่อ</dt><dd>{{ (plan.created_at or "")[:16].replace("T", " ") }}</dd>
+        <dt>ติดต่อกลับทาง</dt><dd>{{ pr.CHANNELS.get(plan.contact_channel, plan.contact_channel) }}</dd></dl>
+      <span class="mk-small">ทีมเจอ.AI จะติดต่อกลับภายใน 1 วันทำการ เพื่อพาดูรายงานนี้และสรุปว่าควรแก้อะไรก่อน ยังไม่มีการนัดเวลา ทีมจะถามเวลาที่สะดวกตอนติดต่อกลับ</span>
+    </div>
+  {% elif plan_on %}
+    <h2 id="h-plan" style="font-size:22px">ขอแผนแก้จากทีมเจอ.AI</h2>
+    <p class="mk-muted">ไม่มีค่าใช้จ่าย ทีมจะติดต่อกลับภายใน 1 วันทำการ พาดูรายงานนี้ และสรุปว่าควรแก้อะไรก่อน ราคาและขอบเขตงานคุยกันหลังจากนั้น</p>
+    {% if line_on and not errors %}
+    <div class="mk-card mk-stack" style="gap:10px" id="plan-line">
+      <b>เร็วที่สุด: คุยต่อใน LINE ไม่ต้องกรอกฟอร์ม</b>
+      <span class="mk-small">กดแล้วจะเปิด LINE ของเจอ.AI พร้อมข้อความที่มีรหัสของรายงานนี้ กดส่งข้อความนั้น แล้วตอบคำถามสั้นๆ 2 ข้อด้วยการกดปุ่ม</span>
+      <div>{{ ui.button("คุยต่อใน LINE", href="/audit/" ~ lead["token"] ~ "/line", id="b-line") }}</div>
+      <span class="mk-small mk-muted">เมื่อคุณกดส่งข้อความใน LINE ถือว่ายินยอมให้ทีมเจอ.AI ตอบคำขอนี้ในแชตนั้น เราไม่ขอเบอร์หรืออีเมล เว้นแต่คุณเลือกให้โทรหา · เปิดจากคอมพิวเตอร์ LINE จะแสดง QR ให้สแกนด้วยมือถือ</span>
+    </div>
+    <p class="mk-small mk-muted" style="margin:0">หรือกรอกฟอร์มด้านล่าง ถ้าไม่ใช้ LINE</p>
+    {% endif %}
+    {% if errors %}<div class="mk-card" role="alert" style="border-color:var(--mk-down)"><b>ยังส่งไม่ได้</b>
+      <ul class="rp-list mk-small">{% for k, m in errors.items() %}<li>{% if k != "_" %}<a href="#f-{{ k }}">{{ m }}</a>{% else %}{{ m }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
+    <form method="post" action="/audit/{{ lead['token'] }}/plan#plan" class="rp-form" novalidate>
+      {{ csrf_input(request) }}
+      <input type="hidden" name="idem_key" value="{{ form.idem_key }}">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      {{ ui.field("f-name", "ชื่อที่ให้ทีมเรียก", name="name", value=form.name or "", error=errors.name, required=True, autocomplete="name") }}
+      {{ ui.field("f-role", "ตำแหน่ง (ไม่บังคับ)", name="role", value=form.role or "", placeholder="เช่น เจ้าของกิจการ ผู้จัดการฝ่ายการตลาด", autocomplete="organization-title") }}
+      <fieldset class="full{% if errors.contact_channel %} mk-field-err{% endif %}" id="f-contact_channel"{% if errors.contact_channel %} aria-describedby="f-cc-err"{% endif %}>
+        <legend>ให้ติดต่อกลับทางไหน</legend>
+        <div class="rp-radios">{% for k, lb in pr.CHANNELS.items() %}<label><input type="radio" name="contact_channel" value="{{ k }}"{% if form.contact_channel == k %} checked{% endif %} required> {{ lb }}</label>{% endfor %}</div>
+        {% if errors.contact_channel %}<span class="mk-err" id="f-cc-err">{{ errors.contact_channel }}</span>{% endif %}
+      </fieldset>
+      <div class="full">{{ ui.field("f-contact_value", "LINE ID เบอร์โทร หรืออีเมล ตามที่เลือก", name="contact_value", value=form.contact_value or "", error=errors.contact_value, required=True) }}</div>
+      <div class="mk-field"><label for="f-desired_window">อยากเริ่มเมื่อไร (ไม่บังคับ)</label>
+        <select id="f-desired_window" name="desired_window">{% for k, lb in pr.WINDOWS.items() %}<option value="{{ k }}"{% if (form.desired_window or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field"><label for="f-web_readiness">ตอนนี้ใครดูแลเว็บ (ไม่บังคับ)</label>
+        <select id="f-web_readiness" name="web_readiness">{% for k, lb in pr.READINESS.items() %}<option value="{{ k }}"{% if (form.web_readiness or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field"><label for="f-budget">งบประมาณโดยประมาณ (ไม่บังคับ)</label>
+        <select id="f-budget" name="budget">{% for k, lb in pr.BUDGETS.items() %}<option value="{{ k }}"{% if (form.budget or "") == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></div>
+      <div class="mk-field full"><label for="f-message">อยากให้ทีมดูเรื่องไหนเป็นพิเศษ (ไม่บังคับ)</label>
+        <textarea id="f-message" name="message" rows="3" maxlength="1000">{{ form.message or "" }}</textarea></div>
+      <div class="full mk-stack" style="gap:10px">
+        <label class="rp-check{% if errors.consent_fulfil %} mk-field-err{% endif %}" id="f-consent_fulfil"><input type="checkbox" name="consent_fulfil" value="1"{% if form.consent_fulfil %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.fulfil_request }}</span></label>
+        {% if errors.consent_fulfil %}<span class="mk-err">{{ errors.consent_fulfil }}</span>{% endif %}
+        <label class="rp-check"><input type="checkbox" name="consent_marketing" value="1"{% if form.marketing %} checked{% endif %}> <span>{{ pr.CONSENT_TEXT.marketing }}</span></label>
+      </div>
+      <div class="full">{{ ui.button("ส่งคำขอแผน", type="submit") }}</div>
+    </form>
+  {% elif lead["consent"] %}
+    <h2 id="h-plan" style="font-size:22px">รับเรื่องแล้ว</h2>
+    <p>ทีมเจอ.AI จะติดต่อกลับภายใน 1 วันทำการ ขอบคุณครับ</p>
+  {% else %}
+    <h2 id="h-plan" style="font-size:22px">ให้ทีมเจอ.AI ส่งแผนแก้ให้</h2>
+    <form method="post" action="/audit/{{ lead['token'] }}/contact" class="rp-form">
+      <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      {{ ui.field("c-name", "ชื่อ (ไม่บังคับ)", name="name", autocomplete="name") }}
+      {{ ui.field("c-email", "อีเมล", name="email", type="email", autocomplete="email") }}
+      <div class="full">{{ ui.field("c-contact", "LINE ID หรือเบอร์โทร (ถ้าไม่ใช้อีเมล)", name="contact") }}</div>
+      <label class="rp-check full"><input type="checkbox" name="consent" value="1"> <span>ยินยอมให้เจอ.AI ติดต่อกลับเรื่องผลตรวจนี้ และเก็บช่องทางติดต่อไว้เพื่อการนี้เท่านั้น</span></label>
+      <div class="full">{{ ui.button("ส่งแผนแก้ให้ฉัน", type="submit") }}</div>
+    </form>
+  {% endif %}
+</section>
+{% if an_on %}
+<script>
+/* stage 08B: นับ "เปิดดูหลักฐาน" ครั้งแรกต่อส่วน · ส่งกลับเว็บเราเอง (same-origin + CSRF) · ไม่มี tracker ภายนอก ไม่ส่งข้อความหลักฐาน/URL */
+(function(){if(!navigator.sendBeacon)return;document.querySelectorAll('details[data-ev]').forEach(function(d){d.addEventListener('toggle',function(){
+if(!d.open||d.dataset.sent)return;d.dataset.sent='1';var f=new FormData();f.append('csrf_token','{{ csrf_token(request) }}');f.append('name','evidence_opened');
+f.append('section',d.dataset.ev);if(d.dataset.lane){f.append('lane',d.dataset.lane);}navigator.sendBeacon('/audit/{{ lead["token"] }}/event',f);});});})();
+</script>
+{% endif %}
+{% if vm.running %}
+<script>
+/* ตรวจส่วนที่เหลือเสร็จ → โหลดหน้าใหม่ แต่ไม่โหลดทับถ้าผู้ใช้เริ่มพิมพ์ในฟอร์มแล้ว */
+(function(){var dirty=false;document.querySelectorAll('#plan form, #context form').forEach(function(f){f.addEventListener('input',function(){dirty=true;});});
+var start=null;function poll(){fetch('/audit/{{ lead["token"] }}/progress',{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+var k=p.tier1+'|'+p.ai;if(start===null){start=k;}if(k!==start&&p.tier1!=='running'&&p.ai!=='running'){if(!dirty){location.reload();return;}
+var n=document.getElementById('rp-running');if(n){n.textContent='ตรวจส่วนที่เหลือเสร็จแล้ว ส่งฟอร์มหรือโหลดหน้าใหม่เพื่อดูผลล่าสุด';}return;}setTimeout(poll,6000);}).catch(function(){setTimeout(poll,12000);});}
+setTimeout(poll,4000);})();
+</script>
+{% endif %}
+{% endblock %}

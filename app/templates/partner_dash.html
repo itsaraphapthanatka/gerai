@@ -39,6 +39,10 @@
     {% for l in st.lead_rows %}<tr><td>{{ l['domain'] }}</td><td>{{ lst.get(l['status'], l['status'])|tr }}</td><td style="color:var(--stone);font-size:12.5px">{{ (l['created_at'] or '')[:10] }}</td></tr>{% endfor %}</table></div>
   {% else %}<p class="sub" style="font-size:14px">{{ _("ยังไม่มี — ส่งลิงก์ด้านบนให้ลูกค้า หรือส่งชื่อลูกค้าในฟอร์ม") }}</p>{% endif %}
 
+  {% if deliv %}<h2>{{ _("งานของลูกค้าที่คุณแนะนำ") }}</h2>
+  <div class="tw"><table><tr><th>{{ _("เว็บ") }}</th><th>{{ _("สถานะงาน") }}</th><th>{{ _("ขั้นถัดไป") }}</th></tr>
+    {% for d in deliv %}<tr><td>{{ d.domain }}</td><td>{{ d.state }}</td><td>{{ d.next }}</td></tr>{% endfor %}</table></div>{% endif %}
+
   <h2>{{ _("ค่าแนะนำ") }}</h2>
   {% if st.commissions %}<div class="tw"><table><tr><th>{{ _("ใบเสร็จ") }}</th><th>{{ _("ฐาน (ก่อน VAT)") }}</th><th>{{ _("ค่าแนะนำ") }}</th><th>{{ _("สถานะ") }}</th></tr>
     {% for c in st.commissions %}<tr><td>{{ c['note']|tr }}</td><td>{{ "{:,.2f}".format(c['base']) }}</td><td><b>{{ "{:,.2f}".format(c['amount']) }}</b></td><td>{{ cst.get(c['status'], c['status'])|tr }}{% if c['status'] == 'pending' and c['eligible_at'] %}<div style="color:var(--stone);font-size:12px">{{ _("ถึงกำหนด {date}", date=c['eligible_at'][:10]) }}</div>{% endif %}</td></tr>{% endfor %}</table></div>

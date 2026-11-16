@@ -1,0 +1,71 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{% block title %}สมุดชิ้นส่วน (ตัวอย่างภายใน) · เจอ.AI{% endblock %}
+{% block content %}
+<div class="mk-wrap mk-section mk-stack">
+  <span class="mk-eyebrow">ตัวอย่างภายใน · ไม่เผยแพร่</span>
+  <h1>สมุดชิ้นส่วนของหน้าเว็บสาธารณะชุดใหม่</h1>
+  <p class="mk-muted">หน้านี้เห็นได้เฉพาะแอดมินที่เปิดดูตัวอย่าง (flag marketing_v2) ข้อมูลทั้งหมดเป็นตัวอย่างสมมติ ไม่ใช่ผลตรวจของลูกค้าจริง</p>
+</div>
+
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-btn">
+  <h2 id="h-btn">ปุ่ม</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    {{ ui.button("ตรวจเว็บไซต์ของฉัน", href="/audit") }}
+    {{ ui.button("ดูตัวอย่างรายงาน", kind="secondary", disabled_reason="หน้ารายงานตัวอย่างจะมาใน stage 07", id="b-sample") }}
+    {{ ui.button("อ่านวิธีตรวจ", href="#faq", kind="text") }}
+  </div>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-st">
+  <h2 id="h-st">ป้ายสถานะ</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:12px 22px">
+    {% for s in ["found", "absent", "partial", "not_tested", "unavailable"] %}{{ ui.status(s) }}{% endfor %}
+  </div>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-rep">
+  <h2 id="h-rep">ชิ้นส่วนรายงาน</h2>
+  <div class="mk-grid">
+    {{ ui.lane("ความพร้อมของเว็บ", "found", "ตรวจ 5/5 หน้า · พบ 3 จุดควรแก้") }}
+    {{ ui.lane("การปรากฏในผลค้นเว็บ", "partial", "ค้นสำเร็จ 6/8 คำถาม · พบ 2") }}
+    {{ ui.lane("AI พูดถึงแบรนด์", "not_tested", "ต้องตกลงชุดคำถามก่อน") }}
+    {{ ui.lane("AI อ้างอิงเว็บของคุณ", "not_tested", "ต้องตกลงชุดคำถามก่อน") }}
+  </div>
+  {{ ui.coverage(2, 4) }}
+  <div class="mk-grid">
+    {{ ui.evidence("เรามีคลังสินค้าพร้อมให้เช่าหลายขนาด รองรับทั้งสินค้าทั่วไปและสินค้าควบคุมอุณหภูมิ", "/services/warehouse", "1 พ.ย. 2569 14:21",
+                   "absent", "ไม่มีชื่อพื้นที่หรือจังหวัดในย่อหน้านี้", 1, 2) }}
+    {{ ui.action(1, "ระบุพื้นที่ให้บริการในหน้าบริการ", "/services/warehouse", "สูง (หลักฐาน 2 จุด)", "ประมาณ 1 ชั่วโมง", "ทีมเว็บของคุณ", "#e1") }}
+  </div>
+  <dl class="mk-facts" style="max-width:520px">
+    {{ ui.fact("บริการหลัก", "ให้เช่าคลังสินค้า", "confirmed") }}
+    {{ ui.fact("พื้นที่", "บางนา สมุทรปราการ", "inferred") }}
+    {{ ui.fact("กลุ่มลูกค้า", None) }}
+  </dl>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-form">
+  <h2 id="h-form">ฟอร์ม</h2>
+  <form class="mk-stack" style="max-width:460px" method="post" action="/audit" novalidate>
+    {{ ui.field("kit-url", "ที่อยู่เว็บไซต์", name="url", placeholder="example.co.th", help="ไม่ต้องกรอกเบอร์โทรหรืออีเมลก่อนเห็นผล", autocomplete="url") }}
+    {{ ui.field("kit-url-bad", "ที่อยู่เว็บไซต์ (ตัวอย่างข้อผิดพลาด)", name="url_bad", value="10.0.0.1", error="ที่อยู่นี้ไม่ใช่เว็บไซต์สาธารณะ ลองพิมพ์แบบ example.co.th") }}
+    <input class="mk-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+  </form>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" aria-labelledby="h-empty">
+  <h2 id="h-empty">หน้าว่างและสื่อ</h2>
+  <div class="mk-grid">
+    {{ ui.empty("ยังไม่มีเคสลูกค้าที่ได้รับอนุญาตให้เผยแพร่", "เราจะแสดงเคสจริงเมื่อลูกค้าอนุญาตเป็นลายลักษณ์อักษรแล้วเท่านั้น", "ตรวจเว็บของคุณ", "/audit") }}
+    {{ ui.media("ภาพหน้าจอตัวอย่างรายงาน", title="ภาพหน้าจอตัวอย่างรายงาน") }}
+  </div>
+</section>
+
+<section class="mk-wrap mk-section mk-stack" id="faq" aria-labelledby="h-faq">
+  <h2 id="h-faq">คำถามที่พบบ่อย</h2>
+  {{ ui.faq([("ใช้เวลานานไหม", "ส่วนใหญ่ 1–3 นาที ขึ้นกับความเร็วเว็บไซต์ของคุณ"),
+             ("ต้องกรอกเบอร์โทรไหม", "ไม่ต้อง คุณเห็นผลเบื้องต้นได้ก่อน แล้วค่อยตัดสินใจว่าจะคุยกับทีมหรือไม่")]) }}
+</section>
+{% endblock %}
+{% block actbar %}<div class="mk-actbar">{{ ui.button("ตรวจเว็บไซต์", href="/audit") }}{{ ui.button("คุยกับทีม", href="/audit", kind="secondary") }}</div>{% endblock %}

@@ -97,7 +97,11 @@ def _cancel_pending(lead_id: int, kinds: set, why: str) -> None:
 @office.track("cto", lambda lead_id, site, ip="": f"ตรวจเว็บ {leads.domain_of(site)}")
 def run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
     """ดึงเว็บจริงมาตรวจ (ราวครึ่งนาที) เก็บผล + คะแนน + token สำหรับหน้าผล · คืน token"""
-    report = site_health.run_checks(site)
+    return save_lead_audit(lead_id, site_health.run_checks(site), ip)
+
+
+def save_lead_audit(lead_id: int, report: dict, ip: str = "") -> str:
+    """เก็บผลตรวจ + คะแนน + token ของลีด (ใช้ทั้งตรวจแบบเดิมและ snapshot เบื้องหลัง) · คืน token"""
     lead = db.get_lead(lead_id)
     sc = leads.score_audit(report, leads.lead_ai(lead))          # ตรวจซ้ำ: ผลถาม AI รอบก่อนยังนับ
     token = lead["token"] or leads.new_token()
@@ -175,7 +179,20 @@ def ceo_propose(lead) -> int | None:
 
 
 def send_channel(lead) -> str:
-    """ช่องทางที่ระบบส่งถึงลูกค้ารายนี้ได้เอง ('' = ไม่มี): อีเมลที่ส่งได้ > LINE ที่เขาทักเรามา"""
+    """ช่องทางที่ระบบส่งถึงลูกค้ารายนี้ได้เอง ('' = ไม่มี): อีเมลที่ส่งได้ > LINE ที่เขาทักเรามา
+    stage 11 (flag sales_v2): ช่องทางเดียวที่มีที่มาของสิทธิ์ (sales.pick_channel) ไม่มี = ''"""
+    from . import sales as _sales
+    if _sales.enabled():
+        ch = _sales.pick_channel(lead)
+        if ch == "email":
+            return f"อีเมล {lead['email']}"
+        if ch == "line":
+            return "LINE (แชตที่ลูกค้าทักมา)"
+        if ch == "sms":
+            from . import sms
+            m = sms.lead_mobile(lead)
+            return f"SMS {m[:3]}-{m[3:6]}-{m[6:]}" if m and sms.available() else ""
+        return ""
     if lead["email"] and mailer.is_deliverable(lead["email"]):
         return f"อีเมล {lead['email']}"
     if lead["line_user_id"]:
@@ -192,7 +209,11 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
     plain = อีเมลทัก/ติดตามผล: ข้อความธรรมดาแบบคนพิมพ์ + หัวจดหมายเลิกรับคลิกเดียว (ไม่ให้ตกแท็บโปรโมชัน)
     ข้อความมาเป็นภาษาของลีดแล้ว (lead.lang) — กรอบอีเมลแปลตามภาษาเดียวกัน"""
     lang = lead_lang(lead)
-    if lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
+    from . import sales as _sales
+    only = _sales.pick_channel(lead) if _sales.enabled() else None      # stage 11: ช่องทางเดียว ไม่ไล่ข้ามช่องทางเมื่อส่งไม่ได้
+    if only == "":
+        return ""
+    if only in (None, "email") and lead["email"] and mailer.is_deliverable(lead["email"]) and mailer.config():
         from . import deliverability
         if not deliverability.mx_ok(lead["email"]):          # โดเมนผู้รับไม่มีเซิร์ฟเวอร์รับอีเมล → ส่งไปเด้งแน่ ไม่ส่ง และล้างอีเมลทิ้ง
             record(lead["id"], "note", f"ไม่ส่งถึง {lead['email']} — โดเมนนี้ไม่มีเซิร์ฟเวอร์รับอีเมล (ไม่มี MX) ล้างอีเมลออกแล้ว ใช้ช่องทางอื่นแทน", "deliv")
@@ -205,11 +226,15 @@ def _send_text(lead, subject: str, body: str, plain: bool = False) -> str:
         else:
             mailer.send(lead["email"], subject, mailer.wrap_html(subject, "<p>" + _html.escape(body).replace("\n", "<br>") + "</p>", lang=lang), text=body)
         return f"ส่งอีเมลถึง {lead['email']} แล้ว"
-    if lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
+    if only == "email":
+        return ""
+    if only in (None, "line") and lead["line_user_id"] and line_oa.push(lead["line_user_id"], [body[:4900]]):
         return "ส่งทาง LINE แล้ว"
+    if only == "line":
+        return ""
     from . import sms
     m = sms.lead_mobile(lead)
-    if m and sms.available():
+    if only in (None, "sms") and m and sms.available():
         try:
             return sms.send(m, sms.compact(subject, body, unsubscribe_url(lead)))   # QuietHours โยนต่อ → ข้อเสนอค้างไว้ส่งรอบถัดไป
         except sms.QuietHours:
@@ -223,6 +248,12 @@ def execute_decision(d, who: str) -> str:
     """ทำตามข้อเสนอที่อนุมัติ (หรือ auto): ทัก · ปิดลูกค้าที่ไม่รับ · ส่งใบเสนอราคา · ยืนยันยอดเข้าแล้วเปิดบัญชี"""
     pl = json.loads(d["payload_json"] or "{}")
     lead = db.get_lead(d["lead_id"]) if d["lead_id"] else None
+    if d["kind"] in ("outreach", "reply", "followup") and lead:      # stage 11: เช็กความยินยอมกลางอีกครั้งตอนจะส่ง (ทุกช่องทาง)
+        from . import sales as _sales
+        blk = _sales.contact_block(db.get_lead(lead["id"]))
+        if blk:
+            record(lead["id"], "note", f"ไม่ส่ง{ {'outreach': 'ข้อความทัก', 'reply': 'คำตอบ', 'followup': 'ข้อความติดตาม'}[d['kind']] } — {blk}", who)
+            return f"ไม่ส่ง — {blk}"
     if d["kind"] == "outreach" and lead:
         if lead["status"] in leads.NO_CONTACT:
             return f"ไม่ส่ง — ลูกค้าอยู่ในสถานะ {leads.STATUS_LABEL.get(lead['status'], lead['status'])}"
@@ -361,7 +392,7 @@ def lead_replied(lead, message: str = "", via: str = "เว็บ", actor: str 
                      subject=f"💬 {lead['domain']} ตอบกลับ")
     try:
         from . import deep_audit
-        deep_audit.start(lead["id"], ai=True)          # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ) — ข้อมูลไว้คุยในสาย
+        deep_audit.start(lead["id"], ai=True, reason="replied")   # สนใจจริง → วัด AI 20 คำถามให้ (ชั้น 2 มีค่าใช้จ่าย จึงรอสัญญาณซื้อ) — ข้อมูลไว้คุยในสาย
     except Exception:
         pass
     return None
@@ -653,6 +684,15 @@ def line_text(user_id: str, text: str, reply_token: str | None = None) -> str:
         return "owner_linked"
     if user_id and user_id == line_oa.owner_id():          # เจ้าของพิมพ์ = สั่งงาน CEO
         return owner_command(user_id, t, reply_token)
+    from . import line_plan
+    if line_plan.paused(user_id):                           # คนในทีมกำลังตอบห้องนี้เอง → บอทเงียบ (บันทึกไว้ในไทม์ไลน์)
+        lead = db.get_lead_by_line_user(user_id)
+        if lead:
+            record(lead["id"], "line", "ข้อความลูกค้าใน LINE (บอทพัก ทีมตอบเอง)", "customer")
+        return "paused"
+    branch = line_plan.text(user_id, t, reply_token)        # stage 06A-1: รหัสจากรายงาน · เบอร์โทรที่ขอไว้ · ขอหยุดติดต่อ
+    if branch:
+        return branch
     url = leads.first_url(t)
     if url:
         return line_site_request(user_id, url, reply_token)
@@ -721,16 +761,15 @@ def line_site_request(user_id: str, url: str, reply_token: str | None = None) ->
         return "limit"
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
+    if recent and not leads.reusable_for(recent, line_user_id=user_id):
+        mine = db.get_lead_by_line_user(user_id)        # ลีดล่าสุดของโดเมนเป็นของคนอื่น — ลองลีดล่าสุดของ LINE นี้เอง
+        recent = mine if (mine and mine["domain"] == dom) else None
+        # ไม่มีของตัวเอง → ห้ามผูก LINE นี้เข้าลีดคนอื่นและห้ามส่งลิงก์รายงานของเขา · ตรวจใหม่ในลีดของคนนี้เอง
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
-        if not recent["line_user_id"]:
-            db.update_lead(recent["id"], line_user_id=user_id)
         record(recent["id"], "line", f"ขอผลตรวจซ้ำ (ใช้ผลเดิมใน {leads.REUSE_AUDIT_HOURS} ชม.)", "customer")
         line_oa.reply(reply_token, [line_result_message(db.get_lead(recent["id"]))])
         return "cached"
-    if recent and not recent["line_user_id"]:
-        db.update_lead(recent["id"], line_user_id=user_id)
-        lid = recent["id"]
-    elif recent:
+    if recent:
         lid = recent["id"]
     else:
         lid = db.add_lead(site, dom, source="line")
@@ -752,11 +791,17 @@ def handle_line_webhook(body: dict) -> list[str]:
     """รับ event ที่ตรวจลายเซ็นแล้ว · คืนรายการกิ่งที่เดิน (ไว้ log/ทดสอบ)"""
     out = []
     for ev in line_oa.parse_events(body):
+        if not db.claim_line_event(ev.get("event_id") or ""):
+            out.append("duplicate")                       # LINE ส่งซ้ำ (redelivery/retry) → ทำไปแล้ว ไม่ตอบ/ไม่ตรวจซ้ำ
+            continue
         if ev["type"] == "follow":
             line_oa.reply(ev["reply_token"], [f"สวัสดีครับ นี่คือ {line_oa.bot_name()} 👋 พิมพ์ที่อยู่เว็บของคุณมาได้เลย เราจะตรวจฟรีว่าเว็บโผล่ใน Google และคำตอบของ AI หรือยัง"])
             out.append("follow")
         elif ev["type"] == "message" and ev["text"]:
             out.append(line_text(ev["user_id"], ev["text"], ev["reply_token"]))
+        elif ev["type"] == "postback":
+            from . import line_plan
+            out.append(line_plan.postback(ev["user_id"], ev.get("data") or "", ev["reply_token"]))
         else:
             out.append(ev["type"] or "ignored")
     return out

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}เผยแพร่และผลรายเดือน — {{ brand.name }}{% endblock %}
+{% block content %}
+<h1>เผยแพร่และผลรายเดือน · {{ brand.name }}</h1>
+<p class="muted">ทุกชิ้นต้องผ่านการตรวจ (ข้อมูลธุรกิจ สิทธิ์ schema ตรงกับข้อความ ไม่ซ้ำ ลิงก์ ขอบเขต ความสามารถของปลายทาง) และอนุมัติที่ผูกกับเวอร์ชันนั้น · "เผยแพร่แล้ว" แปลว่าปลายทางยืนยันแล้วเท่านั้น</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0;font-size:17px">ผลเดือน {{ rv.month }} — {{ rv.verdict }}</h2>
+  <h3 style="font-size:15px">1. งานที่ส่งมอบ</h3>
+  {% if rv.delivered %}<ul>{% for d in rv.delivered %}<li>{{ d }}</li>{% endfor %}</ul>{% else %}<p class="muted">ยังไม่มีงานที่ส่งมอบในเดือนนี้</p>{% endif %}
+  <h3 style="font-size:15px">2. สิ่งที่เห็นบนเว็บ/การค้นหา</h3><p>{{ rv.site.text }}</p>
+  <h3 style="font-size:15px">3. AI ที่สังเกตได้</h3><p>{{ rv.ai.text }}</p>
+  <h3 style="font-size:15px">4. ผลทางธุรกิจ</h3><p class="muted">{{ rv.business.text }}</p>
+  <p class="muted" style="font-size:12.5px">{{ rv.lag }}</p>
+</div>
+
+<div class="card" style="margin-top:16px;overflow-x:auto">
+  <h2 style="margin-top:0;font-size:17px">คำขอเผยแพร่</h2>
+  <table><thead><tr><th>#</th><th>ชิ้นงาน</th><th>ปลายทาง</th><th>สถานะ</th><th>การตรวจ</th><th></th></tr></thead>
+  <tbody>{% for r in reqs %}<tr>
+    <td>{{ r.id }}</td><td>{{ r.title }}{% if r.remote_link %}<br><span class="muted" style="font-size:11.5px;word-break:break-all">{{ r.remote_link }}</span>{% endif %}</td>
+    <td style="font-size:12.5px">{{ P.DEST_LABEL.get(r.destination, r.destination) }}</td>
+    <td style="font-size:12.5px">{{ P.STATES.get(r.status, r.status) }}{% if r.error %}<br><span class="muted">{{ r.error }}</span>{% endif %}</td>
+    <td class="muted" style="font-size:12px">{% for c in r.checks %}{{ "✓" if c.ok else "✗" }} {{ c.detail }}<br>{% endfor %}</td>
+    <td>{% if r.status == 'uncertain' %}<form method="post" action="/brands/{{ brand.id }}/publishing/{{ r.id }}/reconcile">{{ csrf_input(request) }}<button class="btn sm" type="submit">ตรวจปลายทาง</button></form>{% endif %}
+      {% if r.status == 'published' %}<form method="post" action="/brands/{{ brand.id }}/publishing/{{ r.id }}/rollback">{{ csrf_input(request) }}<button class="btn sm danger" type="submit">คืนเวอร์ชันก่อนหน้า</button></form>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="6" class="muted">ยังไม่มีคำขอ — กด "เผยแพร่" ที่หน้าคอนเทนต์</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

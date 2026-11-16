@@ -1,0 +1,754 @@
+<title>แผนปรับปรุง เจอ.AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600&family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: เอกสารแผนงานแบบ "แฟ้มหลักฐาน" — คอลัมน์อ่านกลางจอ, กล่อง mockup เป็นวัตถุแยกที่สลับแนว A/B ได้ */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#14223a; --muted:#57647a; --line:#d7dde6;
+  --accent:#1f4f8f; --accent-soft:#e3ecf8; --warn:#a4620b; --warn-soft:#fbf1e1;
+  --risk:#a63a2c; --risk-soft:#f8e6e3; --ok:#2c6e4f; --ok-soft:#e2f1e8;
+  --f-display:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
+  --f-body:"Noto Sans Thai","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1622; --surface:#16202f; --ink:#e4e9f1; --muted:#9aa7ba; --line:#2a3647;
+  --accent:#8db6ec; --accent-soft:#1d2d45; --warn:#e3a85a; --warn-soft:#3a2c17;
+  --risk:#ec8f80; --risk-soft:#3d221e; --ok:#7fc8a2; --ok-soft:#183126; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1622; --surface:#16202f; --ink:#e4e9f1; --muted:#9aa7ba; --line:#2a3647;
+  --accent:#8db6ec; --accent-soft:#1d2d45; --warn:#e3a85a; --warn-soft:#3a2c17;
+  --risk:#ec8f80; --risk-soft:#3d221e; --ok:#7fc8a2; --ok-soft:#183126; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3,h4{font-family:var(--f-display);line-height:1.3;text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,4.6vw,42px);font-weight:700}
+h2{font-size:clamp(22px,3vw,28px);font-weight:700}
+h3{font-size:19px;font-weight:600}
+p{margin:0;max-width:68ch}
+a{color:var(--accent)}
+.mono{font-family:var(--f-mono);font-size:.86em}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.top{padding-block:48px 28px;display:grid;gap:14px;border-bottom:1px solid var(--line)}
+.lede{font-size:18px;color:var(--muted)}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}
+.key{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;gap:4px}
+.key b{font-family:var(--f-display);font-size:16px}
+.key span{color:var(--muted);font-size:14.5px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;padding-block:14px;font-size:14px;border-bottom:1px solid var(--line)}
+nav.toc a{text-decoration:none;color:var(--muted)} nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent);text-decoration:underline}
+section{padding-block:40px 8px;display:grid;gap:18px}
+.sec-head{display:grid;gap:6px}
+.sec-head .eyebrow{color:var(--accent)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:560px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:600;font-size:13.5px;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:12px;padding:1px 7px;border-radius:3px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.tag.risk{background:var(--risk-soft);color:var(--risk)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.ok{background:var(--ok-soft);color:var(--ok)}
+
+/* Roadmap */
+.road{display:grid;gap:0}
+.wave{display:grid;grid-template-columns:120px 1fr;gap:16px;padding:16px 0;border-top:1px solid var(--line)}
+.wave:first-child{border-top:0}
+.wave .wl{font-family:var(--f-display);font-weight:700;font-size:15px}
+.wave .wl small{display:block;font-weight:400;color:var(--muted);font-family:var(--f-mono);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-mono);font-size:13px;border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:3px 9px}
+.chip.slice{border-color:var(--accent);color:var(--accent);font-weight:500}
+.chip.later{border-style:dashed;color:var(--muted)}
+.gate{grid-column:1/-1;display:flex;gap:10px;align-items:baseline;font-size:14.5px;color:var(--warn);background:var(--warn-soft);border-radius:4px;padding:8px 12px;margin-top:8px}
+.gate b{font-family:var(--f-display);white-space:nowrap}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.why div{border-left:3px solid var(--accent);padding:4px 0 4px 12px;font-size:15px}
+.why b{font-family:var(--f-display)}
+@media (max-width:560px){.wave{grid-template-columns:1fr;gap:8px}}
+
+/* Step cards */
+.steps{display:grid;gap:22px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);overflow:hidden}
+.step .txt{padding:20px;display:grid;gap:12px;align-content:start}
+.step .demo{background:var(--bg);border-left:1px solid var(--line);padding:20px;display:grid;align-content:start;gap:8px;min-width:0}
+.step .demo .eyebrow{color:var(--accent)}
+.field{display:grid;grid-template-columns:96px 1fr;gap:8px;font-size:15px}
+.field dt{font-family:var(--f-display);font-weight:600;color:var(--muted);font-size:13.5px;padding-top:2px}
+.field dd{margin:0}
+dl{margin:0;display:grid;gap:8px}
+.stepno{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+@media (max-width:760px){.step{grid-template-columns:1fr}.step .demo{border-left:0;border-top:1px solid var(--line)}}
+
+/* ===== Mockup frames: the proposed website, switchable A/B ===== */
+.dirbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--ink);padding:7px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.dirnote{font-size:14px;color:var(--muted)}
+
+.mk{--m-bg:#f6f3ec;--m-card:#fffdf8;--m-ink:#16243d;--m-muted:#5d6676;--m-line:#ddd5c4;--m-acc:#16305a;--m-acc-ink:#ffffff;--m-hi:#9a7b3c;
+  --m-found:#1e6a48;--m-absent:#7b4a14;--m-untested:#6a7180;--m-down:#8a3324;
+  --m-h:"IBM Plex Sans Thai",sans-serif;--m-b:"Noto Sans Thai",sans-serif;--m-r:3px;
+  background:var(--m-bg);color:var(--m-ink);font-family:var(--m-b);border:1px solid var(--line);border-radius:8px;padding:16px;font-size:14.5px;line-height:1.6;min-width:0}
+.mk[data-dir="b"]{--m-bg:#ffffff;--m-card:#f4f7f8;--m-ink:#18222a;--m-muted:#5a6872;--m-line:#dbe3e7;--m-acc:#0e6e6a;--m-acc-ink:#ffffff;--m-hi:#0e6e6a;
+  --m-found:#0e6e4a;--m-absent:#8a5a12;--m-untested:#64707a;--m-down:#9a3a2a;
+  --m-h:"Anuphan",sans-serif;--m-b:"Noto Sans Thai",sans-serif;--m-r:8px}
+.mk h4{font-family:var(--m-h);color:var(--m-ink)}
+.mk .sm{font-size:12.5px;color:var(--m-muted)}
+.mk .num{font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+.mk[data-dir="a"] .secno::before{content:"§ ";color:var(--m-hi)}
+.mk[data-dir="b"] .secno::before{content:"";}
+.mk .btn{display:block;width:100%;text-align:center;font-family:var(--m-h);font-weight:600;background:var(--m-acc);color:var(--m-acc-ink);border-radius:var(--m-r);padding:10px;border:0;font-size:15px}
+.mk .btn2{display:inline-block;font-size:13px;border:1px solid var(--m-line);border-radius:var(--m-r);padding:3px 10px;color:var(--m-acc);background:var(--m-card)}
+.mk .input{border:1.5px solid var(--m-ink);border-radius:var(--m-r);padding:9px 11px;background:var(--m-card);color:var(--m-muted);font-family:var(--f-mono);font-size:13.5px}
+.mk .card{background:var(--m-card);border:1px solid var(--m-line);border-radius:var(--m-r);padding:12px;display:grid;gap:6px;min-width:0}
+.mk[data-dir="a"] .card{border-top:2px solid var(--m-ink)}
+
+/* status chips: shape + word + colour */
+.st{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
+.st i{width:11px;height:11px;display:inline-block;flex:none}
+.st.found{color:var(--m-found)} .st.found i{background:var(--m-found);border-radius:50%}
+.st.absent{color:var(--m-absent)} .st.absent i{border:2px solid var(--m-absent);border-radius:50%}
+.st.untested{color:var(--m-untested)} .st.untested i{border:2px dashed var(--m-untested);border-radius:50%}
+.st.down{color:var(--m-down)} .st.down i{border:2px solid var(--m-down);border-radius:50%;background:linear-gradient(135deg,transparent 43%,var(--m-down) 43%,var(--m-down) 57%,transparent 57%)}
+
+/* phone mock */
+.phone{max-width:340px;margin:0 auto;border:1px solid var(--line);border-radius:22px;padding:10px;background:var(--surface)}
+.phone .mk{border-radius:14px;display:grid;gap:12px}
+.mnav{display:flex;justify-content:space-between;align-items:center;font-size:13px;border-bottom:1px solid var(--m-line);padding-bottom:8px}
+.mnav b{font-family:var(--m-h);font-size:16px}
+.mnav span{color:var(--m-muted)}
+.hero{font-family:var(--m-h);font-weight:700;font-size:21px;line-height:1.35}
+.checks{display:grid;gap:4px;border-top:1px solid var(--m-line);padding-top:10px}
+.checks div{display:flex;gap:8px;align-items:center;font-size:13.5px}
+
+.lanes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:420px){.lanes{grid-template-columns:1fr}}
+.lanes .card h4{font-size:14px}
+.cover{display:grid;gap:4px;margin-top:4px}
+.cover .bar{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.cover .bar span{height:9px;border-radius:2px;background:var(--m-found)}
+.cover .bar span.no{background:transparent;border:1.5px dashed var(--m-untested)}
+
+.prog{display:grid;gap:6px}
+.prog div{display:flex;gap:10px;align-items:baseline;font-size:14px}
+.prog .ic{width:18px;font-family:var(--f-mono);text-align:center;flex:none}
+.prog .done{color:var(--m-found)} .prog .now{color:var(--m-acc);font-weight:600} .prog .off{color:var(--m-untested)}
+
+.brief{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px}
+.brief dt{color:var(--m-muted)} .brief dd{margin:0}
+.lbl{font-size:11.5px;padding:0 6px;border-radius:3px;border:1px solid currentColor;margin-left:4px}
+.lbl.c{color:var(--m-found)} .lbl.g{color:var(--m-absent)}
+
+.sample{position:relative;overflow:hidden}
+.sample::before{content:"ตัวอย่างสาธิต ไม่ใช่ผลตรวจเว็บไซต์ของคุณ";position:absolute;left:0;right:0;top:0;background:var(--m-ink);color:var(--m-bg);font-size:12.5px;text-align:center;padding:4px;font-weight:600}
+.sample{padding-top:36px !important}
+
+.ctx{display:grid;gap:6px}
+.ctx .row{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:13.5px;border-bottom:1px dashed var(--m-line);padding-bottom:6px}
+@media (max-width:420px){.ctx .row{grid-template-columns:1fr auto}.ctx .row .k{grid-column:1/-1}}
+
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px}
+.dont{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.dont div{font-size:14.5px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.dont div::before{content:"✕ ";color:var(--risk);font-weight:700}
+.do div::before{content:"✓ ";color:var(--ok)}
+
+.ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.idea{display:grid;gap:10px;align-content:start;min-width:0}
+.idea p{font-size:15px;color:var(--muted)}
+
+pre.prompt{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;overflow-x:auto;font-family:var(--f-mono);font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0}
+.copyrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.copy{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:5px;padding:5px 12px;cursor:pointer}
+.copy:focus-visible{outline:2px solid var(--accent)}
+ol.ask{margin:0;padding-left:22px;display:grid;gap:8px}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+/* threeui-inspired, CSS only */
+.mk[data-dir="a"].grain{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+.bignum{font-family:var(--m-h);font-weight:700;font-size:56px;line-height:1;color:var(--m-acc)}
+.sitemap{width:100%;height:auto;display:block}
+.sitemap .edges line{stroke:var(--m-line);stroke-width:1.5}
+.sitemap .edges line.out{stroke-dasharray:3 4}
+.sitemap .nodes .ok{fill:var(--m-found)}
+.sitemap .nodes .fail{fill:var(--m-card);stroke:var(--m-down);stroke-width:2}
+.sitemap .nodes .skip{fill:var(--m-card);stroke:var(--m-untested);stroke-width:1.5;stroke-dasharray:3 3}
+.sitemap .labels text{fill:var(--m-ink);font-family:var(--m-b);font-size:11px}
+.lit{position:relative;background:radial-gradient(180px circle at var(--mx,30%) var(--my,40%),color-mix(in srgb,var(--m-hi) 16%,transparent),transparent 70%),var(--m-card)}
+.quote{margin:0;font-family:var(--m-h);font-size:16px;line-height:1.6;border-left:3px solid var(--m-hi);padding-left:10px}
+.ba{display:grid;border:1px solid var(--m-line);border-radius:var(--m-r);overflow:hidden;--pos:50%}
+.ba-l{grid-area:1/1;padding:12px;display:grid;gap:4px;align-content:start}
+.ba-l p{font-size:14.5px}
+.ba-l.before{background:var(--m-card)}
+.ba-l.after{background:var(--m-bg);clip-path:inset(0 0 0 var(--pos));border-left:2px solid var(--m-acc)}
+.ba-l.after .sm{color:var(--m-acc)}
+#baRange{width:100%;accent-color:var(--m-acc)}
+/* 06A LINE mocks */
+.chat{display:grid;gap:8px;background:var(--m-card);border-radius:var(--m-r);padding:10px}
+.bub{max-width:88%;padding:8px 11px;border-radius:14px;font-size:13.5px;line-height:1.55;background:var(--m-bg);border:1px solid var(--m-line)}
+.bub.me{justify-self:end;background:var(--m-acc);color:var(--m-acc-ink);border-color:var(--m-acc)}
+.lcard{border:1px solid var(--m-line);border-radius:12px;overflow:hidden;background:var(--m-bg);max-width:92%}
+.lcard .lc-h{padding:10px 12px;display:grid;gap:3px}
+.lcard .lc-b{display:grid;border-top:1px solid var(--m-line)}
+.lcard .lc-b span{padding:8px;text-align:center;font-size:13.5px;color:var(--m-acc);font-weight:600;border-top:1px solid var(--m-line)}
+.lcard .lc-b span:first-child{border-top:0}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.slots span{border:1px solid var(--m-line);border-radius:var(--m-r);padding:6px 4px;text-align:center;font-size:13px;font-family:var(--f-mono);background:var(--m-card)}
+.slots span.sel{border:2px solid var(--m-acc);color:var(--m-acc);font-weight:600}
+.slots span.full{color:var(--m-untested);text-decoration:line-through;border-style:dashed}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.flow .s{border:1px solid var(--m-line);border-radius:4px;padding:3px 8px;background:var(--m-card);font-family:var(--f-mono)}
+.flow .s.ok{border-color:var(--m-found);color:var(--m-found)}
+.flow .s.bad{border-color:var(--m-down);color:var(--m-down)}
+.flow .ar{color:var(--m-muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">แผนปรับปรุง · จากเอกสาร Prompt 00–19 · ฉบับ 14 พ.ย. 2569</span>
+  <h1>แผนปรับปรุง เจอ.AI แบบเห็นตัวอย่างก่อนตัดสินใจทีละขั้น</h1>
+  <p class="lede">เอกสารเดิมสั่งงาน 20 ขั้นเรียงตามเลข กฎความปลอดภัยดีมาก แต่ต้องรอถึงขั้นที่ 6 ลูกค้าถึงจะกดขอแผนได้ แผนนี้จัดลำดับใหม่ให้เห็นผลเร็ว รวมเรื่องที่ซ้ำ และใส่ “ตัวอย่างให้ดูก่อน” ไว้ทุกขั้น กฎความปลอดภัยทุกข้อในเอกสารยังใช้ตามเดิม</p>
+  <div class="keys">
+    <div class="key"><b>1. ทำเส้นเดียวให้ครบก่อน</b><span>ใส่ URL → เห็นผล → ขอแผน → ทีมขายเห็น brief ใช้ได้จริงภายในระลอกที่ 1</span></div>
+    <div class="key"><b>2. นิยามครั้งเดียว ใช้ทุกขั้น</b><span>ตัวชี้วัด 6 ประเภท, ความยินยอม, การนัดหมาย, การอนุมัติ ถูกเขียนซ้ำ 3–5 ที่ในเอกสาร</span></div>
+    <div class="key"><b>3. ดูก่อน ค่อยสร้าง</b><span>ทุกขั้นมีภาพตัวอย่างให้กด “ผ่าน” หรือ “แก้” ก่อน Claude เขียนโค้ด</span></div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="สารบัญ">
+  <a href="#roadmap">ลำดับใหม่</a><a href="#findings">สิ่งที่พบในเอกสาร</a><a href="#slice">ระลอก 1 ทีละขั้น</a><a href="#design">ไอเดียออกแบบ</a><a href="#inspo">แรงบันดาลใจ threeui</a><a href="#line06a">06A นัดผ่าน LINE</a><a href="#later">ระลอก 2–5</a><a href="#owner">สิ่งที่ต้องได้จากคุณ</a><a href="#prompts">ข้อความแก้ Prompt</a>
+</nav>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="sec-head"><span class="eyebrow">ส่วน B</span><h2>ลำดับใหม่: 5 ระลอก 4 ประตูตัดสินใจ</h2>
+  <p>กรอบน้ำเงิน = งานใน vertical slice (เส้นทางลูกค้าเส้นแรก) · กรอบประ = เลื่อนออกไปเพราะต้องรอของอย่างอื่นก่อน</p></div>
+  <div class="road">
+    <div class="wave"><div class="wl">ระลอก 0<small>ตรวจของจริง</small></div>
+      <div class="chips"><span class="chip">00 ตรวจระบบ</span><span class="chip">+ พจนานุกรมตัวชี้วัด</span><span class="chip">+ รายการของที่เจ้าของต้องเตรียม</span></div>
+      <div class="gate"><b>ประตู 1</b><span>ยืนยันว่าภาพระบบตรงกับที่คิด + เลือกแนวดีไซน์ A หรือ B</span></div></div>
+    <div class="wave"><div class="wl">ระลอก 1<small>vertical slice</small></div>
+      <div class="chips"><span class="chip slice">01-lite ชิ้นส่วนดีไซน์</span><span class="chip slice">02-lite หน้าแรก</span><span class="chip slice">04A สแกนเร็ว</span><span class="chip slice">05-core รายงาน</span><span class="chip slice">06-core ขอแผน + brief</span></div>
+      <div class="gate"><b>ประตู 2</b><span>คุณลองเองบนมือถือครบเส้น (เครื่องทดสอบ, flag เปิดเฉพาะเครื่องนั้น)</span></div></div>
+    <div class="wave"><div class="wl">ระลอก 2<small>สวยและครบ</small></div>
+      <div class="chips"><span class="chip">01-full</span><span class="chip">02-full</span><span class="chip">04B ยืนยันบริบท</span><span class="chip">05-full</span><span class="chip">03 (3 หน้าแรก)</span><span class="chip">06A-1 LINE: คุยจากรายงาน + ขอนัด</span><span class="chip">07 เฉพาะที่มีของจริง</span><span class="chip">08A QA/SEO</span><span class="chip">08B Analytics</span></div>
+      <div class="gate"><b>ประตู 3</b><span>= จุดตรวจใหญ่ “หลัง 08” ในเอกสาร · พร้อมขึ้น staging หรือยัง (ยังไม่ใช่ production)</span></div></div>
+    <div class="wave"><div class="wl">ระลอก 3<small>หลังบ้านฐานราก</small></div>
+      <div class="chips"><span class="chip">10 คิว/อนุมัติ/งบ</span><span class="chip">06A-2 LINE: เลือกเวลา เตือน เลื่อน</span><span class="chip">09 Today / Customer 360</span><span class="chip">11 ขาย/ติดตาม</span></div>
+      <div class="gate"><b>ประตู 4</b><span>ทดสอบงานซ้ำ, worker ล่ม, ขอหยุดหลังเข้าคิว ตาม checklist “หลัง 10–14”</span></div></div>
+    <div class="wave"><div class="wl">ระลอก 4<small>ขยาย</small></div>
+      <div class="chips"><span class="chip later">04C ทดสอบ AI จริง (เสียเงิน)</span><span class="chip">14 AI Orchestrator</span><span class="chip">15 Delivery</span><span class="chip">16 Publish/ผล</span><span class="chip later">12 Growth Studio</span><span class="chip later">13 Partner</span><span class="chip">17 รายได้/ต้นทุน</span></div></div>
+    <div class="wave"><div class="wl">ระลอก 5<small>ปิดงาน</small></div>
+      <div class="chips"><span class="chip">18 ทดสอบรวม + ซ้อม migration</span><span class="chip">19 UAT + ส่งมอบ</span></div></div>
+  </div>
+  <div class="why">
+    <div><b>ทำ 10 ก่อน 09</b><br>หน้า Today, ระบบขาย, AI และการเผยแพร่ ล้วนต้องใช้คิวงานและการอนุมัติ ถ้าสร้าง 09 ก่อนจะต้องย้อนกลับมาแก้</div>
+    <div><b>เลื่อน 04C</b><br>การทดสอบ AI ที่เสียเงินต้องมีระบบจองงบจาก 10 ระหว่างนี้รายงานแสดง “ยังไม่ได้ทดสอบ” ตรงๆ</div>
+    <div><b>12 และ 13 ไว้ท้าย</b><br>ไม่มีผลต่อการปิดการขายรายแรก และต้องมีหลักฐานจริงที่ลูกค้าอนุญาตให้เผยแพร่ก่อน</div>
+  </div>
+</section>
+
+<!-- FINDINGS -->
+<section id="findings">
+  <div class="sec-head"><span class="eyebrow">ส่วน A</span><h2>สิ่งที่พบในเอกสาร</h2></div>
+  <h3>เรื่องที่เขียนซ้ำหลายขั้น: ควรทำครั้งเดียวแล้วใช้ร่วม</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>เรื่อง</th><th>อยู่ในขั้น</th><th>ข้อเสนอ</th></tr></thead>
+    <tbody>
+      <tr><td>แยกตัวเลข 6 ประเภท (ความพร้อมเว็บ, ผลค้นเว็บ, AI พูดถึง, AI อ้างอิง, Search Console, ผลธุรกิจ)</td><td class="mono">00 05 11 16 17</td><td>ไฟล์ <span class="mono">METRIC_DICTIONARY.md</span> ไฟล์เดียวทำในขั้น 00 ทุกขั้นอ้างถึง</td></tr>
+      <tr><td>นัดหมาย / ขอให้โทรกลับ</td><td class="mono">03 06 07</td><td>สร้างใน 06 ครั้งเดียว หน้า 03 และ /book ใน 07 แค่ลิงก์มาที่เดิม</td></tr>
+      <tr><td>ความยินยอม / การรับข่าวสาร</td><td class="mono">03 06 07 11</td><td>“ศูนย์ความยินยอม” ใน 06 ทุกฟอร์มใช้ร่วม</td></tr>
+      <tr><td>คิวงานเบื้องหลัง</td><td class="mono">04 10</td><td>ออกแบบโครงเดียวตั้งแต่ 04 ให้ 10 เติมความสามารถ ไม่ต้องรื้อ</td></tr>
+      <tr><td>การอนุมัติก่อนทำสิ่งที่มีผลภายนอก</td><td class="mono">10 14 16</td><td>กลไกเดียวใน 10 แล้ว 14 และ 16 เรียกใช้</td></tr>
+      <tr><td>ชื่อเหตุการณ์ / ที่มาลูกค้า</td><td class="mono">08 17</td><td>ตั้งชื่อใน 08 ให้ 17 ต่อยอด ไม่ตั้งใหม่</td></tr>
+    </tbody></table></div>
+
+  <h3>ขั้นที่ใหญ่เกินไป: ควรแยก</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>ขั้นเดิม</th><th>แยกเป็น</th><th>เหตุผล</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">04 Audit</td><td>04A สแกนเร็ว · 04B ยืนยันบริบท · 04C ทดสอบ AI (เลื่อนไปหลัง 10)</td><td>รวมสามงาน + ความปลอดภัย crawler ไว้ในรอบเดียว ตรวจรับยาก</td></tr>
+      <tr><td class="mono">08 QA</td><td>08A QA/SEO/ทดสอบจอ · 08B Analytics</td><td>analytics เกี่ยวกับข้อมูลส่วนตัว ควรตรวจแยก</td></tr>
+      <tr><td class="mono">09 Customer 360</td><td>ทำ “รายงานทดลองรวมข้อมูล” ก่อน แล้วค่อยสร้างหน้าจอ</td><td>รวมลูกค้าผิดคนแก้ยาก ต้องเห็นตัวเลขก่อน</td></tr>
+      <tr><td class="mono">03 หน้าบริการ</td><td>เริ่ม 3 หน้า + /partners ที่เหลือหลังเลือกกลุ่มธุรกิจที่ 2</td><td>8 หน้าในรอบเดียว เนื้อหาจะบางและซ้ำ</td></tr>
+    </tbody></table></div>
+
+  <h3>จุดเสี่ยงสูง</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>จุด</th><th>เสี่ยงอะไร</th><th>วิธีลดเสี่ยง</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag risk">04</span> รับ URL จากคนภายนอก</td><td>ถูกหลอกให้ระบบไปเปิดหน้าภายใน server</td><td>เขียนชุดทดสอบโจมตีก่อนโค้ดจริง เปิด flag ทีละน้อย</td></tr>
+      <tr><td><span class="tag risk">04 09 10</span> เปลี่ยนฐานข้อมูล</td><td>ข้อมูลลูกค้าเดิมเสียหาย</td><td>เพิ่มอย่างเดียว ไม่ลบไม่แก้ ซ้อมย้อนกลับทุกครั้ง</td></tr>
+      <tr><td><span class="tag risk">10</span> ย้ายงานตั้งเวลาเดิม</td><td>งานรันซ้ำ เช่น ส่งข้อความซ้ำ</td><td>ย้ายทีละกลุ่มงาน ปิดของเก่าก่อนเปิดของใหม่</td></tr>
+      <tr><td><span class="tag risk">06A</span> ผูก LINE กับลีดด้วยชื่อโดเมน</td><td>ใครพิมพ์โดเมนของบริษัทอื่นใน LINE ก็ได้ลิงก์รายงานของบริษัทนั้น (พบในโค้ดจริง)</td><td>ปิดช่องนี้ก่อนเริ่ม 06A ใช้ลิงก์ผูกบัญชีที่มีอายุแทน</td></tr>
+      <tr><td><span class="tag warn">13</span> ค่าคอมมิชชัน</td><td>ยอดเงินและข้อตกลงเดิมของพาร์ตเนอร์</td><td>อ่านอย่างเดียวและร่าง ไม่แก้ยอด</td></tr>
+      <tr><td><span class="tag warn">14</span> AI agent</td><td>AI ให้สิทธิ์หรืองบกับตัวเอง</td><td>สิทธิ์อยู่ในโค้ด ไม่ได้อยู่ในข้อความสั่ง AI</td></tr>
+      <tr><td><span class="tag warn">15</span> สิทธิ์แพ็กเกจ</td><td>สัญญากับลูกค้าเก่าเปลี่ยนโดยไม่ตั้งใจ</td><td>ห้ามแปลงแพ็กเกจเดิมอัตโนมัติ</td></tr>
+    </tbody></table></div>
+
+  <h3>ช่องว่างในเอกสาร</h3>
+  <div class="why">
+    <div><b>ไม่มีขั้นอนุมัติหน้าตา</b><br>เพิ่ม “ประตูตัวอย่าง” ก่อนทุกขั้นที่มีหน้าจอ</div>
+    <div><b>ขั้น 07 ต้องใช้ของจริง</b><br>วิดีโอ เคส คลินิก ทำรายการให้คุณเตรียมคู่ขนานตั้งแต่ขั้น 00</div>
+    <div><b>ไม่มีอะไรใช้ได้จนถึง 08</b><br>vertical slice ทำให้ลองเส้นทางลูกค้าได้ตั้งแต่ระลอก 1</div>
+  </div>
+</section>
+
+<!-- DIRECTION SWITCH (applies to all mockups below) -->
+<div class="dirbar" role="group" aria-label="สลับแนวดีไซน์ของภาพตัวอย่าง">
+  <span class="seg"><button type="button" id="dirA" aria-pressed="true" data-dir="a">แนว A รายงานที่ปรึกษา</button><button type="button" id="dirB" aria-pressed="false" data-dir="b">แนว B ห้องแล็บโปร่งใส</button></span>
+  <span class="dirnote">ภาพตัวอย่างทุกภาพด้านล่างเปลี่ยนตามแนวที่เลือก ใช้ข้อมูลสมมติทั้งหมด</span>
+</div>
+
+<!-- WAVE 1 STEP BY STEP -->
+<section id="slice">
+  <div class="sec-head"><span class="eyebrow">ส่วน C · ระลอก 0–1</span><h2>ทีละขั้น พร้อมตัวอย่างก่อนตัดสินใจ</h2>
+  <p>แต่ละขั้น: ทำอะไร → ตัวอย่างที่คุณจะเห็นก่อน → สิ่งที่คุณต้องตัดสินใจ → เสร็จแล้วได้อะไร</p></div>
+  <div class="steps">
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 0 · PROMPT 00 + 2 ไฟล์</span><h3>ตรวจระบบจริง</h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>อ่านโค้ดใน repo เขียนเอกสาร docs/rebuild/ ตามเอกสารเดิม เพิ่มพจนานุกรมตัวชี้วัดและรายการของที่ต้องเตรียม ไม่แก้ระบบ</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>ชื่อหน้าใหม่ที่จะใช้, แนวดีไซน์ A หรือ B</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>ภาพระบบที่ตรวจจากโค้ดจริง ระบบเดิมไม่เปลี่ยน</dd></div>
+        </dl></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · ตาราง “เอกสารบอก vs โค้ดมีจริง”</span>
+        <div class="mk" data-dir="a"><div class="tbl" style="border:0;background:transparent"><table style="min-width:380px;font-size:13.5px">
+          <thead><tr><th>ความสามารถ</th><th>เอกสารภาพรวม</th><th>ในโค้ด</th></tr></thead>
+          <tbody>
+            <tr><td>ตรวจเว็บเชิงลึก</td><td>มี</td><td><span class="st found"><i></i>พบ · มีเทสต์บางส่วน</span></td></tr>
+            <tr><td>Share of Voice ของ AI</td><td>มี</td><td><span class="st absent"><i></i>จริงๆ คือผลค้นเว็บ</span></td></tr>
+            <tr><td>ระบบนัดหมาย</td><td>มี</td><td><span class="st untested"><i></i>ยังไม่ได้ตรวจ</span></td></tr>
+          </tbody></table></div>
+          <p class="sm">ข้อมูลในตารางนี้สมมติเพื่อแสดงรูปแบบ ของจริงได้หลังเข้าถึง repo</p></div></div>
+    </article>
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 1 · 01-lite</span><h3>ชิ้นส่วนดีไซน์ฉบับย่อ</h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>สี ตัวอักษร ปุ่ม การ์ดหลักฐาน ป้ายสถานะ ฟอร์ม เฉพาะที่เส้นทางแรกใช้ แยกจากหน้าหลังบ้าน</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>แนว A หรือ B, ฟอนต์</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>หน้า “สมุดชิ้นส่วน” เปิดดูบนมือถือได้ flag ปิดอยู่ หน้าเดิมไม่เปลี่ยน</dd></div>
+        </dl></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · ป้ายสถานะ 4 แบบ</span>
+        <div class="mk" data-dir="a" style="display:grid;gap:10px">
+          <div class="legend"><span class="st found"><i></i>พบแล้ว</span><span class="st absent"><i></i>ไม่พบ (ทดสอบแล้ว)</span><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="st down"><i></i>ระบบไม่พร้อม</span></div>
+          <p class="sm">แต่ละสถานะต่างกันทั้งรูปทรง คำ และสี คนที่แยกสีไม่ได้ก็อ่านออก “ยังไม่ได้ทดสอบ” ไม่มีวันแสดงเป็น 0 หรือสีแดง</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn" style="width:auto;padding:8px 16px">ปุ่มหลัก</span><span class="btn2">ปุ่มรอง</span></div>
+        </div></div>
+    </article>
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 2 · 02-lite</span><h3>หน้าแรกฉบับย่อ</h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>หัวเรื่อง + ช่องใส่ URL + “สิ่งที่ตรวจ/ไม่ได้ตรวจ” + FAQ สั้น ไม่ต้องกรอกเบอร์ก่อนเห็นผล</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>ข้อความหัวเรื่อง, คำโฆษณาเดิมตัวไหนที่ต้องเอาออก</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>หน้าแรกใหม่หลัง flag ใช้ได้แม้ปิด JavaScript</dd></div>
+        </dl>
+        <p style="font-size:15px;color:var(--muted)">ไอเดีย: บรรทัด “ไม่ได้ตรวจ” ใต้ปุ่มแสดงความซื่อตรงของเครื่องมือ ลูกค้า B2B เชื่อเครื่องมือที่บอกข้อจำกัดของตัวเองมากกว่า</p></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · หน้าแรกบนมือถือ</span>
+        <div class="phone"><div class="mk" data-dir="a">
+          <div class="mnav"><b>เจอ.AI</b><span>ธุรกิจ · พาร์ตเนอร์</span></div>
+          <div class="hero">ลูกค้าถาม AI หาบริการแบบคุณ เว็บไซต์คุณพร้อมให้เขาค้นพบแค่ไหน?</div>
+          <p class="sm">เราอ่านเว็บไซต์ของคุณสูงสุด 5 หน้า แล้วบอกว่าข้อมูลสำคัญชัดพอให้ระบบค้นหาและ AI เข้าใจหรือยัง</p>
+          <label class="sm" for="mk-url" style="margin-bottom:-8px">ที่อยู่เว็บไซต์</label>
+          <div class="input" id="mk-url">https://บริษัทของคุณ.co.th</div>
+          <span class="btn">ตรวจเว็บไซต์ของฉัน</span>
+          <p class="sm" style="text-align:center;margin-top:-6px">ไม่ต้องกรอกเบอร์โทรหรืออีเมลก่อนเห็นผล</p>
+          <div class="checks">
+            <div><span class="st found"><i></i></span>เนื้อหาบอกชัดไหมว่าคุณทำอะไร ที่ไหน</div>
+            <div><span class="st found"><i></i></span>ข้อมูลโครงสร้างที่ระบบอ่านได้</div>
+            <div><span class="st untested"><i></i></span>คำตอบจาก AI จริง: ยังไม่รวมในการตรวจรอบแรก</div>
+          </div>
+        </div></div></div>
+    </article>
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 3 · 04A</span><h3>สแกนเร็ว <span class="tag risk">เสี่ยงสูง</span></h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>อ่านไม่เกิน 5 หน้า จำกัดเวลาและขนาด ใช้เครื่องตรวจเดิมใน repo ไม่สร้างใหม่ กันลิงก์ที่ชี้เข้าระบบภายใน</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>เพดาน 5 หน้าพอไหม, เวลารอสูงสุดต่อการสแกน</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>สแกนที่หยุดกลางทางแล้วทำต่อได้ บอกสถานะจริงทีละขั้น ไม่มี % ปลอม</dd></div>
+        </dl>
+        <div class="tbl"><table style="min-width:0;font-size:13.5px"><thead><tr><th>ชุดทดสอบความปลอดภัยที่จะเห็นก่อน</th><th>ผลที่ต้องได้</th></tr></thead><tbody>
+          <tr><td>URL ชี้ไปเครื่องตัวเอง / เครือข่ายภายใน</td><td>ปฏิเสธ</td></tr>
+          <tr><td>เว็บภายนอกที่ redirect เข้าเครือข่ายภายใน</td><td>ปฏิเสธที่ทุกจุด redirect</td></tr>
+          <tr><td>ที่อยู่ IPv6 และที่อยู่ข้อมูลของ cloud</td><td>ปฏิเสธ</td></tr>
+          <tr><td>หน้าเว็บที่ซ่อนคำสั่งถึง AI</td><td>อ่านเป็นข้อมูล ไม่ทำตาม</td></tr>
+        </tbody></table></div></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · หน้ารอผล</span>
+        <div class="mk" data-dir="a" style="display:grid;gap:10px">
+          <h4 style="font-size:16px">กำลังตรวจ warehouse-example.co.th</h4>
+          <div class="prog">
+            <div class="done"><span class="ic">✓</span>อ่านหน้าแรกแล้ว</div>
+            <div class="done"><span class="ic">✓</span>อ่านหน้าบริการแล้ว <span class="num">2</span> จาก <span class="num">4</span> หน้าที่เลือก</div>
+            <div class="now"><span class="ic">→</span>กำลังตรวจข้อมูลโครงสร้าง</div>
+            <div class="off"><span class="ic">○</span>ทดสอบคำตอบ AI: ไม่รวมในรอบนี้</div>
+          </div>
+          <p class="sm">ปกติใช้เวลา 1–3 นาที ขึ้นกับความเร็วเว็บไซต์ ปิดหน้านี้แล้วกลับมาที่ลิงก์เดิมได้</p>
+          <div class="card"><span class="st down"><i></i>เปิดหน้า /contact ไม่ได้ (หมดเวลา)</span><span class="sm">หน้านี้จะแสดงเป็น “ตรวจไม่ได้” ในรายงาน ไม่นับเป็นไม่พบ</span></div>
+        </div></div>
+    </article>
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 4 · 05-core</span><h3>รายงานแกนหลัก</h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>สรุป, 4 ช่องตัวชี้วัดแยกกัน, ความครอบคลุมของรายงาน, 3 สิ่งที่ควรทำพร้อมหลักฐาน, ปุ่มขอแผน</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>ลำดับหัวข้อ, คำที่ใช้กับลูกค้า</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>รายงานส่วนตัวที่ไม่ขึ้น Google เห็นได้เฉพาะคนที่มีสิทธิ์ รายงานเก่ายังเปิดได้</dd></div>
+        </dl>
+        <p style="font-size:15px;color:var(--muted)">ไอเดีย: แถบ “ความครอบคลุม” บอกว่ารายงานตรวจไปกี่ส่วนจาก 4 ส่วน ไม่ใช่คะแนน ลูกค้าเห็นเองว่ายังมีส่วนที่ยังไม่รู้ เป็นเหตุผลที่ดีในการคุยต่อโดยไม่ต้องขู่</p></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · 4 ช่องตัวชี้วัด</span>
+        <div class="mk" data-dir="a" style="display:grid;gap:10px">
+          <h4 style="font-size:15px" class="secno">ภาพรวมการตรวจ</h4>
+          <div class="lanes">
+            <div class="card"><h4>ความพร้อมของเว็บ</h4><span class="st found"><i></i>ตรวจแล้ว</span><span class="sm">ตรวจ <span class="num">5/5</span> หน้า · พบ <span class="num">3</span> จุดควรแก้</span></div>
+            <div class="card"><h4>การปรากฏในผลค้นเว็บ</h4><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="sm">ไม่ได้รวมในรอบนี้</span></div>
+            <div class="card"><h4>AI พูดถึงแบรนด์</h4><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="sm">ต้องตกลงชุดคำถามก่อน</span></div>
+            <div class="card"><h4>AI อ้างอิงเว็บของคุณ</h4><span class="st untested"><i></i>ยังไม่ได้ทดสอบ</span><span class="sm">ต้องตกลงชุดคำถามก่อน</span></div>
+          </div>
+          <div class="cover"><span class="sm">ความครอบคลุมของรายงานนี้: ตรวจแล้ว 1 จาก 4 ส่วน</span><div class="bar"><span></span><span class="no"></span><span class="no"></span><span class="no"></span></div></div>
+        </div>
+        <span class="eyebrow" style="margin-top:8px">ตัวอย่าง · การ์ด “สิ่งที่ควรทำ”</span>
+        <div class="mk" data-dir="a"><div class="card">
+          <h4 style="font-size:15px">1. ระบุพื้นที่ให้บริการในหน้าบริการ</h4>
+          <span class="sm">หน้า <span class="num">/services/warehouse</span> · ความมั่นใจ: สูง (หลักฐาน 2 จุด) · งาน: ประมาณ 1 ชั่วโมง · ทีมเว็บของคุณทำได้เอง</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="btn2">ดูหลักฐาน</span><span class="btn2">ดูตัวอย่างข้อความที่ปรับแล้ว</span></div>
+        </div></div></div>
+    </article>
+
+    <article class="step">
+      <div class="txt"><span class="stepno">ขั้น 5 · 06-core</span><h3>ขอแผน + brief ให้ทีมขาย</h3>
+        <dl>
+          <div class="field"><dt>ทำอะไร</dt><dd>ฟอร์มสั้น, บันทึกลงฐานข้อมูลจริงก่อนขึ้นว่าส่งสำเร็จ, “ขอให้โทรกลับ” แทนปฏิทินปลอมถ้ายังไม่มีระบบนัด, แยกความยินยอมแต่ละเรื่อง ไม่ติ๊กไว้ก่อน</dd></div>
+          <div class="field"><dt>คุณตัดสินใจ</dt><dd>ช่องไหนบังคับ, ข้อความความยินยอม (ให้คนตรวจด้านกฎหมาย)</dd></div>
+          <div class="field"><dt>ได้อะไร</dt><dd>ทีมขายเห็น brief ในหน้าหลังบ้านเดิม กดซ้ำไม่สร้างงานซ้ำ ยังไม่มีข้อความส่งออกจริง</dd></div>
+        </dl></div>
+      <div class="demo"><span class="eyebrow">ตัวอย่าง · brief ที่ทีมขายจะเห็น</span>
+        <div class="mk" data-dir="a" style="display:grid;gap:8px">
+          <h4 style="font-size:15px">คำขอแผน · บริษัทตัวอย่าง คลังสินค้า จำกัด</h4>
+          <dl class="brief">
+            <dt>บริการหลัก</dt><dd>ให้เช่าคลังสินค้า บางนา<span class="lbl c">ลูกค้ายืนยัน</span></dd>
+            <dt>กลุ่มลูกค้า</dt><dd>ผู้นำเข้า SME<span class="lbl g">ระบบคาดเดา</span></dd>
+            <dt>สิ่งที่พบ</dt><dd>3 จุด มีหลักฐานครบ</dd>
+            <dt>ยังไม่รู้</dt><dd>งบประมาณ, ใครดูแลเว็บ</dd>
+            <dt>ติดต่อทาง</dt><dd>LINE (ลูกค้าเลือกเอง)</dd>
+            <dt>ช่วงเวลา</dt><dd>ภายใน 1 เดือน</dd>
+            <dt>ถัดไป</dt><dd>โทรกลับภายใน 1 วันทำการ</dd>
+          </dl>
+          <p class="sm">ข้อมูลสมมติ ทุกค่าที่ระบบเดาจะติดป้ายแยกจากที่ลูกค้ายืนยัน</p>
+        </div></div>
+    </article>
+  </div>
+  <div class="gate" style="color:var(--warn)"><b>ประตู 2</b><span>คุณลองเส้นทางนี้เองบนมือถือ: หน้าแรก → ใส่ URL → รอผล → รายงาน → ขอแผน → เห็น brief ฝั่งทีม ถ้าผ่านค่อยไประลอก 2</span></div>
+</section>
+
+<!-- 06A LINE -->
+<section id="line06a">
+  <div class="sec-head"><span class="eyebrow">ขั้นเพิ่ม · PROMPT 06A</span><h2>นัดหมายผ่าน LINE และส่งต่อทีมขาย</h2>
+  <p>ทำให้ LINE พาลูกค้าไปได้ตลอดทาง ตั้งแต่เปิดรายงาน ถามข้อสงสัย ยืนยันข้อมูลธุรกิจ เลือกเวลาคุย ได้รับการยืนยันและการเตือน เลื่อนหรือยกเลิกนัด จนถึงได้รับสรุปหลังคุย ทุกขั้นต่อเข้ากับรายงาน ผู้ติดต่อ บริษัท และเซลส์ที่รับผิดชอบ</p></div>
+
+  <h3>ตอนนี้ในโค้ด gerai มีอะไรแล้ว</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>ส่วน</th><th>สถานะในโค้ด (main @ a35405f)</th><th>ผลต่อ 06A</th></tr></thead>
+    <tbody>
+      <tr><td>LINE webhook</td><td><span class="tag ok">มี</span> <span class="mono">/line/webhook</span> ตรวจลายเซ็นก่อนเสมอ (<span class="mono">app/main.py:1402</span>)</td><td>ใช้ต่อได้ ต้องเพิ่มการกันข้อความซ้ำ (ยังไม่เช็ก <span class="mono">webhookEventId</span>)</td></tr>
+      <tr><td>คีย์ LINE</td><td><span class="tag ok">มี</span> เก็บแบบเข้ารหัส (<span class="mono">app/line_oa.py:34</span>)</td><td>ใช้ต่อได้</td></tr>
+      <tr><td>Salesbot</td><td><span class="tag ok">มี</span> ตอบจากข้อเท็จจริงในระบบ ห้ามการันตี ส่งต่อเจ้าของเมื่อขอคุยกับคน (<span class="mono">app/salesbot.py</span>)</td><td>ใช้ต่อได้ ต้องเพิ่ม “พัก AI” ระหว่างคนคุยอยู่ ตอนนี้ยังไม่มี</td></tr>
+      <tr><td>ขอนัดคุย</td><td><span class="tag ok">มี</span> แบบขอให้ติดต่อกลับ: “ทีมจะติดต่อกลับเพื่อนัดคุย 30 นาที” และบันทึก <span class="mono">wants_call</span> (<span class="mono">app/pipeline.py:315</span>)</td><td>เป็นตัวสำรองที่ซื่อตรงอยู่แล้ว ใช้เป็นสถานะ <span class="mono">requested</span> ได้</td></tr>
+      <tr><td>ปฏิทิน / เวลาว่าง / LIFF</td><td><span class="tag risk">ไม่มี</span></td><td>ต้องสร้างใหม่ หรือเชื่อมปฏิทินที่คุณใช้จริง</td></tr>
+      <tr><td>ระบบเตือนนัด</td><td><span class="tag warn">ไม่มีคิวถาวร</span> งานเบื้องหลังรันเป็น thread ในหน่วยความจำ</td><td>การเตือนต้องรอคิวงานจากขั้น 10</td></tr>
+      <tr><td>ผูก LINE กับลีด</td><td><span class="tag risk">เสี่ยง</span> ผูกจากโดเมนที่พิมพ์มา แล้วส่งลิงก์รายงานเดิมให้ (<span class="mono">app/pipeline.py:723–731</span>)</td><td>ต้องแก้ก่อน ขัดข้อ 4 ของ 06A โดยตรง</td></tr>
+    </tbody></table></div>
+
+  <h3>แยก 06A เป็น 2 ช่วง</h3>
+  <div class="why">
+    <div><b>06A-1 · ระลอก 2</b><br>ปุ่ม “คุยแผนจากรายงานนี้ผ่าน LINE”, ลิงก์ผูกบัญชีที่หมดอายุได้, ถามเฉพาะข้อมูลที่ยังขาด, ปุ่มคุยกับทีมงานพร้อมพัก AI, ส่งคำขอนัดเป็น <span class="mono">requested</span> ยังไม่มีปฏิทินและการเตือน</div>
+    <div><b>06A-2 · ระลอก 3 (หลัง 10)</b><br>หน้าเลือกเวลาว่างจริง (LIFF หรือหน้าเว็บ), ยืนยันนัด, เตือน, เลื่อน, ยกเลิก, no-show และ Sales Brief ใน Today และ Customer 360</div>
+    <div><b>ทำไมแยก</b><br>ช่วงแรกได้ประโยชน์ทันทีโดยไม่ต้องรอระบบคิว ช่วงสองต้องมีคิวถาวรเพื่อไม่ให้ข้อความเตือนหายหรือส่งซ้ำ</div>
+  </div>
+
+  <h3>เชื่อมกับขั้นอื่น</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>ขั้น</th><th>06A ต้องใช้อะไร</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">05</td><td>สิทธิ์ดูรายงาน: เปิดรายงานใน LINE ได้เฉพาะคนที่ผูกบัญชีถูกต้อง</td></tr>
+      <tr><td class="mono">06</td><td>คำขอแผน, ศูนย์ความยินยอม, Sales Brief ฉบับแรก ใช้ร่วมกัน ไม่สร้างใหม่</td></tr>
+      <tr><td class="mono">09</td><td>แยก ผู้ใช้ LINE / ผู้ติดต่อ / บริษัท / รายงาน / ดีล / นัด และแสดงนัดใน Today และ Customer 360</td></tr>
+      <tr><td class="mono">10</td><td>คิวงานถาวรสำหรับการเตือน ผูกกับรหัสนัดและเวอร์ชันเวลา, ปุ่มหยุดฉุกเฉิน</td></tr>
+      <tr><td class="mono">11</td><td>หยุดข้อความชวนจองเมื่อจองแล้ว, บันทึกผลหลังประชุม, ไม่ส่งต่อไป SMS หรืออีเมลเองอัตโนมัติ</td></tr>
+    </tbody></table></div>
+
+  <div class="ideas">
+    <div class="idea"><h3>การ์ดชวนคุยใน LINE</h3>
+      <p>บอกว่าคุยเรื่องอะไร นานเท่าไร คุยแบบไหน ต้องเตรียมอะไร ไม่มีราคาหรือคำรับปาก</p>
+      <div class="mk" data-dir="a"><div class="chat">
+        <div class="bub">ผลตรวจ warehouse-example.co.th พร้อมแล้วครับ พบ 3 จุดที่ควรแก้ พร้อมหลักฐาน</div>
+        <div class="lcard"><div class="lc-h"><b style="font-family:var(--m-h)">คุยแผนจากรายงานนี้</b><span class="sm">30 นาที · วิดีโอคอลหรือโทร · เตรียม: ใครดูแลเว็บ และบริการที่อยากเน้น</span></div>
+          <div class="lc-b"><span>ดูรายงาน</span><span>เลือกเวลาคุย</span><span>คุยกับทีมงาน</span></div></div>
+      </div></div></div>
+
+    <div class="idea"><h3>หน้าเลือกเวลา (06A-2)</h3>
+      <p>เปิดได้ทั้งใน LINE และเบราว์เซอร์ บอกเขตเวลาชัด เวลาที่เต็มขีดฆ่า ตรวจซ้ำตอนกดยืนยัน</p>
+      <div class="mk" data-dir="a" style="display:grid;gap:8px">
+        <h4 style="font-size:15px">เลือกเวลาคุย 30 นาที</h4>
+        <span class="sm">พฤหัสบดี 20 พ.ย. 2569 · เวลาประเทศไทย (GMT+7)</span>
+        <div class="slots"><span>10:00</span><span class="full">11:00</span><span class="sel">13:30</span><span>14:30</span><span class="full">15:30</span><span>16:30</span></div>
+        <span class="btn">ยืนยัน 13:30</span>
+        <p class="sm">ถ้าระบบปฏิทินขัดข้อง หน้านี้จะเปลี่ยนเป็น “ขอให้ทีมติดต่อกลับ” และไม่บอกว่าจองแล้ว</p>
+      </div></div>
+
+    <div class="idea"><h3>ข้อความยืนยันนัด</h3>
+      <p>ส่งหลังระบบยืนยันจริงเท่านั้น การกดลิงก์หรือเปิดหน้าขอบคุณไม่นับเป็นการจอง</p>
+      <div class="mk" data-dir="a"><div class="chat">
+        <div class="lcard"><div class="lc-h"><span class="st found"><i></i>ยืนยันนัดแล้ว</span>
+          <b style="font-family:var(--m-h)">คุยแผน · บริษัทตัวอย่าง คลังสินค้า</b>
+          <span class="sm">พฤ 20 พ.ย. 2569 · 13:30–14:00 (GMT+7) · วิดีโอคอล · ผู้ดูแล: คุณเอ (ทีมขาย)</span></div>
+          <div class="lc-b"><span>รายละเอียด</span><span>เลื่อนนัด</span><span>ยกเลิก</span></div></div>
+        <div class="bub">เตือน: พรุ่งนี้ 13:30 คุยแผนกับทีมเจอ.AI ครับ</div>
+        <p class="sm">รอบการเตือนเจ้าของเป็นคนกำหนดและอนุมัติก่อนเปิดใช้ ถ้าเลื่อนนัด การเตือนของเวลาเดิมจะถูกยกเลิก</p>
+      </div></div></div>
+
+    <div class="idea"><h3>สถานะของนัด</h3>
+      <p>แยกจากสถานะดีล ทุกการเลื่อนเก็บเวลาเดิม เวลาใหม่ ใครเลื่อน และเหตุผล</p>
+      <div class="mk" data-dir="a" style="display:grid;gap:10px">
+        <div class="flow"><span class="s">requested</span><span class="ar">→</span><span class="s">pending_confirmation</span><span class="ar">→</span><span class="s ok">confirmed</span><span class="ar">→</span><span class="s ok">completed</span></div>
+        <div class="flow"><span class="s ok">confirmed</span><span class="ar">→</span><span class="s">เลื่อน (เวอร์ชันใหม่)</span><span class="ar">→</span><span class="s ok">confirmed</span></div>
+        <div class="flow"><span class="s ok">confirmed</span><span class="ar">→</span><span class="s bad">cancelled</span><span class="ar">·</span><span class="s bad">no_show</span><span class="ar">·</span><span class="s bad">needs_review</span></div>
+        <p class="sm"><b>requested</b> = ขอให้ช่วยจัดนัด ยังไม่มีเวลา (ใช้ได้ทันทีกับระบบเดิม) · <b>no_show</b> ต้องให้เซลส์ยืนยัน ไม่สรุปเองจากการไม่กดลิงก์ · <b>needs_review</b> = ปฏิทินตอบช้าหรือบันทึกไม่ครบ ต้องตรวจก่อน ห้ามสร้างนัดใหม่ซ้ำ</p>
+      </div></div>
+  </div>
+
+  <h3>Sales Brief หลังยืนยันนัด</h3>
+  <div class="mk" data-dir="a" style="display:grid;gap:8px;max-width:640px">
+    <h4 style="font-size:15px">นัด 20 พ.ย. 13:30 · บริษัทตัวอย่าง คลังสินค้า จำกัด</h4>
+    <dl class="brief">
+      <dt>เป้าหมาย</dt><dd>อยากได้ลูกค้าเช่าคลังโซนบางนาเพิ่ม<span class="lbl c">ลูกค้ายืนยัน</span></dd>
+      <dt>ผู้เข้าร่วม</dt><dd>คุณบี (ผู้จัดการฝ่ายขาย) · ผู้ตัดสินใจ: ยังไม่ทราบ</dd>
+      <dt>ข้อค้นพบ</dt><dd>3 จุด มีหลักฐาน · ยังไม่ได้ทดสอบคำตอบ AI</dd>
+      <dt>ทีมเว็บ</dt><dd>มี agency ดูแล<span class="lbl g">ระบบคาดเดา</span></dd>
+      <dt>ต้องถาม</dt><dd>งบประมาณ, ใครอนุมัติ, กำหนดเวลา</dd>
+      <dt>หลังคุย</dt><dd>เซลส์เลือก: ต้องข้อมูลเพิ่ม · นัดผู้ตัดสินใจ · เตรียมข้อเสนอ · พักไว้ · ไม่เหมาะ</dd>
+    </dl>
+    <p class="sm">AI ร่างสรุปหลังคุยได้ แต่เรื่องขอบเขต ราคา และคำรับปาก คนต้องตรวจก่อนส่ง</p>
+  </div>
+
+  <h3>สิ่งที่ต้องได้จากคุณก่อนทำ 06A</h3>
+  <ol class="ask">
+    <li><b>LINE OA และ Messaging API</b>: ใช้ OA ตัวที่ผูกอยู่แล้วในหน้าตั้งค่าหรือไม่ และเปิดใช้ <b>LIFF</b> ได้ไหม</li>
+    <li><b>ปฏิทินที่ทีมใช้จริง</b> (Google Calendar, Outlook หรือยังไม่มี) ถ้ายังไม่มี 06A-1 ใช้ “ขอให้ติดต่อกลับ” ไปก่อน</li>
+    <li><b>กติกานัด</b>: เวลาทำงาน, วันหยุด, เวลาคั่นระหว่างนัด, จองล่วงหน้าได้กี่วัน, ใครรับนัดได้กี่นัดต่อวัน</li>
+    <li><b>นโยบายเตือน</b>: เตือนกี่รอบ ก่อนกี่ชั่วโมง และข้อความ (ต้องอนุมัติก่อนเปิดใช้)</li>
+    <li><b>ยืนยันให้ปิดช่องผูก LINE ด้วยโดเมน</b> ที่พบในโค้ด (เปลี่ยนพฤติกรรมเดิมของบอต)</li>
+  </ol>
+  <p class="sm" style="font-size:14px;color:var(--muted)">ตอนทดสอบใช้ LINE และปฏิทินจำลองกับกล่องข้อความทดสอบ ไม่ส่งข้อความจริง flag ปิดไว้เป็นค่าเริ่มต้น ข้อความ PROMPT 06A ฉบับเต็มใช้ตามที่คุณเขียน โดยทำส่วน 1–5 และ “ขอนัด” ในช่วง 06A-1 แล้วทำส่วน 6–8 ในช่วง 06A-2</p>
+</section>
+
+<!-- DESIGN IDEAS -->
+<section id="design">
+  <div class="sec-head"><span class="eyebrow">ส่วน D</span><h2>ไอเดียออกแบบ: “แฟ้มหลักฐาน”</h2>
+  <p>ความน่าเชื่อถือแบบ B2B มาจากการบอกว่าเราตรวจอะไร กี่หน้า เมื่อไร ไม่ได้มาจากตัวเลขใหญ่หรือกราฟเคลื่อนไหว ทุกอย่างทำได้ด้วย HTML/CSS และ Jinja เดิม ไม่ต้องเพิ่ม React หรือระบบ build</p></div>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>แนว A รายงานที่ปรึกษา</th><th>แนว B ห้องแล็บโปร่งใส</th></tr></thead>
+    <tbody>
+      <tr><td>ความรู้สึก</td><td>สุขุม เหมือนรายงานจากบริษัทที่ปรึกษา</td><td>สะอาด ทันสมัย เหมือนเครื่องมือวัด</td></tr>
+      <tr><td>สี</td><td>น้ำเงินหมึก + ทองหม่นจุดเดียว + พื้นกระดาษอุ่น</td><td>ขาว + เขียวน้ำทะเลสีเดียว + เทาเย็น</td></tr>
+      <tr><td>ตัวอักษร</td><td>หัวข้อ IBM Plex Sans Thai · เนื้อ Noto Sans Thai</td><td>หัวข้อ Anuphan · เนื้อ Noto Sans Thai</td></tr>
+      <tr><td>ลายเซ็น</td><td>เลขหัวข้อ § แบบเอกสาร เส้นหนาบนการ์ด</td><td>มุมโค้ง ตัวเลขเรียงคอลัมน์ ช่องไฟกว้าง</td></tr>
+      <tr><td>เหมาะกับ</td><td>ผู้ซื้อฝั่งอสังหาฯ อุตสาหกรรม ผู้บริหารอาวุโส</td><td>agency และ studio ที่คุ้นกับเครื่องมือ</td></tr>
+    </tbody></table></div>
+  <p class="sm" style="font-size:14px;color:var(--muted)">ฟอนต์ทั้งหมดเป็นสัญญาอนุญาต OFL ใช้ฟรี ถ้า repo มีฟอนต์อยู่แล้วให้ใช้ของเดิมก่อน กดปุ่มสลับแนวด้านบนเพื่อดูภาพตัวอย่างทั้งหน้าในอีกแนว</p>
+
+  <div class="ideas">
+    <div class="idea"><h3>หน้ายืนยันบริบทธุรกิจ (04B)</h3>
+      <p>ระบบเดา ลูกค้าแก้ได้ในหน้าเดียว ทุกค่าบอกที่มา คำถามที่แนะนำไม่ได้อ้างว่าเป็นปริมาณการค้นหาจริง</p>
+      <div class="mk" data-dir="a"><div class="ctx">
+        <h4 style="font-size:15px">เราเข้าใจธุรกิจคุณถูกไหม</h4>
+        <div class="row"><span class="k sm">บริการหลัก</span><span>ให้เช่าคลังสินค้า</span><span class="btn2">แก้</span></div>
+        <div class="row"><span class="k sm">พื้นที่</span><span>บางนา, สมุทรปราการ</span><span class="btn2">แก้</span></div>
+        <div class="row"><span class="k sm">ลูกค้าของคุณ</span><span>ผู้นำเข้า, อีคอมเมิร์ซ</span><span class="btn2">แก้</span></div>
+        <p class="sm">ค่าทั้งหมดอ่านจากหน้าเว็บของคุณ ถ้าถูกแล้วกดยืนยัน</p>
+        <span class="btn">ยืนยันข้อมูลนี้</span>
+      </div></div></div>
+
+    <div class="idea"><h3>หน้ารายงานตัวอย่าง (07)</h3>
+      <p>แถบเข้มด้านบนตรึงตลอดหน้า ใช้ชื่อบริษัทสมมติที่ดูออกว่าสมมติ ไม่นับเข้าสถิติธุรกิจหรือ leads</p>
+      <div class="mk sample" data-dir="a" style="display:grid;gap:8px">
+        <h4 style="font-size:15px">บริษัทตัวอย่าง โลจิสติกส์ จำกัด</h4>
+        <span class="sm">วันที่ตรวจ 1 พ.ย. 2569 · ตรวจ <span class="num">5</span> หน้า</span>
+        <div class="card"><span class="st absent"><i></i>หน้าบริการไม่ระบุพื้นที่ให้บริการ</span><span class="sm">หลักฐาน: ข้อความในหน้า /services ไม่มีชื่อจังหวัดหรือเขต</span></div>
+      </div></div>
+
+    <div class="idea"><h3>สามทางเลือกบนหน้าแรก (02-full)</h3>
+      <p>บอกตรงๆ ว่าทำเองได้ ให้ทีมเดิมทำได้ หรือให้เราช่วย ลดแรงกดดัน ผู้ซื้อ B2B ชอบมีทางเลือก</p>
+      <div class="mk" data-dir="a" style="display:grid;gap:8px">
+        <div class="card"><h4 style="font-size:14px">ทำเอง</h4><span class="sm">ใช้รายงานและตัวอย่างข้อความ ไม่มีค่าใช้จ่าย</span></div>
+        <div class="card"><h4 style="font-size:14px">ให้ทีมเว็บเดิมทำ</h4><span class="sm">ส่งรายการงานพร้อมหลักฐานให้ทีมของคุณ</span></div>
+        <div class="card"><h4 style="font-size:14px">ให้เราช่วยตามขอบเขต</h4><span class="sm">ราคา: ประเมินตามขอบเขต</span></div>
+      </div></div>
+  </div>
+
+  <div class="sec-head" id="inspo" style="margin-top:18px"><span class="eyebrow">แรงบันดาลใจจาก threeui · ทำด้วย HTML/CSS ล้วน</span><h3 style="font-size:22px">เอาความว้าวมาใช้ โดยไม่ต้องเพิ่ม React หรือภาพ 3 มิติ</h3>
+  <p>threeui โดดเด่นเรื่องฉากที่มีมิติ แสงตามเมาส์ ผิวกระดาษกับเม็ดฟิล์ม และตัวอักษรขนาดใหญ่ เราเลือกเฉพาะเทคนิคที่ช่วยให้อ่านหลักฐานได้ง่ายขึ้น ทุกชิ้นด้านล่างยังอ่านได้เมื่อปิด JavaScript และหยุดเคลื่อนไหวเมื่อผู้ใช้ตั้งค่าลดการเคลื่อนไหว</p></div>
+  <div class="tbl"><table>
+    <thead><tr><th>สิ่งที่เห็นใน threeui</th><th>ฉบับ เจอ.AI</th><th>ทำไมไม่ผิดกฎ</th></tr></thead>
+    <tbody>
+      <tr><td>ฉากดาวและสันเขาซ้อนชั้น</td><td><b>แผนที่หน้าเว็บที่ตรวจ</b> จุดแต่ละจุดคือหน้าที่อ่านจริง เส้นคือลิงก์ภายใน</td><td>ทุกจุดมาจากข้อมูลการตรวจ ไม่มีจุดตกแต่ง</td></tr>
+      <tr><td>แสงที่ส่องตามเมาส์</td><td><b>แว่นส่องหลักฐาน</b> แสงจางๆ ตามเมาส์บนข้อความที่ยกมาจากหน้าเว็บ</td><td>เป็นแค่สไตล์ ไม่มีการเคลื่อนไหวเอง ใช้ JS ไม่กี่บรรทัด</td></tr>
+      <tr><td>การ์ดหมุนเทียบหลายแบบ</td><td><b>แถบเลื่อนเทียบก่อน/หลัง</b> ของข้อความที่เสนอให้ปรับ</td><td>เทียบข้อความจริงกับร่าง ไม่ได้อ้างผลลัพธ์</td></tr>
+      <tr><td>ผิวกระดาษ เม็ดฟิล์ม</td><td><b>พื้นกระดาษเนื้อละเอียด</b> บนรายงานแนว A</td><td>ภาพพื้นหลัง SVG ไม่กี่ร้อยไบต์ ไม่ต้องโหลดไฟล์เพิ่ม</td></tr>
+      <tr><td>ตัวอักษรใหญ่เต็มการ์ด</td><td><b>ตัวเลขจริงขนาดใหญ่</b> เช่น “5 หน้า” ตรงหัวรายงาน</td><td>ตัวเลขนิ่ง ไม่วิ่งนับ และเป็นค่าที่วัดได้จริง</td></tr>
+      <tr><td>section ที่ตรึงตอนเลื่อน</td><td><b>แถบความครอบคลุมตรึงด้านบน</b> ระหว่างอ่านรายงาน</td><td>ใช้ CSS sticky อย่างเดียว</td></tr>
+    </tbody></table></div>
+
+  <div class="ideas">
+    <div class="idea"><h3>แผนที่หน้าเว็บที่ตรวจ</h3>
+      <p>ลูกค้าเห็นทันทีว่าเราอ่านหน้าไหน หน้าไหนเปิดไม่ได้ และหน้าไหนไม่ได้อยู่ในขอบเขต</p>
+      <div class="mk grain" data-dir="a" style="display:grid;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span class="bignum num">5</span><span><b style="font-family:var(--m-h)">หน้าที่อ่านแล้ว</b><br><span class="sm">จาก 6 หน้าที่พยายามเปิด · 1 พ.ย. 2569 14:20</span></span></div>
+        <svg class="sitemap" viewBox="0 0 320 190" role="img" aria-label="แผนที่หน้าเว็บ: หน้าแรกเชื่อมกับหน้าบริการ 2 หน้า หน้าเกี่ยวกับเรา และหน้าบทความ ซึ่งอ่านได้ทั้งหมด หน้าติดต่อเปิดไม่ได้ และหน้าราคาอยู่นอกขอบเขต">
+          <g class="edges">
+            <line x1="160" y1="40" x2="70" y2="105"/><line x1="160" y1="40" x2="160" y2="115"/><line x1="160" y1="40" x2="255" y2="100"/>
+            <line x1="70" y1="105" x2="45" y2="165"/><line x1="160" y1="115" x2="130" y2="168"/><line x1="255" y1="100" x2="280" y2="160"/>
+            <line class="out" x1="160" y1="115" x2="215" y2="165"/>
+          </g>
+          <g class="nodes">
+            <circle class="ok" cx="160" cy="40" r="10"/><circle class="ok" cx="70" cy="105" r="8"/><circle class="ok" cx="160" cy="115" r="8"/>
+            <circle class="ok" cx="255" cy="100" r="8"/><circle class="ok" cx="45" cy="165" r="6"/>
+            <circle class="fail" cx="130" cy="168" r="6"/><circle class="skip" cx="215" cy="165" r="6"/><circle class="skip" cx="280" cy="160" r="6"/>
+          </g>
+          <g class="labels">
+            <text x="176" y="44">หน้าแรก</text><text x="18" y="96">บริการ: คลังสินค้า</text><text x="170" y="119">บริการ: ขนส่ง</text>
+            <text x="232" y="86">เกี่ยวกับเรา</text><text x="14" y="186">บทความ</text><text x="88" y="186">ติดต่อ</text><text x="196" y="186">ราคา</text><text x="262" y="186">ข่าว</text>
+          </g>
+        </svg>
+        <div class="legend"><span class="st found"><i></i>อ่านแล้ว</span><span class="st down"><i></i>เปิดไม่ได้</span><span class="st untested"><i></i>นอกขอบเขต 5 หน้า</span></div>
+      </div></div>
+
+    <div class="idea"><h3>แว่นส่องหลักฐาน</h3>
+      <p>เลื่อนเมาส์บนข้อความที่ยกมา แสงจางๆ จะตามไป ให้ความรู้สึกว่ากำลังตรวจของจริง บนมือถือเป็นการ์ดปกติ</p>
+      <div class="mk" data-dir="a"><div class="card lit" id="lit">
+        <span class="sm">หลักฐาน 1 จาก 2 · <span class="num">/services/warehouse</span> · บันทึก 1 พ.ย. 2569 14:21</span>
+        <blockquote class="quote">“เรามีคลังสินค้าพร้อมให้เช่าหลายขนาด รองรับทั้งสินค้าทั่วไปและสินค้าควบคุมอุณหภูมิ”</blockquote>
+        <span class="st absent"><i></i>ไม่มีชื่อพื้นที่หรือจังหวัดในย่อหน้านี้</span>
+      </div></div></div>
+
+    <div class="idea"><h3>เทียบก่อน/หลัง</h3>
+      <p>เลื่อนแถบเพื่อเทียบข้อความเดิมกับร่างที่เสนอ ใช้เป็น “ตัวอย่างร่างปรับปรุง 1 ชิ้น” ในรายงานตามที่ขั้น 05 กำหนด</p>
+      <div class="mk" data-dir="a" style="display:grid;gap:8px">
+        <div class="ba" id="ba">
+          <div class="ba-l before"><span class="sm">ข้อความเดิม</span><p>เรามีคลังสินค้าพร้อมให้เช่าหลายขนาด รองรับทั้งสินค้าทั่วไปและสินค้าควบคุมอุณหภูมิ</p></div>
+          <div class="ba-l after"><span class="sm">ร่างที่เสนอ (ยังไม่เผยแพร่)</span><p>คลังสินค้าให้เช่าที่บางนา กม.19 สมุทรปราการ ขนาด 500–5,000 ตร.ม. รองรับสินค้าทั่วไปและควบคุมอุณหภูมิ</p></div>
+        </div>
+        <label class="sm" for="baRange">เลื่อนเพื่อเทียบ</label>
+        <input type="range" id="baRange" min="0" max="100" value="50">
+        <p class="sm">ตัวเลขในร่างเป็นตัวอย่าง ของจริงต้องให้ลูกค้ายืนยันข้อเท็จจริงก่อน</p>
+      </div></div>
+  </div>
+
+  <h3>สิ่งที่ไม่ใส่ในงานออกแบบ (ตรวจทุกภาพก่อนส่ง)</h3>
+  <div class="dont">
+    <div>ตัวเลขวิ่งนับขึ้น</div><div>โลโก้ลูกค้าที่ไม่ได้อนุญาต</div><div>รีวิวหรือคำชมที่แต่งขึ้น</div>
+    <div>% ความคืบหน้าที่ไม่ได้วัดจริง</div><div>ปุ่ม play เมื่อยังไม่มีวิดีโอ</div><div>ภาพหุ่นยนต์ แสงนีออน กระจกเบลอหนาๆ</div>
+    <div>“ไม่ได้ทดสอบ” แสดงเป็น 0</div><div>ผลค้นเว็บติดป้ายว่าเป็นผลจาก AI</div><div>รับประกันอันดับหรือยอดขาย</div>
+  </div>
+</section>
+
+<!-- LATER WAVES -->
+<section id="later">
+  <div class="sec-head"><span class="eyebrow">ส่วน C · ระลอก 2–5</span><h2>ขั้นถัดไป และตัวอย่างที่คุณจะเห็นก่อน</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>ระลอก</th><th>ขั้น</th><th>ตัวอย่างก่อนตัดสินใจ</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="8">2</td><td>01-full ชิ้นส่วนที่เหลือ</td><td>สมุดชิ้นส่วนฉบับเต็ม (กล่องวิดีโอ, แถบปุ่มมือถือ, หน้าว่าง)</td></tr>
+      <tr><td>02-full หน้าแรกเต็ม</td><td>mockup หน้าแรกทั้งหน้า มือถือและจอใหญ่</td></tr>
+      <tr><td>04B ยืนยันบริบท</td><td>หน้ายืนยันบริบท (ภาพด้านบน)</td></tr>
+      <tr><td>05-full รายงานเต็ม</td><td>รายงานตัวอย่าง 7 กรณี: ครบ, บางส่วน, ไม่มี AI, ผู้ให้บริการล่ม, ข้อมูลเก่าแบบค้นเว็บ, แก้บริบท, เปลี่ยนชุดคำถาม</td></tr>
+      <tr><td>03 หน้าบริการ 3 หน้า + /partners</td><td>wireframe + ตาราง “สิ่งที่ส่งมอบ / ไม่รวม / ลูกค้าต้องเตรียม”</td></tr>
+      <tr><td>07 เฉพาะที่มีของ</td><td>หน้ารายงานตัวอย่าง + หน้าว่างเมื่อยังไม่มีเคสหรือวิดีโอ</td></tr>
+      <tr><td>08A QA/SEO</td><td>ภาพหน้าจอจริง 4 ขนาด + รายการลิงก์เสีย</td></tr>
+      <tr><td>08B Analytics</td><td>แผนภาพ funnel + ตารางเหตุการณ์ ไม่มีข้อมูลส่วนตัว</td></tr>
+      <tr><td rowspan="5">3</td><td>10 คิว/อนุมัติ/งบ</td><td>แผนภาพ “งานหนึ่งชิ้นเดินทางอย่างไร” + ตารางว่างานตั้งเวลาเดิมตัวไหนย้ายรอบไหน</td></tr>
+      <tr><td>06A-2 LINE เลือกเวลา/เตือน/เลื่อน</td><td>หน้าเลือกเวลา, ข้อความยืนยันและเตือน, สถานะนัด (ดูหัวข้อ 06A)</td></tr>
+      <tr><td>06A-1 (ทำไปแล้วในระลอก 2)</td><td>การ์ดชวนคุยใน LINE + ลิงก์ผูกบัญชี + ปุ่มคุยกับทีมงาน</td></tr>
+      <tr><td>09 Today / Customer 360</td><td>mockup หน้า Today แยกตามบทบาท + รายงานทดลองว่ามีลูกค้าซ้ำกี่ราย (ไม่แก้ข้อมูลจริง)</td></tr>
+      <tr><td>11 ขาย/ติดตาม</td><td>แผนภาพสถานะดีล + ตารางเทียบสถานะเดิมกับใหม่</td></tr>
+      <tr><td rowspan="7">4</td><td>04C ทดสอบ AI จริง</td><td>ตารางค่าใช้จ่ายต่อรายงาน + เพดานงบ (ต้องอนุมัติ API เสียเงินแยก)</td></tr>
+      <tr><td>14 AI Orchestrator</td><td>ตาราง 4 ระดับอำนาจ: ร่างภายใน → ใช้งบจำกัด → ติดต่อ/เผยแพร่ → ตัดสินใจการค้า</td></tr>
+      <tr><td>15 Delivery</td><td>mockup หน้าลูกค้า “รอคุณอยู่ / กำลังทำ / เสร็จแล้ว”</td></tr>
+      <tr><td>16 Publish / ผล</td><td>รายงานผลรายเดือนตัวอย่าง รวมกรณี “ข้อมูลยังไม่พอสรุป”</td></tr>
+      <tr><td>12 Growth Studio</td><td>แผนภาพหลักฐาน: ส่วนตัว → อนุมัติเผยแพร่ → ถอนสิทธิ์</td></tr>
+      <tr><td>13 Partner</td><td>mockup พื้นที่พาร์ตเนอร์ + ตารางว่าใครเห็นอะไรได้</td></tr>
+      <tr><td>17 รายได้/ต้นทุน</td><td>dashboard จากข้อมูลสมมติที่รู้ผลรวมล่วงหน้า เพื่อตรวจว่าไม่นับซ้ำ</td></tr>
+      <tr><td>5</td><td>18 → 19</td><td>checklist UAT ภาษาไทยแยกตามบทบาท + คำขอ production ที่ยังไม่ได้รัน</td></tr>
+    </tbody></table></div>
+  <h3>รอบการทำงานแต่ละขั้น</h3>
+  <div class="why">
+    <div><b>1. ตัวอย่าง</b><br>Claude ทำ mockup หรือรายงานตัวอย่างก่อน คุณตอบว่าผ่านหรือแก้</div>
+    <div><b>2. ลงมือ</b><br>ส่ง Prompt ขั้นนั้นจากเอกสาร พร้อมหมายเหตุแก้ด้านล่าง</div>
+    <div><b>3. ตรวจ</b><br>ใช้ Review Prompt ในเอกสาร แล้วคุณดู checklist ก่อนไปขั้นต่อ</div>
+  </div>
+</section>
+
+<!-- OWNER -->
+<section id="owner">
+  <div class="sec-head"><span class="eyebrow">ส่วน F</span><h2>สิ่งที่ต้องได้จากคุณ</h2></div>
+  <ol class="ask">
+    <li><b>repo อยู่ที่ไหน</b> (server และโฟลเดอร์) และอนุญาตให้ Claude อ่านได้หรือไม่ ต้องมีก่อนเริ่มขั้น 0</li>
+    <li><b>แนวดีไซน์</b> A หรือ B (หรือผสม) ตัดสินที่ประตู 1</li>
+    <li><b>กลุ่มธุรกิจที่ 2</b> นอกจากอสังหาฯ เชิงพาณิชย์/อุตสาหกรรม ตัดสินก่อนทำหน้า /solutions ที่สอง</li>
+    <li><b>สำหรับ 06A</b>: LINE OA/LIFF, ปฏิทินที่ใช้จริง, กติกานัด และนโยบายเตือน (รายละเอียดในหัวข้อ 06A)</li>
+    <li><b>ของจริงที่มีแล้ว</b>: วิดีโอ, เคสที่ลูกค้าอนุญาต, ราคา, ข้อความกฎหมาย, ระบบนัดหมาย เตรียมคู่ขนานได้ตั้งแต่วันนี้</li>
+  </ol>
+</section>
+
+<!-- PROMPT AMENDMENTS -->
+<section id="prompts">
+  <div class="sec-head"><span class="eyebrow">ใช้ตอนสั่ง Claude Code จริง</span><h2>ข้อความแก้ Prompt</h2>
+  <p>วางต่อท้าย MASTER PROMPT เพื่อให้ลำดับและการรวมขั้นเป็นไปตามแผนนี้ ข้อกำหนดเดิมทุกข้อยังมีผล</p></div>
+  <div class="copyrow"><span class="eyebrow">PLAN AMENDMENT</span><button class="copy" type="button" id="copyBtn">คัดลอก</button></div>
+<pre class="prompt" id="amend">PLAN AMENDMENT (owner-approved ordering; all MASTER PROMPT rules still apply)
+- Stage 00 also creates docs/rebuild/METRIC_DICTIONARY.md (single definition of the six measurement families, unknown/not-tested semantics, denominators) and OWNER_ASSET_CHECKLIST.md. Later stages reference these instead of redefining.
+- Before any stage with UI, first produce a preview (static mockup or local preview screenshots) and stop for owner approval before implementation.
+- Wave 1 vertical slice, in order: 01-lite (only components the slice needs) -> 02-lite (hero, URL form, checked/not-checked list, short FAQ) -> 04A (quick snapshot only) -> 05-core (summary, four separated metric lanes, coverage, three evidenced actions, request-plan CTA) -> 06-core (request form, central consent record, callback fallback, staff brief). Stop for owner mobile walkthrough.
+- Split 04 into 04A quick snapshot, 04B context confirmation, 04C paid AI testing. 04C is deferred until stage 10 budget reservation exists.
+- Split 08 into 08A QA/SEO and 08B analytics.
+- Booking/callback and consent are built once in 06; stages 03 and 07 link to them.
+- Approval primitive is built once in 10; 14 and 16 reuse it. Event names are defined once in 08B; 17 extends them.
+- Insert PROMPT 06A (LINE Appointment & Sales Handoff) in two parts. 06A-1 (wave 2, after 06-core): report-to-LINE entry, scoped expiring link tokens for LINE identity, ask only missing context, human handoff with AI pause, appointment status "requested" only (reuse existing wants_call callback flow). 06A-2 (wave 3, after 10): real availability via LIFF or web page, confirm/reminder/reschedule/cancel/no-show, appointment version history, Sales Brief in Today/Customer 360.
+- Before 06A-1: remove domain-based LINE-to-lead linking in app/pipeline.py line_site_request (it attaches any LINE user to an existing lead by typed domain and replies with that lead's report link). Add webhookEventId dedup to /line/webhook.
+- Order backend as 10 -> 06A-2 -> 09 -> 11. Stage 09 starts with a dry-run duplicate/merge report before any UI.
+- Stage 03 initially: /how-it-works, /services/foundation-sprint, /solutions/industrial-property and /partners. Remaining pages wait for owner choice of second segment.</pre>
+</section>
+
+<footer>เอกสารต้นทาง: JorAI_Complete_Claude_Code_Implementation_Guide.md (14 พ.ย. 2569) · ภาพตัวอย่างทั้งหมดใช้ข้อมูลสมมติ ยังไม่ได้ตรวจโค้ดจริงใน repo</footer>
+</div>
+
+<script>
+(function(){
+  var btns=[document.getElementById('dirA'),document.getElementById('dirB')];
+  function setDir(d){
+    document.querySelectorAll('.mk').forEach(function(m){m.setAttribute('data-dir',d)});
+    btns.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.dir===d))});
+    try{localStorage.setItem('jorai-dir',d)}catch(e){}
+  }
+  btns.forEach(function(b){b.addEventListener('click',function(){setDir(b.dataset.dir)})});
+  try{var s=localStorage.getItem('jorai-dir');if(s==='a'||s==='b')setDir(s)}catch(e){}
+  var lit=document.getElementById('lit');
+  lit.addEventListener('pointermove',function(e){var r=lit.getBoundingClientRect();lit.style.setProperty('--mx',(e.clientX-r.left)+'px');lit.style.setProperty('--my',(e.clientY-r.top)+'px')});
+  var ba=document.getElementById('ba'),br=document.getElementById('baRange');
+  br.addEventListener('input',function(){ba.style.setProperty('--pos',br.value+'%')});
+  var cb=document.getElementById('copyBtn');
+  cb.addEventListener('click',function(){
+    var t=document.getElementById('amend').textContent;
+    function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById('amend'));var s=window.getSelection();s.removeAllRanges();s.addRange(r);cb.textContent='เลือกข้อความแล้ว กด Ctrl+C';}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){cb.textContent='คัดลอกแล้ว'},sel)}else{sel()}
+  });
+})();
+</script>

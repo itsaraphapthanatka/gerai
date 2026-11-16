@@ -1,0 +1,29 @@
+{# โครงหน้าเว็บสาธารณะชุดใหม่ (stage 01, flag marketing_v2) — ยังไม่ถูกใช้กับหน้าจริงจนกว่าจะเปิด flag
+   preview=True → ใส่ noindex (route ต้องใส่ header X-Robots-Tag ด้วย) #}
+<!doctype html>
+<html lang="{{ html_lang() if html_lang is defined else 'th' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}เจอ.AI{% endblock %}</title>
+{% if preview %}<meta name="robots" content="noindex, nofollow">{% endif %}
+{% block meta %}{% endblock %}
+<link rel="icon" href="/static/favicon-32.png">
+{% include "_ds.html" %}
+{% include "mk/_styles.html" %}
+{% block head %}{% endblock %}
+</head>
+<body class="mk">
+<a class="mk-skip" href="#main">ข้ามไปเนื้อหา</a>
+{% include "mk/_nav.html" %}
+<main id="main">{% block content %}{% endblock %}</main>
+{% include "mk/_footer.html" %}
+{% block actbar %}{% endblock %}
+<script>
+/* แถบปุ่มล่างจอ: โผล่เมื่อจุดที่มี data-actbar-anchor (ปุ่มหลักด้านบน) เลื่อนพ้นจอแล้ว · ไม่มี anchor = โผล่ตลอด */
+(function(){var bar=document.querySelector('.mk-actbar');if(!bar)return;var a=document.querySelector('[data-actbar-anchor]');
+if(!a||!('IntersectionObserver' in window)){bar.classList.add('mk-on');return;}
+new IntersectionObserver(function(es){bar.classList.toggle('mk-on',!es[0].isIntersecting&&es[0].boundingClientRect.top<0);}).observe(a);})();
+</script>
+</body>
+</html>

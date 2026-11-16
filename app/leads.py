@@ -68,6 +68,21 @@ EXPLAIN = {
 }
 
 
+def reusable_for(lead, *, ip: str | None = None, line_user_id: str | None = None) -> bool:
+    """ใช้ลีด/ผลตรวจเดิมของโดเมนนี้ให้ผู้ขอคนนี้ได้ไหม — ได้เฉพาะเมื่อเป็นคนเดียวกันแน่ ๆ
+    เดิมระบบใช้ลีดล่าสุดของโดเมนให้ใครก็ได้ที่พิมพ์โดเมนเดียวกัน → คนนอกได้ลิงก์รายงาน (และข้อมูลติดต่อ/ผล AI) ของลีดคนอื่น
+    · LINE: ต้องเป็น LINE user เดิม
+    · เว็บ: IP เดิม + ลีดยังเป็นผู้มาตรวจนิรนาม (ยังไม่ให้ช่องทางติดต่อ ไม่ได้ผูก LINE ไม่ได้ยินยอม)"""
+    if not lead:
+        return False
+    if line_user_id is not None:
+        return bool(line_user_id) and (lead["line_user_id"] or "") == line_user_id
+    if ip is not None:
+        anonymous = not (lead["name"] or lead["email"] or lead["contact"] or lead["line_user_id"] or lead["consent"])
+        return bool(ip) and (lead["ip"] or "") == ip and (lead["source"] or "") == "audit" and anonymous
+    return False
+
+
 def normalize_url(raw: str | None) -> str | None:
     """'example.co.th' / 'https://www.example.co.th/path' → 'https://www.example.co.th' (ใช้แค่รากเว็บ) · ไม่ใช่โดเมน → None"""
     s = (raw or "").strip()
@@ -83,6 +98,9 @@ def normalize_url(raw: str | None) -> str | None:
     if not host or "." not in host or any(ch.isspace() for ch in host) or host.endswith("."):
         return None
     if re.search(r"[^a-z0-9.\-฀-๿]", host):   # ยอมโดเมนไทย (ตัวอักษร ก-๛) และ a-z 0-9 . -
+        return None
+    from . import netguard
+    if not netguard.literal_ok(host):                 # IP ภายใน / ชื่อภายใน (เช่น 169.254.169.254) ไม่ใช่เว็บลูกค้า
         return None
     port = f":{p.port}" if p.port and p.port not in (80, 443) else ""
     return f"{p.scheme.lower()}://{host}{port}"

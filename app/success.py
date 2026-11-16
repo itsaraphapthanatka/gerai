@@ -262,6 +262,11 @@ def _risk(c: dict, key: str, text: str, done: dict) -> bool:
 
 
 def kickoff(c: dict) -> str:
+    from . import delivery
+    if delivery.on():                              # stage 15: จ่ายแล้ว ≠ พร้อม → เปิดพื้นที่งาน รอข้อมูล/สิทธิ์ ไม่สั่ง Autopilot
+        wid = delivery.open_for_quote(c["quote"])
+        _record(c, "cs_kickoff", f"เปิดพื้นที่งาน #{wid} · รอลูกค้ายืนยันข้อมูลและสิทธิ์เข้าถึง (ไม่สั่ง Autopilot)")
+        return f"เปิดพื้นที่งาน #{wid}"
     s, h, t, l = kickoff_message(c)
     how = _send(c, s, h, t, l)
     _record(c, "cs_kickoff", f"แผน 30 วัน · {how} · สั่ง Autopilot รอบแรก")
@@ -291,6 +296,14 @@ def step(c: dict, now: dt.datetime) -> list[str]:
     if "cs_kickoff" not in done:
         out.append("kickoff · " + kickoff(c))
         return out
+    from . import delivery, retention
+    ws = delivery.for_brand(b["id"]) if (delivery.on() and retention.on()) else None
+    if ws:                                         # stage 16: ลูกค้าที่มีพื้นที่งาน → ดูแลตามขั้นที่ติด ไม่ใช่ตามวันอย่างเดียว
+        def _report(month):
+            s_, h_, t_, l_ = report_message(c, month)
+            _record(c, "cs_report", f"เดือน {month} · {_send(c, s_, h_, t_, l_)}")
+            return f"report:{month}"
+        return out + retention.cs_step(c, ws, now, done, _record, _report)
     if days >= 3 and "cs_installed" not in done:
         _health(b["id"])
         ok, det = installed(b)
@@ -314,7 +327,8 @@ def step(c: dict, now: dt.datetime) -> list[str]:
                 _record(c, "cs_review_nudge", f"ร่าง {cc['draft']} ชิ้น · {_send(c, s, h, t, l)}")
                 out.append("review_nudge")
         else:
-            if not any(n.startswith("rerun") for n in done.get("cs_risk", [])) and days < 10:
+            from . import delivery
+            if not any(n.startswith("rerun") for n in done.get("cs_risk", [])) and days < 10 and delivery.autopilot_gate(b["id"])[0]:
                 _record(c, "cs_risk", "rerun: ครบ 7 วันยังไม่มีคอนเทนต์ — สั่ง Autopilot อีกรอบ")
                 _bg(lambda: _autopilot(b["id"]))
                 out.append("autopilot_rerun")

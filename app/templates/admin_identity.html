@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}รายงานทดลองจับคู่ตัวตน — เจอ.AI{% endblock %}
+{% block content %}
+<h1>รายงานทดลองจับคู่ตัวตน (dry-run)</h1>
+<div class="ok-banner">อ่านอย่างเดียว · ไม่มีการรวม สร้าง หรือแก้ข้อมูล (เขียน {{ r.writes }} แถว)</div>
+<p class="muted">จับกลุ่มลีด แบรนด์ลูกค้า และพันธมิตรตามโดเมน แล้วหาจุดที่อาจเป็นคนเดียวกันหรือชนกัน เพื่อให้เจ้าของตัดสินใจก่อนสร้างตารางบัญชีกลาง (account)</p>
+<div class="card">
+  <p>กลุ่มโดเมน <b>{{ r.counts.groups }}</b> · ลีด {{ r.counts.leads }} · แบรนด์ {{ r.counts.brands }} · พันธมิตร {{ r.counts.partners }} · โดเมนที่เป็นทั้งลีดและลูกค้า {{ r.counts.with_customer }}</p>
+  <p>{% for k, n in r.by_kind.items() %}{{ k }}: <b>{{ n }}</b>{% if not loop.last %} · {% endif %}{% else %}ไม่พบความขัดแย้ง{% endfor %}</p>
+</div>
+{% if r.conflicts %}
+<div class="card" style="margin-top:14px;overflow-x:auto"><table>
+  <thead><tr><th>ประเภท</th><th>โดเมน</th><th>รายละเอียด</th><th>แถวที่เกี่ยวข้อง</th></tr></thead>
+  <tbody>{% for c in r.conflicts %}<tr><td>{{ c.label }}</td><td>{% if c.key and "," not in c.key %}<a href="/admin/c360/{{ c.key }}">{{ c.key }}</a>{% else %}{{ c.key }}{% endif %}</td>
+    <td>{{ c.detail }}</td><td class="muted" style="font-size:12px">{{ c.ids|join(", ") }}</td></tr>{% endfor %}</tbody>
+</table></div>{% endif %}
+{% endblock %}

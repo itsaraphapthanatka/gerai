@@ -454,6 +454,316 @@ def _tables() -> list[str]:
             api_key TEXT,
             created_at TEXT NOT NULL
         )""",
+        # LINE ส่ง event ซ้ำได้ (redelivery) — จำ webhookEventId ที่ทำไปแล้ว กันตอบ/ตรวจซ้ำ
+        """CREATE TABLE IF NOT EXISTS line_events_seen (
+            event_id TEXT PRIMARY KEY,
+            seen_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS plan_requests (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            idem_key TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            role TEXT,
+            contact_channel TEXT NOT NULL,
+            contact_value TEXT NOT NULL,
+            desired_window TEXT,
+            web_readiness TEXT,
+            budget TEXT,
+            message TEXT,
+            consents_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'stored',
+            ip TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        # stage 04B: ข้อมูลธุรกิจที่ลูกค้ายืนยัน — เก็บทุกเวอร์ชัน ไม่แก้ทับ (DATA_CONTRACTS §1)
+        f"""CREATE TABLE IF NOT EXISTS business_contexts (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            updated_by TEXT NOT NULL,
+            fields_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (lead_id, version)
+        )""",
+        # stage 06A-2: นัดคุย (DATA_CONTRACTS §6) — แยกจากสถานะดีล · version + history ทุกครั้งที่เปลี่ยน · นัดสำเร็จ = ทีมยืนยันเท่านั้น
+        f"""CREATE TABLE IF NOT EXISTS appointments (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            plan_id INTEGER,
+            line_user_id TEXT,
+            status TEXT NOT NULL,
+            slot_start TEXT,
+            duration_min INTEGER NOT NULL DEFAULT 30,
+            timezone TEXT NOT NULL DEFAULT 'Asia/Bangkok',
+            format TEXT NOT NULL DEFAULT 'video',
+            version INTEGER NOT NULL DEFAULT 1,
+            history_json TEXT NOT NULL DEFAULT '[]',
+            confirmed_by TEXT,
+            confirmed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 18: lease ของตัวตั้งเวลา (กันหลายโปรเซสวิ่งรอบเดียวกัน)
+        """CREATE TABLE IF NOT EXISTS scheduler_leases (
+            name TEXT PRIMARY KEY,
+            owner TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        # stage 17: คืนเงิน/ลดหนี้ (กันซ้ำด้วย ref) และต้นทุนที่กรอกเอง (จริง/ประมาณ) — ไม่แก้เอกสารบัญชีเดิม
+        f"""CREATE TABLE IF NOT EXISTS finance_adjustments (
+            id {_PK},
+            kind TEXT NOT NULL,
+            amount REAL NOT NULL,
+            ref TEXT NOT NULL UNIQUE,
+            lead_id INTEGER,
+            quote_id INTEGER,
+            receipt_id INTEGER,
+            note TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS cost_entries (
+            id {_PK},
+            category TEXT NOT NULL,
+            alloc TEXT NOT NULL,
+            amount_thb REAL NOT NULL,
+            period TEXT NOT NULL,
+            basis TEXT NOT NULL,
+            note TEXT,
+            lead_id INTEGER,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        # stage 16: คำขอเผยแพร่ — อนุมัติผูกเนื้อหา/ปลายทาง/เวอร์ชัน · ต้องยืนยันจากปลายทาง · เก็บเวอร์ชันที่เผยแพร่ไว้คืนได้
+        f"""CREATE TABLE IF NOT EXISTS publish_requests (
+            id {_PK},
+            content_id INTEGER NOT NULL,
+            brand_id INTEGER NOT NULL,
+            destination TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            idem_key TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL,
+            checks_json TEXT,
+            approval_id INTEGER,
+            prior_request_id INTEGER,
+            remote_id TEXT,
+            remote_link TEXT,
+            published_snapshot_json TEXT,
+            error TEXT,
+            requested_by TEXT,
+            reviewed_by TEXT,
+            approved_by TEXT,
+            published_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_publish_requests_content ON publish_requests(content_id, status)""",
+        # stage 15: พื้นที่งานส่งมอบต่อแบรนด์ · ขอบเขตมีเวอร์ชัน · งานแต่ละชิ้น (ไม่แตะสิทธิ์แพ็กเกจเดิม)
+        f"""CREATE TABLE IF NOT EXISTS delivery_workspaces (
+            id {_PK},
+            brand_id INTEGER NOT NULL UNIQUE,
+            tenant_id INTEGER,
+            lead_id INTEGER,
+            quote_id INTEGER,
+            state TEXT NOT NULL,
+            approver TEXT,
+            facts_version INTEGER,
+            facts_hash TEXT,
+            access_json TEXT,
+            publish_allowed INTEGER NOT NULL DEFAULT 0,
+            baseline_json TEXT,
+            baseline_at TEXT,
+            plan_approved_at TEXT,
+            plan_approved_by TEXT,
+            blocked_reason TEXT,
+            cancelled_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS delivery_scopes (
+            id {_PK},
+            workspace_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            scope_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            accepted_at TEXT,
+            accepted_by TEXT,
+            UNIQUE(workspace_id, version)
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS delivery_items (
+            id {_PK},
+            workspace_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            target TEXT,
+            evidence_json TEXT,
+            owner TEXT NOT NULL,
+            acceptance TEXT,
+            status TEXT NOT NULL,
+            depends_on INTEGER,
+            facts_hash TEXT,
+            scope_version INTEGER,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_delivery_items_ws ON delivery_items(workspace_id, status)""",
+        # stage 14: บันทึกทุกครั้งที่เอเจนต์ขอทำงาน — ใครขอ ระดับอำนาจ ผลการตัดสิน เหตุผล (ข้อมูลส่วนตัวถูกปิดก่อนบันทึก)
+        f"""CREATE TABLE IF NOT EXISTS agent_actions (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            source TEXT NOT NULL,
+            actor TEXT,
+            tool TEXT NOT NULL,
+            level TEXT,
+            lead_id INTEGER,
+            task_id INTEGER,
+            args_redacted TEXT,
+            args_hash TEXT,
+            decision TEXT NOT NULL,
+            reason TEXT,
+            approval_id INTEGER,
+            cost_est REAL NOT NULL DEFAULT 0,
+            status TEXT,
+            result TEXT,
+            finished_at TEXT
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_agent_actions_tool ON agent_actions(tool, args_hash, created_at)""",
+        # stage 04C: คำตอบ AI ที่จ่ายแล้วต่องาน — งานเดิมที่ทำซ้ำหลังเครื่องล่มใช้ของเดิม ไม่จ่ายซ้ำ
+        """CREATE TABLE IF NOT EXISTS ai_answer_cache (
+            cache_key TEXT PRIMARY KEY,
+            job_key TEXT NOT NULL,
+            response_json TEXT NOT NULL,
+            cost_usd REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )""",
+        # stage 10: คิวงานถาวร — at-least-once + lease + idempotency (ผลภายนอกต้อง idempotent เอง ผ่าน outbox)
+        f"""CREATE TABLE IF NOT EXISTS jobs (
+            id {_PK},
+            kind TEXT NOT NULL,
+            idem_key TEXT NOT NULL UNIQUE,
+            payload_json TEXT NOT NULL DEFAULT '{{}}',
+            lead_id INTEGER,
+            channel TEXT,
+            status TEXT NOT NULL DEFAULT 'queued',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            max_attempts INTEGER NOT NULL DEFAULT 5,
+            available_at TEXT NOT NULL,
+            lease_owner TEXT,
+            lease_until TEXT,
+            cancel_requested INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            note TEXT,
+            result_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            finished_at TEXT
+        )""",
+        """CREATE INDEX IF NOT EXISTS ix_jobs_due ON jobs(status, available_at)""",
+        # จุดหยุด: global (kill switch) / workflow (kind) / channel / account (lead) — เช็กทั้งตอนเข้าคิวและตอนจะทำ
+        """CREATE TABLE IF NOT EXISTS job_pauses (
+            scope TEXT NOT NULL,
+            key TEXT NOT NULL,
+            reason TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (scope, key)
+        )""",
+        # การอนุมัติแบบผูกกับการกระทำเป๊ะ ๆ: เปลี่ยนเนื้อหา/ผู้รับ/ช่องทาง = ใช้ไม่ได้ · ใช้ได้ครั้งเดียว · หมดอายุ
+        f"""CREATE TABLE IF NOT EXISTS approvals (
+            id {_PK},
+            action TEXT NOT NULL,
+            lead_id INTEGER,
+            recipient_hash TEXT,
+            channel TEXT,
+            content_hash TEXT NOT NULL,
+            content_version INTEGER NOT NULL DEFAULT 1,
+            evidence_ref TEXT,
+            max_cost REAL NOT NULL DEFAULT 0,
+            policy TEXT NOT NULL,
+            approver TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'granted',
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT,
+            consumed_job_id INTEGER,
+            created_at TEXT NOT NULL
+        )""",
+        # จองงบก่อนเรียกบริการที่เสียเงิน → ปิดยอดด้วยค่าจริง / คืนเมื่อล้ม
+        f"""CREATE TABLE IF NOT EXISTS budget_reservations (
+            id {_PK},
+            budget_key TEXT NOT NULL,
+            day TEXT NOT NULL,
+            amount REAL NOT NULL,
+            actual REAL,
+            status TEXT NOT NULL DEFAULT 'reserved',
+            job_id INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        # outbox ผลภายนอก — stage 10 เป็นโหมดทดสอบเท่านั้น (บันทึก ไม่ส่งจริง) · idem_key กันผลซ้ำเมื่องานถูกทำซ้ำ
+        f"""CREATE TABLE IF NOT EXISTS outbox (
+            id {_PK},
+            idem_key TEXT NOT NULL UNIQUE,
+            job_id INTEGER,
+            lead_id INTEGER,
+            channel TEXT NOT NULL,
+            recipient_hash TEXT,
+            content_hash TEXT NOT NULL,
+            preview TEXT,
+            mode TEXT NOT NULL DEFAULT 'test',
+            status TEXT NOT NULL DEFAULT 'recorded',
+            created_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )""",
+        # stage 08B: เหตุการณ์ funnel ภายใน — ไม่มี IP/UA/token/URL/ข้อมูลติดต่อ · lead_id ใช้ภายในเท่านั้น
+        f"""CREATE TABLE IF NOT EXISTS analytics_events (
+            id {_PK},
+            created_at TEXT NOT NULL,
+            name TEXT NOT NULL,
+            origin TEXT NOT NULL,
+            lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+            source TEXT NOT NULL,
+            utm_source TEXT,
+            props_json TEXT NOT NULL DEFAULT '{{}}'
+        )""",
+        # stage 05-full: ประวัติเวอร์ชันรายงาน — เพิ่มอย่างเดียว · บันทึกเมื่อผลวัดเปลี่ยน (fingerprint) · ข้อมูลดิบเดิมใน leads ไม่แตะ
+        f"""CREATE TABLE IF NOT EXISTS report_versions (
+            id {_PK},
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            fingerprint TEXT NOT NULL,
+            summary_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (lead_id, version),
+            UNIQUE (lead_id, fingerprint)
+        )""",
+        # stage 06A-1: รหัสสั้นใช้ครั้งเดียว ผูกแชต LINE OA กับรายงาน (ไม่ส่ง token รายงานเข้า LINE)
+        """CREATE TABLE IF NOT EXISTS line_plan_codes (
+            code TEXT PRIMARY KEY,
+            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT,
+            used_by TEXT
+        )""",
+        # สถานะคุยต่อใน LINE ต่อผู้ใช้ 1 คน: คำถามข้อไหน · คำขอแผนไหน · บอทพักอยู่ไหม (คนในทีมตอบเอง)
+        """CREATE TABLE IF NOT EXISTS line_plan_sessions (
+            user_id TEXT PRIMARY KEY,
+            lead_id INTEGER,
+            plan_id INTEGER,
+            step TEXT,
+            paused_until TEXT,
+            fails INTEGER NOT NULL DEFAULT 0,
+            fail_at TEXT,
+            updated_at TEXT NOT NULL
+        )""",
     ]
 
 
@@ -521,6 +831,7 @@ def init_db() -> None:
         _ensure_column(c, "leads", "src", "TEXT")                      # ช่องทางที่ลีดมา (line, fb, article, direct, line_chat, prospect)
         _ensure_column(c, "leads", "deep_json", "TEXT")                # รายงานเต็มชั้น 1: ไต่เว็บ 100 หน้า + อันดับ Google
         _ensure_column(c, "leads", "deep_ai_json", "TEXT")             # รายงานเต็มชั้น 2: 20 คำถาม AI
+        _ensure_column(c, "leads", "snapshot_json", "TEXT")            # stage 04A: สถานะตรวจเว็บแบบเร็วทีละขั้น (เพิ่มอย่างเดียว)
         for col in ("buyer_name", "buyer_tax_id", "buyer_branch", "buyer_address"):   # ข้อมูลออกใบเสร็จ/ใบกำกับภาษีของผู้ซื้อ
             _ensure_column(c, "quotes", col, "TEXT")
         _ensure_column(c, "quotes", "vat_pct", "REAL DEFAULT 0")             # VAT ที่บวกเพิ่มจากราคา ณ วันออกใบ (ราคาไม่รวม VAT · 0 = ไม่บวก)
@@ -547,7 +858,12 @@ def init_db() -> None:
         for col, ddl in (("deal_value", "INTEGER"), ("next_action", "TEXT"), ("next_at", "TEXT"), ("next_kind", "TEXT"), ("next_alerted_at", "TEXT")):
             _ensure_column(c, "leads", col, ddl)
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
-        _ensure_column(c, "leads", "audit_by", "INTEGER")             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
+        _ensure_column(c, "leads", "audit_by", "INTEGER")
+        _ensure_column(c, "leads", "owner_staff_id", "INTEGER")
+        _ensure_column(c, "leads", "self_reported_source", "TEXT")       # stage 17: ลูกค้าบอกเองว่ารู้จักเราจากไหน (ทีมกรอก)
+        _ensure_column(c, "agent_tasks", "approval_id", "INTEGER")      # stage 14: การอนุมัติที่ผูกกับงานนี้ (ตรงทุกช่อง ใช้ครั้งเดียว)
+        _ensure_column(c, "leads", "opp_override", "TEXT")              # stage 11: ขั้นที่ทีมตั้งเอง (nurture) · NULL = คำนวณจากข้อมูล
+        _ensure_column(c, "leads", "lost_reason", "TEXT")               # stage 11: เหตุผลที่ไม่ได้ดีล/รอจังหวะ         # stage 09: ทีมงานที่รับผิดชอบลีด (NULL = ยังไม่มอบหมาย) · ไม่ backfill             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
         c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
             id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
         # ทีมงานหลังบ้าน (app/staff.py): บทบาท · สิทธิ์รายหมวดถ้ากำหนดเอง (JSON) · ปิดบัญชี · ประวัติการทำงาน
@@ -565,6 +881,10 @@ def init_db() -> None:
         for row in rows:
             c.execute(q("UPDATE brands SET embed_key=? WHERE id=?"),
                       (_s.token_urlsafe(16), row["id"]))
+    try:
+        record_schema_versions()                          # stage 10: บันทึกว่าโครงสร้างแต่ละขั้นถูกสร้างแล้ว (ไม่มีผลกับข้อมูล)
+    except Exception:
+        pass
 
 
 # ---- tenants ----
@@ -1399,7 +1719,7 @@ def get_sov_impact(brand_id: int):
 
 
 def get_content_gaps(brand_id: int):
-    """หา 'ช่องว่าง' คอนเทนต์: คำถามที่แบรนด์ยังไม่โผล่ใน AI จาก run ล่าสุด
+    """หา 'ช่องว่าง' คอนเทนต์: คำถามที่แบรนด์ยังไม่ปรากฏในผลค้นเว็บ (SoV = web_search_presence ไม่ใช่ AI) จาก run ล่าสุด
     จัดระดับ: critical (ไม่มีคอนเทนต์) > draft (มีร่าง) > stale (เผยแพร่แล้วยังไม่โผล่) > unmeasured
     คืน dict: has_run, last_run_at, gaps[], critical, total_gaps, q_total
     """
@@ -1455,7 +1775,7 @@ def get_content_gaps(brand_id: int):
 
 # ---- ลูกค้าเป้าหมาย (leads) + การตัดสินใจของผู้บริหารเอเจนต์ ----
 LEAD_FIELDS = {"name", "email", "contact", "consent", "status", "score", "audit_json", "audit_at", "token", "notes", "ip", "site_url", "domain",
-               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang",
+               "line_user_id", "package", "monthly_thb", "last_contacted_at", "unsub_at", "src", "deep_json", "deep_ai_json", "call_json", "exp_arm", "partner_id", "email_src", "lang", "snapshot_json",
                "deal_value", "next_action", "next_at", "next_kind", "next_alerted_at", "audit_by"}
 
 
@@ -1602,6 +1922,208 @@ def count_events(kind: str, since_ts: str) -> int:
 def get_lead_by_line_user(uid: str):
     with get_conn() as c:
         return c.execute(q("SELECT * FROM leads WHERE line_user_id=? ORDER BY id DESC LIMIT 1"), (uid,)).fetchone()
+
+
+def claim_line_event(event_id: str) -> bool:
+    """True = event นี้ยังไม่เคยทำ (จองไว้แล้ว) · False = เคยรับแล้ว ให้ข้าม · ไม่มี id = ทำได้เสมอ"""
+    if not event_id:
+        return True
+    with get_conn() as c:
+        cur = c.execute(q("INSERT INTO line_events_seen(event_id, seen_at) VALUES(?,?) ON CONFLICT (event_id) DO NOTHING"),
+                        (event_id, now()))
+        return (cur.rowcount or 0) > 0
+
+
+# ---- คำขอแผน (stage 06) · idem_key กันกดส่งซ้ำ ----
+PLAN_REQUEST_FIELDS = ("name", "role", "contact_channel", "contact_value", "desired_window", "web_readiness", "budget", "message", "consents_json", "ip")
+
+
+def add_plan_request(lead_id: int, idem_key: str, **f) -> tuple[int, bool]:
+    """คืน (id, สร้างใหม่ไหม) · idem_key เดิม = คืนแถวเดิม ไม่สร้างซ้ำ"""
+    cols = [k for k in PLAN_REQUEST_FIELDS if k in f]
+    with get_conn() as c:
+        row = c.execute(q(f"INSERT INTO plan_requests(lead_id,idem_key,{','.join(cols)},status,created_at) "
+                          f"VALUES(?,?,{','.join('?' * len(cols))},'stored',?) ON CONFLICT (idem_key) DO NOTHING RETURNING id"),
+                        (lead_id, idem_key, *[f[k] for k in cols], now())).fetchone()
+        if row:
+            return row["id"], True
+        old = c.execute(q("SELECT id, lead_id FROM plan_requests WHERE idem_key=?"), (idem_key,)).fetchone()
+        if not old or old["lead_id"] != lead_id:
+            raise ValueError("idem_key ถูกใช้กับรายงานอื่น")
+        return old["id"], False
+
+
+def update_plan_request(pid: int, **f) -> None:
+    cols = [k for k in ("contact_channel", "contact_value", "desired_window", "web_readiness", "consents_json", "status") if k in f]
+    if not cols:
+        return
+    with get_conn() as c:
+        c.execute(q(f"UPDATE plan_requests SET {', '.join(k + '=?' for k in cols)} WHERE id=?"), (*[f[k] for k in cols], pid))
+
+
+def get_plan_request(pid: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM plan_requests WHERE id=?"), (pid,)).fetchone()
+
+
+# ---- ข้อมูลธุรกิจ (stage 04B) · เพิ่มเวอร์ชันใหม่เสมอ ----
+def latest_business_context(lead_id: int):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM business_contexts WHERE lead_id=? ORDER BY version DESC LIMIT 1"), (lead_id,)).fetchone()
+
+
+def count_business_contexts(lead_id: int) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM business_contexts WHERE lead_id=?"), (lead_id,)).fetchone()["n"]
+
+
+def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int:
+    """คืนเลขเวอร์ชันใหม่ · ชนกันพร้อมกัน (UNIQUE lead_id+version) = ลองเลขถัดไป"""
+    last = None
+    for _ in range(3):
+        try:
+            with get_conn() as c:                        # error ใน with = rollback ทั้งก้อน แล้วลองใหม่ด้วย connection ใหม่
+                row = c.execute(q("SELECT COALESCE(MAX(version), 0) AS v FROM business_contexts WHERE lead_id=?"), (lead_id,)).fetchone()
+                ver = (row["v"] or 0) + 1
+                c.execute(q("INSERT INTO business_contexts(lead_id, version, updated_by, fields_json, created_at) VALUES(?,?,?,?,?)"),
+                          (lead_id, ver, updated_by, fields_json, now()))
+            return ver
+        except Exception as e:
+            last = e
+    raise RuntimeError(f"บันทึกข้อมูลธุรกิจไม่สำเร็จ ({type(last).__name__})")
+
+
+# ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
+SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests", "2026-11-16-17-revenue", "2026-11-16-18-scheduler-lease")
+
+
+def record_schema_versions() -> None:
+    with get_conn() as c:
+        for v in SCHEMA_VERSIONS:
+            if not c.execute(q("SELECT 1 FROM schema_migrations WHERE version=?"), (v,)).fetchone():
+                c.execute(q("INSERT INTO schema_migrations(version, applied_at) VALUES(?,?)"), (v, now()))
+
+
+def list_schema_versions():
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM schema_migrations ORDER BY version")).fetchall()
+
+
+# ---- เหตุการณ์ funnel ภายใน (stage 08B) ----
+def add_analytics_event(name: str, origin: str, lead_id, source: str, utm_source, props_json: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO analytics_events(created_at, name, origin, lead_id, source, utm_source, props_json) VALUES(?,?,?,?,?,?,?)"),
+                  (now(), name, origin, lead_id, source, utm_source, props_json))
+
+
+def analytics_source_of(lead_id: int) -> str | None:
+    """ที่มาของลีด = ของ audit_started ครั้งแรก"""
+    with get_conn() as c:
+        r = c.execute(q("SELECT source FROM analytics_events WHERE lead_id=? AND name='audit_started' ORDER BY id LIMIT 1"), (lead_id,)).fetchone()
+    return r["source"] if r else None
+
+
+def analytics_recent(name: str, lead_id: int, props_json: str, since: str) -> bool:
+    with get_conn() as c:
+        return c.execute(q("SELECT 1 FROM analytics_events WHERE name=? AND lead_id=? AND props_json=? AND created_at>=? LIMIT 1"),
+                         (name, lead_id, props_json, since)).fetchone() is not None
+
+
+def analytics_count_since(lead_id: int, since: str) -> int:
+    with get_conn() as c:
+        return c.execute(q("SELECT COUNT(*) AS n FROM analytics_events WHERE lead_id=? AND created_at>=?"), (lead_id, since)).fetchone()["n"]
+
+
+def list_analytics_events(limit: int = 50):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM analytics_events ORDER BY id DESC LIMIT ?"), (limit,)).fetchall()
+
+
+def analytics_summary(since: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT name, source, COUNT(*) AS n, COUNT(DISTINCT lead_id) AS leads FROM analytics_events "
+                           "WHERE created_at>=? GROUP BY name, source"), (since,)).fetchall()
+
+
+# ---- ประวัติเวอร์ชันรายงาน (stage 05-full) ----
+def list_report_versions(lead_id: int, limit: int = 20):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM report_versions WHERE lead_id=? ORDER BY version DESC LIMIT ?"), (lead_id, limit)).fetchall()
+
+
+def add_report_version(lead_id: int, fingerprint: str, summary_json: str, cap: int = 100) -> int | None:
+    """คืนเลขเวอร์ชันใหม่ · fingerprint เดิม (ผลวัดไม่เปลี่ยน) หรือครบเพดาน = None · ชนกันพร้อมกัน = ลองใหม่"""
+    for _ in range(3):
+        try:
+            with get_conn() as c:
+                if c.execute(q("SELECT 1 FROM report_versions WHERE lead_id=? AND fingerprint=?"), (lead_id, fingerprint)).fetchone():
+                    return None
+                row = c.execute(q("SELECT COALESCE(MAX(version), 0) AS v, COUNT(*) AS n FROM report_versions WHERE lead_id=?"), (lead_id,)).fetchone()
+                if (row["n"] or 0) >= cap:
+                    return None
+                ver = (row["v"] or 0) + 1
+                c.execute(q("INSERT INTO report_versions(lead_id, version, fingerprint, summary_json, created_at) VALUES(?,?,?,?,?)"),
+                          (lead_id, ver, fingerprint, summary_json, now()))
+            return ver
+        except Exception:
+            continue
+    return None
+
+
+# ---- LINE: รหัสใช้ครั้งเดียว + สถานะแชต (stage 06A-1) ----
+def active_line_code(lead_id: int, at: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_codes WHERE lead_id=? AND used_at IS NULL AND expires_at>=? ORDER BY created_at DESC LIMIT 1"),
+                         (lead_id, at)).fetchone()
+
+
+def add_line_code(code: str, lead_id: int, expires_at: str) -> None:
+    with get_conn() as c:
+        c.execute(q("INSERT INTO line_plan_codes(code, lead_id, created_at, expires_at) VALUES(?,?,?,?)"), (code, lead_id, now(), expires_at))
+
+
+def get_line_code(code: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_codes WHERE code=?"), (code,)).fetchone()
+
+
+def redeem_line_code(code: str, user_id: str, at: str) -> int | None:
+    """ใช้รหัสได้ครั้งเดียว (ทำในคำสั่งเดียว กันสองคนใช้พร้อมกัน) · คืน lead_id หรือ None"""
+    with get_conn() as c:
+        row = c.execute(q("UPDATE line_plan_codes SET used_at=?, used_by=? WHERE code=? AND used_at IS NULL AND expires_at>=? RETURNING lead_id"),
+                        (at, user_id, code, at)).fetchone()
+        return row["lead_id"] if row else None
+
+
+def get_line_session(user_id: str):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM line_plan_sessions WHERE user_id=?"), (user_id,)).fetchone()
+
+
+def save_line_session(user_id: str, **f) -> None:
+    cols = [k for k in ("lead_id", "plan_id", "step", "paused_until", "fails", "fail_at") if k in f]
+    vals = [f[k] for k in cols]
+    with get_conn() as c:
+        c.execute(q(f"INSERT INTO line_plan_sessions(user_id,{''.join(k + ',' for k in cols)}updated_at) VALUES(?,{'?,' * len(cols)}?) "
+                    f"ON CONFLICT (user_id) DO UPDATE SET {''.join(k + '=excluded.' + k + ',' for k in cols)}updated_at=excluded.updated_at"),
+                  (user_id, *vals, now()))
+
+
+def line_users_of_lead(lead_id: int) -> list[str]:
+    """บัญชี LINE ที่คุยเรื่องลีดนี้ (ผูกตรงกับลีด + ที่มาจากรหัสในรายงาน)"""
+    with get_conn() as c:
+        rows = c.execute(q("SELECT user_id FROM line_plan_sessions WHERE lead_id=?"), (lead_id,)).fetchall()
+        lead = c.execute(q("SELECT line_user_id FROM leads WHERE id=?"), (lead_id,)).fetchone()
+    out = [r["user_id"] for r in rows]
+    if lead and lead["line_user_id"] and lead["line_user_id"] not in out:
+        out.append(lead["line_user_id"])
+    return out
+
+
+def list_plan_requests(lead_id: int, limit: int = 20):
+    with get_conn() as c:
+        return c.execute(q("SELECT * FROM plan_requests WHERE lead_id=? ORDER BY id DESC LIMIT ?"), (lead_id, limit)).fetchall()
 
 
 def count_line_audits_since(uid: str, since_ts: str) -> int:
@@ -1801,7 +2323,7 @@ if __name__ == "__main__":
 
 
 # ---- งานที่ CEO แจกให้เอเจนต์ (orchestrator) ----
-TASK_FIELDS = {"status", "started_at", "finished_at", "result"}
+TASK_FIELDS = {"status", "started_at", "finished_at", "result", "approval_id"}
 
 
 def add_task(agent: str, kind: str, title: str, reason: str, args: dict, created_by: str = "ceo") -> int:

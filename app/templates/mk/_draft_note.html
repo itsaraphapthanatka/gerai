@@ -1,0 +1,2 @@
+{# แอดมิน preview เท่านั้น: เตือนว่าขอบเขตยังเป็นร่าง (เจ้าของต้องยืนยันก่อนเปิด flag) #}
+{% if preview and scope_status == "draft" %}<div class="mk-wrap" style="padding-top:16px"><div class="mk-card" role="note" style="border-color:var(--mk-down)"><b>ร่าง รอเจ้าของยืนยัน</b> <span class="mk-small">ขอบเขตบริการในหน้านี้เขียนจากสิ่งที่ระบบทำได้วันนี้ ต้องยืนยันสิ่งที่ส่งมอบ สิ่งที่ไม่รวม และเกณฑ์ตรวจรับก่อนเปิดให้คนทั่วไปเห็น · แก้ได้ที่ <code>app/service_pages.py</code></span></div></div>{% endif %}

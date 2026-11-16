@@ -18,7 +18,7 @@ from email.utils import parseaddr
 from . import db, leads as L, office, wp_client
 
 CATS = {"interested": "สนใจ/ถามราคา", "question": "ถามคำถาม", "not_interested": "ไม่สนใจ", "unsubscribe": "ขอไม่รับ",
-        "auto": "ตอบกลับอัตโนมัติ", "bounce": "อีเมลเด้ง", "other": "อื่น ๆ"}
+        "auto": "ตอบกลับอัตโนมัติ", "bounce": "อีเมลเด้ง", "other": "อื่น ๆ", "ooo": "ไม่อยู่ (พักติดตาม)", "not_now": "ยังไม่ใช่ตอนนี้ (รอจังหวะ)"}
 AUTO_RE = re.compile(r"(out of office|automatic reply|auto.?reply|autoreply|ตอบกลับอัตโนมัติ|ไม่อยู่ที่สำนักงาน|vacation|ลาพักร้อน)", re.I)
 BOUNCE_FROM = re.compile(r"(mailer-daemon|postmaster|mail delivery)", re.I)
 UNSUB_RE = re.compile(r"(unsubscribe|ไม่รับ|เลิกส่ง|หยุดส่ง|อย่าส่ง|remove me|ลบออก|stop)", re.I)
@@ -114,7 +114,9 @@ def classify(m: dict, llm=None) -> str:
         if llm is None:
             from . import ai_client
             llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=800, json_mode=True)
-        raw = llm([{"role": "user", "content": "ลูกค้าตอบอีเมลขายบริการทำเว็บให้โผล่ใน Google/AI ว่า:\n" + body[:1500]
+        from . import agent_policy as _ap
+        shown = _ap.fence(body, "อีเมลลูกค้า") if _ap.on() else body[:1500]          # stage 14: ข้อความลูกค้า = ข้อมูล ไม่ใช่คำสั่ง
+        raw = llm([{"role": "user", "content": "ลูกค้าตอบอีเมลขายบริการทำเว็บให้โผล่ใน Google/AI ว่า:\n" + shown
                     + '\nจัดประเภท: interested (สนใจ/อยากคุย) · question (ถามข้อมูล) · not_interested · unsubscribe · other\nตอบ JSON {"category": "..."}'}])
         mm = re.search(r"\{[\s\S]*\}", raw or "")
         cat = (json.loads(mm.group(0)) if mm else {}).get("category")
@@ -139,7 +141,9 @@ def draft_answer(lead, body: str, llm=None, call: bool = False) -> str:
         if llm is None:
             from . import ai_client
             llm = lambda msgs: ai_client.chat_for("sales", msgs, max_tokens=1200, json_mode=True)
-        raw = llm([{"role": "user", "content": f"ลูกค้าเว็บ {lead['domain']} ตอบอีเมลขายของเจอ.AI ว่า:\n{body[:1500]}\n\nร่างคำตอบภาษาไทยสุภาพ ไม่เกิน 100 คำ ตอบเฉพาะที่ถาม "
+        from . import agent_policy as _ap
+        shown = _ap.fence(body, "อีเมลลูกค้า") if _ap.on() else body[:1500]
+        raw = llm([{"role": "user", "content": f"ลูกค้าเว็บ {lead['domain']} ตอบอีเมลขายของเจอ.AI ว่า:\n{shown}\n\nร่างคำตอบภาษาไทยสุภาพ ไม่เกิน 100 คำ ตอบเฉพาะที่ถาม "
                     "ถ้าไม่รู้ข้อเท็จจริงให้บอกว่าจะเช็กแล้วแจ้งกลับ ห้ามการันตีผล ห้ามแต่งตัวเลข เขียนแบบคนพิมพ์ ไม่ทำเป็นรายการ ไม่ต้องลงชื่อ\nตอบ JSON {\"body\": \"...\"}"
                     + D.write_in(lang)}])
         mm = re.search(r"\{[\s\S]*\}", raw or "")
@@ -180,7 +184,14 @@ def process(m: dict, llm=None) -> dict:
     if not lead and not BOUNCE_FROM.search(m["from"]):
         lead = new_lead_from_email(m, llm)
         created = bool(lead)
+    if lead and not created and not BOUNCE_FROM.search(m["from"]) and not m.get("auto")             and not AUTO_RE.search(m.get("subject") or "") and not AUTO_RE.search((m.get("body") or "")[:300]):
+        pipeline._cancel_pending(lead["id"], {"followup", "outreach"}, "ลูกค้าตอบกลับ — หยุดข้อความติดตามก่อนจัดประเภท")   # stage 11
     cat = classify(m, llm) if lead or BOUNCE_FROM.search(m["from"]) else "unmatched"
+    from . import sales as _sales
+    if lead and _sales.enabled() and cat == "auto" and _sales.OOO_RE.search((m.get("subject") or "") + " " + (m.get("body") or "")[:600]):
+        cat = "ooo"
+    if lead and _sales.enabled() and cat == "not_interested" and _sales.NOT_NOW_RE.search((m.get("body") or "")[:400]):
+        cat = "not_now"
     action = "ลีดใหม่จากอีเมล · " if created else ""
     if cat == "unmatched":
         action = "ไม่ตรงกับลีดรายไหน — ไม่เก็บเนื้อหา"
@@ -196,6 +207,17 @@ def process(m: dict, llm=None) -> dict:
             action = "อีเมลเด้งแต่ไม่รู้ว่าของลีดไหน"
     elif cat == "auto":
         action += "ตอบกลับอัตโนมัติ — ไม่นับ"
+    elif cat == "ooo":                                             # stage 11: ไม่อยู่ → พักติดตามผลถึงวันที่กลับ (ไม่นับเป็นตอบกลับ)
+        until = _sales.ooo_until((m.get("subject") or "") + " " + (m.get("body") or ""))
+        pipeline.record(lead["id"], "ooo", f"ตอบกลับอัตโนมัติว่าไม่อยู่ — พักติดตามผลถึง {until.isoformat(timespec='seconds')}", "inbox")
+        pipeline._cancel_pending(lead["id"], {"followup"}, "ลูกค้าไม่อยู่ — พักติดตามผล")
+        action = f"ไม่อยู่ — พักติดตามผลถึง {until:%Y-%m-%d}"
+    elif cat == "not_now":                                         # stage 11: ยังไม่ใช่ตอนนี้ = รอจังหวะ (ไม่ปิดเป็นแพ้)
+        with db.get_conn() as c:
+            c.execute(db.q("UPDATE leads SET opp_override='nurture', lost_reason='not_now' WHERE id=?"), (lead["id"],))
+        pipeline.record(lead["id"], "replied", f"ตอบว่ายังไม่ใช่ตอนนี้ (รอจังหวะ): {(m.get('body') or '')[:200]}", "customer")
+        pipeline._cancel_pending(lead["id"], {"outreach", "followup", "lead_review", "quote"}, "ลูกค้าบอกว่ายังไม่ใช่ตอนนี้")
+        action = "ตั้งเป็นรอจังหวะ · ยกเลิกข้อความที่ค้าง (ไม่ปิดเป็นไม่สนใจ)"
     elif cat == "unsubscribe":
         pipeline.unsubscribe(lead, actor="customer (อีเมล)")
         action = "บันทึกขอไม่รับการติดต่อ"
@@ -220,7 +242,14 @@ def process(m: dict, llm=None) -> dict:
             rd = db.add_decision("salesbot" if res else "ceo", "reply", f"ตอบอีเมล {lead['domain']}" + (f" · ต้องให้คุณดู ({esc})" if esc else ""),
                                  f"ลูกค้าถาม:\n{(m.get('body') or '')[:800]}\n\nร่างคำตอบ:\n{ans}",
                                  {"subject": "Re: " + (m.get("subject") or "")[:150], "body": ans, "to": m["from"], "escalate": bool(esc)}, lead_id=lead["id"])
-            pipeline._maybe_auto(rd)                                   # ปลดล็อกแล้ว (ด่าน ≥ 20 เรื่อง ≥ 95%) = ส่งเอง · นอกกรอบรอคนเสมอ
+            from . import agent_policy as _ap
+            sig = _ap.injection_signals((m.get("subject") or "") + " " + (m.get("body") or "")) if _ap.on() else []
+            if sig:                                                    # stage 14: อีเมลพยายามสั่ง AI → ไม่ส่งเอง รอคนดูเสมอ
+                _ap.record(source="inbox", actor="email", tool="reply", lvl="C", lead_id=lead["id"], task_id=None, args={"decision": rd},
+                           decision="flagged", reason="พบข้อความที่พยายามสั่ง AI: " + ", ".join(sig))
+                esc = (esc + " · " if esc else "") + "อีเมลมีข้อความที่พยายามสั่ง AI"
+            else:
+                pipeline._maybe_auto(rd)                               # ปลดล็อกแล้ว (ด่าน ≥ 20 เรื่อง ≥ 95%) = ส่งเอง · นอกกรอบรอคนเสมอ
             st = db.get_decision(rd)["status"]
             action += (f" · ตัวตอบแชตตอบอีเมลแล้ว (#{rd})" if st == "auto" else f" · ร่างคำตอบรออนุมัติ (#{rd})" + (f" — {esc}" if esc else ""))
     keep = cat != "unmatched"
@@ -228,7 +257,7 @@ def process(m: dict, llm=None) -> dict:
         c.execute(db.q("INSERT INTO inbox_messages(received_at,message_id,from_addr,subject,body,lead_id,category,action) VALUES(?,?,?,?,?,?,?,?)"),
                   (db.now(), mid, m["from"] if keep else "", (m.get("subject") or "")[:300] if keep else "", (m.get("body") or "")[:4000] if keep else "",
                    lead["id"] if lead else None, cat, action))
-    if lead and cat not in ("auto", "unmatched"):
+    if lead and cat not in ("auto", "unmatched", "ooo"):
         try:
             pipeline.alert_admins(f"📥 {lead['domain']} ตอบอีเมล ({CATS.get(cat, cat)}): {(m.get('body') or '')[:100]}", f"/admin/leads/{lead['id']}", "lead")
         except Exception:

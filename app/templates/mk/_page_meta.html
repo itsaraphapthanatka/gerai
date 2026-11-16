@@ -1,0 +1,5 @@
+{# หัวหน้าสำหรับหน้า stage 03: description + canonical/og เฉพาะเมื่อเปิด flag จริง (preview = noindex ไม่ใส่ canonical) #}
+<meta name="description" content="{{ desc }}">
+{% if canonical and not preview %}<link rel="canonical" href="{{ canonical }}">
+<meta property="og:type" content="website"><meta property="og:url" content="{{ canonical }}"><meta property="og:locale" content="th_TH">
+<meta property="og:title" content="{{ og_title }}"><meta property="og:description" content="{{ desc }}">{% endif %}

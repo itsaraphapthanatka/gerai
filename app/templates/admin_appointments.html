@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}นัดคุย — เจอ.AI{% endblock %}
+{% block content %}
+<h1>นัดคุยจาก LINE</h1>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if saved %}<div class="ok-banner">บันทึกช่องเวลาแล้ว ✓</div>{% endif %}
+{% if not flag_on %}<div class="err">flag <code>line_appointments</code> ปิดอยู่ — ลูกค้ายังเลือกเวลาใน LINE ไม่ได้</div>
+{% elif not line_ready %}<div class="err">LINE OA ยังไม่พร้อม (ไม่มีคีย์หรือ LINE ID) — ลูกค้ายังเลือกเวลาไม่ได้</div>{% endif %}
+<p class="muted">ลูกค้าเลือกเวลา = <b>คำขอนัดรอยืนยัน</b> (กันช่องเวลาไว้) · นัดสำเร็จเมื่อทีมกดยืนยันเท่านั้น · ข้อความยืนยัน/เตือนอยู่ในคิวงานแบบทดสอบ <b>ยังไม่ส่งถึงลูกค้าจริง</b> ทีมต้องแจ้งเองใน LINE OA Manager</p>
+
+<div class="card" style="overflow-x:auto">
+  <h2 style="margin-top:0;font-size:17px">นัดทั้งหมด</h2>
+  {% for a in rows %}<div style="border-top:1px solid #eee;padding:10px 0">
+    <a href="/admin/leads/{{ a['lead_id'] }}#appointment">{{ a['domain'] or ('ลีด #' ~ a['lead_id']) }}</a>
+    {% include "_appt_card.html" %}</div>
+  {% else %}<p class="muted">ยังไม่มีนัด</p>{% endfor %}
+</div>
+
+<div class="card" style="margin-top:18px;max-width:720px" id="settings">
+  <h2 style="margin-top:0;font-size:17px">ช่องเวลาที่เปิดให้ลูกค้าเลือก (เวลาไทย)</h2>
+  {% if errors %}<div class="err">{% for k, m in errors.items() %}<div>{{ m }}</div>{% endfor %}</div>{% endif %}
+  <form method="post" action="/admin/appointments/settings" style="display:grid;gap:10px">{{ csrf_input(request) }}
+    <fieldset style="border:0;padding:0"><legend>วันที่รับนัด</legend>
+      {% for d in range(7) %}<label style="margin-right:10px"><input type="checkbox" name="days" value="{{ d }}"{% if d in cfg.days %} checked{% endif %}> {{ AP.WEEKDAY_TH[d] }}</label>{% endfor %}</fieldset>
+    <label>เวลาเริ่ม (คั่นด้วยจุลภาค) <input name="times" value="{{ cfg.times|join(', ') }}" placeholder="10:00, 13:30, 15:30"></label>
+    <label>ความยาว (นาที) <input name="duration_min" value="{{ cfg.duration_min }}" size="4"></label>
+    <label>รูปแบบ <select name="format">{% for k, lb in AP.FORMAT_LABEL.items() %}<option value="{{ k }}"{% if cfg.format == k %} selected{% endif %}>{{ lb }}</option>{% endfor %}</select></label>
+    <label>ต้องจองล่วงหน้าอย่างน้อย (ชม.) <input name="lead_hours" value="{{ cfg.lead_hours }}" size="4"></label>
+    <label>เปิดให้เลือกล่วงหน้า (วัน) <input name="horizon_days" value="{{ cfg.horizon_days }}" size="4"></label>
+    <label>นัดได้กี่รายต่อช่วงเวลา <input name="capacity" value="{{ cfg.capacity }}" size="4"></label>
+    <label>วันหยุด/ไม่รับนัด (YYYY-MM-DD คั่นด้วยจุลภาค) <input name="blackout" value="{{ cfg.blackout|join(', ') }}"></label>
+    <div><button type="submit" class="btn">บันทึก</button> <span class="muted">ไม่เลือกวันหรือไม่ใส่เวลา = ปิดการเลือกเวลา (ลูกค้าใช้ "ขอให้โทรหา" แบบเดิม)</span></div>
+  </form>
+  {% if preview %}<p class="muted">ช่องที่ลูกค้าจะเห็นตอนนี้: {% for x in preview %}{{ AP.label(x) }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</div>
+{% endblock %}

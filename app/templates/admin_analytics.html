@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Funnel เว็บ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>Funnel เว็บสาธารณะ ({{ f.days }} วันล่าสุด)</h1>
+{% if not on %}<div class="err">ยังไม่ได้เปิด flag <code>analytics</code> — ระบบไม่เก็บเหตุการณ์ใดเลย (ตัวเลขด้านล่างเป็นของที่เก็บไว้ก่อนปิด ถ้ามี)</div>{% endif %}
+<p class="muted">นับเป็นจำนวนลีดไม่ซ้ำ แยกตามที่มาของการตรวจครั้งแรก · ไม่นับทีมงานที่ล็อกอิน · ไม่มี tracker ภายนอก
+· "นัดคุยสำเร็จ" นับเมื่อทีมกดยืนยันนัดเท่านั้น (ลูกค้าเลือกเวลาใน LINE ยังไม่นับ)</p>
+<div class="card" style="overflow-x:auto">
+<table>
+  <thead><tr><th>ขั้น</th><th>บันทึกโดย</th>{% for k, lb in f.sources %}<th>{{ lb }}</th>{% endfor %}<th>รวมลีด</th><th>ครั้ง</th></tr></thead>
+  <tbody>{% for r in f.rows %}<tr>
+    <td><code>{{ r.name }}</code><br><span class="muted">{{ labels[r.name] }}</span></td>
+    <td>{{ "เซิร์ฟเวอร์" if r.origin == "server" else "เบราว์เซอร์" }}</td>
+    {% for k, lb in f.sources %}<td>{{ r.cells[k] }}</td>{% endfor %}
+    <td><b>{{ r.total }}</b></td><td class="muted">{{ r.events }}</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+<p class="muted">นิยามเหตุการณ์และสิ่งที่ไม่เก็บ: docs/rebuild/ANALYTICS_CONTRACT.md</p>
+{% endblock %}

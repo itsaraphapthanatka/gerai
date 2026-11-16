@@ -95,6 +95,65 @@ async def _no_cache_html(request: Request, call_next):
     return resp
 
 
+# stage 08A: หน้าที่เปิดด้วยลิงก์ลับ/หลังล็อกอิน (รายงาน ใบเสนอราคา บิล เอกสาร PDF แอปลูกค้า หลังบ้าน) — ห้ามเก็บเข้า index
+# ห้ามแคชร่วม และไม่ส่ง URL ที่มี token ต่อไปเว็บอื่นทาง Referer · ใช้กับ PDF ด้วย (PDF ใส่ meta robots ไม่ได้)
+# robots.txt / noindex ไม่ใช่การป้องกัน: ใครมีลิงก์ก็ยังเปิดได้ (ดู WEBSITE_RELEASE_CHECKLIST.md)
+PRIVATE_PREFIXES = ("/audit/", "/q/", "/bill/", "/doc/", "/u/", "/partner/", "/contract", "/app", "/admin", "/account", "/brands",
+                    "/preview", "/chat/", "/upgrade", "/notifications", "/pay")
+
+
+def _is_private_path(path: str) -> bool:
+    """"/audit/" = เฉพาะใต้ /audit/ (ไม่รวมหน้าฟอร์ม /audit) · "/app" = /app และใต้ /app/ (ไม่รวม /apple)"""
+    return any(path.startswith(p) if p.endswith("/") else (path == p or path.startswith(p + "/")) for p in PRIVATE_PREFIXES)
+
+
+@app.middleware("http")
+async def _private_headers(request: Request, call_next):
+    resp = await call_next(request)
+    if _is_private_path(request.url.path):
+        resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        cc = resp.headers.get("cache-control", "")
+        if not cc or "public" in cc or "max-age" in cc and "no-store" not in cc:
+            resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
+# stage 18: กัน CSRF ชั้นนอก (flag origin_check) — route เดิมหลายตัวยังไม่มีโทเคน CSRF จึงพึ่ง SameSite=Lax ของคุกกี้อย่างเดียว
+# เปิด flag: POST/PUT/PATCH/DELETE ที่มีหัว Origin ไม่ตรงโฮสต์ของเรา (หรือ "null") = 403 · ไม่มี Origin (เซิร์ฟเวอร์/ฟอร์มเก่า) = ผ่าน
+# ยกเว้น webhook ที่ตรวจลายเซ็นเอง และ API/วิดเจ็ตที่ตั้งใจให้เว็บลูกค้าเรียกข้ามโดเมน
+ORIGIN_EXEMPT = ("/line/webhook", "/stripe/webhook", "/inbox/hook", "/api/", "/chat/")
+
+
+def _origin_ok(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    if origin is None:
+        return True
+    if origin == "null":
+        # หน้าส่วนตัวตั้ง Referrer-Policy: no-referrer → Chrome ส่ง Origin: null แม้ฟอร์มมาจากเว็บเราเอง
+        # เชื่อ Sec-Fetch-Site ที่เบราว์เซอร์ตั้งเอง (สคริปต์ในหน้าเว็บปลอมค่านี้ไม่ได้) · ไม่มี header นี้ = ไม่ผ่าน
+        return request.headers.get("sec-fetch-site", "").lower() == "same-origin"
+    from urllib.parse import urlparse as _up
+    o = _up(origin)
+    allowed = {request.headers.get("host", "").lower()}
+    for extra in (os.getenv("PUBLIC_BASE_URL", ""), *[x.strip() for x in (os.getenv("GEO_ALLOWED_ORIGINS", "")).split(",")]):
+        if extra:
+            allowed.add((_up(extra).netloc or extra).lower())
+    return bool(o.netloc) and o.netloc.lower() in allowed
+
+
+@app.middleware("http")
+async def _origin_check(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and not any(request.url.path.startswith(p) for p in ORIGIN_EXEMPT):
+        try:
+            on = _flags.enabled("origin_check")
+        except Exception:
+            on = False
+        if on and not _origin_ok(request):
+            return Response("cross-origin request blocked", status_code=403)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _remember_lang(request: Request, call_next):
     """?lang=xx บนหน้าใดก็ได้ = จำภาษาลงคุกกี้ (หน้าถัดไปทั้งเว็บใช้ภาษานี้) · หน้าแรก /en /zh /ja /ko ตั้งเอง"""
@@ -129,6 +188,11 @@ def _remember_lead_lang(request: Request, lead_id) -> None:
 # จึงไม่ต้องรอ startup และ TestClient(app) ที่ไม่ได้เข้า lifespan (สเมอก์เทสต์ทุกตัว) render หน้าได้เหมือน production
 from . import i18n as _i18n
 _i18n.install(templates.env)   # _("ข้อความไทย") · |tr · html_lang() · lang_links() — แปลตามภาษาที่เลือก
+from . import csrf as _csrf, flags as _flags
+_csrf.install(templates.env)   # {{ csrf_input(request) }} สำหรับฟอร์มของ route ใหม่ที่ใช้ require_csrf
+from . import analytics as _an
+_an.install(templates.env)     # {{ att_fields(request) }} ที่มาของผู้ตรวจเว็บ (stage 08B · flag analytics)
+templates.env.globals["flag_active"] = _flags.active   # {% if flag_active("marketing_v2", request) %}
 templates.env.filters["urlpath"] = lambda u, n=60: deep_audit._path(u, n)   # รายงานเต็ม: path อ่านง่าย ไม่ล้นตาราง
 templates.env.globals["sidebar_brands"] = lambda req: (
     db.list_brands(req.session["tenant_id"]) if req.session.get("tenant_id") else []   # sidebar ดึงแบรนด์ของ tenant ที่ล็อกอินอยู่
@@ -259,6 +323,9 @@ def _publish_item(item, conn, brand, status="publish"):
 
 def _auto_publish_tick(b, days, now_local):
     """เผยแพร่ร่าง auto ที่ถึง review window (days) — มี WP → ดันเข้า WP, ไม่มี (เว็บ dev) → ขึ้นหน้า hosted"""
+    from . import publishing
+    if publishing.on():                            # stage 16: ไม่มีการเผยแพร่อัตโนมัติ — ต้องผ่านประตูและคนอนุมัติ
+        return
     import datetime as _dt
     cutoff = (now_local - _dt.timedelta(days=days)).isoformat(timespec="seconds")
     drafts = db.due_auto_drafts(b["id"], cutoff)
@@ -276,6 +343,10 @@ def _auto_publish_tick(b, days, now_local):
                 _indexnow_after(it["id"])
         except Exception:
             pass
+
+
+class _SkipTick(Exception):
+    pass
 
 
 def _maybe_start_scheduler():
@@ -312,6 +383,9 @@ def _maybe_start_scheduler():
     def loop():
         while True:
             try:
+                from . import scheduler_lease as _lease
+                if not _lease.acquire():                   # stage 18: มีโปรเซสอื่นถือ lease อยู่ → ข้ามรอบแบรนด์ (คิวงานยังทำได้ เพราะ claim เป็น CAS)
+                    raise _SkipTick()
                 now_local = datetime.datetime.now()  # server TZ = Asia/Bangkok → เวลาไทย
                 for b in db.list_all_brands():
                     try:
@@ -326,6 +400,11 @@ def _maybe_start_scheduler():
                             _auto_publish_tick(b, pub_days, now_local)
                     except Exception:
                         pass  # แบรนด์นี้พลาด ไม่ให้กระทบแบรนด์อื่น
+            except Exception:
+                pass
+            try:                                           # stage 10: คิวงานถาวร (flag durable_jobs ปิด = ไม่ทำอะไร) · ชนกับ cron --jobs ได้ เพราะ claim เป็น CAS
+                from . import jobs as _jobs
+                _jobs.run_once(limit=5)
             except Exception:
                 pass
             time.sleep(60)  # เช็คทุก 60 วิ → ยิงตรงเวลาเป๊ะระดับนาที
@@ -405,7 +484,19 @@ def _dashboard_ctx(request: Request, error=None):
     return {"brands": brands, "brand_gaps": brand_gaps, "name": request.session.get("name"),
             "brand_stats": {b["id"]: _managed_stats(b["id"]) for b in brands} if _managed(request) else {},
             "plan": billing.plan_of(tenant), "usage": billing.usage(tid), "error": error,
-            "is_admin": bool(tenant and tenant["is_admin"])}
+            "is_admin": bool(tenant and tenant["is_admin"]), "delivery_ws": _deliv_banner(tid)}
+
+
+def _deliv_banner(tid) -> list:
+    """stage 15: ลูกค้าที่มีพื้นที่งาน → แถบสถานะ + ขั้นถัดไปบนหน้าหลัก (เครื่องมือเดิมยังอยู่ครบ)"""
+    from . import delivery
+    if not (tid and delivery.on()):
+        return []
+    out = []
+    for w in delivery.list_all(tid):
+        v = delivery.view(w["id"])
+        out.append({"state_label": v["state_label"], "next": v["next"]})
+    return out
 
 
 def _brand_ctx(brand, error=None):
@@ -535,16 +626,25 @@ def _landing_page(request: Request, lang: str):
     t = L.T[lang]
     live = ctx["ai_live"]
     base = str(request.base_url).rstrip("/")
-    sb = _self_brand()                                    # บทความล่าสุดของเจอ.AI — หน้าแรกต้องลิงก์หาคอนเทนต์ (Google ให้น้ำหนักหน้าที่มีลิงก์จริง)
-    pub = sorted([i for i in db.list_content(sb["id"]) if i["status"] == "published"],
-                 key=lambda i: i["published_at"] or i["created_at"] or "", reverse=True) if sb else []
-    ctx["articles"] = [{"title": i["title"], "url": f"/geo/{i['id']}"} for i in pub[:3]]
+    ctx["articles"] = _home_articles()
     ctx.update(T=t, lang=lang, html_lang=L.HTML_LANG[lang], og_locale=L.OG_LOCALE[lang],
                font=L.FONTS[lang][0], font_css=L.FONTS[lang][1], ai_text=live["text"] if live["n"] else t["ai_fallback"],
                langs=[{"code": c, "name": L.NAMES[c], "path": L.PATHS[c], "href": "/?lang=th" if c == "th" else L.PATHS[c], "hreflang": L.HTML_LANG[c]} for c in L.LANGS],
                canonical=base + L.PATHS[lang], base=base, src="home" if lang == "th" else f"home-{lang}",
                proof=_proof_view(_landing_proof(), lang), call_plan=L.CALL_PLAN, preview=False)
     resp = templates.TemplateResponse(request, "landing_v2.html", ctx)
+    return _remember_home_lang(request, resp, lang)
+
+
+def _home_articles(n: int = 3) -> list:
+    """บทความล่าสุดของเจอ.AI — หน้าแรกต้องลิงก์หาคอนเทนต์ (Google ให้น้ำหนักหน้าที่มีลิงก์จริง) · ใช้ทั้งหน้าแรกเดิมและชุดใหม่"""
+    sb = _self_brand()
+    pub = sorted([i for i in db.list_content(sb["id"]) if i["status"] == "published"],
+                 key=lambda i: i["published_at"] or i["created_at"] or "", reverse=True) if sb else []
+    return [{"title": i["title"], "url": f"/geo/{i['id']}"} for i in pub[:n]]
+
+
+def _remember_home_lang(request: Request, resp, lang: str):
     from . import i18n
     if request.cookies.get(i18n.COOKIE) != lang and (lang != "th" or i18n.valid(request.query_params.get("lang"))):
         resp.set_cookie(i18n.COOKIE, lang, max_age=365 * 86400, samesite="lax", secure=request.url.scheme == "https")
@@ -557,6 +657,9 @@ def landing(request: Request):
     remembered = i18n.valid(request.cookies.get(i18n.COOKIE))
     if not i18n.valid(request.query_params.get("lang")) and remembered and remembered != "th":
         return _redirect(i18n.PATHS[remembered])          # เลือกภาษาไว้แล้ว → หน้าแรกภาษานั้น (เลือกไทยคืน = /?lang=th)
+    from . import flags, marketing_web
+    if flags.active("marketing_v2", request):             # หน้าแรกชุดใหม่ (stage 02) · flag ปิด = หน้าเดิมทุกอย่าง · /en /zh /ja /ko ยังเป็นหน้าเดิม
+        return _remember_home_lang(request, marketing_web.home(request), "th")
     return _landing_page(request, "th")
 
 
@@ -699,9 +802,11 @@ def audit_page(request: Request, src: str = "", ref: str = ""):
 
 
 @app.post("/audit")
-def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form(""), ref: str = Form("")):
+def audit_run(request: Request, url: str = Form(""), website: str = Form(""), src: str = Form(""), ref: str = Form(""),
+              utm_source: str = Form(""), ent: str = Form("")):
     src = _src(src)
     ref = _ref(request, ref)
+    att = _an.classify(partner=bool(ref), utm_source=utm_source, src=src, entry=ent)   # stage 08B: ที่มาแบบ allowlist
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
@@ -718,9 +823,12 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
         return templates.TemplateResponse(request, "audit.html", {"error": f"วันนี้ตรวจครบ {cap} เว็บแล้ว พรุ่งนี้ตรวจต่อได้", "url": url, "src": src})
     dom = leads.domain_of(site)
     recent = db.find_lead_by_domain(dom)
+    if recent and not leads.reusable_for(recent, ip=ip):
+        recent = None                                     # ลีดของคนอื่น → ไม่ส่งต่อ token/ข้อมูลของเขา สร้างลีดใหม่ให้ผู้ขอคนนี้
     if recent and recent["audit_json"] and recent["token"] and (recent["audit_at"] or "") >= since:
         _remember_lead_lang(request, recent["id"])
-        return _redirect(f"/audit/{recent['token']}")   # โดเมนเดิมภายใน 24 ชม. ใช้ผลเดิม
+        _an.emit("audit_started", recent["id"], {"reused": True}, request=request, **att)
+        return _redirect(f"/audit/{recent['token']}")   # คนเดิม โดเมนเดิม ภายใน 24 ชม. ใช้ผลเดิม
     lid = recent["id"] if recent else db.add_lead(site, dom, source="audit", ip=ip)
     _remember_lead_lang(request, lid)                     # ภาษาของหน้า = ภาษาอีเมลที่ลีดจะได้รับ
     if src and not (recent and recent["src"]):
@@ -728,10 +836,19 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     if ref:
         from . import partners
         partners.attribute(lid, ref, "ลิงก์แนะนำ")              # มาจากพันธมิตร (ครั้งแรกเท่านั้น)
+    _an.emit("audit_started", lid, {"reused": False}, request=request, **att)
+    from . import flags, snapshot
+    if flags.active("snapshot_v2", request):                # stage 04A: ตรวจเบื้องหลัง แล้วพาไปหน้าสถานะจริงทันที (ไม่ให้รอค้างที่ปุ่ม)
+        token = db.get_lead(lid)["token"] or leads.new_token()
+        db.update_lead(lid, token=token, audit_by=by, audit_at=db.now(), **({"ip": ip} if ip else {}))   # นับโควตาตั้งแต่เข้าคิว
+        snapshot.start(lid, site, ip)
+        return _redirect(f"/audit/{token}")
     try:
         token = _run_lead_audit(lid, site, ip)
         db.update_lead(lid, audit_by=by)                  # None = คนทั่วไป (นับรวมโควตาของ IP)
+        _an.emit("audit_completed", lid, {"status": "completed"}, request=request)
     except Exception:
+        _an.emit("audit_completed", lid, {"status": "failed"}, request=request)
         return templates.TemplateResponse(request, "audit.html", {"error": "ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง หรือเช็กว่าเว็บเปิดได้", "url": url, "src": src})
     deep_audit.start(lid)                                 # รายงานเต็มชั้น 1 ทำต่อเบื้องหลัง หน้าผลจะอัปเดตเอง
     return _redirect(f"/audit/{token}")
@@ -746,17 +863,140 @@ def _audit_result_ctx(lead, sent=False, error="", replied=False):
             "progress": deep_audit.progress(lead), "highlights": deep_audit.highlights(t1, t2), "benchmark": deep_audit.BENCHMARK}
 
 
+def _report_v2(request: Request, lead, snap: dict, *, form: dict | None = None, errors: dict | None = None, status_code: int = 200,
+               bc_form: dict | None = None, bc_errors: dict | None = None, bc_saved: bool = False):
+    """stage 05/06: รายงาน 4 ช่อง + ฟอร์มขอแผน (หน้าไทย · flag report_v2) · ข้อมูลทั้งหมดอ่านจากของเดิม ไม่เขียน DB"""
+    from . import report_view, plan_request, flags
+    from . import line_plan, business_context
+    ctx_on = flags.active("context_v2", request)
+    bc = business_context.view(lead) if ctx_on else None
+    vm = report_view.build(lead, snap, bc)
+    report_view.record(lead, vm, bc["version"] if bc else 0)             # stage 05-full: เก็บประวัติเมื่อผลวัดเปลี่ยน (เพิ่มอย่างเดียว)
+    plan_on = flags.active("plan_request_v2", request)
+    pr = plan_request.latest(lead["id"]) if plan_on else None
+    if bc and bc_form is not None:
+        bc["form"] = bc_form
+    vm["history"] = report_view.history(lead)
+    try:
+        from . import appointments as _ap
+        _appt = _ap.active_for_lead(lead["id"]) if _flags.active("line_appointments", request) else None
+    except Exception:
+        _appt = None
+    vm["next"] = report_view.next_step(ctx_on, bc, plan_on, pr, report_view.shown_quote(lead["id"]), _appt)
+    resp = templates.TemplateResponse(request, "mk/report.html", {
+        "an_on": _an.enabled() and not _an._excluded(request), "ctx_on": ctx_on, "bc": bc, "bc_errors": bc_errors or {}, "bc_open": bool(bc_errors), "bc_saved": bc_saved,
+        "bc_note": business_context.ai_comparability(lead, deep_audit.tier2(lead)) if ctx_on else None,
+        "lead": lead, "vm": vm, "snap": snap, "preview": True, "plan_on": plan_on, "plan": pr, "line_on": plan_on and line_plan.active(request),
+        "form": form or {"idem_key": plan_request.new_key()}, "errors": errors or {}, "pr": plan_request}, status_code=status_code)
+    # รายงานส่วนตัว: เข้าถึงด้วยลิงก์ token เท่านั้น · ห้ามแคชร่วม/เก็บ · noindex ไม่ใช่การป้องกัน (ดู STATUS 05-full ข้อจำกัด)
+    resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer"})
+    return resp
+
+
 @app.get("/audit/{token}")
-def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = ""):
+def audit_result(request: Request, token: str, sent: int = 0, replied: int = 0, via: str = "", view: str = "", ctx: int = 0):
     lead = db.get_lead_by_token(token)
     if not lead:
         return _redirect("/audit")
     if via == "mail":
         pipeline.mark_opened(lead)
+    from . import snapshot
+    snap = snapshot.view(lead)
+    if snap.get("state") in ("queued", "running", "failed"):   # stage 04A: ยังตรวจไม่เสร็จ/ล้ม → หน้าสถานะจริง (ลีดเดิมไม่มี snapshot_json → หน้าเดิม)
+        resp = templates.TemplateResponse(request, "mk/snapshot.html", {"lead": lead, "snap": snap, "preview": True, "token": token})
+        resp.headers.update({"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store"})
+        return resp
     if lead["audit_json"] and deep_audit.progress(lead)["tier1"] in ("none", "error"):
         deep_audit.start(lead["id"])                      # ลีดเก่า/หาเอง: เปิดหน้าครั้งแรกค่อยทำรายงานเต็ม
         lead = db.get_lead(lead["id"])
-    return templates.TemplateResponse(request, "audit_result.html", _audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)))
+    if view != "full" and _i18n.lang_of(request) == "th" and _flags.active("report_v2", request):
+        return _report_v2(request, lead, snap, bc_saved=bool(ctx))          # stage 05: รายงาน 4 ช่อง (ตารางละเอียดเดิมอยู่ที่ ?view=full)
+    return templates.TemplateResponse(request, "audit_result.html", {**_audit_result_ctx(lead, sent=bool(sent), replied=bool(replied)), "snap": snap})
+
+
+@app.post("/audit/{token}/plan", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_plan_request(request: Request, token: str):
+    """stage 06: ขอแผนจากรายงาน · บันทึกลง plan_requests ก่อน แล้วจึงแสดง "ได้รับแล้ว" · กดซ้ำ (idem_key เดิม) = ไม่สร้างซ้ำ"""
+    from . import plan_request, snapshot
+    if not _flags.active("plan_request_v2", request):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    form = dict(await request.form())
+    if (form.get("website") or "").strip():               # honeypot: บอทกรอก → เงียบ
+        return _redirect(f"/audit/{token}")
+    v, err = plan_request.validate(form)
+    if err:
+        return _report_v2(request, lead, snapshot.view(lead), form=v, errors=err, status_code=422)
+    try:
+        pid, created = plan_request.submit(lead, v, _client_ip(request))
+    except Exception:
+        return _report_v2(request, lead, snapshot.view(lead), form=v, status_code=500,
+                          errors={"_": "บันทึกคำขอไม่สำเร็จ ยังไม่ได้ส่งถึงทีม ลองกดส่งอีกครั้ง หรือทัก LINE ของเจอ.AI"})
+    if created:
+        _remember_lead_lang(request, lead["id"])
+    plan_request.after_submit(lead, pid, created, plan_request.CHANNELS[v["contact_channel"]])   # ช่องทางติดต่อดูในแอป ไม่ส่งออกไปในข้อความแจ้ง
+    return _redirect(f"/audit/{token}#plan")
+
+
+@app.post("/audit/{token}/context", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_context(request: Request, token: str):
+    """stage 04B: ลูกค้ายืนยัน/แก้ข้อมูลธุรกิจ · บันทึกเป็นเวอร์ชันใหม่ · ข้อมูลผิด = แสดงฟอร์มพร้อมค่าที่กรอกไว้ (422)"""
+    from . import business_context, snapshot
+    from fastapi import HTTPException
+    if not (_flags.active("report_v2", request) and _flags.active("context_v2", request)):
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    form = dict(await request.form())
+    if (form.get("website") or "").strip():
+        return _redirect(f"/audit/{token}")
+    v, err = business_context.validate(form, lead)
+    shown = {**{k: v[k] for k, _ in business_context.FIELDS},
+             "questions": "\n".join(v["questions"]) if not err.get("questions") else (form.get("questions") or "")}
+    if err:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors=err, status_code=422)
+    try:
+        ver = business_context.save(lead, v, "customer")
+    except ValueError as e:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, bc_errors={"_": str(e)}, status_code=409)
+    except Exception:
+        return _report_v2(request, lead, snapshot.view(lead), bc_form=shown, status_code=500,
+                          bc_errors={"_": "บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกเปลี่ยน ลองกดบันทึกอีกครั้ง"})
+    _an.emit("business_context_confirmed", lead["id"], {"version": ver}, request=request)   # หลังบันทึกสำเร็จเท่านั้น
+    return _redirect(f"/audit/{token}?ctx=1#context")
+
+
+@app.get("/audit/{token}/line")
+def audit_line(request: Request, token: str):
+    """stage 06A-1: ปุ่ม "คุยต่อใน LINE" → ออกรหัสใช้ครั้งเดียว (ใช้ซ้ำถ้ายังไม่หมดอายุ) แล้วพาไปแชต OA พร้อมข้อความที่พิมพ์ไว้"""
+    from . import line_plan
+    from fastapi import HTTPException
+    if not (_flags.active("plan_request_v2", request) and line_plan.active(request)):
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        return _redirect("/audit")
+    url = line_plan.oa_message_url(line_plan.prefill_text(lead, line_plan.code_for(lead)))
+    _an.emit("booking_link_clicked", lead["id"], {"target": "line"}, request=request)   # นับฝั่งเซิร์ฟเวอร์ ไม่ต้องใช้ JS
+    return RedirectResponse(url, status_code=303, headers={"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.post("/audit/{token}/event", dependencies=[Depends(_csrf.require_csrf)])
+async def audit_event(request: Request, token: str):
+    """stage 08B: การกระทำจากเบราว์เซอร์ (เปิดหลักฐาน) · same-origin + CSRF · รับเฉพาะชื่อ/ค่าที่อยู่ในรายการ · flag ปิด = 404"""
+    from fastapi import HTTPException
+    if not _an.enabled():
+        raise HTTPException(status_code=404)
+    lead = db.get_lead_by_token(token)
+    if not lead:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    res = _an.emit_browser(str(form.get("name") or ""), lead["id"], {"section": form.get("section"), "lane": form.get("lane")}, request=request)
+    return Response(status_code=204 if res in ("ok", "dup", "capped", "off") else 400)
 
 
 @app.get("/audit/{token}/progress")
@@ -796,7 +1036,7 @@ def audit_contact(request: Request, token: str, name: str = Form(""), email: str
         _ceo_propose(db.get_lead(lead["id"]))
     except Exception:
         pass   # ข้อเสนอสร้างทีหลังได้จากหน้าแอดมิน ไม่ให้ลูกค้าเห็น error
-    deep_audit.start(lead["id"], ai=True)                 # ทิ้งช่องทางติดต่อ = สนใจจริง → วัด AI 20 คำถาม (ชั้น 2)
+    deep_audit.start(lead["id"], ai=True, reason="contact_form")   # ทิ้งช่องทางติดต่อ = สนใจจริง → วัด AI 20 คำถาม (ชั้น 2)
     return _redirect(f"/audit/{token}?sent=1")
 
 
@@ -1186,7 +1426,28 @@ def _lead_ctx(lead, notice: str = "") -> dict:
     _bq = next((x for x in _qs if x["status"] in ("paid", "accepted", "claimed")), None)
     _cb = leads.customer_brand(lead["domain"])
     from . import crm as _crm
-    return {**_crm.lead_panel(lead), "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
+    try:                                                                # stage 06: สรุปก่อนโทร (มีเมื่อลูกค้าส่งคำขอแผนผ่านฟอร์มใหม่)
+        from . import plan_request as _pr, report_view as _rv, snapshot as _snap
+        _brief = _pr.brief(lead, _rv.build(lead, _snap.view(lead)))
+    except Exception:
+        _brief = None
+    try:
+        from . import line_plan as _lp
+        _line_bot = _lp.lead_bot(lead["id"])
+    except Exception:
+        _line_bot = None
+    try:                                                                # stage 06A-2: นัดคุยล่าสุดของลีด
+        from . import appointments as _ap
+        _appt = _ap.latest_for_lead(lead["id"])
+    except Exception:
+        _appt, _ap = None, None
+    try:                                                                # stage 11: ขั้นโอกาสขาย + คะแนนคัดกรอง (flag sales_v2)
+        from . import sales as _sl
+        _opp = {"opp": _sl.opportunity(lead), "qual": _sl.qualify(lead), "basis": _sl.channel_basis(lead), "pick": _sl.pick_channel(lead),
+                "S": _sl} if _sl.enabled() else None
+    except Exception:
+        _opp = None
+    return {**_crm.lead_panel(lead), "brief": _brief, "line_bot": _line_bot, "appt": _appt, "AP": _ap, "sales_v2": _opp, "customer": {"id": _cb["id"], "name": _cb["name"]} if _cb else None,
             "acct_docs": [dict(x) for x in db.list_acct_docs(lead_id=lead["id"], limit=50)], "acct_title": _ac.title,
             "acct_status": _ac.STATUS_TH, "buyer_quote": dict(_bq) if _bq else None,
             "cs": _cs.status(lead) if lead["status"] == "won" else None,
@@ -1214,6 +1475,82 @@ def admin_lead(request: Request, lead_id: int, notice: str = ""):
         return _redirect("/admin/leads")
     edits = [staff_audit.view(r) for r in db.list_staff_log(30, target=f"leads:{lead_id}")]   # ประวัติการแก้ไขลีดนี้โดยทีมงาน
     return templates.TemplateResponse(request, "admin_lead.html", {**_lead_ctx(lead, notice), "staff_edits": edits})
+
+
+@app.post("/admin/leads/{lead_id}/line-bot", dependencies=[Depends(_csrf.require_csrf)])
+def admin_lead_line_bot(request: Request, lead_id: int, action: str = Form("")):
+    """stage 06A-1: พักบอทในห้องแชต LINE ของลีดนี้ (ทีมตอบเอง) หรือเปิดกลับ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import line_plan
+    if not db.get_lead(lead_id) or action not in ("pause", "resume"):
+        return _redirect(f"/admin/leads/{lead_id}")
+    n = line_plan.set_lead_pause(lead_id, action == "pause")
+    db.add_lead_event(lead_id, "note", ("พักบอท LINE" if action == "pause" else "เปิดบอท LINE กลับ") + f" ({n} ห้องแชต)", request.session.get("email") or "admin")
+    msg = (f"พักบอทแล้ว {line_plan.PAUSE_HOURS} ชม. — ตอบลูกค้าเองใน LINE OA Manager" if action == "pause" else "เปิดบอทกลับแล้ว") if n else "ลีดนี้ยังไม่มีแชต LINE ที่ผูกไว้"
+    return _redirect(f"/admin/leads/{lead_id}?notice={quote(msg)}#brief")
+
+
+@app.post("/admin/appointments/{appt_id}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_appointment_action(request: Request, appt_id: int, action: str, version: int = Form(0), reason: str = Form("")):
+    """stage 06A-2: ทีมยืนยัน (= นัดสำเร็จ) / ยกเลิก / คุยแล้ว / ลูกค้าไม่มา"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import appointments as ap
+    a = ap.get(appt_id)
+    if not a or action not in ("confirm", "cancel", "complete", "no-show"):
+        return _redirect("/admin/appointments")
+    who = request.session.get("email") or "admin"
+    if action == "confirm":
+        ok, why = ap.confirm(appt_id, who, version)
+        msg = f"ยืนยันนัด {ap.label(a['slot_start'])} แล้ว — ระบบยังไม่ส่งข้อความยืนยันให้ลูกค้าเอง (โหมดทดสอบ) แจ้งลูกค้าใน LINE OA Manager ด้วย" if ok else why
+    elif action == "cancel":
+        ok = ap.cancel(appt_id, who, reason)
+        msg = "ยกเลิกนัดแล้ว — แจ้งลูกค้าใน LINE OA Manager ด้วย" if ok else "ยกเลิกไม่ได้ (นัดไม่ได้อยู่ในสถานะที่ยกเลิกได้)"
+    else:
+        ok, why = ap.mark(appt_id, "completed" if action == "complete" else "no_show", who)
+        msg = "บันทึกแล้ว" if ok else why
+    back = request.headers.get("referer") or ""
+    dest = "/admin/appointments" if "/admin/appointments" in back else f"/admin/leads/{a['lead_id']}"
+    return _redirect(f"{dest}?notice={quote(msg)}#appointment")
+
+
+@app.post("/admin/leads/{lead_id}/opportunity", dependencies=[Depends(_csrf.require_csrf)])
+def admin_lead_opportunity(request: Request, lead_id: int, action: str = Form(""), reason: str = Form(""), expected_status: str = Form("")):
+    """stage 11: ตั้งรอจังหวะ / ปิดเป็นไม่ได้ดีล (ต้องมีเหตุผล) / ล้าง · compare-and-set กับสถานะที่ทีมเห็นอยู่"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import sales
+    if not sales.enabled() or not db.get_lead(lead_id):
+        return _redirect(f"/admin/leads/{lead_id}")
+    ok, why = sales.set_opportunity(lead_id, action, reason or None, request.session.get("email") or "staff", expected_status)
+    return _redirect(f"/admin/leads/{lead_id}?notice={quote('บันทึกแล้ว' if ok else why)}#opportunity")
+
+
+@app.get("/admin/sales/policy")
+def admin_sales_policy(request: Request, saved: int = 0):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import sales
+    return templates.TemplateResponse(request, "admin_sales_policy.html", {"S": sales, "w": sales.weights(), "saved": saved, "on": sales.enabled(),
+                                                                         "public_email": (db.get_setting("allow_public_email_outreach") or "0") == "1"})
+
+
+@app.post("/admin/sales/policy", dependencies=[Depends(_csrf.require_csrf)])
+async def admin_sales_policy_save(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import sales
+    form = await request.form()
+    w = {}
+    for k in sales.DEFAULT_WEIGHTS:
+        try:
+            w[k] = max(0.0, min(10.0, float(form.get(f"w_{k}") or sales.DEFAULT_WEIGHTS[k])))
+        except ValueError:
+            w[k] = sales.DEFAULT_WEIGHTS[k]
+    db.set_setting("qual_weights", json.dumps(w))
+    db.set_setting("allow_public_email_outreach", "1" if form.get("public_email") == "1" else "0")
+    return _redirect("/admin/sales/policy?saved=1")
 
 
 @app.post("/admin/leads/{lead_id}/note")
@@ -1448,7 +1785,7 @@ def pwa_manifest():
     return JSONResponse({
         "name": "เจอ.AI — GEO Platform",
         "short_name": "เจอ.AI",
-        "description": "ให้แบรนด์คุณโผล่ในคำตอบ AI — วัด Share of Voice + สร้างคอนเทนต์ GEO อัตโนมัติ",
+        "description": "ตรวจความพร้อมของเว็บ วัดการปรากฏในผลค้นเว็บ และสร้างคอนเทนต์ GEO",
         "lang": "th",
         "start_url": "/app",
         "scope": "/",
@@ -2566,6 +2903,38 @@ def brand_ai_serp(request: Request, brand_id: int):
 
 
 # ---------- รายงานสรุป + ส่งออกไฟล์ ----------
+@app.get("/brands/{brand_id}/publishing")
+def brand_publishing(request: Request, brand_id: int, notice: str = ""):
+    """stage 16: คำขอเผยแพร่ (ประตูตรวจ สถานะจริงจากปลายทาง คืนเวอร์ชัน) + ผลรายเดือนแยก 4 หมวด"""
+    from . import publishing, retention
+    brand = _brand_for(request, brand_id)
+    if not brand:
+        return _redirect("/app" if _tid(request) else "/login")
+    if not publishing.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    reqs = [{**r, "checks": json.loads(r["checks_json"] or "[]"), "title": (db.get_content(r["content_id"]) or {"title": "—"})["title"]}
+            for r in publishing.list_brand(brand_id)]
+    return templates.TemplateResponse(request, "brand_publishing.html", {"brand": brand, "reqs": reqs, "P": publishing, "rv": retention.review(brand_id),
+                                                                         "notice": notice})
+
+
+@app.post("/brands/{brand_id}/publishing/{rid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def brand_publishing_action(request: Request, brand_id: int, rid: int, action: str):
+    from . import publishing
+    brand = _brand_for(request, brand_id)
+    r = publishing.get(rid) if publishing.on() else None
+    if not brand or not r or r["brand_id"] != brand_id:
+        return _redirect("/app" if _tid(request) else "/login")
+    who = request.session.get("email") or "customer"
+    if action == "reconcile":
+        st, msg = publishing.reconcile(rid)
+    elif action == "rollback":
+        st, msg = publishing.rollback(rid, who)
+    else:
+        st, msg = r["status"], "ไม่รู้จักคำสั่ง"
+    return _redirect(f"/brands/{brand_id}/publishing?notice=" + quote(f"{publishing.STATES.get(st, st)} — {msg}"))
+
+
 @app.get("/brands/{brand_id}/report")
 def brand_report(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)
@@ -2721,6 +3090,10 @@ def _autopilot_notify(brand, log) -> bool:
 @office.track("delivery", lambda brand_id: f"รอบ Autopilot แบรนด์ #{brand_id}")
 def run_autopilot(brand_id: int) -> dict:
     """รอบ Autopilot ของแบรนด์ — ต่อสายทุกขั้นเข้ากับฟังก์ชันจริง แล้วเก็บ log"""
+    from . import delivery
+    allowed, forced_mode, why = delivery.autopilot_gate(brand_id)          # stage 15: พื้นที่งานยังไม่พร้อม = ไม่วิ่ง · ไม่ได้รับอนุญาตเผยแพร่ = ร่างเท่านั้น
+    if not allowed:
+        return {"ok": True, "errors": 0, "skipped": True, "summary": "ข้าม: " + why, "steps": []}
     brand = dict(db.get_brand(brand_id))
     last = {
         "sov": brand.get("last_run_at"),
@@ -2738,7 +3111,7 @@ def run_autopilot(brand_id: int) -> dict:
         "content": _autopilot_content, "report": _autopilot_report, "notify": _autopilot_notify,
     }
     n = brand.get("autopilot_content") if brand.get("autopilot_content") is not None else 1
-    log = autopilot.run(brand, actions, last, content_n=int(n), mode=brand.get("autopilot_mode") or "draft")
+    log = autopilot.run(brand, actions, last, content_n=int(n), mode=forced_mode or brand.get("autopilot_mode") or "draft")
     db.add_autopilot_run(brand_id, log)
     return log
 
@@ -2909,6 +3282,9 @@ def _fix_all_worker(brand_id: int, tenant_id: int, publish_drafts: bool):
                     _attach_image(brand, it["id"], question)
                 fixed += 1
                 do_pub = (it["status"] == "published") or publish_drafts
+                from . import publishing
+                if publishing.on():
+                    do_pub = False                 # stage 16: เขียนใหม่แล้ว = เวอร์ชันใหม่ ต้องผ่านประตูและอนุมัติก่อนขึ้นจริง
                 if do_pub:
                     if conn:
                         _publish_item(db.get_content(it["id"]), conn, brand, status="publish")
@@ -3140,7 +3516,13 @@ def publish_content(request: Request, content_id: int, status: str = Form("draft
         return _redirect("/app" if _tid(request) else "/login")
     wp_status = "publish" if status == "publish" else "draft"  # validate
     conn = db.get_wp_connection(item["brand_id"])
-    if not conn:
+    from . import publishing
+    if publishing.on() and wp_status == "publish":   # stage 16: ผ่านประตู → อนุมัติผูกเวอร์ชัน → ส่ง → ปลายทางยืนยัน
+        own = item["brand_id"] in [b["id"] for b in db.list_brands(_tid(request) or 0)]
+        st, msg = publishing.publish_now(content_id, request.session.get("email") or "customer", "customer" if own else "staff")
+        item = db.get_content(content_id)
+        notice = {"ok": st == "published", "msg": f"{publishing.STATES.get(st, st)} — {msg}"}
+    elif not conn:
         # เว็บ dev (ไม่มี WP) → เผยแพร่ = ขึ้นหน้า hosted ของแพลตฟอร์ม
         if wp_status == "publish":
             site = geo_content._site_url(brand)
@@ -3405,7 +3787,14 @@ def _self_pages(base: str) -> list:
     alts = {L.HTML_LANG[c]: base + L.PATHS[c] for c in L.LANGS}
     alts["x-default"] = base + "/"
     home = [{"loc": base + L.PATHS[c], "alternates": alts} for c in L.LANGS]
-    return home + [{"loc": base + "/audit"}, {"loc": base + "/partners"}, {"loc": base + "/geo"}]
+    extra = []
+    try:                                               # stage 03: หน้าใหม่เข้า sitemap เมื่อเปิด marketing_v2 จริงเท่านั้น (บริการ: เมื่อยืนยันขอบเขตแล้ว)
+        from . import flags as _fl, service_pages as _sp
+        if _fl.enabled("marketing_v2"):
+            extra = [{"loc": base + p} for p in _sp.PATHS if _sp.SCOPE_STATUS == "confirmed" or not p.startswith("/services")]
+    except Exception:
+        extra = []
+    return home + [{"loc": base + "/audit"}, {"loc": base + "/partners"}, {"loc": base + "/geo"}] + extra
 
 
 @app.api_route("/llms.txt", methods=["GET", "HEAD"])
@@ -3676,6 +4065,178 @@ def _settings_ctx(request: Request, saved=False, error=None):
     }
 
 
+def _c360_guard(request: Request):
+    """stage 09: flag ปิด = 404 · ต้องเป็นทีมงาน (middleware ตรวจสิทธิ์รายหมวดแล้ว) → คืนแถวทีมงาน"""
+    from fastapi import HTTPException
+    from . import c360
+    if not c360.enabled():
+        raise HTTPException(status_code=404)
+    t = getattr(request.state, "staff", None)
+    if t is None:
+        raise HTTPException(status_code=404)
+    return t
+
+
+@app.get("/admin/today")
+def admin_today(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    t = _c360_guard(request)
+    from . import c360
+    return templates.TemplateResponse(request, "admin_today.html", {"sections": c360.today(t), "t": t, "role": staff.role_label(t),
+                                                                     "scoped": c360.scoped(t), "now": db.now()[:16].replace("T", " ")})
+
+
+@app.get("/admin/c360")
+def admin_c360_search(request: Request, q: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    _c360_guard(request)
+    from . import c360
+    k = c360.account_key((q or "").strip())
+    return _redirect(f"/admin/c360/{quote(k)}" if k else "/admin/today")
+
+
+@app.get("/admin/c360/{key}")
+def admin_c360(request: Request, key: str, notice: str = ""):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    t = _c360_guard(request)
+    from . import c360, appointments as ap
+    v = c360.view(c360.account_key(key), t)
+    if v is None:                                          # ไม่มี หรือมองไม่เห็น — ตอบเหมือนกัน ไม่บอกว่ามีลีดนี้อยู่
+        return templates.TemplateResponse(request, "admin_c360.html", {"v": None, "key": key, "notice": notice, "AP": ap}, status_code=404)
+    return templates.TemplateResponse(request, "admin_c360.html", {"v": v, "key": v["key"], "notice": notice, "AP": ap, "t": t,
+                                                                    "staff_list": [s_ for s_ in db.list_staff() if not s_["disabled"]]})
+
+
+@app.post("/admin/c360/{key}/assign", dependencies=[Depends(_csrf.require_csrf)])
+def admin_c360_assign(request: Request, key: str, lead_id: int = Form(0), owner: str = Form(""), expected: int = Form(0)):
+    if not _is_admin(request):
+        return _redirect("/login")
+    t = _c360_guard(request)
+    from . import c360
+    lead = db.get_lead(lead_id)
+    if not lead or c360.account_key(lead["domain"]) != c360.account_key(key) or not c360.lead_visible(t, lead):
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('ไม่พบลีดนี้')}")
+    if owner == "me":
+        new = t["id"]
+    elif owner == "none":
+        new = None
+    elif owner.isdigit() and not c360.scoped(t) and any(s_["id"] == int(owner) and not s_["disabled"] for s_ in db.list_staff()):
+        new = int(owner)                                   # ฝ่ายขายมอบหมายได้แค่ตัวเอง/ปล่อยคืน · หัวหน้าเลือกคนได้
+    else:
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('มอบหมายแบบนี้ไม่ได้')}")
+    if c360.scoped(t) and new is None and lead["owner_staff_id"] != t["id"]:
+        return _redirect(f"/admin/c360/{quote(key)}?notice={quote('ปล่อยคืนได้เฉพาะลีดของตัวเอง')}")
+    ok = c360.assign(lead_id, new, expected or None, request.session.get("email") or "staff")
+    msg = "มอบหมายแล้ว" if ok else "มีคนเปลี่ยนผู้รับผิดชอบก่อนหน้า โหลดหน้าใหม่แล้วลองอีกครั้ง"
+    return _redirect(f"/admin/c360/{quote(key)}?notice={quote(msg)}")
+
+
+@app.get("/admin/staff/identity")
+def admin_identity(request: Request):
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    _c360_guard(request)
+    from . import c360
+    return templates.TemplateResponse(request, "admin_identity.html", {"r": c360.identity_report()})
+
+
+@app.get("/admin/appointments")
+def admin_appointments(request: Request, notice: str = "", saved: int = 0):
+    """stage 06A-2: นัดคุยทั้งหมด (รอยืนยันก่อน) + ตั้งช่องเวลาที่เปิดให้ลูกค้าเลือก"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import appointments as ap, line_plan
+    return templates.TemplateResponse(request, "admin_appointments.html", {
+        "AP": ap, "rows": ap.list_upcoming(), "cfg": ap.config(), "preview": ap.slots(limit=8), "notice": notice, "saved": saved,
+        "errors": {}, "flag_on": _flags.enabled("line_appointments"), "line_ready": line_plan.ready()})
+
+
+@app.post("/admin/appointments/settings", dependencies=[Depends(_csrf.require_csrf)])
+async def admin_appointments_settings(request: Request):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import appointments as ap, line_plan
+    form = await request.form()
+    c, err = ap.validate_config({**dict(form), "days": form.getlist("days")})
+    if err:
+        return templates.TemplateResponse(request, "admin_appointments.html", {
+            "AP": ap, "rows": ap.list_upcoming(), "cfg": c, "preview": [], "notice": "", "saved": 0, "errors": err,
+            "flag_on": _flags.enabled("line_appointments"), "line_ready": line_plan.ready()}, status_code=422)
+    ap.save_config(c)
+    return _redirect("/admin/appointments?saved=1")
+
+
+@app.get("/admin/jobs")
+def admin_jobs(request: Request, status: str = "", notice: str = ""):
+    """stage 10: คิวงานถาวร — สถานะ งานที่ล้ม (dead-letter) จุดหยุด งบวันนี้ outbox ทดสอบ"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    from . import jobs, ai_tests
+    st = status if status in jobs.STATUS_LABEL else ""
+    return templates.TemplateResponse(request, "admin_jobs.html", {
+        "on": jobs.enabled(), "jobs": jobs.list_jobs(st or None, 100), "counts": jobs.counts(), "status": st, "J": jobs,
+        "pauses": jobs.pauses(), "budget": jobs.budget_used("ai_usd"), "outbox": jobs.outbox_list(20), "notice": notice,
+        "ai_live": ai_tests.live(), "est": ai_tests.estimate(),
+        "schema": db.list_schema_versions()})
+
+
+@app.post("/admin/jobs/{job_id}/retry", dependencies=[Depends(_csrf.require_csrf)])
+def admin_job_retry(request: Request, job_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    ok = jobs.retry(job_id)
+    if ok:
+        jobs.kick()
+    return _redirect(f"/admin/jobs?notice={quote('สั่งงาน #%d ใหม่แล้ว' % job_id if ok else 'สั่งใหม่ได้เฉพาะงานที่ล้ม')}")
+
+
+@app.post("/admin/jobs/{job_id}/cancel", dependencies=[Depends(_csrf.require_csrf)])
+def admin_job_cancel(request: Request, job_id: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    r = jobs.cancel(job_id, request.session.get("email") or "admin")
+    msg = {"cancelled": "ยกเลิกแล้ว", "requested": "ขอให้หยุดแล้ว (งานกำลังทำอยู่ จะหยุดก่อนทำผลภายนอก)", "noop": "ยกเลิกไม่ได้ (เสร็จไปแล้ว)"}[r]
+    return _redirect(f"/admin/jobs?notice={quote(f'งาน #{job_id}: {msg}')}")
+
+
+@app.post("/admin/jobs/ai-live", dependencies=[Depends(_csrf.require_csrf)])
+def admin_jobs_ai_live(request: Request, on: str = Form("")):
+    """stage 04C: สวิตช์ทดสอบ AI แบบเสียเงิน (ค่าเริ่มต้นปิด) — มีผลกับเส้นทางคิวงานเท่านั้น"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import ai_tests
+    ai_tests.set_live(on == "1")
+    return _redirect(f"/admin/jobs?notice={quote('เปิดการทดสอบ AI แบบเสียเงินแล้ว' if on == '1' else 'ปิดการทดสอบ AI แบบเสียเงินแล้ว')}")
+
+
+@app.post("/admin/jobs/pause", dependencies=[Depends(_csrf.require_csrf)])
+def admin_jobs_pause(request: Request, scope: str = Form(""), key: str = Form(""), on: str = Form(""), reason: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import jobs
+    if scope not in jobs.PAUSE_SCOPES or (scope == "workflow" and key not in jobs.HANDLERS) or (scope in ("channel", "account") and not key.strip()):
+        return _redirect(f"/admin/jobs?notice={quote('จุดหยุดไม่ถูกต้อง')}")
+    jobs.set_pause(scope, key.strip()[:80], on == "1", reason, request.session.get("email") or "admin")
+    return _redirect(f"/admin/jobs?notice={quote(('หยุด' if on == '1' else 'เปิด') + ' ' + scope + ':' + (key or '*') + ' แล้ว')}")
+
+
+@app.get("/admin/analytics")
+def admin_analytics(request: Request, days: int = 30):
+    """stage 08B: funnel ภายในจาก analytics_events (อ่านอย่างเดียว)"""
+    if not _is_admin(request):
+        return _redirect("/app" if _tid(request) else "/login")
+    labels = {"audit_started": "เริ่มตรวจเว็บ", "audit_completed": "ตรวจเสร็จ (รวมบางส่วน/ล้ม)", "business_context_confirmed": "ยืนยันข้อมูลธุรกิจ",
+              "evidence_opened": "เปิดดูหลักฐาน", "plan_requested": "ขอแผน", "booking_link_clicked": "กดคุยต่อใน LINE",
+              "meeting_booked": "นัดคุยสำเร็จ"}
+    return templates.TemplateResponse(request, "admin_analytics.html",
+                                      {"f": _an.funnel(max(1, min(days, 365))), "labels": labels, "on": _an.enabled()})
+
+
 @app.get("/admin/settings")
 def admin_settings(request: Request):
     if not _is_admin(request):
@@ -3764,7 +4325,8 @@ def admin_settings_llm(request: Request, task: str = Form(""), model: str = Form
 
 
 @app.post("/admin/settings/line")
-def admin_settings_line(request: Request, token: str = Form(""), secret: str = Form(""), unlink: str = Form(""), bot_name: str = Form("")):
+def admin_settings_line(request: Request, token: str = Form(""), secret: str = Form(""), unlink: str = Form(""), bot_name: str = Form(""),
+                        oa_id: str | None = Form(None)):
     if not _is_admin(request):
         return _redirect("/login")
     if unlink:
@@ -3772,6 +4334,10 @@ def admin_settings_line(request: Request, token: str = Form(""), secret: str = F
     else:
         line_oa.save_config(token, secret)
         db.set_setting("line_bot_name", bot_name.strip()[:60])
+        if oa_id is not None and not line_oa.save_oa_id(oa_id):
+            return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error="LINE ID ของ OA ต้องเป็นแบบ @jorai (ตัวอักษรอังกฤษ ตัวเลข . _ -)"))
+        if not db.get_setting("line_oa_id") and line_oa.available():
+            line_oa.fetch_basic_id(force=True)            # ใช้ OA ที่เชื่อมอยู่: ถาม LINE ID จาก LINE ให้เลย (อ่านอย่างเดียว)
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True))
 
 
@@ -4144,7 +4710,7 @@ def admin_lead_deep(request: Request, lead_id: int, ai: str = Form("")):
     if not lead:
         return _redirect("/admin/leads")
     if ai:
-        st = deep_audit.start(lead_id, ai=True, force_ai=True)
+        st = deep_audit.start(lead_id, ai=True, force_ai=True, reason="staff")
         note = "เริ่มถาม AI 20 คำถามแล้ว (ราว 3 นาที ≈ ฿40)" if st == "started" else "กำลังทำอยู่แล้ว"
     else:
         db.update_lead(lead_id, deep_json=None)
@@ -4180,12 +4746,19 @@ def partners_apply(request: Request, name: str = Form(""), company: str = Form("
     return templates.TemplateResponse(request, "partners.html", _partner_public_ctx(done=True))
 
 
+def _deliv_partner(pid: int) -> list:
+    """stage 15: พันธมิตรเห็นเฉพาะสถานะ/ขั้นถัดไปของลูกค้าที่ตัวเองแนะนำ"""
+    from . import delivery
+    return delivery.partner_rows(pid) if delivery.on() else []
+
+
 def _partner_dash(request: Request, p, notice: str = "", error: str = ""):
     from . import partners
     st = partners.stats(p)
     return templates.TemplateResponse(request, "partner_dash.html", {"p": dict(p), "st": st, "ref_url": partners.ref_url(p) if p["code"] else "",
                                       "notice": notice, "error": error, "cst": partners.CSTATUS_TH, "lst": leads.STATUS_LABEL,
-                                      "pct": partners.pct(), "months": partners.months()})
+                                      "pct": partners.pct(), "months": partners.months(),
+                                      "deliv": _deliv_partner(p["id"])})
 
 
 @app.get("/partner/{token}")
@@ -4810,8 +5383,226 @@ def admin_tasks(request: Request, notice: str = ""):
     if not _is_admin(request):
         return _redirect("/app" if _tid(request) else "/login")
     from . import orchestrator
-    return templates.TemplateResponse(request, "admin_tasks.html", {"tasks": db.list_tasks(None, None, 100), "names": orchestrator.NAME, "notice": notice,
-                                                                    "paused": execs.paused()})
+    from . import agent_policy as AP
+    ctx = {"tasks": db.list_tasks(None, None, 100), "names": orchestrator.NAME, "notice": notice, "paused": execs.paused(), "policy": AP.on()}
+    if AP.on():                                    # stage 14: ที่มา ระดับ ผลการตัดสิน (ปิดข้อมูลส่วนตัวแล้ว) · กฎประจำ · สั่งใหม่
+        ctx.update(AP=AP, actions=AP.recent(80), rules={n: AP.standing_rule(n) for n in sorted(AP.STANDING_ELIGIBLE)},
+                   attempts={t["id"]: AP.attempts(t["id"]) for t in ctx["tasks"]}, prio=AP.priorities(), capacity=AP.capacity())
+    return templates.TemplateResponse(request, "admin_tasks.html", ctx)
+
+
+@app.post("/admin/tasks/{tid}/approve", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_approve(request: Request, tid: int):
+    """stage 14: อนุมัติงานที่แจกแบบผูกงาน+ข้อมูล+id (ใช้ครั้งเดียว ภายใน 24 ชม.) แล้วสั่งทำ"""
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP, orchestrator
+    t = db.get_task(tid)
+    if not AP.on() or not t or t["status"] != "blocked":
+        return _redirect("/admin/tasks?notice=" + quote("งานนี้ไม่ได้รออนุมัติ"))
+    AP.approve_task(tid, request.session.get("email") or "owner")
+    orchestrator.dispatch([tid], notify=False)
+    return _redirect("/admin/tasks?notice=" + quote(f"อนุมัติงาน #{tid} แล้ว กำลังทำ"))
+
+
+@app.post("/admin/tasks/{tid}/retry", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_retry(request: Request, tid: int):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP, orchestrator
+    t = db.get_task(tid)
+    if not AP.on() or not t or t["status"] not in ("failed", "skipped", "denied", "held"):
+        return _redirect("/admin/tasks?notice=" + quote("งานนี้สั่งใหม่ไม่ได้"))
+    if AP.attempts(tid) > AP.MAX_RETRIES:
+        return _redirect("/admin/tasks?notice=" + quote(f"ลองครบ {AP.MAX_RETRIES + 1} ครั้งแล้ว — ต้องดูสาเหตุก่อน"))
+    db.update_task(tid, status="queued", result="สั่งใหม่")
+    orchestrator.dispatch([tid], notify=False)
+    return _redirect("/admin/tasks?notice=" + quote(f"สั่งงาน #{tid} ใหม่แล้ว"))
+
+
+# ---------- stage 17: รายได้ ที่มา ต้นทุน (flag revenue_v2 · สิทธิ์หมวดบัญชี) ----------
+def _rev_period(start: str, end: str):
+    import datetime as _dt
+    t = _dt.date.today()
+    try:
+        s = _dt.date.fromisoformat(start) if start else t.replace(day=1)
+        e = _dt.date.fromisoformat(end) if end else t
+    except ValueError:
+        s, e = t.replace(day=1), t
+    return (s, e) if s <= e else (e, s)
+
+
+@app.get("/admin/revenue")
+def admin_revenue(request: Request, start: str = "", end: str = "", notice: str = "", error: str = ""):
+    from . import revenue as R
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not R.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    s, e = _rev_period(start, end)
+    period = e.strftime("%Y-%m")
+    return templates.TemplateResponse(request, "admin_revenue.html", {
+        "R": R, "s": s, "e": e, "period": period, "fin": R.finance(s, e), "fu": R.funnel(), "att": R.attribution_report(s, e),
+        "cst": R.costs(period), "mg": R.margin(period), "pub": R.public_summary(s, e), "notice": notice, "error": error})
+
+
+@app.post("/admin/revenue/cost", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_cost(request: Request, category: str = Form(""), alloc: str = Form(""), amount_thb: str = Form(""), period: str = Form(""),
+                       basis: str = Form("actual"), note: str = Form("")):
+    from . import revenue as R
+    if not _is_admin(request) or not R.on():
+        return _redirect("/login")
+    try:
+        R.add_cost(category, alloc, float(amount_thb), period=period, basis=basis, note=note, by=request.session.get("email") or "owner")
+    except ValueError as ex:
+        return _redirect("/admin/revenue?error=" + quote(str(ex)))
+    return _redirect("/admin/revenue?notice=" + quote("บันทึกต้นทุนแล้ว"))
+
+
+@app.post("/admin/revenue/adjustment", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_adjustment(request: Request, kind: str = Form("refund"), amount: str = Form(""), receipt_number: str = Form(""), note: str = Form("")):
+    from . import revenue as R
+    if not _is_admin(request) or not R.on():
+        return _redirect("/login")
+    doc = next((d for d in db.list_acct_docs(kind="receipt", limit=100000) if d["number"] == receipt_number.strip()), None)
+    if not doc or doc["status"] == "void":
+        return _redirect("/admin/revenue?error=" + quote("ไม่พบใบเสร็จที่ใช้ได้เลขนี้"))
+    try:
+        rid = R.record_adjustment(kind, float(amount), ref=f"manual:{doc['number']}:{kind}:{amount}", lead_id=doc["lead_id"], receipt_id=doc["id"],
+                                  note=note, by=request.session.get("email") or "owner")
+    except ValueError as ex:
+        return _redirect("/admin/revenue?error=" + quote(str(ex)))
+    return _redirect("/admin/revenue?" + ("notice=" + quote("บันทึกแล้ว") if rid else "error=" + quote("รายการนี้บันทึกไว้แล้ว")))
+
+
+@app.post("/admin/revenue/source/{lead_id}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_source(request: Request, lead_id: int, source: str = Form("")):
+    from . import revenue as R, analytics
+    if not _is_admin(request) or not R.on() or not db.get_lead(lead_id):
+        return _redirect("/login")
+    v = source if source in analytics.SOURCES else None
+    with db.get_conn() as c:
+        c.execute(db.q("UPDATE leads SET self_reported_source=? WHERE id=?"), (v, lead_id))
+    return _redirect("/admin/revenue?notice=" + quote("บันทึกที่มาที่ลูกค้าบอกแล้ว"))
+
+
+# ---------- stage 15: ส่งมอบตามขอบเขต + พื้นที่งานลูกค้า (flag delivery_v2) ----------
+def _ws_of_tenant(request: Request, wid: int):
+    from . import delivery
+    ws = delivery.get(wid) if delivery.on() else None
+    return ws if (ws and _tid(request) and ws["tenant_id"] == _tid(request)) else None
+
+
+@app.get("/app/delivery")
+def app_delivery(request: Request, notice: str = "", error: str = ""):
+    from . import delivery
+    if not _tid(request):
+        return _redirect("/login")
+    if not delivery.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    views = [delivery.view(w["id"]) for w in delivery.list_all(_tid(request))]
+    return templates.TemplateResponse(request, "app_delivery.html", {"views": views, "D": delivery, "notice": notice, "error": error, "admin": False})
+
+
+@app.post("/app/delivery/{wid}/facts", dependencies=[Depends(_csrf.require_csrf)])
+async def app_delivery_facts(request: Request, wid: int):
+    from . import delivery, business_context as BC
+    ws = _ws_of_tenant(request, wid)
+    if not ws:
+        return _redirect("/app/delivery")
+    form = dict(await request.form())
+    lead = db.get_lead(ws["lead_id"])
+    v, err = BC.validate(form, lead)
+    if err:
+        return _redirect("/app/delivery?error=" + quote(" · ".join(err.values())))
+    cur = delivery.facts(ws)["fields"]
+    if any((cur.get(k) or "") != (v.get(k) or "") for k, _ in BC.FIELDS) or not delivery.facts(ws)["confirmed"]:
+        BC.save(lead, v, "customer")
+    ok, msg = delivery.confirm_facts(wid, form.get("approver") or "")
+    return _redirect("/app/delivery?" + ("notice=" + quote("ยืนยันข้อมูลแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/{wid}/access", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_access(request: Request, wid: int, mode: str = Form(""), team_contact: str = Form(""), publish: str = Form("")):
+    from . import delivery
+    if not _ws_of_tenant(request, wid):
+        return _redirect("/app/delivery")
+    ok, msg = delivery.set_access(wid, mode, team_contact, publish_allowed=publish == "1")
+    return _redirect("/app/delivery?" + ("notice=" + quote("บันทึกสิทธิ์เข้าถึงแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/{wid}/approve-plan", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_approve(request: Request, wid: int):
+    from . import delivery
+    ws = _ws_of_tenant(request, wid)
+    if not ws:
+        return _redirect("/app/delivery")
+    ok, msg = delivery.approve_plan(wid, ws.get("approver") or request.session.get("email") or "customer")
+    return _redirect("/app/delivery?" + ("notice=" + quote("อนุมัติแผนแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/app/delivery/items/{iid}/accept", dependencies=[Depends(_csrf.require_csrf)])
+def app_delivery_accept(request: Request, iid: int):
+    from . import delivery
+    it = delivery.item(iid) if delivery.on() else None
+    if not it or not _ws_of_tenant(request, it["workspace_id"]):
+        return _redirect("/app/delivery")
+    ok, msg = delivery.move(iid, "accept", "ลูกค้ารับงาน")
+    return _redirect("/app/delivery?" + ("notice=" + quote("รับงานแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.get("/admin/delivery")
+def admin_delivery(request: Request, notice: str = "", error: str = ""):
+    from . import delivery
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not delivery.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    views = [delivery.view(w["id"]) for w in delivery.list_all()]
+    return templates.TemplateResponse(request, "app_delivery.html", {"views": views, "D": delivery, "notice": notice, "error": error, "admin": True,
+                                                                     "offers": delivery.offer_drafts()})
+
+
+@app.post("/admin/delivery/items/{iid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_delivery_item(request: Request, iid: int, action: str, note: str = Form("")):
+    from . import delivery
+    if not _is_admin(request) or not delivery.on():
+        return _redirect("/login")
+    ok, msg = delivery.move(iid, action, note)
+    return _redirect("/admin/delivery?" + ("notice=" + quote("อัปเดตงานแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/admin/delivery/{wid}/{action}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_delivery_ws(request: Request, wid: int, action: str, reason: str = Form(""), version: int = Form(0)):
+    from . import delivery
+    if not _is_admin(request) or not delivery.on() or not delivery.get(wid):
+        return _redirect("/login")
+    ok, msg = True, ""
+    if action == "baseline":
+        delivery.take_baseline(wid)
+    elif action == "plan":
+        ok, msg = delivery.plan(wid)
+    elif action == "accept-scope":
+        ok = delivery.accept_scope(wid, version, request.session.get("email") or "owner")
+        msg = "" if ok else "ยอมรับขอบเขตเวอร์ชันนี้ไม่ได้"
+    elif action == "block":
+        delivery.set_blocked(wid, reason or "ติดปัญหา")
+    elif action == "unblock":
+        delivery.set_blocked(wid, "")
+    elif action == "cancel":
+        delivery.cancel(wid, reason)
+    else:
+        ok, msg = False, "ไม่รู้จักคำสั่ง"
+    return _redirect("/admin/delivery?" + ("notice=" + quote("บันทึกแล้ว") if ok else "error=" + quote(msg)))
+
+
+@app.post("/admin/tasks/rules", dependencies=[Depends(_csrf.require_csrf)])
+def admin_tasks_rules(request: Request, tool: str = Form(""), on: str = Form("")):
+    if not _is_admin(request):
+        return _redirect("/login")
+    from . import agent_policy as AP
+    ok, err = AP.set_standing_rule(tool, on == "1")
+    return _redirect("/admin/tasks?notice=" + quote(err if not ok else (f"เปิดกฎประจำ {tool} แล้ว — เอเจนต์ทำงานนี้ได้โดยไม่ต้องอนุมัติทีละงาน" if on == "1" else f"ปิดกฎประจำ {tool} แล้ว")))
 
 
 @app.post("/admin/tasks/plan")
@@ -4890,3 +5681,7 @@ app.include_router(_crm_router)
 # ---------- ทีมงานและสิทธิ์ /admin/staff (app/staff_web.py · กฎสิทธิ์ app/staff.py) ----------
 from .staff_web import router as _staff_router   # noqa: E402
 app.include_router(_staff_router)
+
+# ---------- หน้าเว็บสาธารณะชุดใหม่ หลัง flag marketing_v2 (app/marketing_web.py · เทมเพลต app/templates/mk/) ----------
+from .marketing_web import router as _mk_router   # noqa: E402
+app.include_router(_mk_router)

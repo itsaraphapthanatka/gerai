@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}วันนี้ — เจอ.AI{% endblock %}
+{% block content %}
+<h1>วันนี้</h1>
+<p class="muted">{{ now }} · บทบาท {{ role }}{% if scoped %} · แสดงเฉพาะลีดที่ยังไม่มอบหมายและลีดของคุณ{% endif %}
+ · ทุกข้อดึงจากข้อมูลจริงในระบบ (ที่มาอยู่ท้ายบรรทัด) · ส่วนที่คุณไม่มีสิทธิ์จะไม่แสดง</p>
+<form method="get" action="/admin/c360" style="margin:10px 0;display:flex;gap:6px"><label>เปิดภาพรวมลูกค้า (โดเมน) <input name="q" placeholder="example.co.th"></label><button type="submit" class="btn">เปิด</button></form>
+{% for s in sections %}
+<div class="card" style="margin-top:14px" id="sec-{{ s.key }}">
+  <h2 style="margin-top:0;font-size:16px">{{ s.title }} <span class="muted">({{ s['items']|length }}{% if s.overdue %} · เลยกำหนด {{ s.overdue }}{% endif %})</span></h2>
+  {% if s['items'] %}
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>เหตุผล</th><th>ลูกค้า</th><th>ผู้รับผิดชอบ</th><th>กำหนด</th><th>ควรทำ</th><th class="muted">ที่มา</th></tr></thead>
+    <tbody>{% for i in s['items'] %}<tr>
+      <td>{{ i.reason }}</td>
+      <td>{% if i.domain %}<a href="/admin/c360/{{ i.domain }}">{{ i.domain }}</a>{% else %}—{% endif %}</td>
+      <td>{{ i.owner }}</td>
+      <td{% if i.due_raw and i.due_raw < now.replace(' ', 'T') %} style="color:#b42318"{% endif %}>{{ i.due or "—" }}</td>
+      <td><a href="{{ i.href }}">{{ i.next }}</a></td>
+      <td class="muted" style="font-size:12px">{{ i.source }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">ไม่มีรายการในตอนนี้ (ตรวจจากข้อมูลจริง ไม่ใช่ว่าระบบไม่ได้ดู)</p>{% endif %}
+</div>
+{% endfor %}
+{% if not sections %}<p class="muted">บทบาทของคุณยังไม่มีงานประเภทที่หน้านี้รวบรวม</p>{% endif %}
+{% endblock %}

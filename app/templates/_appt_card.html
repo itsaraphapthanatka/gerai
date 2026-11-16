@@ -1,0 +1,24 @@
+{# stage 06A-2: การ์ดนัดคุย 1 รายการ (ใช้ในหน้าลีดและหน้ารวมนัด) · ต้องส่ง a (แถว appointments) + AP #}
+<div style="font-size:13.5px;line-height:1.7">
+  <b>{{ AP.label(a['slot_start']) if a['slot_start'] else 'ยังไม่เลือกเวลา' }}</b>
+  <span class="pill">{{ AP.STATUS_LABEL.get(a['status'], a['status']) }}</span>
+  <span class="muted">{{ a['duration_min'] }} นาที · {{ AP.FORMAT_LABEL.get(a['format'], a['format']) }} · เวอร์ชัน {{ a['version'] }}{% if a['confirmed_by'] %} · ยืนยันโดย {{ a['confirmed_by'] }}{% endif %}</span>
+  {% if a['status'] == 'pending_confirmation' %}
+  <div class="muted" style="font-size:12px">ลูกค้าเลือกเวลานี้ใน LINE แต่<b>ยังไม่ใช่นัดที่ยืนยัน</b> · กดยืนยันเมื่อทีมว่างจริง แล้วแจ้งลูกค้าใน LINE OA Manager (ระบบยังไม่ส่งข้อความเอง)</div>
+  {% endif %}
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+    {% if a['status'] == 'pending_confirmation' %}
+    <form method="post" action="/admin/appointments/{{ a['id'] }}/confirm">{{ csrf_input(request) }}<input type="hidden" name="version" value="{{ a['version'] }}">
+      <button type="submit" class="btn sm">ยืนยันนัดนี้</button></form>{% endif %}
+    {% if a['status'] in ('requested', 'pending_confirmation', 'confirmed') %}
+    <form method="post" action="/admin/appointments/{{ a['id'] }}/cancel">{{ csrf_input(request) }}<input type="hidden" name="reason" value="ทีมยกเลิก">
+      <button type="submit" class="btn ghost sm">ยกเลิกนัด</button></form>{% endif %}
+    {% if a['status'] == 'confirmed' %}
+    <form method="post" action="/admin/appointments/{{ a['id'] }}/complete">{{ csrf_input(request) }}<button type="submit" class="btn ghost sm">คุยแล้ว</button></form>
+    <form method="post" action="/admin/appointments/{{ a['id'] }}/no-show">{{ csrf_input(request) }}<button type="submit" class="btn ghost sm">ลูกค้าไม่มา</button></form>{% endif %}
+  </div>
+  {% if a['status'] == 'confirmed' %}<details style="margin-top:6px"><summary class="muted">ข้อความยืนยันสำหรับคัดลอกไปส่งใน LINE OA Manager</summary>
+    <textarea readonly rows="3" style="width:100%">{{ AP.message_text('confirmed', a) }}</textarea></details>{% endif %}
+  <details style="margin-top:4px"><summary class="muted">ประวัติ</summary>
+    {% for h in AP.history(a) %}<div class="muted" style="font-size:12px">{{ h.at[:16].replace('T',' ') }} · {{ AP.STATUS_LABEL.get(h['from'], h['from'] or '—') }} → {{ AP.STATUS_LABEL.get(h.to, h.to) }}{% if h.slot %} · {{ AP.label(h.slot) }}{% endif %} · {{ h.by }}{% if h.reason %} · {{ h.reason }}{% endif %}</div>{% endfor %}</details>
+</div>

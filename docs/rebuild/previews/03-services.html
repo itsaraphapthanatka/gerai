@@ -1,0 +1,227 @@
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>บริการของเจอ.AI · Foundation Sprint และเครื่องมือรายเดือน</title>
+<meta name="robots" content="noindex, nofollow">
+
+<meta name="description" content="เลือกให้เจอ.AI ปรับเว็บไซต์ให้ตามขอบเขตที่ตกลง หรือใช้เครื่องมือเองรายเดือน ทุกงานระบุสิ่งที่ส่งมอบ สิ่งที่ไม่รวม และเกณฑ์ตรวจรับ">
+
+<link rel="icon" href="http://localhost:8000/static/favicon-32.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#0a0a0a;--on-primary:#fff;--charcoal:#222;--slate:#45515e;--steel:#5f5f5f;--stone:#8e8e93;--muted:#a8aab2;
+    --canvas:#fff;--surface:#f7f8fa;--surface-soft:#f2f3f5;--hairline:#e5e7eb;--hairline-soft:#eaecf0;
+    --coral:#ff5530;--coral-deep:#c8341a;--coral-tint:#fff4f1;--coral-subtle:rgba(255,85,48,.14);
+    --magenta:#ea5ec1;--blue:#1456f0;--purple-brand:#a855f7;--cyan:#3daeff;
+    --success-bg:#e8ffea;--success-text:#1ba673;--good:#1c7a44;--bad:#b42318;
+    --font:'DM Sans','IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+  }
+  body{font-family:var(--font)}
+  .ds-logo{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--primary);text-decoration:none}
+  .ds-logo .dot{width:9px;height:9px;border-radius:9999px;background:var(--coral);display:inline-block}
+  .ds-logo .ai{color:var(--coral)}
+  .ds-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+  .ds-head .ds-sub{font-size:13.5px;font-weight:500;color:var(--slate)}
+  .ds-eyebrow{font-size:13px;font-weight:600;color:var(--coral);text-transform:uppercase;letter-spacing:.5px}
+  button,.btn,a.btn{border-radius:9999px}
+  button:not([style*="background"]):not(.ghost):not(.outline):not(.alt):not(.danger){background:var(--primary);color:var(--on-primary)}
+  button:not([style*="background"]):not(.ghost):not(.outline):not(.alt):not(.danger):hover{background:var(--charcoal)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--coral-subtle)}
+  /* ตัวเลือกภาษา (_lang.html) */
+  .ds-lang{position:relative;font-size:13.5px}
+  .ds-lang summary{list-style:none;cursor:pointer;color:var(--slate);padding:6px 4px;display:inline-flex;align-items:center;gap:6px}
+  .ds-lang summary::-webkit-details-marker{display:none}
+  .ds-lang summary::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}
+  .ds-lang ul{list-style:none;position:absolute;right:0;top:calc(100% + 6px);z-index:200;min-width:140px;background:#fff;border:1px solid var(--hairline);border-radius:12px;padding:6px;margin:0;box-shadow:0 12px 30px -12px rgba(0,0,0,.18)}
+  .ds-lang a{display:block;padding:8px 12px;border-radius:8px;color:var(--primary);text-decoration:none}
+  .ds-lang a:hover,.ds-lang a[aria-current]{background:var(--surface)}
+  html:is([lang=ja],[lang=ko]){word-break:keep-all;overflow-wrap:anywhere}
+</style>
+
+<style>
+  body.mk{
+    --mk-ink:var(--primary,#0a0a0a);--mk-slate:var(--slate,#45515e);--mk-hair:var(--hairline,#e5e7eb);--mk-surface:var(--surface,#f7f8fa);
+    --mk-coral:var(--coral,#ff5530);--mk-coral-deep:var(--coral-deep,#c8341a);
+    --mk-found:#1c7a44;--mk-absent:#8a5a12;--mk-untested:#5f6670;--mk-down:#b42318;
+    --mk-radius:14px;--mk-max:1120px;
+    margin:0;background:#fff;color:var(--mk-ink);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;
+  }
+  body.mk *{box-sizing:border-box}
+  body.mk h1,body.mk h2,body.mk h3{line-height:1.25;letter-spacing:-.01em;text-wrap:balance;margin:0}
+  body.mk h1{font-size:clamp(28px,5vw,44px);font-weight:700}
+  body.mk h2{font-size:clamp(22px,3vw,30px);font-weight:700}
+  body.mk h3{font-size:17px;font-weight:600}
+  body.mk p{margin:0;max-width:66ch}
+  :where(body.mk) a{color:inherit}   /* :where = ไม่เพิ่ม specificity ไม่ทับสีของปุ่มที่เป็นลิงก์ */
+  .mk-wrap{max-width:var(--mk-max);margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .mk-section{padding-block:48px}
+  .mk-stack{display:grid;gap:16px}
+  .mk-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+  .mk-eyebrow{font-size:12.5px;font-weight:600;color:var(--mk-coral-deep);text-transform:uppercase;letter-spacing:.06em}
+  .mk-muted{color:var(--mk-slate)} .mk-small{font-size:13.5px}
+  .mk-mono{font-family:ui-monospace,'IBM Plex Mono',Consolas,monospace;font-size:.9em;font-variant-numeric:tabular-nums}
+  .mk-skip{position:absolute;left:-9999px;top:8px;background:var(--mk-ink);color:#fff;padding:8px 14px;border-radius:9999px;z-index:100}
+  .mk-skip:focus{left:12px}
+
+  /* nav + footer */
+  .mk-nav{border-bottom:1px solid var(--mk-hair);background:#fff}
+  .mk-nav .mk-wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;flex-wrap:wrap}
+  .mk-nav ul{list-style:none;display:flex;gap:6px 18px;flex-wrap:wrap;margin:0;padding:0;font-size:14.5px}
+  .mk-nav a{text-decoration:none;color:var(--mk-slate)} .mk-nav a:hover,.mk-nav a[aria-current]{color:var(--mk-ink)}
+  .mk-foot{border-top:1px solid var(--mk-hair);padding-block:28px;font-size:13.5px;color:var(--mk-slate)}
+  .mk-foot .mk-wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+  .mk-foot ul{list-style:none;display:flex;gap:6px 18px;flex-wrap:wrap;margin:0;padding:0}
+
+  /* buttons: one primary per decision */
+  .mk-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:9999px;padding:12px 22px;font:600 15px var(--font);border:1.5px solid var(--mk-ink);cursor:pointer;text-decoration:none;line-height:1.2}
+  .mk-btn-primary{background:var(--mk-ink);color:#fff} .mk-btn-primary:hover{background:#222}
+  .mk-btn-secondary{background:#fff;color:var(--mk-ink)} .mk-btn-secondary:hover{background:var(--mk-surface)}
+  .mk-btn-text{border-color:transparent;background:transparent;color:var(--mk-ink);text-decoration:underline;text-underline-offset:3px;padding-inline:4px}
+  .mk-btn[disabled],.mk-btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+  body.mk :focus-visible{outline:3px solid var(--mk-coral);outline-offset:2px}
+
+  /* status: shape + word + colour; coral is never a status colour */
+  .mk-st{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600}
+  .mk-st i{width:12px;height:12px;flex:none;display:inline-block;border-radius:50%}
+  .mk-st-found{color:var(--mk-found)} .mk-st-found i{background:var(--mk-found)}
+  .mk-st-absent{color:var(--mk-absent)} .mk-st-absent i{border:2px solid var(--mk-absent)}
+  .mk-st-partial{color:var(--mk-absent)} .mk-st-partial i{border:2px solid var(--mk-absent);background:linear-gradient(90deg,var(--mk-absent) 50%,transparent 50%)}
+  .mk-st-not_tested{color:var(--mk-untested)} .mk-st-not_tested i{border:2px dashed var(--mk-untested)}
+  .mk-st-unavailable{color:var(--mk-down)} .mk-st-unavailable i{border:2px solid var(--mk-down);background:linear-gradient(135deg,transparent 42%,var(--mk-down) 42%,var(--mk-down) 58%,transparent 58%)}
+
+  /* cards */
+  .mk-card{border:1px solid var(--mk-hair);border-radius:var(--mk-radius);padding:16px;display:grid;gap:8px;background:#fff;min-width:0;align-content:start}
+  .mk-meta{font-size:12.5px;color:var(--mk-slate)}
+  .mk-quote{margin:0;border-left:3px solid var(--mk-coral);padding-left:12px;font-size:15px;overflow-wrap:anywhere}
+  .mk-facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13.5px;margin:0}
+  .mk-facts dt{color:var(--mk-slate)} .mk-facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+  .mk-order-n{font-weight:700;color:var(--mk-coral-deep);font-variant-numeric:tabular-nums;margin-right:8px}
+  .mk-lbl{font-size:11.5px;padding:0 7px;border-radius:9999px;border:1px solid currentColor;margin-left:6px;white-space:nowrap}
+  .mk-lbl-confirmed{color:var(--mk-found)} .mk-lbl-inferred{color:var(--mk-absent)}
+  .mk-cover{display:grid;gap:6px}
+  .mk-cover-bar{display:grid;grid-template-columns:repeat(var(--n,4),1fr);gap:4px}
+  .mk-cover-bar span{height:8px;border-radius:9999px;background:var(--mk-ink)}
+  .mk-cover-bar span.no{background:transparent;border:1.5px dashed var(--mk-untested)}
+
+  /* forms */
+  .mk-field{display:grid;gap:6px}
+  .mk-field label{font-weight:600;font-size:14.5px}
+  .mk-field input,.mk-field select,.mk-field textarea{font:16px var(--font);padding:11px 14px;border:1.5px solid var(--mk-hair);border-radius:12px;background:#fff;color:var(--mk-ink);width:100%}
+  .mk-field-err input{border-color:var(--mk-down)}
+  .mk-help{font-size:13px;color:var(--mk-slate)} .mk-err{font-size:13.5px;color:var(--mk-down);font-weight:500}
+  .mk-hp{position:absolute;left:-9999px}
+
+  /* empty, media, faq */
+  .mk-empty{border:1.5px dashed var(--mk-hair);border-radius:var(--mk-radius);padding:22px;display:grid;gap:8px;justify-items:start;background:var(--mk-surface)}
+  .mk-media{aspect-ratio:16/9;max-width:100%;border-radius:var(--mk-radius);background:var(--mk-surface);border:1px solid var(--mk-hair);display:grid;place-items:center;text-align:center;padding:20px;overflow:hidden}
+  .mk-media img{width:100%;height:100%;object-fit:cover}
+  .mk-faq details{border-bottom:1px solid var(--mk-hair);padding:14px 0}
+  .mk-faq summary{cursor:pointer;font-weight:600;list-style-position:outside}
+  .mk-faq details p{margin-top:8px;color:var(--mk-slate)}
+
+  /* mobile action bar: visible only on narrow screens */
+  .mk-actbar{display:none}
+  @media (max-width:720px){
+    /* แสดงเมื่อเลื่อนผ่านจุดที่มีปุ่มหลักแล้วเท่านั้น (mk-on ใส่โดยสคริปต์ใน base.html) · ปิด JS = ไม่แสดง ปุ่มในหน้ายังใช้ได้ */
+    .mk-actbar.mk-on{display:flex}
+    .mk-actbar{gap:8px;position:sticky;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--mk-hair);
+      padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+    .mk-actbar .mk-btn{flex:1;padding:11px 12px;font-size:14.5px}
+    /* แชตเดิม (_chat_widget.html) ลอยมุมขวาล่าง — ยกขึ้นเหนือแถบปุ่มเมื่อแถบโผล่ ไม่ให้บังกัน */
+    body.mk:has(.mk-actbar.mk-on) #jc-btn{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+    body.mk:has(.mk-actbar.mk-on) #jc-box{bottom:calc(138px + env(safe-area-inset-bottom,0px))}
+  }
+  @media (prefers-reduced-motion:reduce){body.mk *{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+
+</head>
+<body class="mk">
+<a class="mk-skip" href="#main">ข้ามไปเนื้อหา</a>
+
+<nav class="mk-nav" aria-label="เมนูหลัก">
+  <div class="mk-wrap">
+    <a class="ds-logo" href="/"><span class="dot"></span><span>เจอ<span class="ai">.AI</span></span></a>
+    <ul>
+      <li><a href="/audit">ตรวจเว็บไซต์ (สำหรับธุรกิจ)</a></li>
+      <li><a href="/how-it-works">วิธีทำงาน</a></li>
+      <li><a href="/services">บริการ</a></li>
+      <li><a href="/partners">สำหรับเว็บสตูดิโอและเอเจนซี</a></li>
+      <li><a href="/login">เข้าสู่ระบบ</a></li>
+      <li><details class="ds-lang">
+        <summary aria-label="เปลี่ยนภาษา">ไทย</summary>
+        <ul><li><a href="/?lang=th" hreflang="th" lang="th" aria-current="true">ไทย</a></li><li><a href="/en" hreflang="en" lang="en">English</a></li><li><a href="/zh" hreflang="zh-Hans" lang="zh-Hans">中文</a></li><li><a href="/ja" hreflang="ja" lang="ja">日本語</a></li><li><a href="/ko" hreflang="ko" lang="ko">한국어</a></li></ul>
+      </details></li>
+    </ul>
+  </div>
+</nav>
+<main id="main">
+
+
+<section class="mk-wrap mk-section" aria-labelledby="h-sv" style="padding-block:48px 24px">
+  <div class="mk-stack" style="gap:16px;max-width:760px">
+    <span class="mk-eyebrow">บริการ</span>
+    <h1 id="h-sv">ให้เราช่วยตามขอบเขต หรือใช้เครื่องมือเอง</h1>
+    <p class="mk-muted" style="font-size:17px">ไม่ว่าเลือกแบบไหน เริ่มจากรายงานตรวจเว็บเหมือนกัน และไม่มีการรับประกันอันดับหรือรับประกันว่า AI จะแนะนำคุณ</p>
+  </div>
+</section>
+<section class="mk-wrap mk-section" style="padding-top:0">
+  <div class="mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+    <div class="mk-card mk-stack" style="gap:10px">
+      <span class="mk-eyebrow">งานครั้งเดียว</span>
+      <h2 style="font-size:22px;margin:0">Foundation Sprint</h2>
+      <p class="mk-muted" style="margin:0">งานครั้งเดียว ปรับเว็บไซต์ให้ระบบค้นหาและ AI อ่านและเข้าใจบริการหลักของคุณได้ถูกต้อง แล้ววัดซ้ำด้วยวิธีเดิม</p>
+      <dl class="mk-facts"><dt>ราคา</dt><dd>ประเมินตามขอบเขต</dd><dt>เหมาะกับ</dt><dd>ธุรกิจที่อยากให้บริการหลัก 1 บริการ ถูกค้นพบและอธิบายได้ถูกต้อง</dd></dl>
+      <div><a class="mk-btn mk-btn-primary" href="/services/foundation-sprint">ดูขอบเขตงาน</a></div>
+    </div>
+    <div class="mk-card mk-stack" style="gap:10px">
+      <span class="mk-eyebrow">ใช้เครื่องมือเอง รายเดือน</span>
+      <h2 style="font-size:22px;margin:0">วัดผลและสร้างคอนเทนต์ต่อเนื่อง</h2>
+      <p class="mk-muted" style="margin:0">ติดตามการปรากฏในผลค้นเว็บและคำตอบของ AI ตามจำนวนครั้งในแผน และสร้างร่างคอนเทนต์ให้คุณตรวจก่อนเผยแพร่</p>
+      <dl class="mk-facts"><dt>Pro</dt><dd>฿9,900/เดือน · ธุรกิจเดียว ครบทุกฟีเจอร์</dd><dt>Agency</dt><dd>฿29,000/เดือน · เอเจนซี / หลายแบรนด์</dd></dl>
+      <span class="mk-small mk-muted">ราคายังไม่รวม VAT 7% · แผนรายเดือนคือสิทธิ์ใช้เครื่องมือ ไม่ใช่การที่ทีมเราลงมือแก้เว็บให้</span>
+      <div><a class="mk-btn mk-btn-secondary outline" href="/login">เริ่มใช้งาน</a></div>
+    </div>
+  </div>
+</section>
+<section class="mk-section" aria-labelledby="h-ind" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:12px">
+    <h2 id="h-ind">ตามกลุ่มธุรกิจ</h2>
+    <ul class="mk-grid" style="list-style:none;margin:0;padding:0"><li class="mk-card"><a href="/solutions/industrial-property">อสังหาริมทรัพย์เชิงพาณิชย์และอุตสาหกรรม</a><p class="mk-muted mk-small">ผู้ให้เช่าหรือขายคลังสินค้า โรงงานสำเร็จรูป ที่ดินนิคม และพื้นที่สำนักงาน รวมถึงนายหน้าที่ดูแลรายการเหล่านี้</p></li></ul>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:12px">
+  <h2>ยังไม่แน่ใจว่าแบบไหนเหมาะ</h2>
+  <p class="mk-muted">ตรวจเว็บฟรีก่อน แล้วค่อยตัดสินใจจากผลจริง หรือคุยกับทีม 30 นาที</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px"><a class="mk-btn mk-btn-primary" href="/audit">ตรวจเว็บไซต์ฟรี</a> <a class="mk-btn mk-btn-secondary outline" href="/callback">นัดคุย 30 นาที</a></div>
+  <p class="mk-small"><a href="/how-it-works">ดูวิธีทำงานและหลักการวัด</a></p>
+</section>
+</main>
+
+<footer class="mk-foot">
+  <div class="mk-wrap">
+    <span>เจอ.AI · ช่วยให้ธุรกิจถูกค้นพบในการค้นเว็บและคำตอบของ AI โดยไม่การันตีอันดับหรือผลลัพธ์</span>
+    <ul>
+      <li><a href="/audit">ตรวจเว็บฟรี</a></li>
+      <li><a href="/how-it-works">วิธีทำงาน</a></li>
+      <li><a href="/services">บริการ</a></li>
+      <li><a href="/solutions/industrial-property">อสังหาฯ เชิงพาณิชย์และอุตสาหกรรม</a></li>
+      <li><a href="/partners">พาร์ตเนอร์</a></li>
+      <li><a href="/login">เข้าสู่ระบบ</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+/* แถบปุ่มล่างจอ: โผล่เมื่อจุดที่มี data-actbar-anchor (ปุ่มหลักด้านบน) เลื่อนพ้นจอแล้ว · ไม่มี anchor = โผล่ตลอด */
+(function(){var bar=document.querySelector('.mk-actbar');if(!bar)return;var a=document.querySelector('[data-actbar-anchor]');
+if(!a||!('IntersectionObserver' in window)){bar.classList.add('mk-on');return;}
+new IntersectionObserver(function(es){bar.classList.toggle('mk-on',!es[0].isIntersecting&&es[0].boundingClientRect.top<0);}).observe(a);})();
+</script>
+</body>
+</html>

@@ -336,7 +336,7 @@
       <form class="afield in-4" method="post" action="/audit">
         <input type="text" name="url" placeholder="{{ T.ph }}" data-short="{{ T.ph_short }}" required autocomplete="url" aria-label="{{ T.url_aria }}">
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <input type="hidden" name="src" value="{{ src }}">
+        <input type="hidden" name="src" value="{{ src }}">{{ att_fields(request) }}
         <button class="btn btn-coral" type="submit">{{ T.btn_audit }}</button>
       </form>
       <div class="note in-5">{{ T.note }}</div>
@@ -464,7 +464,7 @@
     <form class="afield rv" style="--d:.2s" method="post" action="/audit">
       <input type="text" name="url" placeholder="{{ T.ph }}" data-short="{{ T.ph_short }}" required autocomplete="url" aria-label="{{ T.url_aria }}">
       <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <input type="hidden" name="src" value="{{ src }}">
+      <input type="hidden" name="src" value="{{ src }}">{{ att_fields(request) }}
       <button class="btn btn-coral" type="submit">{{ T.btn_audit }}</button>
     </form>
     <div class="alt rv" style="--d:.25s"><span>{{ T.call_q }}</span><button type="button" class="btn btn-line btn-sm" onclick="openCall()">{{ T.btn_call }}</button></div>

@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 from urllib.parse import urljoin, urlparse
 from urllib import robotparser
 
-from . import db, leads as L, office
+from . import db, leads as L, netguard, office
 
 UA = "Mozilla/5.0 (compatible; JerAI-Audit/1.0; +https://geo.appreview.cloud/audit)"
 MAX_PAGES = 100
@@ -128,7 +128,7 @@ def crawl(site: str, client=None, max_pages: int = MAX_PAGES, budget: float = TI
     """ไต่จากหน้าแรก + sitemap แบบกว้างก่อน (BFS) · เคารพ robots.txt · เก็บสถานะ/title/H1/description/alt/ลิงก์ขาเข้า"""
     import httpx
     own = client is None
-    client = client or httpx.Client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
+    client = client or netguard.client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
     t0 = time.time()
     base = site.rstrip("/")
     apex = _host(base)
@@ -438,6 +438,17 @@ def make_prompts(cr: dict, brand: str, keywords: list[str], llm=None) -> list[st
     return _fallback_prompts(keywords)
 
 
+EXCERPT_CHARS = 400
+
+
+def _rank_provider() -> str:
+    try:
+        from . import geo_worker as gw
+        return gw.rank_backend() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def _engine() -> str | None:
     from . import ai_visibility as av
     eng = av.available_engines()
@@ -471,7 +482,8 @@ def ask_prompts(prompts: list[str], apex: str, brand: str, competitors: list[str
                 comp_urls[h][u.split("#")[0]] += 1
         body = (r.get("text") or "").lower()
         comp = {c: ("cited" if c in hosts else "named" if (c in body or (len(n) >= 4 and n in body)) else "") for c, n in comp_names.items()}
-        rows.append({"prompt": q, "status": j["status"], "cited": j["cited"], "named": j["named"], "competitors": comp, "sources": sorted(set(h for h in hosts if h))[:6]})
+        rows.append({"prompt": q, "status": j["status"], "cited": j["cited"], "named": j["named"], "competitors": comp, "sources": sorted(set(h for h in hosts if h))[:6],
+                     "excerpt": " ".join((r.get("text") or "").split())[:EXCERPT_CHARS]})     # stage 05-full: หลักฐานคำตอบ (ข้อความดิบ escape ตอนแสดง)
     done = [r for r in rows if "status" in r]
     return {"engine": engine, "rows": rows, "asked": len(done), "mentioned": sum(1 for r in done if r["cited"] or r["named"]),
             "cited": sum(1 for r in done if r["cited"]), "competitors": competitors,
@@ -558,9 +570,11 @@ def run_tier1(lead_id: int, search=None, llm=None, client=None) -> dict:
             brand = _brand_name(cr, lead)
             kws = pick_keywords(cr, brand, llm=llm)
             rk = ranking(cr["apex"], kws, search=search) if kws else {"rows": [], "competitors": [], "page1": 0, "n": 0, "depth": 20}
+            rk["protocol"] = {"id": "search-rank-v1", "version": 1, "provider": "custom" if search else _rank_provider()}
         slim = [{k: p.get(k) for k in ("url", "status", "title", "h1", "desc", "inbound", "no_alt", "found_on")} for p in cr["pages"]]
         d = {"state": "done", "at": db.now(), "brand": brand, "crawl": {k: cr[k] for k in ("n", "queued", "blocked", "truncated", "https_redirect", "seconds", "at")},
-             "pages": slim, "issues": iss, "health": hl, "keywords": kws, "ranking": rk}
+             "pages": slim, "issues": iss, "health": hl, "keywords": kws, "ranking": rk,
+             "protocol": {"id": "crawl-v1", "version": 1, "provider": "httpx"}}
         _save(lead_id, "deep_json", d)
         db.add_lead_event(lead_id, "deep_audit", f"ไต่ {cr['n']} หน้า · health {hl['score']}/100 · error {hl['errors']} · ติดหน้าแรก {rk['page1']}/{rk['n']} คำ", "cto")
         return d
@@ -589,10 +603,23 @@ def run_ai(lead_id: int, force: bool = False, ask=None, llm=None, engine: str | 
     try:
         with office.working("cto", f"ถาม AI 20 คำถามเรื่อง {lead['domain']}"):
             comps = [c["domain"] for c in t1["ranking"].get("competitors", [])][:3]
-            prompts = make_prompts({"site": lead["site_url"], "pages": t1.get("pages", [])}, t1["brand"], t1["keywords"], llm=llm)
+            try:                                           # stage 04B: ข้อมูลธุรกิจที่ลูกค้ายืนยัน → คำถามของลูกค้ามาก่อน + คู่แข่งที่ระบุ
+                from . import business_context as _bc
+                ctx = _bc.for_ai(lead)
+            except Exception:
+                ctx = None
+            kws = t1["keywords"]
+            if ctx and ctx.get("primary_service") and ctx["primary_service"] not in kws:
+                kws = [ctx["primary_service"], *kws]
+            prompts = make_prompts({"site": lead["site_url"], "pages": t1.get("pages", [])}, t1["brand"], kws, llm=llm)
+            if ctx:
+                mine = [q for q in ctx["questions"] if t1["brand"].lower() not in q.lower()]
+                prompts = list(dict.fromkeys(mine + prompts))[:N_PROMPTS]
+                comps = list(dict.fromkeys(ctx["competitors"] + comps))[:3]
             res = ask_prompts(prompts, L.domain_of(lead["site_url"]), t1["brand"], comps, ask=ask, engine=engine)
         _ai_count_up()
-        d = {"state": "done", "at": db.now(), **res}
+        d = {"state": "done", "at": db.now(), **res, "context_version": ctx["version"] if ctx else 0,
+             "protocol": {"id": "ai-ask-v1", "version": 1, "provider": res.get("engine") or "custom"}}
         _save(lead_id, "deep_ai_json", d)
         db.add_lead_event(lead_id, "ai_check", f"{res['engine']}: ถูกเอ่ยถึง {res['mentioned']}/{res['asked']} · ถูกอ้างอิง {res['cited']} · ค่าใช้จ่าย ${res['cost_usd']}", "cto")
         sc = L.score_lead(db.get_lead(lead_id))           # คะแนนโอกาสนับผลถาม AI ด้วย → อัปเดตที่เก็บไว้ (รายการโทร/CEO ใช้ค่านี้)
@@ -618,7 +645,36 @@ def _bg(fn) -> None:
     threading.Thread(target=runner, daemon=False).start()
 
 
-def start(lead_id: int, ai: bool = False, force_ai: bool = False) -> str:
+def _queue_ai(lead_id: int, force: bool, reason: str = "unspecified") -> bool:
+    """เข้าคิวงาน deep_ai (ไม่ซ้ำวันละครั้งต่อลีด · สั่งวัดใหม่ = งานใหม่) · flag ปิด = False (ใช้ thread แบบเดิม)
+    ไม่ทำทั้งสองทางพร้อมกัน: เมื่อเข้าคิวแล้ว thread เดิมจะไม่เรียก run_ai"""
+    from . import jobs, ai_tests
+    if not jobs.enabled():
+        return False
+    lead = db.get_lead(lead_id)                                  # stage 04C: สวิตช์ทดสอบจริง + สิทธิ์ตามเหตุผลที่สั่ง (ไม่เรียก AI ถ้าไม่ผ่าน)
+    if not ai_tests.live():
+        if tier2(lead).get("state") != "done":
+            _save(lead_id, "deep_ai_json", {"state": "disabled", "at": db.now(), "reason": "ยังไม่เปิดการทดสอบ AI แบบเสียเงิน"})
+        return True
+    ok, why = ai_tests.eligibility(lead, reason)
+    if not ok:
+        if tier2(lead).get("state") != "done":
+            st = "needs_input" if why == "needs_input" else "awaiting_staff"
+            _save(lead_id, "deep_ai_json", {"state": st, "at": db.now(),
+                                            "reason": "ยืนยันบริการหลักในรายงานก่อน แล้วระบบจะทดสอบ AI ให้" if st == "needs_input" else why})
+        return True
+    key = f"deep_ai:{lead_id}:{office.today_bkk()}" + (f":force:{db.now()[:16]}" if force else "")
+    jid, st = jobs.enqueue("deep_ai", {"lead_id": lead_id, "force": bool(force), "reason": reason}, idem_key=key, lead_id=lead_id, max_attempts=2)
+    if st.startswith("paused"):
+        _save(lead_id, "deep_ai_json", {"state": "queued", "at": db.now(), "reason": "หยุดทดสอบ AI ชั่วคราว ทีมจะวัดให้ภายใน 1 วันทำการ"})
+        return True
+    if st == "queued":
+        _save(lead_id, "deep_ai_json", {"state": "queued", "at": db.now(), "reason": "อยู่ในคิวทดสอบ AI", "job_id": jid})
+        jobs.kick()
+    return True
+
+
+def start(lead_id: int, ai: bool = False, force_ai: bool = False, reason: str = "unspecified") -> str:
     """เริ่มรายงานเต็มเบื้องหลัง (ถ้ายังไม่มีหรือเก่าเกิน 7 วัน) · ai=True ต่อชั้น 2 ด้วย · คืนสถานะสั้น ๆ"""
     if not enabled():
         return "disabled"
@@ -633,6 +689,10 @@ def start(lead_id: int, ai: bool = False, force_ai: bool = False) -> str:
     need2 = ai and not _running(t2) and (force_ai or t2.get("state") not in ("done",))
     if not (need1 or need2):
         return "running" if (_running(t1) or _running(t2)) else "done"
+    if need2 and _queue_ai(lead_id, force_ai, reason):               # stage 10: flag durable_jobs → ทดสอบ AI ผ่านคิว (จองงบ) แทน thread
+        need2 = False
+        if not need1:
+            return "queued"
     if need2:
         _save(lead_id, "deep_ai_json", {"state": "running", "started_at": db.now()})
 

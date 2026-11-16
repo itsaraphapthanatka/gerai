@@ -1,0 +1,46 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# บริการ (stage 03) — งานครั้งเดียว (Foundation Sprint, ประเมินตามขอบเขต) + เครื่องมือรายเดือนเดิม (ราคาจาก billing.PLANS ไม่เปลี่ยน) #}
+{% block title %}บริการของเจอ.AI · Foundation Sprint และเครื่องมือรายเดือน{% endblock %}
+{% block meta %}{% with desc="เลือกให้เจอ.AI ปรับเว็บไซต์ให้ตามขอบเขตที่ตกลง หรือใช้เครื่องมือเองรายเดือน ทุกงานระบุสิ่งที่ส่งมอบ สิ่งที่ไม่รวม และเกณฑ์ตรวจรับ", og_title="บริการของเจอ.AI" %}{% include "mk/_page_meta.html" %}{% endwith %}{% endblock %}
+{% block content %}
+{% include "mk/_draft_note.html" %}
+<section class="mk-wrap mk-section" aria-labelledby="h-sv" style="padding-block:48px 24px">
+  <div class="mk-stack" style="gap:16px;max-width:760px">
+    <span class="mk-eyebrow">บริการ</span>
+    <h1 id="h-sv">ให้เราช่วยตามขอบเขต หรือใช้เครื่องมือเอง</h1>
+    <p class="mk-muted" style="font-size:17px">ไม่ว่าเลือกแบบไหน เริ่มจากรายงานตรวจเว็บเหมือนกัน และไม่มีการรับประกันอันดับหรือรับประกันว่า AI จะแนะนำคุณ</p>
+  </div>
+</section>
+<section class="mk-wrap mk-section" style="padding-top:0">
+  <div class="mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+    <div class="mk-card mk-stack" style="gap:10px">
+      <span class="mk-eyebrow">งานครั้งเดียว</span>
+      <h2 style="font-size:22px;margin:0">{{ fs.name }}</h2>
+      <p class="mk-muted" style="margin:0">{{ fs.summary }}</p>
+      <dl class="mk-facts"><dt>ราคา</dt><dd>{{ fs.price }}</dd><dt>เหมาะกับ</dt><dd>ธุรกิจที่อยากให้บริการหลัก 1 บริการ ถูกค้นพบและอธิบายได้ถูกต้อง</dd></dl>
+      <div>{{ ui.button("ดูขอบเขตงาน", href="/services/foundation-sprint") }}</div>
+    </div>
+    <div class="mk-card mk-stack" style="gap:10px">
+      <span class="mk-eyebrow">ใช้เครื่องมือเอง รายเดือน</span>
+      <h2 style="font-size:22px;margin:0">วัดผลและสร้างคอนเทนต์ต่อเนื่อง</h2>
+      <p class="mk-muted" style="margin:0">ติดตามการปรากฏในผลค้นเว็บและคำตอบของ AI ตามจำนวนครั้งในแผน และสร้างร่างคอนเทนต์ให้คุณตรวจก่อนเผยแพร่</p>
+      <dl class="mk-facts">{% for p in plans %}<dt>{{ p.label }}</dt><dd>฿{{ "{:,}".format(p.price) }}{{ p.period }} · {{ p.tagline }}</dd>{% endfor %}</dl>
+      <span class="mk-small mk-muted">ราคายังไม่รวม VAT 7% · แผนรายเดือนคือสิทธิ์ใช้เครื่องมือ ไม่ใช่การที่ทีมเราลงมือแก้เว็บให้</span>
+      <div>{{ ui.button("เริ่มใช้งาน", href="/login", kind="secondary") }}</div>
+    </div>
+  </div>
+</section>
+<section class="mk-section" aria-labelledby="h-ind" style="background:var(--mk-surface)">
+  <div class="mk-wrap mk-stack" style="gap:12px">
+    <h2 id="h-ind">ตามกลุ่มธุรกิจ</h2>
+    <ul class="mk-grid" style="list-style:none;margin:0;padding:0"><li class="mk-card"><a href="/solutions/industrial-property">{{ ind.name }}</a><p class="mk-muted mk-small">{{ ind.for }}</p></li></ul>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:12px">
+  <h2>ยังไม่แน่ใจว่าแบบไหนเหมาะ</h2>
+  <p class="mk-muted">ตรวจเว็บฟรีก่อน แล้วค่อยตัดสินใจจากผลจริง หรือคุยกับทีม 30 นาที</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">{{ ui.button("ตรวจเว็บไซต์ฟรี", href="/audit") }} {{ ui.button("นัดคุย 30 นาที", href="/callback", kind="secondary") }}</div>
+  <p class="mk-small"><a href="/how-it-works">ดูวิธีทำงานและหลักการวัด</a></p>
+</section>
+{% endblock %}

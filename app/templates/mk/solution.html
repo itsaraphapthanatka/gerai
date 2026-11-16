@@ -1,0 +1,44 @@
+{% extends "mk/base.html" %}
+{% import "mk/_ui.html" as ui %}
+{# กลุ่มธุรกิจ: อสังหาฯ เชิงพาณิชย์/อุตสาหกรรม (stage 03) — คำถามผู้ซื้อ ข้อมูลที่ควรมี ปัญหาที่พบบ่อย ตัวอย่างสาธิต · ไม่มีตัวเลขความต้องการหรือผลลัพธ์ที่ไม่ได้วัด #}
+{% block title %}เว็บไซต์อสังหาฯ เชิงพาณิชย์และอุตสาหกรรม ให้ AI และการค้นหาเข้าใจ · เจอ.AI{% endblock %}
+{% block meta %}{% with desc="คลังสินค้า โรงงาน ที่ดินนิคม: ข้อมูลอะไรบนเว็บที่ผู้เช่าและผู้ซื้อใช้ตัดสินใจ และทำอย่างไรให้ระบบค้นหาและ AI อ่านได้ถูกต้อง", og_title="อสังหาฯ เชิงพาณิชย์และอุตสาหกรรม · เจอ.AI" %}{% include "mk/_page_meta.html" %}{% endwith %}{% endblock %}
+{% block content %}
+<section class="mk-wrap mk-section" aria-labelledby="h-ip" style="padding-block:48px 24px">
+  <div class="mk-stack" style="gap:14px;max-width:780px">
+    <span class="mk-eyebrow">กลุ่มธุรกิจ · {{ ind.name }}</span>
+    <h1 id="h-ip">ผู้เช่าโกดังและโรงงานถามคำถามเฉพาะเจาะจง เว็บไซต์ของคุณตอบได้ไหม</h1>
+    <p class="mk-muted" style="font-size:17px">สำหรับ{{ ind.for }}</p>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:12px;padding-top:0" aria-labelledby="h-q">
+  <h2 id="h-q">คำถามที่ผู้ซื้อกลุ่มนี้ใช้ตัดสินใจ</h2>
+  <ul class="mk-stack" style="gap:8px;margin:0;padding-left:20px">{% for q in ind.questions %}<li>“{{ q }}”</li>{% endfor %}</ul>
+  <p class="mk-small mk-muted">{{ ind.questions_note }}</p>
+</section>
+<section class="mk-section" style="background:var(--mk-surface)" aria-labelledby="h-data">
+  <div class="mk-wrap mk-stack" style="gap:14px">
+    <h2 id="h-data">ข้อมูลที่ควรอยู่บนหน้าเว็บเป็นข้อความ</h2>
+    <div class="mk-grid">{% for t, d in ind.data %}<div class="mk-card"><h3>{{ t }}</h3><p class="mk-muted mk-small">{{ d }}</p></div>{% endfor %}</div>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:14px" aria-labelledby="h-prob">
+  <h2 id="h-prob">สิ่งที่ทำให้ระบบค้นหาและ AI อ่านเว็บกลุ่มนี้ไม่ออก</h2>
+  <div class="mk-grid">{% for t, d in ind.problems %}<div class="mk-card"><h3>{{ t }}</h3><p class="mk-muted mk-small">{{ d }}</p></div>{% endfor %}</div>
+</section>
+<section class="mk-section" style="background:var(--mk-surface)" aria-labelledby="h-ex">
+  <div class="mk-wrap mk-stack" style="gap:14px">
+    <span class="mk-eyebrow">ตัวอย่างสาธิต ไม่ใช่ข้อมูลทรัพย์จริง</span>
+    <h2 id="h-ex">ข้อความเดียวกัน เขียนให้ระบบเข้าใจ</h2>
+    <div class="mk-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+      <div class="mk-card"><h3>ก่อน</h3><p class="mk-muted">{{ ind.example_before }}</p></div>
+      <div class="mk-card"><h3>หลัง</h3><dl class="mk-facts">{% for k, v in ind.example_after %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></div>
+    </div>
+  </div>
+</section>
+<section class="mk-wrap mk-section mk-stack" style="gap:12px">
+  <h2>ดูว่าเว็บของคุณอยู่ตรงไหน</h2>
+  <p class="mk-muted">ตรวจฟรีจากหน้าสาธารณะ แล้วดูว่าข้อมูลข้างบนอ่านได้จากเว็บคุณแค่ไหน ถ้าอยากให้เราช่วยแก้ คุยกับทีมเพื่อตกลงขอบเขต</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">{{ ui.button("ตรวจเว็บไซต์ฟรี", href="/audit") }} {% if show_services %}{{ ui.button("ดู Foundation Sprint", href="/services/foundation-sprint", kind="secondary") }}{% else %}{{ ui.button("นัดคุย 30 นาที", href="/callback", kind="secondary") }}{% endif %}</div>
+</section>
+{% endblock %}

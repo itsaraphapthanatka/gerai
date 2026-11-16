@@ -102,6 +102,8 @@
   <div class="ds-head">{% include "_logo.html" %}<span class="ds-sub"><a href="/audit" style="color:inherit;text-decoration:none">{{ _("ตรวจเว็บฟรี") }}</a> <span class="live">LIVE</span></span>{% include "_lang.html" %}</div>
   <h1>{{ _("ผลตรวจ {domain}", domain=lead['domain']) }} <span class="tag" style="font-size:.55em;color:var(--stone);font-weight:600">{{ _("รายงาน AI SEO") }}</span></h1>
   <p class="sub">{{ _("ตรวจเมื่อ {at}", at=(lead['audit_at'] or '')[:16].replace('T',' ')) }}{% if deep %} · {{ _("ไต่เว็บ {n} หน้า", n=deep.crawl.n) }} · {{ _("อันดับ Google ประเทศไทย") }}{% endif %}{% if ai %} · {{ _("ถาม {engine} {n} คำถาม", engine=eng, n=ai.asked) }}{% endif %}</p>
+  {%- if snap and snap.state == "partial" %}<p class="sub" role="note" style="border-left:3px solid var(--stone);padding-left:10px">{{ _("ตรวจได้บางส่วน: หมดเวลาก่อนตรวจครบ ส่วนที่ไม่ได้ตรวจไม่นับเป็นไม่ผ่าน") }} · {% for s in snap.steps if s.state == "skipped" %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {%- if snap and snap.state in ("completed", "partial") and not snap.home_ok %}<p class="sub" role="note" style="border-left:3px solid var(--bad);padding-left:10px">{{ _("เปิดหน้าแรกของเว็บนี้ไม่ได้ระหว่างตรวจ ผลส่วนใหญ่จึงยังสรุปไม่ได้ ลองตรวจใหม่อีกครั้งเมื่อเว็บเปิดได้") }}</p>{% endif %}
 
   <div class="kpis">
     {% if rk and rk.get('ok', rk.n) %}<div class="kpi {{ 'good' if rk.page1 else 'bad' }}"><b>{{ rk.page1 }}<small>/{{ rk.n }}</small></b><span>{{ _("keyword ติดหน้าแรก Google") }}</span></div>

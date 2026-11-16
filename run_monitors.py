@@ -185,9 +185,16 @@ def main():
     ap.add_argument("--followup", action="store_true", help="SDR: ติดตามผลลีดที่ทักแล้วเงียบ (วันที่ 3 · 7 · 14) หยุดเมื่อตอบ/ขอไม่รับ")
     ap.add_argument("--cmo", action="store_true", help="ฝ่ายการตลาด: เผยแพร่คอนเทนต์ของเจอ.AI ที่ผ่าน QA → เสนอโพสต์ LINE/Facebook → เคสศึกษา")
     ap.add_argument("--autopilot", action="store_true", help="รอบ Autopilot ให้แบรนด์ที่เปิดไว้ (วัดทุกตัว → เขียนคอนเทนต์ → รายงาน)")
+    ap.add_argument("--jobs", action="store_true", help="คิวงานถาวร (stage 10): ทำงานที่ถึงเวลา · flag durable_jobs ปิด = ไม่ทำอะไร · รันซ้อนกับ autorun ได้")
     ap.add_argument("--crm", action="store_true", help="CRM: เตือนเจ้าของ (กระดิ่ง + LINE · อีเมลเฉพาะนัดประชุม) เมื่องานถัดไปของดีลถึงกำหนดภายใน 15 นาทีหรือเลยกำหนด")
     args = ap.parse_args()
     db.init_db()
+    if args.jobs:
+        from app import jobs
+        res = jobs.run_once(limit=20)
+        if res:
+            print(f"jobs · {datetime.datetime.now().isoformat(timespec='minutes')} " + ", ".join(f"#{j}:{r}" for j, r in res))
+        return
     if args.crm:
         from app import crm
         res = crm.run_reminders()

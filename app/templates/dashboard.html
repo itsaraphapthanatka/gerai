@@ -3,6 +3,7 @@
 {% block content %}
 {% from "_managed.html" import note, contacts with context %}
 {% set _mg = managed() %}
+{% for w in delivery_ws %}<div class="ok-banner" style="margin-bottom:12px">{{ _("งานส่งมอบ: {s} · ขั้นถัดไป: {n}", s=w.state_label, n=w.next) }} — <a href="/app/delivery">{{ _("ดูงานของคุณ") }}</a></div>{% endfor %}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
   <h1 style="margin:0">{{ _("แบรนด์ของคุณ") }}</h1>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

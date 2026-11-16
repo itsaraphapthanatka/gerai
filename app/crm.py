@@ -347,7 +347,7 @@ def link_request(cid: int, lead_text: str = "", new_domain: str = "", who: str =
             try:
                 pipeline.run_lead_audit(lid, lead["site_url"])
                 from . import deep_audit
-                deep_audit.start(lid, ai=True)                    # ขอนัดคุยเอง = สนใจจริง → วัด AI ให้ไว้คุยในสาย
+                deep_audit.start(lid, ai=True, reason="meeting_request")   # ขอนัดคุยเอง = สนใจจริง → วัด AI ให้ไว้คุยในสาย
             except Exception:
                 pass
         pipeline._spawn(work)

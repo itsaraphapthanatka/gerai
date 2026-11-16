@@ -1,0 +1,83 @@
+{
+ "base_commit": "a35405f",
+ "synthetic_leads": 2000,
+ "postgres": "ไม่ได้ทดสอบ (ไม่มี Postgres ในเครื่องนี้)",
+ "steps": {
+  "seed_old_schema_s": 16.08,
+  "backup_s": 0.02,
+  "migrate_s": 0.114,
+  "migrate_again_s": 0.03,
+  "restore_s": 0.014
+ },
+ "before": {
+  "tables": 37,
+  "rows": 4161,
+  "leads": 2000,
+  "brands": 80
+ },
+ "db_bytes": 761856,
+ "migrate": {
+  "new_tables": [
+   "agent_actions",
+   "ai_answer_cache",
+   "analytics_events",
+   "appointments",
+   "approvals",
+   "budget_reservations",
+   "business_contexts",
+   "cost_entries",
+   "delivery_items",
+   "delivery_scopes",
+   "delivery_workspaces",
+   "finance_adjustments",
+   "job_pauses",
+   "jobs",
+   "line_events_seen",
+   "line_plan_codes",
+   "line_plan_sessions",
+   "outbox",
+   "plan_requests",
+   "publish_requests",
+   "report_versions",
+   "scheduler_leases",
+   "schema_migrations"
+  ],
+  "lost_rows": {},
+  "schema_versions": 16,
+  "integrity": "ok",
+  "fk_violations": 0
+ },
+ "migrate_again_changed_rows": {},
+ "old_code_on_migrated_db": {
+  "ok": true,
+  "leads": 2000,
+  "brands": 80
+ },
+ "dry_run_identity": {
+  "first": {
+   "seconds": 0.092,
+   "summary": {
+    "counts": {
+     "groups": 1980,
+     "leads": 2000,
+     "brands": 80,
+     "partners": 0,
+     "with_customer": 76
+    },
+    "by_kind": {
+     "dup_leads": 20
+    },
+    "writes": 0
+   },
+   "conflicts": 20
+  },
+  "repeat_same": true,
+  "wrote_rows": false
+ },
+ "restore_matches_before": true,
+ "restore_integrity": {
+  "integrity": "ok",
+  "fk_violations": 0
+ },
+ "pass": true
+}

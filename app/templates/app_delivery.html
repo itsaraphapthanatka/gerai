@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ "พื้นที่งานส่งมอบ" if admin else "งานของคุณ" }} — เจอ.AI{% endblock %}
+{% block content %}
+<h1>{{ "พื้นที่งานส่งมอบ (ทุกลูกค้า)" if admin else "งานของคุณกับเจอ.AI" }}</h1>
+<p class="muted">ลำดับงาน: ยืนยันข้อมูลธุรกิจ → สิทธิ์เข้าถึงเว็บ → วัดผลตั้งต้น → แผนที่อนุมัติ → ลงมือ · {{ "การชำระเงินไม่ได้แปลว่าเราเผยแพร่บนเว็บของลูกค้าได้ จนกว่าลูกค้าอนุญาต" if admin else "การชำระเงินไม่ได้แปลว่าเราจะเผยแพร่บนเว็บของคุณ จนกว่าคุณอนุญาต" }}</p>
+{% if notice %}<div class="ok-banner">{{ notice }}</div>{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% set LS = {'found': 'พบแล้ว', 'absent': 'ไม่พบ (ทดสอบแล้ว)', 'partial': 'บางส่วน', 'not_tested': 'ยังไม่ได้ทดสอบ', 'unavailable': 'ระบบไม่พร้อม'} %}
+{% set LN = {'ai_mention': 'AI พูดถึงแบรนด์', 'site_health': 'สุขภาพเว็บ', 'search_console': 'Search Console'} %}
+{% for v in views %}{% set ws = v.ws %}
+<div class="card" style="margin-top:16px" id="ws{{ ws.id }}">
+  <h2 style="margin-top:0;font-size:18px">{{ v.brand.name if v.brand else ('แบรนด์ #' ~ ws.brand_id) }} <span class="pill" style="font-size:11px">{{ v.staff_label if admin else v.state_label }}</span></h2>
+  {% if ws.blocked_reason %}<div class="err">{{ ws.blocked_reason }}</div>{% endif %}
+  <p><b>ขั้นถัดไป:</b> {{ v.next }}</p>
+  {% if v.waiting %}<div class="card" style="background:var(--warn-subtle, #fff7e6)"><b>{{ "รอลูกค้าอยู่" if admin else "รอคุณอยู่" }}</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in (v.waiting_staff if admin else v.waiting) %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">
+    <div style="flex:1;min-width:260px">
+      <h3 style="font-size:15px">1. ข้อมูลธุรกิจ + ผู้อนุมัติ {{ "✓" if v.gates.facts else "" }}</h3>
+      {% if not admin %}
+      <form method="post" action="/app/delivery/{{ ws.id }}/facts">{{ csrf_input(request) }}
+        <label>บริการหลัก <input name="primary_service" value="{{ v.facts.fields.primary_service or '' }}" maxlength="80" required></label><br>
+        <label>พื้นที่ให้บริการ <input name="region" value="{{ v.facts.fields.region or '' }}" maxlength="80"></label><br>
+        <label>ลูกค้าเป้าหมาย <input name="audience" value="{{ v.facts.fields.audience or '' }}" maxlength="120"></label><br>
+        <label>ผู้อนุมัติงาน <input name="approver" value="{{ ws.approver or '' }}" maxlength="120" required></label><br>
+        <button class="btn sm" type="submit">ยืนยันข้อมูล</button></form>
+      {% else %}<p style="font-size:13px">บริการหลัก: {{ v.facts.fields.primary_service or "—" }} · พื้นที่: {{ v.facts.fields.region or "—" }} · ผู้อนุมัติ: {{ ws.approver or "—" }} · {{ "ยืนยันแล้ว" if v.facts.confirmed else "ระบบเดา (ยังไม่ยืนยัน)" }}</p>{% endif %}
+    </div>
+    <div style="flex:1;min-width:260px">
+      <h3 style="font-size:15px">2. สิทธิ์เข้าถึงเว็บ {{ "✓" if v.gates.access else "" }}</h3>
+      {% if v.access %}<p class="muted" style="font-size:12.5px">{{ (D.STAFF_ACCESS if admin else D.ACCESS).get(v.access.mode, v.access.mode) }} · {{ v.access.note }} · เผยแพร่เองได้: {{ "อนุญาต" if ws.publish_allowed else "ไม่ (ส่งร่างให้ตรวจ)" }}</p>{% endif %}
+      {% if not admin %}
+      <form method="post" action="/app/delivery/{{ ws.id }}/access">{{ csrf_input(request) }}
+        <select name="mode">{% for k, lb in D.ACCESS.items() %}<option value="{{ k }}" {{ 'selected' if v.access.mode == k else '' }}>{{ lb }}</option>{% endfor %}</select><br>
+        <label>ผู้ติดต่อทีมเว็บเดิม (ถ้าเลือกทีมเว็บเดิม) <input name="team_contact" maxlength="120"></label><br>
+        <label><input type="checkbox" name="publish" value="1"> อนุญาตให้เจอ.AI เผยแพร่บนเว็บได้เอง (ไม่ติ๊ก = ส่งร่างให้ตรวจก่อนทุกชิ้น)</label><br>
+        <button class="btn sm" type="submit">บันทึกและตรวจสิทธิ์</button></form>
+      {% endif %}
+    </div>
+    <div style="flex:1;min-width:260px">
+      <h3 style="font-size:15px">3. วัดผลตั้งต้น {{ "✓" if v.gates.baseline else "" }}</h3>
+      {% if v.baseline.lanes %}<ul style="font-size:13px;padding-left:18px">{% for k, l in v.baseline.lanes.items() %}
+        <li>{{ LN.get(k, k) }}: {{ LS.get(l.state, l.state) }}{% if l.state in ('found', 'absent', 'partial') and l.value is not none %} · {{ l.value }}{% if l.of %}/{{ l.of }}{% endif %}{% endif %}{% if l.at %} <span class="muted">({{ l.at }})</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">ยังไม่ได้วัด</p>{% endif %}
+      {% if admin %}<form method="post" action="/admin/delivery/{{ ws.id }}/baseline">{{ csrf_input(request) }}<button class="btn sm" type="submit">บันทึกผลวัดล่าสุดเป็นตั้งต้น</button></form>{% endif %}
+    </div>
+  </div>
+
+  <h3 style="font-size:15px">4. แผนงาน {{ "✓ อนุมัติแล้ว" if v.gates.plan else "" }}</h3>
+  {% if admin %}<form method="post" action="/admin/delivery/{{ ws.id }}/plan" style="display:inline">{{ csrf_input(request) }}<button class="btn sm" type="submit">ร่างแผนจากผลตรวจ</button></form>{% endif %}
+  {% if not admin and not v.gates.plan and v.ongoing|selectattr('status', 'equalto', 'planned')|list %}<form method="post" action="/app/delivery/{{ ws.id }}/approve-plan" style="display:inline">{{ csrf_input(request) }}<button class="btn sm" type="submit">อนุมัติแผนนี้</button></form>{% endif %}
+  <div style="overflow-x:auto"><table style="margin-top:8px">
+    <thead><tr><th>#</th><th>งาน</th><th>ใครทำ</th><th>หลักฐาน</th><th>เกณฑ์รับงาน</th><th>สถานะ</th><th></th></tr></thead>
+    <tbody>{% for it in v.work %}<tr>
+      <td>{{ it.id }}</td><td><span class="muted" style="font-size:12px">{{ D.KINDS.get(it.kind, it.kind) }}</span><br>{{ it.title }}{% if it.target %}<br><span class="muted" style="font-size:11.5px;word-break:break-all">{{ it.target }}</span>{% endif %}{% if it.depends_on %}<br><span class="muted" style="font-size:11.5px">ต้องรอ #{{ it.depends_on }}</span>{% endif %}</td>
+      <td style="font-size:12.5px">{{ (D.STAFF_OWNERS if admin else D.OWNERS).get(it.owner, it.owner) }}</td>
+      <td class="muted" style="font-size:12px">{% for e in it.evidence %}{{ e }}<br>{% endfor %}</td>
+      <td class="muted" style="font-size:12px">{{ it.acceptance }}</td>
+      <td style="font-size:12.5px">{{ D.ITEM_STATES.get(it.status, it.status) }}{% if it.note %}<br><span class="muted">{{ it.note }}</span>{% endif %}</td>
+      <td>{% if admin %}{% for a, lb in [('start','เริ่ม'),('review','ส่งตรวจ'),('deliver','ส่งมอบ'),('block','ติดปัญหา'),('cancel','ยกเลิก')] %}<form method="post" action="/admin/delivery/items/{{ it.id }}/{{ a }}" style="display:inline">{{ csrf_input(request) }}<button class="btn sm" type="submit">{{ lb }}</button></form>{% endfor %}
+        {% elif it.status in ('delivered', 'review') %}<form method="post" action="/app/delivery/items/{{ it.id }}/accept">{{ csrf_input(request) }}<button class="btn sm" type="submit">รับงานนี้</button></form>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="7" class="muted">ยังไม่มีแผน — ต้องมีข้อมูลธุรกิจ สิทธิ์เข้าถึง และผลวัดตั้งต้นก่อน</td></tr>{% endfor %}</tbody></table></div>
+  <p class="muted" style="font-size:12.5px">ส่งแล้ว {{ v.done|length }} · กำลังทำ/รอ {{ v.ongoing|length }}</p>
+
+  <details style="margin-top:8px"><summary>ขอบเขตงาน{% if v.scope %} (เวอร์ชัน {{ v.scope.version }} · {{ {'draft':'ร่าง','accepted':'ยอมรับแล้ว','superseded':'แทนแล้ว'}.get(v.scope.status, v.scope.status) }}){% endif %} · สิทธิ์ตามแพ็กเกจ</summary>
+    {% if v.scope %}{% set s = v.scope.scope %}
+    <p><b>สิ่งที่ส่งมอบ</b></p><ul>{% for x in s.deliverables %}<li>{{ x }}</li>{% endfor %}</ul>
+    <p><b>ไม่รวม</b></p><ul>{% for x in s.exclusions %}<li>{{ x }}</li>{% endfor %}</ul>
+    <p><b>{{ "สิ่งที่ต้องได้จากลูกค้า" if admin else "สิ่งที่ต้องได้จากคุณ" }}</b></p><ul>{% for x in s.customer_inputs %}<li>{{ x }}</li>{% endfor %}</ul>
+    <p>รอบแก้ {{ s.review_rounds }} รอบ · เกณฑ์รับงาน: {{ s.acceptance }} · เวลา: {{ s.timing }}</p>
+    {% if admin and v.scope.status == 'draft' %}<form method="post" action="/admin/delivery/{{ ws.id }}/accept-scope">{{ csrf_input(request) }}<input type="hidden" name="version" value="{{ v.scope.version }}"><button class="btn sm" type="submit">บันทึกว่าลูกค้ายอมรับขอบเขตเวอร์ชันนี้</button></form>{% endif %}
+    {% endif %}
+    {% if v.ent %}<p class="muted" style="font-size:12.5px">แพ็กเกจเดิม {{ v.ent.label }}: คอนเทนต์ {{ v.ent.content_month }} ชิ้น/เดือน (ใช้ {{ v.usage.content }}) · มอนิเตอร์ {{ v.ent.runs_month }} ครั้ง/เดือน (ใช้ {{ v.usage.runs }}) · แบรนด์ {{ v.ent.brands }}</p>{% endif %}
+  </details>
+  {% if admin %}<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+    <form method="post" action="/admin/delivery/{{ ws.id }}/{{ 'unblock' if ws.blocked_reason else 'block' }}">{{ csrf_input(request) }}{% if not ws.blocked_reason %}<input name="reason" placeholder="เหตุผลที่ติด" size="20">{% endif %}<button class="btn sm" type="submit">{{ "ปลดสถานะติดปัญหา" if ws.blocked_reason else "ตั้งว่าติดปัญหา" }}</button></form>
+    <form method="post" action="/admin/delivery/{{ ws.id }}/cancel">{{ csrf_input(request) }}<input name="reason" placeholder="เหตุผลยกเลิก" size="20"><button class="btn sm danger" type="submit">ยกเลิกพื้นที่งาน</button></form></div>{% endif %}
+</div>
+{% else %}<div class="card"><p class="muted">ยังไม่มีพื้นที่งาน — จะเปิดให้หลังยืนยันยอดชำระ</p></div>{% endfor %}
+
+{% if admin %}<div class="card" style="margin-top:16px"><h2 style="margin-top:0;font-size:17px">ร่างข้อเสนอใหม่ (setting <code>offer_drafts</code>)</h2>
+  <p class="muted" style="font-size:12.5px">เป็นร่างเท่านั้น ไม่เปลี่ยนแพ็กเกจหรือราคาของลูกค้าเดิม · ไม่มีราคา = ยังไม่ตั้งราคา (ระบบไม่เติมให้)</p>
+  <ul>{% for o in offers %}<li><b>{{ o.label }}</b> · {{ ("฿" ~ "{:,}".format(o.price_thb)) if o.price_thb is not none else "ยังไม่ตั้งราคา" }} · {{ o.deliverables|join(", ") }}</li>{% else %}<li class="muted">ยังไม่มีร่าง</li>{% endfor %}</ul></div>{% endif %}
+{% endblock %}
