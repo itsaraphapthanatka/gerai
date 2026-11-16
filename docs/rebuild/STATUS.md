@@ -26,6 +26,13 @@
 | 16 เผยแพร่ + ผลรายเดือน + ดูแลต่อ | **เสร็จ หลัง flag `publish_v2` (ปิด) · ไม่ได้ส่งเข้า WordPress จริง** | 2026-11-16 | เปิด flag แล้วไม่มี auto-publish · ดู `PUBLISHING_CONTRACT.md` |
 | 17 รายได้ ที่มา ต้นทุน | **เสร็จ หลัง flag `revenue_v2` (ปิด) · เห็นเฉพาะหมวดบัญชี** | 2026-11-16 | เงินจากใบเสร็จจริง · ที่มาหลายมุมไม่บวกข้ามกัน · ไม่บอกกำไรถ้าข้อมูลต้นทุนไม่ครบ · ดู `REVENUE_CONTRACT.md` |
 | 18 regression + ซ้อมย้ายข้อมูล + runbook | **เสร็จ (ทดสอบในเครื่อง SQLite) · Postgres/staging ยังไม่ได้ทดสอบ** | 2026-11-16 | ซ้อมย้ายบนข้อมูลสมมติผ่าน · POST เดิม 131 route ยังไม่มีโทเคน CSRF (แช่รายการ + flag origin_check) · ดู runbook 4 ฉบับ |
+| 19 UAT + ส่งมอบ | **เอกสาร + ข้อมูล UAT เสร็จ · UAT โดยคนยังไม่ได้ทำ · production NOT EXECUTED** | 2026-11-16 | ดู `HANDOVER.md` · `UAT_TH.md` · `PRODUCTION_CHANGE_REQUEST.md` |
+
+## stage 19 — UAT และส่งมอบ
+- `scripts/uat_seed.py`: สร้าง DB SQLite แยกขาด (ข้อมูลสมมติ · นอก repo · ฟัง 127.0.0.1 · งบ AI = 0 · ไม่มีบริการภายนอก) + บัญชีทุกบทบาท (รหัสสุ่มเขียนในไฟล์ข้าง DB) · รีเซ็ต = ลบโฟลเดอร์
+- เทสต์ `uat_fixture_smoke.py`: ทุกบทบาทเปิดหน้าเริ่มต้นได้ · ขาย/การตลาดเปิดหน้าการเงินไม่ได้ · พันธมิตรเห็นแค่สถานะ · ไม่มี route ทดสอบ/fixture สาธารณะ
+- `UAT_TH.md` (ผู้เยี่ยมชม/ผู้ซื้อ/ขาย/การตลาด/ส่งมอบ/บัญชี/พันธมิตร/เจ้าของ) · `CONTENT_READINESS.md` (ขวาง/ไม่ขวาง) · `HANDOVER.md` (traceability · route · schema · flag · worker · อำนาจเอเจนต์ · หน้าที่คน · ความเสี่ยง · เลื่อนได้ vs ต้องมี) · `PRODUCTION_CHANGE_REQUEST.md` (**NOT EXECUTED**)
+- **ยังไม่ได้ทำ:** UAT โดยคน · staging · Postgres · stage 07/12/13 (รอของจริง)
 
 ## stage 18 — regression ข้ามขั้น · ซ้อมย้ายข้อมูล · runbook
 - **ไม่มีผลกับ production** · ทดสอบบน SQLite ในเครื่องเท่านั้น · **Postgres ยังไม่ได้ทดสอบ** (ไม่มี Postgres, Docker ไม่ได้รัน) · ยังไม่มี staging
@@ -341,7 +348,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-16 (หลัง 18): **83/83 ผ่าน** · หลัง 17: 82/82 · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-16 (หลัง 19): **84/84 ผ่าน** (รอบเต็ม 83 หลัง 18 + `uat_fixture_smoke.py` รันแยก · stage 19 ไม่แก้โค้ดแอป) · หลัง 18: 83/83 · หลัง 17: 82/82 · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers
