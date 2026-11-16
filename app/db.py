@@ -505,6 +505,31 @@ def _tables() -> list[str]:
             updated_at TEXT NOT NULL
         )""",
         """CREATE INDEX IF NOT EXISTS ix_appointments_slot ON appointments(slot_start, status)""",
+        # stage 17: คืนเงิน/ลดหนี้ (กันซ้ำด้วย ref) และต้นทุนที่กรอกเอง (จริง/ประมาณ) — ไม่แก้เอกสารบัญชีเดิม
+        f"""CREATE TABLE IF NOT EXISTS finance_adjustments (
+            id {_PK},
+            kind TEXT NOT NULL,
+            amount REAL NOT NULL,
+            ref TEXT NOT NULL UNIQUE,
+            lead_id INTEGER,
+            quote_id INTEGER,
+            receipt_id INTEGER,
+            note TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS cost_entries (
+            id {_PK},
+            category TEXT NOT NULL,
+            alloc TEXT NOT NULL,
+            amount_thb REAL NOT NULL,
+            period TEXT NOT NULL,
+            basis TEXT NOT NULL,
+            note TEXT,
+            lead_id INTEGER,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )""",
         # stage 16: คำขอเผยแพร่ — อนุมัติผูกเนื้อหา/ปลายทาง/เวอร์ชัน · ต้องยืนยันจากปลายทาง · เก็บเวอร์ชันที่เผยแพร่ไว้คืนได้
         f"""CREATE TABLE IF NOT EXISTS publish_requests (
             id {_PK},
@@ -828,6 +853,7 @@ def init_db() -> None:
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
         _ensure_column(c, "leads", "audit_by", "INTEGER")
         _ensure_column(c, "leads", "owner_staff_id", "INTEGER")
+        _ensure_column(c, "leads", "self_reported_source", "TEXT")       # stage 17: ลูกค้าบอกเองว่ารู้จักเราจากไหน (ทีมกรอก)
         _ensure_column(c, "agent_tasks", "approval_id", "INTEGER")      # stage 14: การอนุมัติที่ผูกกับงานนี้ (ตรงทุกช่อง ใช้ครั้งเดียว)
         _ensure_column(c, "leads", "opp_override", "TEXT")              # stage 11: ขั้นที่ทีมตั้งเอง (nurture) · NULL = คำนวณจากข้อมูล
         _ensure_column(c, "leads", "lost_reason", "TEXT")               # stage 11: เหตุผลที่ไม่ได้ดีล/รอจังหวะ         # stage 09: ทีมงานที่รับผิดชอบลีด (NULL = ยังไม่มอบหมาย) · ไม่ backfill             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
@@ -1962,7 +1988,7 @@ def add_business_context(lead_id: int, updated_by: str, fields_json: str) -> int
 
 # ---- schema_migrations (stage 10): บันทึกว่าโครงสร้างของแต่ละขั้นถูกสร้างแล้ว (สร้างเองทั้งหมดใน init_db) ----
 SCHEMA_VERSIONS = ("2026-11-14-04a-snapshot", "2026-11-15-06-plan-requests", "2026-11-15-04b-business-contexts",
-                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests")
+                   "2026-11-15-06a1-line-plan", "2026-11-15-05-report-versions", "2026-11-15-08b-analytics", "2026-11-15-10-jobs", "2026-11-16-06a2-appointments", "2026-11-16-09-lead-owner", "2026-11-16-11-opportunity", "2026-11-16-04c-ai-answer-cache", "2026-11-16-14-agent-actions", "2026-11-16-15-delivery", "2026-11-16-16-publish-requests", "2026-11-16-17-revenue")
 
 
 def record_schema_versions() -> None:

@@ -31,19 +31,20 @@ FUNNEL = ("audit_started", "audit_completed", "business_context_confirmed", "evi
           "booking_link_clicked", "meeting_booked")
 
 # ---------- ที่มา (attribution) แบบ allowlist ----------
-SOURCES = ("partner", "organic", "line", "email", "social", "referral", "direct", "unknown")
-SOURCE_LABEL = {"partner": "พันธมิตร", "organic": "ค้นหา", "line": "LINE", "email": "อีเมล", "social": "โซเชียล",
+SOURCES = ("partner", "organic", "ai_assistant", "line", "email", "social", "referral", "direct", "unknown")
+SOURCE_LABEL = {"partner": "พันธมิตร", "organic": "ค้นหา", "ai_assistant": "ผู้ช่วย AI", "line": "LINE", "email": "อีเมล", "social": "โซเชียล",
                 "referral": "เว็บอื่นแนะนำ", "direct": "เข้าตรง", "unknown": "ไม่ทราบ"}
 UTM_ALLOW = ("google", "bing", "facebook", "instagram", "line", "linkedin", "youtube", "tiktok", "email", "newsletter", "partner")
 UTM_SOURCE = {"google": "organic", "bing": "organic", "facebook": "social", "instagram": "social", "linkedin": "social",
               "youtube": "social", "tiktok": "social", "line": "line", "email": "email", "newsletter": "email", "partner": "partner"}
 SRC_SOURCE = {"partner": "partner", "line": "line", "line_chat": "line", "email": "email", "follow": "email", "invite": "email"}
-_HOSTS = (("organic", ("google.", "bing.com", "duckduckgo.com", "search.yahoo.", "yandex.", "baidu.com", "naver.com")),
+_HOSTS = (("ai_assistant", ("chatgpt.com", "chat.openai.com", "perplexity.ai", "gemini.google.com", "copilot.microsoft.com", "claude.ai")),  # stage 17: ก่อน google. · เข้าตรง ≠ AI
+          ("organic", ("google.", "bing.com", "duckduckgo.com", "search.yahoo.", "yandex.", "baidu.com", "naver.com")),
           ("line", ("line.me", "liff.line.me")),
           ("email", ("mail.google.com", "outlook.live.com", "outlook.office.com", "mail.yahoo.com")),
           ("social", ("facebook.com", "instagram.com", "linkedin.com", "lnkd.in", "t.co", "x.com", "twitter.com",
                       "youtube.com", "tiktok.com", "pantip.com")))
-ENTRIES = ("organic", "line", "email", "social", "referral")
+ENTRIES = ("organic", "ai_assistant", "line", "email", "social", "referral")
 
 
 def enabled() -> bool:

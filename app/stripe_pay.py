@@ -410,6 +410,15 @@ def handle_event(evt: dict) -> str:
             pipeline.record(q["lead_id"], "note", "Stripe: การสมัครกลับมา active — คืนแผน", "stripe")
             return "reactivated"
         return "updated"
+    if typ in ("charge.refunded", "credit_note.created"):
+        try:
+            from . import revenue                        # stage 17: บันทึกคืนเงิน/ลดหนี้จากสถานะที่ Stripe ยืนยัน (กันซ้ำด้วย id ของ Stripe)
+            if revenue.on() and obj.get("id"):
+                amt_ = int(obj.get("amount_refunded" if typ == "charge.refunded" else "amount") or 0) / 100
+                revenue.record_adjustment("refund" if typ == "charge.refunded" else "credit", amt_, ref=f"stripe:{obj['id']}",
+                                          lead_id=q["lead_id"], quote_id=q["id"], note=typ, by="stripe")
+        except Exception:
+            pass
     if typ == "charge.refunded":
         amt = int(obj.get("amount_refunded") or 0) // 100
         pipeline.record(q["lead_id"], "note", f"Stripe คืนเงิน {amt:,} บาท", "stripe")

@@ -24,6 +24,15 @@
 | 14 นโยบายเอเจนต์ AI | **เสร็จ หลัง flag `agent_policy` (ปิด) · ไม่ได้เรียกโมเดลจริง** | 2026-11-16 | คุมชั้น CEO แจกงาน + แชต CEO · ห่ออีเมลลูกค้าก่อนเข้า prompt · ดู `AGENT_POLICY.md` · รายละเอียดด้านล่าง |
 | 15 ส่งมอบตามขอบเขต + พื้นที่งานลูกค้า | **เสร็จ หลัง flag `delivery_v2` (ปิด)** | 2026-11-16 | จ่ายแล้วไม่สั่ง Autopilot เองจนครบข้อมูล/สิทธิ์/วัดผลตั้งต้น/แผน · ลูกค้าเดิมไม่กระทบ · ดู `DELIVERY_CONTRACT.md` |
 | 16 เผยแพร่ + ผลรายเดือน + ดูแลต่อ | **เสร็จ หลัง flag `publish_v2` (ปิด) · ไม่ได้ส่งเข้า WordPress จริง** | 2026-11-16 | เปิด flag แล้วไม่มี auto-publish · ดู `PUBLISHING_CONTRACT.md` |
+| 17 รายได้ ที่มา ต้นทุน | **เสร็จ หลัง flag `revenue_v2` (ปิด) · เห็นเฉพาะหมวดบัญชี** | 2026-11-16 | เงินจากใบเสร็จจริง · ที่มาหลายมุมไม่บวกข้ามกัน · ไม่บอกกำไรถ้าข้อมูลต้นทุนไม่ครบ · ดู `REVENUE_CONTRACT.md` |
+
+## stage 17 — รายได้ ที่มา ต้นทุน
+- `app/revenue.py` · หน้า `/admin/revenue` (หมวดบัญชีเท่านั้น) · ตาราง `finance_adjustments`, `cost_entries` · คอลัมน์ `leads.self_reported_source` · รายละเอียด `REVENUE_CONTRACT.md`
+- นิยามเวอร์ชัน `rev-v1` · funnel ต่อบัญชี (หลายผู้ติดต่อ = 1) · เงินจากใบเสร็จที่ไม่ถูกยกเลิก ก่อน VAT · ครั้งเดียว vs รายรอบ · MRR แปลงต่อเดือน · คืนเงินจาก Stripe บันทึกอัตโนมัติ (กันซ้ำ)
+- ที่มา 4 มุม (แรก/ล่าสุดที่มีความหมาย/พันธมิตร/ลูกค้าบอกเอง) แต่ละมุมรวม = จำนวนบัญชีพอดี · ไม่มีข้อมูล = ไม่ทราบ · เพิ่มที่มา "ผู้ช่วย AI" (เข้าตรง ≠ AI) · ส่งออกสาธารณะผ่าน allowlist ไม่มีข้อมูลส่วนตัว
+- ต้นทุน: ค่า API จริงแยกหาลูกค้า/ส่งมอบ · งบที่จองแยก · งานล้มไม่นับ · กรอกค่าแรง/เครื่องมือ (จริง/ประมาณ) · ข้อมูลไม่ครบ = ไม่บอกกำไร
+- เทสต์ `revenue_smoke.py` (ข้อมูลตั้งต้นรู้ยอดรวม: คืนเงิน · ใบยกเลิก · ครั้งเดียว/รายรอบ · หลายผู้ติดต่อ · พันธมิตรปนค้นหา · ข้อมูลขาด · webhook ซ้ำ)
+- **ต้องตัดสินใจ:** เปิด flag · ตั้ง `fx_usd_thb` · กรอกต้นทุนค่าแรงส่งมอบรายเดือน (จริงหรือประมาณ)
 
 ## stage 16 — เผยแพร่ผ่านประตู · ผลรายเดือน · ดูแลลูกค้าต่อ
 - `app/publishing.py` · `app/retention.py` · ตาราง `publish_requests` · หน้า `/brands/<id>/publishing` · รายละเอียด `PUBLISHING_CONTRACT.md`
@@ -322,7 +331,7 @@
 - สร้าง: IMPLEMENTATION_CONTRACT, CURRENT_STATE, ROUTE_MAP, DATA_CONTRACTS, TEST_BASELINE, DELIVERY_PLAN, METRIC_DICTIONARY, OWNER_ASSET_CHECKLIST, STATUS
 
 ## เทสต์
-รันล่าสุด 2026-11-16 (หลัง 16): **81/81 ผ่าน** · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
+รันล่าสุด 2026-11-16 (หลัง 17): **82/82 ผ่าน** · หลัง 16: 81/81 · หลัง 15: 80/80 · หลัง 14: 79/79 (ข้าม `pg_smoke.py`, `smoke_test.py`) · ครั้งแรก 2026-11-14: 63/63 (ดู TEST_BASELINE.md) · ไม่ได้รัน `smoke_test.py`, `pg_smoke.py` · ยังไม่ได้ทดสอบบน Postgres และยังไม่ได้รันแบบตัดเน็ต
 ไฟล์ที่เกี่ยวกับ 00S โดยตรง (ผ่านทั้งหมด): `security_00s_smoke.py`, `leads_smoke.py`, `email_i18n_smoke.py`, `bot_access_smoke.py`, `health_smoke.py`, `deep_smoke.py`, `results_smoke.py`, `image_smoke.py`, `gsc_smoke.py`, `prospect_smoke.py`, `marketing_smoke.py`, `office_smoke.py`, `partners_smoke.py`, `phase2_smoke.py`
 
 ## Blockers

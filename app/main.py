@@ -5378,6 +5378,72 @@ def admin_tasks_retry(request: Request, tid: int):
     return _redirect("/admin/tasks?notice=" + quote(f"สั่งงาน #{tid} ใหม่แล้ว"))
 
 
+# ---------- stage 17: รายได้ ที่มา ต้นทุน (flag revenue_v2 · สิทธิ์หมวดบัญชี) ----------
+def _rev_period(start: str, end: str):
+    import datetime as _dt
+    t = _dt.date.today()
+    try:
+        s = _dt.date.fromisoformat(start) if start else t.replace(day=1)
+        e = _dt.date.fromisoformat(end) if end else t
+    except ValueError:
+        s, e = t.replace(day=1), t
+    return (s, e) if s <= e else (e, s)
+
+
+@app.get("/admin/revenue")
+def admin_revenue(request: Request, start: str = "", end: str = "", notice: str = "", error: str = ""):
+    from . import revenue as R
+    if not _is_admin(request):
+        return _redirect("/login")
+    if not R.on():
+        return Response("ไม่พบหน้า", status_code=404)
+    s, e = _rev_period(start, end)
+    period = e.strftime("%Y-%m")
+    return templates.TemplateResponse(request, "admin_revenue.html", {
+        "R": R, "s": s, "e": e, "period": period, "fin": R.finance(s, e), "fu": R.funnel(), "att": R.attribution_report(s, e),
+        "cst": R.costs(period), "mg": R.margin(period), "pub": R.public_summary(s, e), "notice": notice, "error": error})
+
+
+@app.post("/admin/revenue/cost", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_cost(request: Request, category: str = Form(""), alloc: str = Form(""), amount_thb: str = Form(""), period: str = Form(""),
+                       basis: str = Form("actual"), note: str = Form("")):
+    from . import revenue as R
+    if not _is_admin(request) or not R.on():
+        return _redirect("/login")
+    try:
+        R.add_cost(category, alloc, float(amount_thb), period=period, basis=basis, note=note, by=request.session.get("email") or "owner")
+    except ValueError as ex:
+        return _redirect("/admin/revenue?error=" + quote(str(ex)))
+    return _redirect("/admin/revenue?notice=" + quote("บันทึกต้นทุนแล้ว"))
+
+
+@app.post("/admin/revenue/adjustment", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_adjustment(request: Request, kind: str = Form("refund"), amount: str = Form(""), receipt_number: str = Form(""), note: str = Form("")):
+    from . import revenue as R
+    if not _is_admin(request) or not R.on():
+        return _redirect("/login")
+    doc = next((d for d in db.list_acct_docs(kind="receipt", limit=100000) if d["number"] == receipt_number.strip()), None)
+    if not doc or doc["status"] == "void":
+        return _redirect("/admin/revenue?error=" + quote("ไม่พบใบเสร็จที่ใช้ได้เลขนี้"))
+    try:
+        rid = R.record_adjustment(kind, float(amount), ref=f"manual:{doc['number']}:{kind}:{amount}", lead_id=doc["lead_id"], receipt_id=doc["id"],
+                                  note=note, by=request.session.get("email") or "owner")
+    except ValueError as ex:
+        return _redirect("/admin/revenue?error=" + quote(str(ex)))
+    return _redirect("/admin/revenue?" + ("notice=" + quote("บันทึกแล้ว") if rid else "error=" + quote("รายการนี้บันทึกไว้แล้ว")))
+
+
+@app.post("/admin/revenue/source/{lead_id}", dependencies=[Depends(_csrf.require_csrf)])
+def admin_revenue_source(request: Request, lead_id: int, source: str = Form("")):
+    from . import revenue as R, analytics
+    if not _is_admin(request) or not R.on() or not db.get_lead(lead_id):
+        return _redirect("/login")
+    v = source if source in analytics.SOURCES else None
+    with db.get_conn() as c:
+        c.execute(db.q("UPDATE leads SET self_reported_source=? WHERE id=?"), (v, lead_id))
+    return _redirect("/admin/revenue?notice=" + quote("บันทึกที่มาที่ลูกค้าบอกแล้ว"))
+
+
 # ---------- stage 15: ส่งมอบตามขอบเขต + พื้นที่งานลูกค้า (flag delivery_v2) ----------
 def _ws_of_tenant(request: Request, wid: int):
     from . import delivery
