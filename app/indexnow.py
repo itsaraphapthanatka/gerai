@@ -6,6 +6,7 @@ ChatGPT ค้นเว็บผ่านดัชนีของ Bing จึง
 · settings indexnow_on: startup ของ production ตั้ง "1" ให้ครั้งแรก · "0" = ปิด · ล้มเงียบ ไม่กระทบการเผยแพร่
 """
 from __future__ import annotations
+from .redact import redact
 
 import secrets
 import threading
@@ -51,7 +52,7 @@ def submit(site: str, urls: list[str], post=None) -> dict:
         code = getattr(r, "status_code", None)
         return {"sent": len(urls) if code in (200, 202) else 0, "status": code, "error": "" if code in (200, 202) else f"HTTP {code}"}
     except Exception as e:
-        return {"sent": 0, "status": None, "error": f"{type(e).__name__}: {str(e)[:120]}"}
+        return {"sent": 0, "status": None, "error": f"{type(e).__name__}: {redact(e)[:120]}"}
 
 
 def notify_content(content_id: int, background: bool = True) -> None:

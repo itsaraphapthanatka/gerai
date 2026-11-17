@@ -13,6 +13,7 @@
 โดยไม่ต้องมีคีย์ (ตัวตรวจที่ฟ้องผิดอันตรายกว่าไม่มีตัวตรวจ)
 """
 from __future__ import annotations
+from .redact import redact
 import os
 import re
 import json
@@ -558,7 +559,7 @@ def ask(engine: str, question: str) -> dict:
         except Exception:
             pass
         return {"ok": False, "skip": False, "text": "", "citations": [], "via": via,
-                "reason": f"{type(e).__name__}: {str(e)[:120]}" + (f" · body: {body}" if body else "")}
+                "reason": f"{type(e).__name__}: {redact(e)[:120]}" + (f" · body: {body}" if body else "")}
 
 
 def pick_questions(questions, reports=(), published=(), n: int = MAX_Q) -> list:

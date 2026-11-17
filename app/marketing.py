@@ -4,6 +4,7 @@
 3) ทุกลิงก์ติดรหัสช่องทาง (?src=line|fb|article) → รู้ว่าลีดมาจากไหน
 โหมดเสนอก่อนทำเหมือน CEO (decision kind "post") · สลับเป็นทำเองได้เมื่อผ่านด่านหรือเจ้าของปลดล็อก · คำต้องห้าม (การันตี ฯลฯ) ไม่ผ่าน"""
 from __future__ import annotations
+from .redact import redact
 import datetime
 import json
 import os
@@ -503,7 +504,7 @@ def publish_post(post) -> str:
         else:
             raise RuntimeError("ไม่รู้จักช่องทาง")
     except Exception as e:
-        db.update_post(post["id"], status="failed", result=f"{type(e).__name__}: {str(e)[:160]}")
+        db.update_post(post["id"], status="failed", result=f"{type(e).__name__}: {redact(e)[:160]}")
         raise
     db.update_post(post["id"], status="published", published_at=db.now(), external_id=ext, result="โพสต์แล้ว")
     return f"โพสต์ {POST_KINDS.get(post['kind'], post['kind'])} ทาง {CHANNELS.get(post['channel'], post['channel'])} แล้ว"

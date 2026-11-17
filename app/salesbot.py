@@ -3,6 +3,7 @@
 กติกา: ตัวเลขในคำตอบต้องอยู่ในคลังข้อเท็จจริงเท่านั้น (ไม่งั้นไม่ส่ง) · ห้ามการันตี · เรื่องนอกกรอบ (ต่อรองราคา คืนเงิน สัญญา ร้องเรียน
 ขอคุยกับคน งานองค์กร) → ตอบรับเรื่องแล้วส่งต่อเจ้าของทันที ไม่ตอบแทน"""
 from __future__ import annotations
+from .redact import redact
 import datetime as dt
 import json
 import re
@@ -154,7 +155,7 @@ def answer(question: str, lead=None, channel: str = "line", llm=None, lang: str 
             ans = D.sign(ans)
         return {"answer": ans[:1500], "escalate": why, "source": "llm", "intent": intent}
     except Exception as e:
-        return {"answer": t(HOLD), "escalate": why or f"ตอบเองไม่ได้ ({str(e)[:80]})", "source": "fallback", "intent": intent}
+        return {"answer": t(HOLD), "escalate": why or f"ตอบเองไม่ได้ ({redact(e)[:80]})", "source": "fallback", "intent": intent}
 
 
 LLM = None   # เทสต์ฉีดได้

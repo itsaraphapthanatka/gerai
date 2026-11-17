@@ -7,6 +7,7 @@
   เจ้าของ — ลีดที่ต้องใช้คนโทร → ฝากงานโทรพร้อมลิงก์บท
 ทุกงานผ่านฟังก์ชันจริงเดิม จึงอยู่ใต้เพดาน/กรอบอำนาจ/เวลาส่งเหมือนเดิม · หยุดฉุกเฉิน = แจกงานได้แต่พักไว้ (held) · งานซ้ำในวันเดียวกันไม่แจกซ้ำ"""
 from __future__ import annotations
+from .redact import redact
 import datetime as dt
 import json
 import math
@@ -208,7 +209,7 @@ def run_task(tid: int) -> str:
         db.update_task(tid, status="done", finished_at=db.now(), result=res[:500])
         return res
     except Exception as e:
-        db.update_task(tid, status="failed", finished_at=db.now(), result=f"{type(e).__name__}: {str(e)[:200]}")
+        db.update_task(tid, status="failed", finished_at=db.now(), result=f"{type(e).__name__}: {redact(e)[:200]}")
         return f"ล้ม: {type(e).__name__}"
 
 

@@ -11,6 +11,7 @@ SoV/อันดับที่มีอยู่วัด "ผลค้นห�
 extract_*/blocks_text ไม่ยิงเน็ต — เทสต์ได้จาก JSON ตัวอย่าง (aiserp_smoke.py)
 """
 from __future__ import annotations
+from .redact import redact
 import os
 import datetime
 
@@ -147,7 +148,7 @@ def check_brand(brand, questions, aliases=()) -> dict:
                     bk["shown"] += 1
                     bk[v["status"]] += 1
             except Exception as e:
-                row["reason"] = f"{type(e).__name__}: {str(e)[:200]}"
+                row["reason"] = f"{type(e).__name__}: {redact(e)[:200]}"
                 bk["errors"] += 1
             res["searches"] += row["searches"]
             res["rows"].append(row)

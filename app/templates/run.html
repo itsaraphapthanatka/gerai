@@ -12,6 +12,7 @@
   <div>
     <b>Share of Voice</b>{% if run['share_of_voice'] is not none %} — {{ (run['share_of_voice']*100)|round(0)|int }}%{% endif %}<br>
     <span class="muted">{{ _("จำนวนคำถามที่แบรนด์โผล่ในผลการค้นหา (สิ่งที่ AI หยิบไปตอบ)") }}</span>
+    {% if run['questions_failed'] %}<br><span class="muted">{{ _("ค้นไม่สำเร็จ {n} ข้อ — ไม่นับรวมใน Share of Voice รอบหน้าจะค้นใหม่", n=run['questions_failed']) }}</span>{% endif %}
   </div>
 </div>
 
@@ -22,7 +23,7 @@
     {% for item in results %}
     <tr>
       <td>{{ item.row['question'] }}</td>
-      <td>{% if item.row['brand_present'] %}<span class="pill ok">{{ _("โผล่") }}</span>{% else %}<span class="pill no">{{ _("ไม่โผล่") }}</span>{% endif %}</td>
+      <td>{% if item.row['error'] %}<span class="pill" title="{{ _("เครื่องมือค้นหาไม่ตอบหรือไม่คืนผล — ไม่ได้แปลว่าแบรนด์ไม่โผล่") }}">{{ _("ค้นไม่สำเร็จ") }}</span>{% elif item.row['brand_present'] %}<span class="pill ok">{{ _("โผล่") }}</span>{% else %}<span class="pill no">{{ _("ไม่โผล่") }}</span>{% endif %}</td>
       <td>{{ item.row['position'] if item.row['position'] else '—' }}</td>
       <td class="muted">{{ item.domains|join(', ') }}</td>
     </tr>

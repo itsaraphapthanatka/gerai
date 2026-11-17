@@ -71,6 +71,7 @@
       <td>
         {% if r['status'] == 'done' %}<span class="pill ok">{{ _("เสร็จ") }}</span>
         {% elif r['status'] == 'running' %}<span class="pill admin">{{ _("กำลังรัน") }}</span>
+        {% elif r['status'] == 'failed' %}<span class="pill no">{{ _("ค้นไม่สำเร็จ") }}</span>
         {% else %}<span class="muted">{{ r['status'] }}</span>{% endif %}
       </td>
       <td><a class="btn ghost sm" href="/runs/{{ r['id'] }}">{{ _("ดูรายงาน") }}</a></td>

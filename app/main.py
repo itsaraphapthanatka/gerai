@@ -1,5 +1,6 @@
 """GEO Platform — FastAPI app (MVP, monitoring-first)."""
 from __future__ import annotations
+from .redact import redact
 import os
 import json
 import re
@@ -453,7 +454,7 @@ def _attach_image(brand, content_id: int, topic: str) -> str:
         db.update_content_body(content_id, body)
         db.set_image_note(content_id, note)
     except Exception as e:
-        note = f"ไม่มีรูป — ผิดพลาด {type(e).__name__}: {str(e)[:80]}"
+        note = f"ไม่มีรูป — ผิดพลาด {type(e).__name__}: {redact(e)[:80]}"
         try:
             db.set_image_note(content_id, note)
         except Exception:
@@ -932,7 +933,7 @@ def admin_decision_approve(request: Request, did: int):
     except sms.QuietHours:
         return _redirect("/admin/decisions?notice=ตอนนี้นอกเวลาส่ง SMS (08:00–20:00) — ข้อเสนอยังค้างอยู่ กดอนุมัติอีกครั้งหลัง 08:00 (ถ้าเรื่องนี้ตัดสินเอง ระบบส่งให้รอบ 08:00)")
     except Exception as e:
-        db.set_decision(did, "approved", who, f"อนุมัติแล้วแต่ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
+        db.set_decision(did, "approved", who, f"อนุมัติแล้วแต่ทำไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}")
         result = f"ทำไม่สำเร็จ: {type(e).__name__}"
     return _redirect(f"/admin/decisions?notice={result}")
 
@@ -1092,7 +1093,7 @@ def quote_stripe(request: Request, token: str):
     try:
         url = stripe_pay.create_checkout(q, lead, _public_base(), _company().get("name") or "เจอ.AI")
     except Exception as e:
-        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=f"เปิดหน้าชำระเงินไม่ได้: {str(e)[:160]}", lang=_i18n.lang_of(request)))
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, lead, error=f"เปิดหน้าชำระเงินไม่ได้: {redact(e)[:160]}", lang=_i18n.lang_of(request)))
     pipeline.record(lead["id"], "note", f"ลูกค้าเปิดหน้าชำระ Stripe ({q['number']})", "customer")
     return _redirect(url)
 
@@ -1110,7 +1111,7 @@ async def stripe_webhook(request: Request):
     try:
         res = stripe_pay.handle_event(evt)
     except Exception as e:
-        res = f"error:{type(e).__name__}: {str(e)[:120]}"
+        res = f"error:{type(e).__name__}: {redact(e)[:120]}"
         db.notify_admins(f"⚠️ Stripe webhook {evt.get('type')} ทำไม่สำเร็จ: {res}", "/admin/decisions", "payment")
     return JSONResponse({"ok": True, "result": res})
 
@@ -1338,7 +1339,7 @@ def admin_quote_confirm(request: Request, qid: int):
     try:
         note = pipeline.confirm_payment(q, who)
     except Exception as e:
-        note = f"ยืนยันไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+        note = f"ยืนยันไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}"
     for d in db.list_decisions("proposed", 300):
         if d["kind"] == "payment" and json.loads(d["payload_json"] or "{}").get("quote_id") == qid:
             db.set_decision(d["id"], "executed", who, note)
@@ -1556,7 +1557,7 @@ def account_billing(request: Request):
     try:
         return _redirect(stripe_pay.portal_url(t["stripe_customer_id"], f"{_public_base()}/upgrade"))
     except Exception as e:
-        return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request, notice=f"เปิดหน้าจัดการการสมัครไม่ได้: {str(e)[:160]}"))
+        return templates.TemplateResponse(request, "upgrade.html", _upgrade_ctx(request, notice=f"เปิดหน้าจัดการการสมัครไม่ได้: {redact(e)[:160]}"))
 
 
 @app.get("/upgrade")
@@ -1745,7 +1746,7 @@ def brand_detail(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/app" if _tid(request) else "/login")
-    runs = db.list_runs(brand_id)
+    runs = [r for r in db.list_runs(brand_id) if r["status"] == "done"]   # รอบที่ค้นไม่สำเร็จทั้งหมดไม่ใช่ผลล่าสุด
     last_run = runs[0] if runs else None
     content_count = len(db.list_content(brand_id))
     q_count = len(db.list_questions(brand_id))
@@ -2092,7 +2093,7 @@ def brand_progress(request: Request, brand_id: int):
     brand = _brand_for(request, brand_id)
     if not brand:
         return _redirect("/app" if _tid(request) else "/login")
-    runs = db.list_runs(brand_id)  # ใหม่→เก่า
+    runs = [r for r in db.list_runs(brand_id) if r["status"] == "done"]  # ใหม่→เก่า · ไม่เอารอบที่ค้นไม่สำเร็จทั้งหมด
 
     def _pct(r):
         if r["share_of_voice"] is not None:
@@ -2112,8 +2113,8 @@ def brand_progress(request: Request, brand_id: int):
     delta, compare = None, []
     if runs:
         baseline, latest = runs[-1], runs[0]
-        base_res = {x["question"]: x for x in db.get_results(baseline["id"])}
-        late_res = {x["question"]: x for x in db.get_results(latest["id"])}
+        base_res = {x["question"]: x for x in db.get_results(baseline["id"]) if not x["error"]}
+        late_res = {x["question"]: x for x in db.get_results(latest["id"]) if not x["error"]}
         for q in db.list_questions(brand_id):
             qt = q["question"]
             bp = bool(base_res[qt]["brand_present"]) if qt in base_res else False
@@ -2630,7 +2631,7 @@ def brand_chat_ask(request: Request, brand_id: int, message: str = Form(...)):
     try:
         reply = analytics_chat.answer(report.collect(brand_id), history, msg)
     except Exception as e:
-        return _redirect(f"/brands/{brand_id}/chat?error=" + __import__("urllib.parse").parse.quote(f"ถามโมเดลไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"))
+        return _redirect(f"/brands/{brand_id}/chat?error=" + __import__("urllib.parse").parse.quote(f"ถามโมเดลไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}"))
     db.add_chat_message(brand_id, "user", msg)
     db.add_chat_message(brand_id, "assistant", reply or "(โมเดลไม่ตอบ)")
     return _redirect(f"/brands/{brand_id}/chat")
@@ -3943,7 +3944,7 @@ def admin_settings_stripe(request: Request, secret: str = Form(""), whsec: str =
         try:
             stripe_pay.ensure_webhook(_public_base())
         except Exception as e:
-            error = f"บันทึกคีย์แล้ว แต่ตั้ง webhook อัตโนมัติไม่สำเร็จ: {str(e)[:160]} — กด \"ตั้ง webhook ให้อัตโนมัติ\" อีกครั้ง หรือสร้างเองใน Dashboard"
+            error = f"บันทึกคีย์แล้ว แต่ตั้ง webhook อัตโนมัติไม่สำเร็จ: {redact(e)[:160]} — กด \"ตั้ง webhook ให้อัตโนมัติ\" อีกครั้ง หรือสร้างเองใน Dashboard"
     return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=not error, error=error))
 
 
@@ -3955,7 +3956,7 @@ def admin_settings_stripe_webhook(request: Request):
         note = stripe_pay.ensure_webhook(_public_base())
         return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, saved=True) | {"stripe_note": note})
     except Exception as e:
-        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error=f"ตั้ง webhook ไม่สำเร็จ: {str(e)[:160]}"))
+        return templates.TemplateResponse(request, "admin_settings.html", _settings_ctx(request, error=f"ตั้ง webhook ไม่สำเร็จ: {redact(e)[:160]}"))
 
 
 @app.post("/admin/settings/company")
@@ -4032,7 +4033,7 @@ def admin_email_test(request: Request, host: str = Form(""), port: str = Form(""
         notice = {"ok": True, "msg": f"ส่งอีเมลทดสอบถึง {to} แล้ว — เช็คกล่องจดหมาย (และ Spam)"}
         db.add_email_log(None, me["id"], to, None, True, "")
     except Exception as e:
-        notice = {"ok": False, "msg": f"ส่งไม่สำเร็จ: {type(e).__name__}: {str(e)[:200]}"}
+        notice = {"ok": False, "msg": f"ส่งไม่สำเร็จ: {type(e).__name__}: {redact(e)[:200]}"}
     return templates.TemplateResponse(request, "admin_email.html", _email_ctx(request, notice))
 
 
@@ -4865,7 +4866,7 @@ def admin_inbox_poll(request: Request):
         r = inbox.poll()
         note = r.get("skipped") or f"ตรวจ {r['checked']} ฉบับ · ใหม่ {r['processed']}"
     except Exception as e:
-        note = f"อ่านกล่องอีเมลไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+        note = f"อ่านกล่องอีเมลไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}"
     return _redirect(f"/admin/inbox?notice={note}")
 
 

@@ -6,6 +6,7 @@
 summarize/grade ไม่ยิงเน็ต — เทสต์ได้จาก JSON ตัวอย่าง (speed_smoke.py)
 """
 from __future__ import annotations
+from .redact import redact
 import os
 import datetime
 
@@ -93,7 +94,7 @@ def _err(e: Exception) -> str:
             return f"Google ตอบ {r.status_code}: {str(m)[:220]}"
     except ImportError:
         pass
-    return f"{type(e).__name__}: {str(e)[:200]}"
+    return f"{type(e).__name__}: {redact(e)[:200]}"
 
 
 def fetch(url: str, strategy: str) -> dict:

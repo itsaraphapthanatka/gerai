@@ -3,6 +3,7 @@
 รวมตรรกะที่เคยอยู่ใน main.py ไว้ที่เดียว ให้เส้นทางเว็บ, LINE, หน้าแอดมิน และ cron ใช้ร่วมกัน
 ผู้บริหารเอเจนต์ยังเสนอก่อนทำ เว้นเรื่องที่สลับเป็นตัดสินเองแล้ว (execs.auto_enabled) · ทุกจุดสัมผัสลง lead_events"""
 from __future__ import annotations
+from .redact import redact
 import datetime
 import html as _html
 import json
@@ -131,7 +132,7 @@ def _maybe_auto(did: int) -> int:
             result = execute_decision(d, "auto")
             db.set_decision(did, "auto", "ceo", result)
         except Exception as e:                       # ทำเองไม่สำเร็จ → ค้างไว้ให้คนดู ไม่เงียบ
-            db.set_decision(did, "proposed", None, f"ทำอัตโนมัติไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}")
+            db.set_decision(did, "proposed", None, f"ทำอัตโนมัติไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}")
     return did
 
 

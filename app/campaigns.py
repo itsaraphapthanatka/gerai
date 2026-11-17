@@ -7,6 +7,7 @@ cron รายวัน (--email) เรียก send_due() — แคมเป
 render_body()/next_run()/recipients_of() เป็น pure/ใกล้ pure — เทสต์ได้ (email_smoke.py)
 """
 from __future__ import annotations
+from .redact import redact
 import datetime
 
 SCHEDULES = {"once": "ครั้งเดียว", "weekly": "ทุกสัปดาห์", "monthly": "ทุกเดือน"}
@@ -146,7 +147,7 @@ def send_campaign(camp, base_url: str, now: datetime.datetime | None = None, dry
             sent += 1
         except Exception as e:
             failed += 1
-            err = f"{type(e).__name__}: {str(e)[:200]}"
+            err = f"{type(e).__name__}: {redact(e)[:200]}"
             errors.append(f"{brand['name']}: {err}")
             db.add_email_log(camp["id"], tenant["id"], tenant["email"], brand["id"], False, err)
     nxt = next_run(camp["schedule"], now)

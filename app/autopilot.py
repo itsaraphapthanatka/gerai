@@ -8,6 +8,7 @@
 run() รับฟังก์ชันของแต่ละขั้นเป็น dict (main.py เป็นคนต่อสายของจริง) จึงเทสต์ลำดับ/การข้าม/การล้มได้โดยไม่ยิงอะไร
 """
 from __future__ import annotations
+from .redact import redact
 import time
 import datetime
 
@@ -116,7 +117,7 @@ def run(brand: dict, actions: dict, last: dict, content_n: int = 1, mode: str = 
                 if step == "content":
                     log["content"] = res
             except Exception as e:
-                entry.update(status=ERROR, detail=f"{type(e).__name__}: {str(e)[:160]}")
+                entry.update(status=ERROR, detail=f"{type(e).__name__}: {redact(e)[:160]}")
             entry["seconds"] = round(time.monotonic() - t0, 1)
         elif do:
             entry["detail"] = "ไม่มีฟังก์ชันของขั้นนี้"

@@ -5,6 +5,7 @@
 ทุกขั้นคืน "เหตุผล" กลับไปด้วย เพื่อบันทึกไว้ที่ชิ้นงานและโชว์บนหน้าเว็บ ไม่เงียบเหมือนเดิม
 """
 from __future__ import annotations
+from .redact import redact
 import os
 import re
 import io
@@ -160,7 +161,7 @@ def pick_relevant(candidates: list[dict], topic: str, brand_name: str, fetch=Non
     try:
         raw = ai_client._chat([{"role": "user", "content": parts}], max_tokens=2048, timeout=160)
     except Exception as e:
-        return None, f"โมเดล vision ตอบไม่ได้ ({type(e).__name__}: {str(e)[:60]})"
+        return None, f"โมเดล vision ตอบไม่ได้ ({type(e).__name__}: {redact(e)[:60]})"
     m = re.search(r"(\d+)\s*\|\s*(.+)", raw or "")
     if m:
         idx, cap = int(m.group(1)), m.group(2).strip()
@@ -246,7 +247,7 @@ def capabilities(fresh: bool = False, ttl: int = 3600) -> dict:
         ids = list_models()
         data = {"image_model": model, "generate": model in ids, "models": ids, "error": None}
     except Exception as e:
-        data = {"image_model": model, "generate": None, "models": [], "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        data = {"image_model": model, "generate": None, "models": [], "error": f"{type(e).__name__}: {redact(e)[:80]}"}
     data["checked_at"] = now
     _CAP.update(ts=now, data=data)
     return data

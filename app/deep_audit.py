@@ -5,6 +5,7 @@
 รันเมื่อมีสัญญาณซื้อ (ทิ้งช่องทางติดต่อ · ขอใบเสนอราคา) หรือแอดมินกด · มีเพดานต่อวัน (ตั้งค่า deep_ai_daily)
 ผลเก็บใน leads.deep_json / leads.deep_ai_json แยกกัน (สองเธรดเขียนไม่ทับกัน)"""
 from __future__ import annotations
+from .redact import redact
 import concurrent.futures as cf
 import datetime as dt
 import html as _html
@@ -565,7 +566,7 @@ def run_tier1(lead_id: int, search=None, llm=None, client=None) -> dict:
         db.add_lead_event(lead_id, "deep_audit", f"ไต่ {cr['n']} หน้า · health {hl['score']}/100 · error {hl['errors']} · ติดหน้าแรก {rk['page1']}/{rk['n']} คำ", "cto")
         return d
     except Exception as e:
-        d = {"state": "error", "at": db.now(), "error": f"{type(e).__name__}: {str(e)[:160]}"}
+        d = {"state": "error", "at": db.now(), "error": f"{type(e).__name__}: {redact(e)[:160]}"}
         _save(lead_id, "deep_json", d)
         return d
 
@@ -602,7 +603,7 @@ def run_ai(lead_id: int, force: bool = False, ask=None, llm=None, engine: str | 
                 db.add_lead_event(lead_id, "score", f"โอกาส {sc['level']} {sc['score']}/100 (เว็บ {sc['site']} + ผลถาม AI {sc['ai']['points']})", "cto")
         return d
     except Exception as e:
-        d = {"state": "error", "at": db.now(), "error": f"{type(e).__name__}: {str(e)[:160]}"}
+        d = {"state": "error", "at": db.now(), "error": f"{type(e).__name__}: {redact(e)[:160]}"}
         _save(lead_id, "deep_ai_json", d)
         return d
 

@@ -548,6 +548,9 @@ def init_db() -> None:
             _ensure_column(c, "leads", col, ddl)
         _ensure_column(c, "contacts", "lead_id", "INTEGER")
         _ensure_column(c, "leads", "audit_by", "INTEGER")             # บัญชีที่ล็อกอินกดตรวจเว็บฟรีครั้งล่าสุด (นับเพดานต่อบัญชี) · NULL = คนทั่วไป นับต่อ IP
+        # ค้นเว็บไม่สำเร็จ ≠ ไม่โผล่: แถวที่ค้นพลาดติด error=1 และไม่นับใน SoV · questions_total = ข้อที่วัดได้จริง
+        _ensure_column(c, "run_results", "error", "INTEGER DEFAULT 0")
+        _ensure_column(c, "monitoring_runs", "questions_failed", "INTEGER DEFAULT 0")
         c.execute(f"""CREATE TABLE IF NOT EXISTS lead_contacts (
             id {_PK}, lead_id INTEGER NOT NULL, name TEXT, role TEXT, phone TEXT, email TEXT, line_id TEXT, note TEXT, created_at TEXT NOT NULL)""")
         # ทีมงานหลังบ้าน (app/staff.py): บทบาท · สิทธิ์รายหมวดถ้ากำหนดเอง (JSON) · ปิดบัญชี · ประวัติการทำงาน
@@ -872,9 +875,9 @@ def list_all_brands():
     with get_conn() as c:
         return c.execute(
             "SELECT b.*, t.email AS owner_email, "
-            "(SELECT brand_hits FROM monitoring_runs r WHERE r.brand_id=b.id ORDER BY r.id DESC LIMIT 1) AS last_hits, "
-            "(SELECT questions_total FROM monitoring_runs r WHERE r.brand_id=b.id ORDER BY r.id DESC LIMIT 1) AS last_total, "
-            "(SELECT share_of_voice FROM monitoring_runs r WHERE r.brand_id=b.id ORDER BY r.id DESC LIMIT 1) AS last_sov, "
+            "(SELECT brand_hits FROM monitoring_runs r WHERE r.brand_id=b.id AND r.status='done' ORDER BY r.id DESC LIMIT 1) AS last_hits, "
+            "(SELECT questions_total FROM monitoring_runs r WHERE r.brand_id=b.id AND r.status='done' ORDER BY r.id DESC LIMIT 1) AS last_total, "
+            "(SELECT share_of_voice FROM monitoring_runs r WHERE r.brand_id=b.id AND r.status='done' ORDER BY r.id DESC LIMIT 1) AS last_sov, "
             "(SELECT started_at FROM monitoring_runs r WHERE r.brand_id=b.id ORDER BY r.id DESC LIMIT 1) AS last_run_at "
             "FROM brands b JOIN tenants t ON t.id=b.tenant_id ORDER BY b.id DESC"
         ).fetchall()
@@ -1388,7 +1391,7 @@ def get_sov_impact(brand_id: int):
             q("SELECT rr.run_id, rr.question_id, rr.question, rr.brand_present, rr.position "
               "FROM run_results rr "
               "JOIN monitoring_runs mr ON mr.id=rr.run_id "
-              "WHERE mr.brand_id=? AND mr.status='done' ORDER BY rr.run_id"),
+              "WHERE mr.brand_id=? AND mr.status='done' AND COALESCE(rr.error,0)=0 ORDER BY rr.run_id"),
             (brand_id,),
         ).fetchall()
     return {
@@ -1416,7 +1419,7 @@ def get_content_gaps(brand_id: int):
         ).fetchall()
         present_map = {}
         if run:
-            for r in c.execute(q("SELECT question_id, brand_present FROM run_results WHERE run_id=?"), (run["id"],)).fetchall():
+            for r in c.execute(q("SELECT question_id, brand_present FROM run_results WHERE run_id=? AND COALESCE(error,0)=0"), (run["id"],)).fetchall():
                 if r["question_id"] is not None:
                     present_map[r["question_id"]] = bool(r["brand_present"])
     has_content, has_published = set(), set()

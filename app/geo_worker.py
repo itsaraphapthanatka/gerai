@@ -11,6 +11,7 @@ import os
 import re
 import json
 import datetime
+import time
 from urllib.parse import urlparse
 
 from . import db
@@ -131,6 +132,21 @@ def search(query: str, limit: int = SEARCH_LIMIT) -> list[dict]:
     except Exception:
         pass  # backend จริงล่ม → ใช้ ddgs แทน
     return _ddgs_search(query, limit)
+
+
+def search_retry(query: str, limit: int = SEARCH_LIMIT, tries: int = 3, wait: float = 3.0) -> list[dict]:
+    """search() ที่ลองซ้ำเมื่อพลาดหรือได้ผลว่าง — ddgs ฟรีตอบ "No results found" เป็นพัก ๆ ทั้งที่คำค้นมีผลจริง
+    คืน [] เมื่อครบทุกครั้งแล้วยังว่าง (ผู้เรียกถือว่า "วัดไม่ได้")"""
+    for i in range(tries):
+        try:
+            res = search(query, limit)
+            if res:
+                return res
+        except Exception:
+            pass
+        if i < tries - 1:
+            time.sleep(wait * (i + 1))
+    return []
 
 
 def analyze(brand_domain: str, results: list[dict], brand_name: str = ""):
@@ -281,21 +297,25 @@ def run_for_brand(brand_id: int) -> dict:
         run_id = cur.fetchone()["id"]
         conn.commit()
 
-        hits = 0
+        hits, failed = 0, 0
         comp_counter: dict[str, int] = {}
         for q in questions:
+            # ค้นพลาด หรือเครื่องมือค้นคืนว่างเปล่า (ddgs ฟรีโดนจำกัดบ่อย) = วัดไม่ได้ ไม่ใช่ "ไม่โผล่"
             try:
-                results = search(q["question"])
+                results = search_retry(q["question"])
             except Exception:
                 results = []
+            error = not results
             present, position, comps = analyze(brand["domain"], results, brand["name"])
-            if present:
+            if error:
+                failed += 1
+            elif present:
                 hits += 1
             for c in comps[:5]:
                 comp_counter[c] = comp_counter.get(c, 0) + 1
             conn.execute(
-                db.q("INSERT INTO run_results(run_id,question_id,question,brand_present,position,top_domains) "
-                     "VALUES(?,?,?,?,?,?)"),
+                db.q("INSERT INTO run_results(run_id,question_id,question,brand_present,position,top_domains,error) "
+                     "VALUES(?,?,?,?,?,?,?)"),
                 (
                     run_id,
                     q["id"],
@@ -303,13 +323,16 @@ def run_for_brand(brand_id: int) -> dict:
                     1 if present else 0,
                     position,
                     json.dumps([r["domain"] for r in results[:5]], ensure_ascii=False),
+                    1 if error else 0,
                 ),
             )
 
-        sov = (hits / len(questions)) if questions else 0.0
+        measured = len(questions) - failed
+        sov = (hits / measured) if measured else None
+        status = "done" if measured or not questions else "failed"
         conn.execute(
-            db.q("UPDATE monitoring_runs SET finished_at=?,status=?,brand_hits=?,share_of_voice=? WHERE id=?"),
-            (db.now(), "done", hits, sov, run_id),
+            db.q("UPDATE monitoring_runs SET finished_at=?,status=?,brand_hits=?,share_of_voice=?,questions_total=?,questions_failed=? WHERE id=?"),
+            (db.now(), status, hits, sov if questions else 0.0, measured, failed, run_id),
         )
         conn.commit()
 
@@ -317,6 +340,8 @@ def run_for_brand(brand_id: int) -> dict:
         return {
             "run_id": run_id,
             "questions": len(questions),
+            "measured": measured,
+            "failed": failed,
             "brand_hits": hits,
             "share_of_voice": sov,
             "top_competitors": top_comp,

@@ -3,6 +3,7 @@ CEO แปลงคำสั่งเป็นงานจากรายกา�
 งานที่ติดต่อลูกค้า มีค่าใช้จ่าย หรือเรื่องราคา → ถามยืนยันก่อน ("ยืนยัน" ภายใน 30 นาที) · งานอ่านอย่างเดียวตอบทันที
 คำสั่งของเจ้าของ = อนุมัติจากบอร์ด จึงทำได้แม้เรื่องนั้นยังเป็นโหมดเสนอ แต่ CFO ยังเตือนเมื่อเกินกรอบ"""
 from __future__ import annotations
+from .redact import redact
 import datetime as dt
 import json
 import re
@@ -453,7 +454,7 @@ def execute(action: str, args: dict) -> str:
             try:
                 out.append(marketing.publish_post(db.get_post(pid)))
             except Exception as e:
-                out.append(f"{ch}: โพสต์ไม่สำเร็จ ({str(e)[:80]})")
+                out.append(f"{ch}: โพสต์ไม่สำเร็จ ({redact(e)[:80]})")
         return "\n".join(out) or "ยังไม่มีช่องทางโพสต์"
     return "ยังทำงานนี้ไม่ได้"
 
@@ -570,7 +571,7 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
             try:
                 reply = execute(p["action"], p["args"])
             except Exception as e:
-                reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+                reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}"
         elif p and CANCEL_WORDS.match(text):
             _set_pending(None)
             reply = "ยกเลิกแล้ว"
@@ -589,6 +590,6 @@ def handle(text: str, who: str = "owner", llm=None) -> str:
                 try:
                     reply = msg if (msg and need is None and cmd["action"] in ("contact_lead", "quote", "followup", "ai_report")) else execute(cmd["action"], cmd["args"])
                 except Exception as e:
-                    reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {str(e)[:120]}"
+                    reply = f"ทำไม่สำเร็จ: {type(e).__name__}: {redact(e)[:120]}"
     _log("ceo", reply)
     return reply

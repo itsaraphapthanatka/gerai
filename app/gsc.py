@@ -14,6 +14,7 @@
 คีย์มี private key — เก็บเข้ารหัส (Fernet เดียวกับรหัส WordPress) ไม่พิมพ์ ไม่ส่งออกหน้าเว็บ
 """
 from __future__ import annotations
+from .redact import redact
 import os
 import json
 import time
@@ -185,7 +186,7 @@ def _err(e: Exception) -> str:
             return f"Google ตอบ {r.status_code}: {str(m)[:500]}"
     except ImportError:
         pass
-    return f"{type(e).__name__}: {str(e)[:200]}"
+    return f"{type(e).__name__}: {redact(e)[:200]}"
 
 
 def _req(key: dict, method: str, url: str, **kw):
