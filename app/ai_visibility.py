@@ -39,6 +39,13 @@ MAX_OUT = int(os.getenv("GEO_AI_MAX_OUT", "3000"))              # เพดา�
 ANSWER_CHARS = int(os.getenv("GEO_AI_ANSWER_CHARS", "6000"))    # เก็บคำตอบกี่ตัวอักษร — 1,500 ตัดลิงก์ท้ายคำตอบหาย
 OPENAI_EFFORT = os.getenv("GEO_AI_OPENAI_EFFORT", "low")        # reasoning ของ gpt-5: low พอสำหรับงานแนะนำ
 SEARCH_CTX = os.getenv("GEO_AI_SEARCH_CTX", "low")              # ขนาดผลค้นที่ป้อนโมเดล (OpenAI) — low ถูกสุด
+# ตำแหน่งผู้ถาม: ไม่บอก = ผู้ให้บริการเดาเป็นสหรัฐ คำถามไทยครึ่งหนึ่งได้คำตอบอ้าง avvo.com/americanbar.org
+# ซึ่งไม่ใช่สิ่งที่คนไทยเห็นตอนถาม ChatGPT จริง → ส่งตำแหน่งประมาณ (ประเทศ/เมือง) ไปกับเครื่องมือค้นเว็บทุกเจ้า
+USER_COUNTRY = os.getenv("GEO_AI_COUNTRY", "TH")
+USER_CITY = os.getenv("GEO_AI_CITY", "Bangkok")
+USER_TZ = os.getenv("GEO_AI_TIMEZONE", "Asia/Bangkok")
+USER_LATLNG = (13.7563, 100.5018)                               # กรุงเทพฯ — Gemini รับเป็นพิกัด
+USER_LOCATION = {"type": "approximate", "country": USER_COUNTRY, "city": USER_CITY, "timezone": USER_TZ}
 
 # แต่ละเจ้าใช้คีย์คนละตัว ไม่มีคีย์ = ข้าม ไม่ใช่ตก (แบบเดียวกับ Serper ใน site_health)
 # db_key = ชื่อใน settings ที่แอดมินวางคีย์ผ่านหน้าเว็บ · env = ทางเลือกใน .env
@@ -439,7 +446,7 @@ def call_claude(question: str) -> dict:
          "content-type": "application/json"},
         {"model": MODELS["claude"], "max_tokens": MAX_OUT, "system": SYSTEM_PROMPT,
          # ต้องมี web search ไม่งั้นตอบจากความจำตอนเทรน ซึ่งไม่ใช่สิ่งที่เราวัด
-         "tools": [{"type": "web_search_20260209", "name": "web_search"}],
+         "tools": [{"type": "web_search_20260209", "name": "web_search", "user_location": USER_LOCATION}],
          "messages": [{"role": "user", "content": question}]})
 
 
@@ -451,7 +458,7 @@ def call_openai(question: str) -> dict:
          # รอบแรกจริง: ไม่คุม effort → reasoning กิน output จนไม่มีคำตอบ (status=incomplete) และ
          # ค้น 8 ครั้ง/คำถาม อ่าน 36K token ตก $0.16/คำถาม — low + context เล็กลงเหลือ ~$0.03 คำตอบครบ
          "reasoning": {"effort": OPENAI_EFFORT}, "max_output_tokens": MAX_OUT,
-         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX}]})
+         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX, "user_location": USER_LOCATION}]})
 
 
 def call_perplexity(question: str) -> dict:
@@ -462,7 +469,7 @@ def call_perplexity(question: str) -> dict:
         {"Authorization": f"Bearer {_key('perplexity')}", "Content-Type": "application/json"},
         {"model": MODELS["perplexity"], "input": question, "instructions": SYSTEM_PROMPT,
          "max_output_tokens": MAX_OUT,
-         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX}]})
+         "tools": [{"type": "web_search", "search_context_size": SEARCH_CTX, "user_location": USER_LOCATION}]})
 
 
 def call_gemini(question: str) -> dict:
@@ -473,7 +480,9 @@ def call_gemini(question: str) -> dict:
         {"contents": [{"parts": [{"text": question}]}],
          "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
          "generationConfig": {"maxOutputTokens": MAX_OUT},
-         "tools": [{"google_search": {}}]})
+         "tools": [{"google_search": {}}],
+         "toolConfig": {"retrievalConfig": {"latLng": {"latitude": USER_LATLNG[0], "longitude": USER_LATLNG[1]},
+                                            "languageCode": "th"}}})
 
 
 CALLERS = {"claude": call_claude, "chatgpt": call_openai,

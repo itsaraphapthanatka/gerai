@@ -479,6 +479,11 @@ def get_conn():
 
 def _ensure_column(c, table: str, col: str, ddl: str) -> None:
     if IS_PG:
+        # ALTER ... IF NOT EXISTS ยังขอ AccessExclusiveLock แม้คอลัมน์มีอยู่แล้ว — งาน cron หลายตัวที่เริ่มนาทีเดียวกัน
+        # (เช่น --ai กับ --followup 10:00) เคย deadlock กันจนรอบตรวจ AI รายสัปดาห์ล้ม → เช็กใน catalog ก่อน ไม่มีค่อย ALTER
+        if c.execute("SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() "
+                     "AND table_name = %s AND column_name = %s", (table, col)).fetchone():
+            return
         c.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ddl}")
     else:
         cols = [r[1] for r in c.execute(f"PRAGMA table_info({table})")]
@@ -488,6 +493,8 @@ def _ensure_column(c, table: str, col: str, ddl: str) -> None:
 
 def init_db() -> None:
     with get_conn() as c:
+        if IS_PG:   # ทีละโปรเซส: migration ของโปรเซสอื่นต้องเสร็จก่อน (ล็อกหลุดเองเมื่อจบ transaction)
+            c.execute("SELECT pg_advisory_xact_lock(7710421)")
         for stmt in _tables():
             c.execute(stmt)
         # migrations สำหรับ DB เก่า (DB ใหม่มีคอลัมน์ครบตั้งแต่ CREATE แล้ว)
