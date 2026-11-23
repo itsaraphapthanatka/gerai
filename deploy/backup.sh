@@ -24,6 +24,8 @@ PG_USER="${PG_USER:-geo}"
 PG_DB="${PG_DB:-geo_platform}"
 BACKUP_ENV="${BACKUP_ENV:-1}"
 BACKUP_REMOTE="${BACKUP_REMOTE:-}"
+# container ของแอป — ถ้ารันอยู่ จะอ่านไฟล์ผ่านมัน (ดูเหตุผลตรงส่วนไฟล์) · ตั้งเป็นค่าว่างเพื่ออ่านจากเครื่องตรง ๆ
+APP_CONTAINER="${APP_CONTAINER-geo-app}"
 
 umask 077
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -44,8 +46,16 @@ for p in uploads app/static/gen; do
 done
 if [ -n "$paths" ]; then
   echo "[backup] ไฟล์:$paths"
+  # ไฟล์ที่แอปเขียนเป็นของผู้ใช้ใน container และบางไฟล์สิทธิ์ 600 (เช่น uploads/archive/) — ผู้ใช้บนเครื่องที่รัน
+  # สคริปต์นี้อ่านไม่ได้ tar จากเครื่องจึงล้ม ให้ container ของแอปเป็นคนอ่านแทน (โฟลเดอร์เดียวกัน mount อยู่ที่ /app)
+  # container ไม่ได้รัน (ติดตั้งแบบ systemd หรือแอปล่มอยู่) → อ่านจากเครื่องตรง ๆ ถ้าอ่านไม่ได้ให้รันด้วย sudo
   # shellcheck disable=SC2086  # ตั้งใจแยกคำ: รายชื่อโฟลเดอร์คงที่ด้านบน ไม่มีช่องว่างในชื่อ
-  tar -czf "$tmp/files.tar.gz" -C "$ROOT" $paths
+  if [ -n "$APP_CONTAINER" ] && docker exec "$APP_CONTAINER" true 2> /dev/null; then
+    docker exec "$APP_CONTAINER" tar -czf - -C /app $paths > "$tmp/files.tar.gz"
+  else
+    tar -czf "$tmp/files.tar.gz" -C "$ROOT" $paths
+  fi
+  tar -tzf "$tmp/files.tar.gz" > /dev/null          # เปิดอ่านไม่ได้ = ใช้กู้ไม่ได้
 else
   echo "[backup] ยังไม่มี uploads/ หรือ app/static/gen/ — ข้ามส่วนไฟล์"
 fi

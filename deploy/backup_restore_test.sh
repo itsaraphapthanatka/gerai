@@ -13,6 +13,7 @@ T="$(mktemp -d)"
 trap 'rm -rf "$T"; docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -q -c "DROP DATABASE IF EXISTS geo_backup_test" > /dev/null 2>&1 || true' EXIT
 mkdir -p "$T/deploy" "$T/uploads/slips" "$T/app/static/gen"
 cp "$HERE/backup.sh" "$HERE/restore.sh" "$T/deploy/"       # สคริปต์หา ROOT จากที่ตั้งตัวเอง → ทำงานในโฟลเดอร์ชั่วคราว
+export APP_CONTAINER=""          # อ่านไฟล์จากโฟลเดอร์ชั่วคราวของเทสต์ ไม่ใช่จาก container geo-app ที่อาจรันอยู่บนเครื่องนี้
 export BACKUP_DIR="$T/backups" STOP_CMD="echo stop >> '$T/calls'" START_CMD="echo start >> '$T/calls'"
 
 sql() { docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "${2:-$PG_DB}" -v ON_ERROR_STOP=1 -qAt -c "$1"; }
@@ -88,5 +89,17 @@ KEEP_DAYS=7 bash "$T/deploy/backup.sh" > /dev/null 2>&1 || fail "backup รอ�
 [ ! -d "$BACKUP_DIR/20200101-000000" ] || fail "ชุดเก่าเกินกำหนดควรถูกลบ"
 [ -d "$BACKUP_DIR/keep-me" ] && [ -d "$B" ] && [ -d "$P" ] || fail "ลบเกิน: โฟลเดอร์อื่นหรือชุดใหม่หายไป"
 echo "ลบชุดเก่า OK"
+
+# ---- อ่านไฟล์ไม่ได้ = สำรองล้มเหลว ไม่ทิ้งชุดครึ่ง ๆ (root อ่านได้ทุกไฟล์ จึงข้ามเมื่อรันเป็น root) ----
+if [ "$(id -u)" != "0" ]; then
+  n="$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l)"
+  printf 'secret' > "$T/uploads/slips/locked.json"; chmod 000 "$T/uploads/slips/locked.json"
+  sleep 1
+  if bash "$T/deploy/backup.sh" > /dev/null 2>&1; then fail "ไฟล์ที่อ่านไม่ได้ควรทำให้สำรองล้มเหลว"; fi
+  [ "$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l)" = "$n" ] || fail "สำรองล้มเหลวแล้วไม่ควรมีชุดใหม่"
+  [ -z "$(find "$BACKUP_DIR" -name '.partial-*')" ] || fail "สำรองล้มเหลวแล้วเหลือโฟลเดอร์ .partial"
+  chmod 600 "$T/uploads/slips/locked.json"
+  echo "อ่านไฟล์ไม่ได้แล้วล้มเหลวสะอาด OK"
+fi
 
 echo "ALL BACKUP/RESTORE TESTS OK"
