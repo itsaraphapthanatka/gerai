@@ -51,6 +51,13 @@ services:
     # รายงาน PDF เรนเดอร์ผ่าน container pdf (ด้านล่าง) — ถ้าไม่มี แอปยังทำงานได้ แค่ปุ่ม PDF จะบอกให้ใช้ Print
     environment:
       - PDF_SERVICE_URL=http://pdf:3000
+    # /healthz ตอบ 200 เมื่อแอป *และ* ฐานข้อมูลตอบได้ — docker ps แสดง unhealthy เมื่อฐานหลุด (image slim ไม่มี curl จึงใช้ python)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8095/healthz', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 40s
 
   # Gotenberg = Chromium แปลง HTML → PDF ผ่าน HTTP — ใช้ทำรายงานรายเดือน (/brands/{id}/report.pdf)
   # ไม่เปิดพอร์ตออกนอก geo-app เรียกผ่านเครือข่ายภายในเท่านั้น

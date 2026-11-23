@@ -6,6 +6,7 @@
 ผลเก็บใน leads.deep_json / leads.deep_ai_json แยกกัน (สองเธรดเขียนไม่ทับกัน)"""
 from __future__ import annotations
 from .redact import redact
+from . import netguard
 import concurrent.futures as cf
 import datetime as dt
 import html as _html
@@ -129,7 +130,7 @@ def crawl(site: str, client=None, max_pages: int = MAX_PAGES, budget: float = TI
     """ไต่จากหน้าแรก + sitemap แบบกว้างก่อน (BFS) · เคารพ robots.txt · เก็บสถานะ/title/H1/description/alt/ลิงก์ขาเข้า"""
     import httpx
     own = client is None
-    client = client or httpx.Client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
+    client = client or netguard.client(follow_redirects=True, timeout=12, headers={"User-Agent": UA})
     t0 = time.time()
     base = site.rstrip("/")
     apex = _host(base)

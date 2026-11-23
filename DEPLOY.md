@@ -1,5 +1,10 @@
 # Deploy GEO Platform บน VPS (Ubuntu + Nginx + systemd + Docker Postgres)
 
+> **สำรองข้อมูล กู้คืน และย้อนเวอร์ชัน → [deploy/BACKUP.md](deploy/BACKUP.md)**
+>
+> ขั้นตอน 1–7 ด้านล่างเป็นวิธีติดตั้งแบบ tarball + systemd ส่วน `docker-compose.yml` และ CI อธิบายการรันแบบ
+> Docker ที่ดึง `main` อัตโนมัติ — ก่อนทำตามเอกสารนี้ ให้เช็กว่าเซิร์ฟเวอร์จริงรันแบบไหน
+
 เป้าหมาย: `https://geo.appreview.cloud` → Nginx → FastAPI (127.0.0.1:**8095**) → Postgres (docker, 127.0.0.1:5434)
 แอปเป็น **FastAPI ตัวเดียว** (ไม่ใช่ Next.js) — ใช้แค่พอร์ต 8095, ไม่มี API แยก/ ไม่ใช้ 8011
 
@@ -88,6 +93,7 @@ A record: `geo` → `119.59.102.32` (TTL ต่ำ ๆ ตอนแรกได�
 - [ ] uvicorn bind `127.0.0.1:8095` (ไม่ใช่ 0.0.0.0) — เข้าได้ผ่าน nginx เท่านั้น
 - [ ] systemd ไม่มี `--reload`
 - [ ] ufw: `sudo ufw allow 22,80,443/tcp && sudo ufw enable`
+- [ ] ตั้ง cron สำรองข้อมูลทุกคืน + ปลายทางนอกเครื่อง และซ้อมกู้แล้วอย่างน้อยหนึ่งครั้ง ([deploy/BACKUP.md](deploy/BACKUP.md))
 
 ## ดูแล / debug
 ```bash

@@ -14,13 +14,14 @@ import re
 import html as _html
 import base64
 import hashlib
+from . import config
 
 import httpx
 from cryptography.fernet import Fernet
 
 
 def _fernet() -> Fernet:
-    secret = os.getenv("SESSION_SECRET", "dev-secret-change-me").encode("utf-8")
+    secret = config.session_secret().encode("utf-8")
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(secret).digest()))
 
 

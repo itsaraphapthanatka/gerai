@@ -28,3 +28,6 @@ uploads/
 # database dumps (ข้อมูลลูกค้า + password hash)
 *.sql.gz
 *.sql
+
+# ชุดสำรองข้อมูล (ข้อมูลลูกค้า + password hash + secret)
+backups/

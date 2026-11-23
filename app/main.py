@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, staff, staff_audit, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, staff, staff_audit, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n, netguard, config, security
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -78,8 +78,12 @@ async def _staff_guard(request: Request):
     staff_audit.finish(entry)
 
 BASE = Path(__file__).resolve().parent
-app = FastAPI(title="GEO Platform", dependencies=[Depends(_staff_guard)])
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"))
+# /docs, /redoc, /openapi.json แจกแผนที่ทุก route (รวมหลังบ้าน) ให้ใครก็ได้ — ปิดไว้ เปิดเฉพาะตอนพัฒนาด้วย API_DOCS=1
+_DOCS = os.getenv("API_DOCS", "") == "1"
+app = FastAPI(title="GEO Platform", dependencies=[Depends(_staff_guard)],
+              docs_url="/docs" if _DOCS else None, redoc_url="/redoc" if _DOCS else None,
+              openapi_url="/openapi.json" if _DOCS else None)
+app.add_middleware(SessionMiddleware, secret_key=config.session_secret())   # ไม่ได้ตั้ง/ยังเป็นค่าตัวอย่าง = ไม่เริ่มแอป
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -94,6 +98,45 @@ async def _no_cache_html(request: Request, call_next):
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         resp.headers["Pragma"] = "no-cache"
     return resp
+
+
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", str(25 * 1024 * 1024)))
+
+
+@app.middleware("http")
+async def _request_shield(request: Request, call_next):
+    """ด่านแรกของทุกคำขอ (ลงทะเบียนหลัง SessionMiddleware = อยู่ชั้นนอก เห็น Set-Cookie ของ session):
+    · body ใหญ่เกิน MAX_BODY_BYTES → 413 ก่อนอ่าน (ไม่ให้ไฟล์ยักษ์กินดิสก์/หน่วยความจำ)
+    · คำขอเปลี่ยนข้อมูลที่มีคุกกี้ล็อกอินแต่มาจากเว็บอื่น → 403 (CSRF · ดู security.cross_site_write)
+    · เข้าทาง HTTPS → คุกกี้ทุกตัวที่ตั้งในคำขอนี้ติด Secure (ไม่หลุดไปทาง HTTP ธรรมดา) — ดูจาก scheme ของคำขอ
+      แบบเดียวกับคุกกี้ภาษา จึงไม่ต้องตั้งค่าเพิ่ม และ dev/เทสต์ที่เป็น http ยังล็อกอินได้"""
+    try:
+        too_big = int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES
+    except ValueError:
+        too_big = False
+    if too_big:
+        return PlainTextResponse("ไฟล์หรือข้อมูลที่ส่งมาใหญ่เกินไป", status_code=413)
+    if security.cross_site_write(request):
+        return PlainTextResponse("คำขอนี้ถูกส่งมาจากเว็บไซต์อื่น — เปิดหน้านี้จากเว็บของเราโดยตรงแล้วลองใหม่", status_code=403)
+    resp = await call_next(request)
+    if request.url.scheme == "https":
+        resp.raw_headers = [(k, v + b"; Secure") if k == b"set-cookie" and b"secure" not in v.lower() else (k, v)
+                            for k, v in resp.raw_headers]
+    return resp
+
+
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    """ให้ Docker / ตัวเฝ้าเซิร์ฟเวอร์ถาม: โปรเซสตอบได้ *และ* ฐานข้อมูลตอบได้ — ฐานล่ม = 503 (หน้า /login เปิดได้ทั้งที่ฐานล่ม)"""
+    try:
+        conn = db.get_conn()
+        try:
+            conn.execute("SELECT 1").fetchone()
+        finally:
+            conn.close()
+    except Exception as e:
+        return JSONResponse({"ok": False, "db": type(e).__name__}, status_code=503, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"ok": True}, headers={"Cache-Control": "no-store"})
 
 
 @app.middleware("http")
@@ -487,9 +530,15 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
+    ip, who = _client_ip(request), email.strip().lower()[:200]
+    if security.login_wait(ip, who):                       # ลองผิดถี่เกิน → ไม่ตรวจรหัสเลย (กันเดารหัส และกัน bcrypt กิน CPU)
+        return templates.TemplateResponse(request, "login.html", {"error": "ลองเข้าสู่ระบบผิดหลายครั้งเกินไป รอ 15 นาทีแล้วลองใหม่"},
+                                          status_code=429)
     t = db.get_tenant_by_email(email)
     if not t or not verify_pw(password, t["password_hash"]):
+        security.login_failed(ip, who)
         return templates.TemplateResponse(request, "login.html", {"error": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"})
+    security.login_ok(ip, who)
     if t["disabled"]:
         return templates.TemplateResponse(request, "login.html", {"error": "บัญชีนี้ถูกปิดการใช้งานแล้ว ติดต่อเจ้าของระบบ"})
     if t["is_admin"]:
@@ -659,8 +708,30 @@ async def api_contact(request: Request):
 
 # ---------- ลูกค้าเป้าหมาย: ตรวจเว็บฟรี (public) + ผู้บริหารเอเจนต์โหมดเสนอ ----------
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for") or ""
-    return (fwd.split(",")[0].strip() or (request.client.host if request.client else "") or "")[:64]
+    return security.client_ip(request)
+
+
+async def _save_slip(slip, prefix: str) -> tuple[str | None, str]:
+    """เก็บสลิปที่อัปโหลด → (path ใต้ uploads/ หรือ None ถ้าไม่ได้แนบ, ข้อความผิดพลาด)
+    ชื่อไฟล์สุ่มเอง นามสกุลมาจากเนื้อไฟล์จริง — ไม่ใช้อะไรจากชื่อไฟล์ของผู้ใช้เลย"""
+    data, ext, err = await security.read_slip(slip)
+    if err or data is None:
+        return None, err
+    up = BASE.parent / "uploads" / "slips"
+    up.mkdir(parents=True, exist_ok=True)
+    fname = f"{prefix}{secrets.token_hex(8)}{ext}"
+    (up / fname).write_bytes(data)
+    return f"slips/{fname}", ""
+
+
+def _slip_response(rel_path: str):
+    """ส่งไฟล์สลิปให้ทีมงานดู — ชนิดตามนามสกุลที่เราตั้งเอง และห้ามเบราว์เซอร์เดาชนิดเอง (กันไฟล์ปลอมเป็น HTML)"""
+    f = (BASE.parent / "uploads" / rel_path).resolve()
+    if (BASE.parent / "uploads").resolve() not in f.parents or not f.is_file():
+        return Response("not found", status_code=404)
+    ext = f.suffix.lower()
+    ct = security.SLIP_TYPES.get(".jpg" if ext == ".jpeg" else ext, "application/octet-stream")
+    return Response(f.read_bytes(), media_type=ct, headers={"X-Content-Type-Options": "nosniff", "Content-Disposition": "inline"})
 
 
 def _run_lead_audit(lead_id: int, site: str, ip: str = "") -> str:
@@ -706,7 +777,7 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
-    if not site:
+    if not site or not netguard.url_public(site):         # ชื่อที่ชี้เข้า IP ภายใน = ไม่ตรวจ (กัน SSRF — ดู app/netguard.py)
         return templates.TemplateResponse(request, "audit.html", {"error": "กรอกที่อยู่เว็บให้ถูกต้อง เช่น example.co.th", "url": url, "src": src})
     import datetime as _dt
     ip = _client_ip(request)
@@ -1098,9 +1169,15 @@ def quote_stripe(request: Request, token: str):
     return _redirect(url)
 
 
+_stripe_failed: set[str] = set()
+
+
 @app.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
-    """Stripe ยิง event มาที่นี่ — ตรวจลายเซ็นก่อนเสมอ · ตอบ 200 เสมอเมื่อลายเซ็นถูก (กัน Stripe ยิงซ้ำไม่รู้จบ) แต่บันทึกผลไว้"""
+    """Stripe ยิง event มาที่นี่ — ตรวจลายเซ็นก่อนเสมอ
+    ทำสำเร็จ (รวม event ที่เราไม่สนใจ) → 200 · ทำไม่สำเร็จ → 500 ให้ Stripe ส่งใหม่เอง (ถอยห่างขึ้นเรื่อย ๆ นานสุด ~3 วัน)
+    เดิมตอบ 200 เสมอ: ฐานสะดุดชั่วครู่ตอนลูกค้าจ่าย = Stripe ถือว่าส่งถึงแล้ว ไม่ส่งซ้ำ บัญชีลูกค้าไม่ถูกเปิดจนกว่าคนจะเห็นแจ้งเตือน
+    handle_event ออกแบบให้รับ event ซ้ำได้อยู่แล้ว (จ่ายแล้ว = already-paid · ใบแจ้งหนี้ซ้ำ = อัปเดตแถวเดิม)"""
     body = await request.body()
     if not stripe_pay.verify(body, request.headers.get("stripe-signature", "")):
         return Response("bad signature", status_code=400)
@@ -1112,7 +1189,16 @@ async def stripe_webhook(request: Request):
         res = stripe_pay.handle_event(evt)
     except Exception as e:
         res = f"error:{type(e).__name__}: {redact(e)[:120]}"
-        db.notify_admins(f"⚠️ Stripe webhook {evt.get('type')} ทำไม่สำเร็จ: {res}", "/admin/decisions", "payment")
+        eid = str(evt.get("id") or "")
+        if eid not in _stripe_failed:                      # แจ้งทีมงานครั้งเดียวต่อ event — Stripe จะส่งซ้ำอีกหลายรอบ
+            _stripe_failed.add(eid)
+            if len(_stripe_failed) > 500:
+                _stripe_failed.clear()
+            try:
+                db.notify_admins(f"⚠️ Stripe webhook {evt.get('type')} ทำไม่สำเร็จ (Stripe จะส่งใหม่เอง): {res}", "/admin/decisions", "payment")
+            except Exception:
+                pass                                       # ฐานล่มอยู่ = แจ้งไม่ได้ แต่ยังต้องตอบ 500 ให้ Stripe ส่งใหม่
+        return JSONResponse({"ok": False, "result": res}, status_code=500)
     return JSONResponse({"ok": True, "result": res})
 
 
@@ -1146,19 +1232,10 @@ async def quote_pay(request: Request, token: str, slip: UploadFile = File(None),
         return _redirect("/")
     if q["status"] not in ("accepted", "claimed"):
         return _redirect(f"/q/{token}")
-    slip_path = None
-    if slip is not None and slip.filename:
-        data = await slip.read()
-        if data:
-            import secrets as _sec
-            ext = os.path.splitext(slip.filename)[1].lower()
-            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
-                ext = ".jpg"
-            up = BASE.parent / "uploads" / "slips"
-            up.mkdir(parents=True, exist_ok=True)
-            fname = f"q{q['id']}-{_sec.token_hex(6)}{ext}"
-            (up / fname).write_bytes(data[:8_000_000])
-            slip_path = f"slips/{fname}"
+    slip_path, err = await _save_slip(slip, f"q{q['id']}-")
+    if err:
+        return templates.TemplateResponse(request, "quote.html", _quote_ctx(q, db.get_lead(q["lead_id"]), error=err, lang=_i18n.lang_of(request)),
+                                          status_code=400)
     if q["status"] == "claimed":                       # แจ้งซ้ำ = อัปเดตสลิป ไม่สร้างข้อเสนอใหม่
         db.update_quote(q["id"], slip_path=slip_path or q["slip_path"], claimed_at=db.now())
     else:
@@ -1369,11 +1446,7 @@ def admin_quote_slip(request: Request, qid: int):
     q = db.get_quote(qid)
     if not q or not q["slip_path"]:
         return Response("not found", status_code=404)
-    f = BASE.parent / "uploads" / q["slip_path"]
-    if not f.exists():
-        return Response("not found", status_code=404)
-    ct = {".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf"}.get(f.suffix.lower(), "image/jpeg")
-    return Response(f.read_bytes(), media_type=ct)
+    return _slip_response(q["slip_path"])
 
 
 @app.post("/admin/decisions/auto")
@@ -1614,19 +1687,12 @@ async def pay_submit(request: Request, item: str, slip: UploadFile = File(None))
     it = _pay_item(item)
     if not it:
         return _redirect("/upgrade")
-    slip_path = None
-    if slip is not None and slip.filename:
-        data = await slip.read()
-        if data:
-            import secrets as _sec
-            ext = os.path.splitext(slip.filename)[1].lower()
-            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
-                ext = ".jpg"
-            up = BASE.parent / "uploads" / "slips"
-            up.mkdir(parents=True, exist_ok=True)
-            fname = f"{_sec.token_hex(8)}{ext}"
-            (up / fname).write_bytes(data[:8_000_000])
-            slip_path = f"slips/{fname}"
+    slip_path, err = await _save_slip(slip, "")
+    if err:
+        ppid, ppname = _promptpay_config()
+        return templates.TemplateResponse(request, "pay.html", {
+            "item": item, "p": it, "ppid": ppid, "ppname": ppname,
+            "qr": promptpay.qr_data_uri(ppid, it["price"]) if ppid else None, "notice": err}, status_code=400)
     db.create_payment(tid, item, it["price"], slip_path)
     if it["is_plan"]:
         db.set_requested_plan(tid, item)
@@ -1690,6 +1756,8 @@ def create_brand(request: Request, name: str = Form(...), domain: str = Form(...
     ok, msg = billing.check(db.get_tenant(tid), "brands")
     if not ok:
         return templates.TemplateResponse(request, "dashboard.html", _dashboard_ctx(request, error=msg))
+    if netguard.literal_blocked(site_health.host_of(domain)):      # เราจะไปดึงเว็บนี้เป็นประจำ — ต้องเป็นโดเมนสาธารณะ (กัน SSRF)
+        return templates.TemplateResponse(request, "dashboard.html", _dashboard_ctx(request, error="กรอกโดเมนเว็บไซต์ให้ถูกต้อง เช่น example.co.th"))
     bid = db.create_brand(tid, name, domain, market)
     return _redirect(f"/brands/{bid}")
 
@@ -3529,12 +3597,7 @@ def admin_slip(request: Request, pid: int):
     pay = db.get_payment(pid)
     if not pay or not pay["slip_path"]:
         return Response("not found", status_code=404)
-    f = BASE.parent / "uploads" / pay["slip_path"]
-    if not f.exists():
-        return Response("not found", status_code=404)
-    ext = f.suffix.lower()
-    ct = {".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf"}.get(ext, "image/jpeg")
-    return Response(f.read_bytes(), media_type=ct)
+    return _slip_response(pay["slip_path"])
 
 
 @app.post("/admin/payments/{pid}/confirm")
@@ -4565,17 +4628,11 @@ async def acct_bill_pay(request: Request, token: str, slip: UploadFile = File(No
         return _redirect("/")
     if doc["status"] not in ("open", "claimed"):
         return _redirect(f"/bill/{token}")
-    slip_path = None
-    if slip is not None and slip.filename:
-        data = await slip.read()
-        if data:
-            ext = os.path.splitext(slip.filename)[1].lower()
-            ext = ext if ext in (".jpg", ".jpeg", ".png", ".webp", ".pdf") else ".jpg"
-            up = BASE.parent / "uploads" / "slips"
-            up.mkdir(parents=True, exist_ok=True)
-            fname = f"inv{doc['id']}-{secrets.token_hex(6)}{ext}"
-            (up / fname).write_bytes(data[:8_000_000])
-            slip_path = f"slips/{fname}"
+    slip_path, err = await _save_slip(slip, f"inv{doc['id']}-")
+    if err:
+        resp = _acct_page(request, doc, error=err)
+        resp.status_code = 400
+        return resp
     if doc["status"] == "claimed":
         db.update_acct_doc(doc["id"], slip_path=slip_path or doc["slip_path"])
     else:
