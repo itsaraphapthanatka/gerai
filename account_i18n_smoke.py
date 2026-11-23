@@ -101,8 +101,8 @@ for lg, s in (("en", "Your current password is incorrect"), ("ko", "새 비밀�
 check(u, "/upgrade", "zh", scope_main=True, method="post", data={"plan": "agency"}, must=["已提交 Agency 套餐申请 — 团队会与你联系", "已提交 <b>Agency</b> 套餐申请 — 团队正在处理"])
 db.set_setting("promptpay_id", "0800000000")
 check(u, "/upgrade/pay/pro", "ja", scope_main=True, must=["PromptPay でスキャンして支払う", "受取人:"])
-check(u, "/upgrade/pay/pro", "en", scope_main=True, method="post", files={"slip": ("slip.png", b"\x89PNG fake", "image/png")}, must=["Payment notice received"])
-check(u, "/upgrade/pay/brand", "ko", scope_main=True, method="post", files={"slip": ("slip.png", b"\x89PNG fake", "image/png")}, must=["추가 패키지 결제 알림"])
+check(u, "/upgrade/pay/pro", "en", scope_main=True, method="post", files={"slip": ("slip.png", b"\x89PNG\r\n\x1a\n fake", "image/png")}, must=["Payment notice received"])
+check(u, "/upgrade/pay/brand", "ko", scope_main=True, method="post", files={"slip": ("slip.png", b"\x89PNG\r\n\x1a\n fake", "image/png")}, must=["추가 패키지 결제 알림"])
 r = u.get("/upgrade?lang=th"); assert "อัปเกรดแผน" in r.text and "แผนปัจจุบัน" in r.text and "ส่งคำขอแผน <b>Pro</b> ไว้แล้ว" in r.text   # แจ้งชำระแผน Pro ข้างบน = ขอแผน Pro
 r = u.get("/upgrade/pay/pro?lang=th"); assert "ชำระเงิน · แผน Pro" in r.text and "สแกนจ่ายด้วย PromptPay" in r.text
 db.create_tenant("admin@example.com", bcrypt.hashpw(b"pw123456", bcrypt.gensalt()).decode(), "Op", is_admin=True)
