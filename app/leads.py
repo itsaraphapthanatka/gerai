@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 from urllib.parse import urlparse
+from . import netguard
 
 STATUSES = [("new", "ใหม่"), ("contacted", "ทักแล้ว"), ("replied", "ตอบกลับ"), ("call", "อยากคุย"), ("met", "คุยแล้ว"),
             ("quoted", "เสนอราคาแล้ว"), ("won", "ปิดดีล"), ("lost", "ไม่สนใจ"), ("unsubscribed", "ขอไม่รับการติดต่อ")]
@@ -83,6 +84,8 @@ def normalize_url(raw: str | None) -> str | None:
     if not host or "." not in host or any(ch.isspace() for ch in host) or host.endswith("."):
         return None
     if re.search(r"[^a-z0-9.\-฀-๿]", host):   # ยอมโดเมนไทย (ตัวอักษร ก-๛) และ a-z 0-9 . -
+        return None
+    if netguard.literal_blocked(host):        # IP ภายใน / localhost / ชื่อในเครือข่ายภายใน — ไม่ใช่เว็บลูกค้า (กัน SSRF)
         return None
     port = f":{p.port}" if p.port and p.port not in (80, 443) else ""
     return f"{p.scheme.lower()}://{host}{port}"
