@@ -101,7 +101,7 @@ bill = TestClient(app).get(f"/bill/{inv2['token']}").text; assert "แจ้ง�
 print("promptpay: งวดแรกได้ใบกำกับภาษี (VAT แยก · ผู้ซื้อ/สาขา) · ใบแจ้งหนี้ล่วงหน้า 7 วัน ไม่ซ้ำ · หน้า /bill มี QR+สลิป OK")
 
 # ---- แนบสลิป → CFO เสนอ → อนุมัติ → ใบเสร็จ ----
-TestClient(app).post(f"/bill/{inv2['token']}/pay", files={"slip": ("s.jpg", b"img", "image/jpeg")})
+TestClient(app).post(f"/bill/{inv2['token']}/pay", files={"slip": ("s.jpg", b"\xff\xd8\xff img", "image/jpeg")})
 inv2 = db.get_acct_doc(inv2["id"]); assert inv2["status"] == "claimed" and inv2["slip_path"]
 dec = [d for d in db.list_decisions("proposed", 50) if json.loads(d["payload_json"]).get("acct_doc_id") == inv2["id"]]; assert dec and dec[0]["kind"] == "payment"
 out = P.execute_decision(dec[0], "owner"); assert "ออกใบเสร็จ" in out, out

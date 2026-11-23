@@ -71,7 +71,7 @@ assert c.get(f"/q/{q['token']}/contract.pdf").status_code == 200
 print("quote: ส่ง → เปิดดู → ยืนยัน (ชื่อ+ยอมรับ) → สัญญา/PDF OK")
 
 # ---- 4) แจ้งชำระ (สลิป) → CFO เสนอยืนยันยอด → อนุมัติ → เปิดบัญชี+แบรนด์ → ปิดดีล → อีเมลต้อนรับ ----
-c.post(f"/q/{q['token']}/pay", files={"slip": ("slip.png", b"\x89PNG fake", "image/png")})
+c.post(f"/q/{q['token']}/pay", files={"slip": ("slip.png", b"\x89PNG\r\n\x1a\n fake", "image/png")})
 q = db.get_quote(q["id"]); assert q["status"] == "claimed" and q["slip_path"] and "payment_claimed" in kinds(lead["id"])
 pd = [d for d in db.list_decisions("proposed") if d["kind"] == "payment"]; assert len(pd) == 1 and pd[0]["agent"] == "cfo"
 assert a.get(f"/admin/quotes/{q['id']}/slip").status_code == 200

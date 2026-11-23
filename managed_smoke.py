@@ -165,7 +165,7 @@ assert snapshot() == before, "route ที่ถูกปฏิเสธต้�
 r = c.post("/api/classify-market", json={"url": "acme.example.com"}); assert r.status_code == 403
 for item in ("agency", "content20", "setup"):
     r = c.get(f"/upgrade/pay/{item}", follow_redirects=False); assert r.status_code == 303 and "managed=1" in r.headers["location"], item
-    r = c.post(f"/upgrade/pay/{item}", files={"slip": ("s.png", b"x", "image/png")}, follow_redirects=False)
+    r = c.post(f"/upgrade/pay/{item}", files={"slip": ("s.png", b"\x89PNG\r\n\x1a\n x", "image/png")}, follow_redirects=False)
     assert r.status_code == 303 and "managed=1" in r.headers["location"], item
 assert snapshot() == before
 r = c.post(B + "/run?lang=en"); assert r.status_code == 200 and "managed-note" in r.text and "takes care of this" in r.text, "ปฏิเสธแล้วเห็นป้ายบอก"
