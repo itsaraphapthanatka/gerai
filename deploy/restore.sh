@@ -21,6 +21,9 @@ PG_DB="${PG_DB:-geo_platform}"
 # รันแอปด้วย systemd แทน compose: STOP_CMD="sudo systemctl stop geo-platform" START_CMD="sudo systemctl start geo-platform"
 STOP_CMD="${STOP_CMD:-docker compose -f $ROOT/docker-compose.yml stop geo-app}"
 START_CMD="${START_CMD:-docker compose -f $ROOT/docker-compose.yml start geo-app}"
+# container ของแอป — ถ้ามีอยู่ (หยุดแล้วก็ได้) จะแตกไฟล์ผ่าน container ชั่วคราวที่ใช้โฟลเดอร์ข้อมูลชุดเดียวกัน
+# ตั้งเป็นค่าว่างเพื่อแตกลงเครื่องตรง ๆ
+APP_CONTAINER="${APP_CONTAINER-geo-app}"
 
 src=""; yes=0; db_only=0
 for a in "$@"; do
@@ -75,7 +78,18 @@ rm -f "$pre/restore.sql"
 
 if [ "$db_only" != "1" ] && [ -f "$src/files.tar.gz" ]; then
   echo "[restore] กู้ไฟล์ (uploads/, app/static/gen/) — ไฟล์ชื่อซ้ำถูกเขียนทับ ไฟล์ที่ใหม่กว่าชุดสำรองยังอยู่"
-  tar -xzf "$src/files.tar.gz" -C "$ROOT"
+  # uploads/ และ app/static/gen/ เป็นของผู้ใช้ใน container (uid 10001) — ผู้ใช้บนเครื่องที่รันสคริปต์นี้เขียนลงไม่ได้
+  # แอปถูกหยุดอยู่ docker exec จึงใช้ไม่ได้: เปิด container ชั่วคราวจาก image เดียวกัน ต่อโฟลเดอร์ข้อมูลของ
+  # container แอป (--volumes-from) แล้วแตกไฟล์ในนั้น ไฟล์ที่ได้เป็นของผู้ใช้เดียวกับที่แอปรัน แอปจึงอ่านเขียนต่อได้
+  # ไม่มี container แอป (ติดตั้งแบบ systemd) → แตกลงเครื่องตรง ๆ ถ้าเขียนไม่ได้ให้รันด้วย sudo
+  image=""
+  [ -z "$APP_CONTAINER" ] || image="$(docker inspect -f '{{.Image}}' "$APP_CONTAINER" 2> /dev/null || true)"
+  if [ -n "$image" ]; then
+    docker run --rm -i --network none --volumes-from "$APP_CONTAINER" "$image" \
+      tar -xzf - --no-same-owner -C /app < "$src/files.tar.gz"
+  else
+    tar -xzf "$src/files.tar.gz" -C "$ROOT"
+  fi
 fi
 
 start_app

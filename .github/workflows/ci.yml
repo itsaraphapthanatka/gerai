@@ -37,9 +37,11 @@ jobs:
 
           docker run --rm --network host -v "$PWD:/src" -w /src -e DATABASE_URL="$DB" geo-platform:ci python pg_smoke.py
 
-          mkdir -p ci-data/uploads/slips ci-data/gen && sudo chown -R root:root ci-data
+          # ci-data จัดโฟลเดอร์เหมือนโปรเจกต์บนเซิร์ฟเวอร์ (deploy/, uploads/, app/static/gen/) ให้ backup.sh/restore.sh รันกับมันได้
+          mkdir -p ci-data/deploy ci-data/uploads/slips ci-data/app/static/gen
+          cp deploy/backup.sh deploy/restore.sh ci-data/deploy/ && sudo chown -R root:root ci-data
           docker run -d --name ci-app --network host -e DATABASE_URL="$DB" -e SESSION_SECRET=ci-only-not-a-real-secret \
-            -v "$PWD/ci-data/uploads:/app/uploads" -v "$PWD/ci-data/gen:/app/app/static/gen" geo-platform:ci
+            -v "$PWD/ci-data/uploads:/app/uploads" -v "$PWD/ci-data/app/static/gen:/app/app/static/gen" geo-platform:ci
           for i in $(seq 60); do curl -fsS -o /dev/null http://127.0.0.1:8095/login && break; sleep 1; done
           curl -fsS -o /dev/null http://127.0.0.1:8095/login || { docker logs ci-app; exit 1; }
           uid="$(docker exec ci-app awk '/^Uid:/ {print $2}' /proc/1/status)"
@@ -48,8 +50,23 @@ jobs:
             || { echo "ผู้ใช้ app เขียนโฟลเดอร์ข้อมูลไม่ได้"; exit 1; }
           if docker exec -u app ci-app sh -c 'echo x >> /app/app/main.py' 2> /dev/null; then echo "ผู้ใช้ app ไม่ควรแก้โค้ดได้"; exit 1; fi
           echo "pg_smoke OK · แอปเริ่มได้บน Postgres · รันเป็น uid $uid · เขียนได้เฉพาะโฟลเดอร์ข้อมูล"
+
+          # สำรองแล้วกู้ไฟล์เมื่อโฟลเดอร์ข้อมูลเป็นของ uid 10001: ผู้ใช้ที่รันสคริปต์ (runner) อ่านไฟล์ 600 และเขียนลงโฟลเดอร์ไม่ได้
+          # ทั้งสองทางต้องผ่าน container — restore.sh ทำตอนแอปหยุดอยู่
+          docker exec -u app ci-app sh -c 'echo slip > /app/uploads/slips/keep.jpg && chmod 600 /app/uploads/slips/keep.jpg && echo img > /app/app/static/gen/keep.png'
+          export BACKUP_DIR="$PWD/ci-backups" PG_CONTAINER=ci-pg APP_CONTAINER=ci-app STOP_CMD="docker stop ci-app" START_CMD="docker start ci-app"
+          bash ci-data/deploy/backup.sh
+          docker exec -u app ci-app rm /app/uploads/slips/keep.jpg /app/app/static/gen/keep.png
+          bash ci-data/deploy/restore.sh "$(ls -d ci-backups/20* | tail -1)" --yes
+          [ "$(sudo cat ci-data/uploads/slips/keep.jpg)" = "slip" ] && [ "$(sudo cat ci-data/app/static/gen/keep.png)" = "img" ] \
+            || { echo "restore.sh ไม่ได้กู้ไฟล์กลับมา"; exit 1; }
+          owner="$(sudo stat -c %u ci-data/uploads/slips/keep.jpg)"
+          [ "$owner" = "10001" ] || { echo "ไฟล์ที่กู้ควรเป็นของ uid 10001 แต่เป็น $owner"; exit 1; }
+          for i in $(seq 60); do curl -fsS -o /dev/null http://127.0.0.1:8095/login && break; sleep 1; done
+          curl -fsS -o /dev/null http://127.0.0.1:8095/login || { echo "แอปไม่กลับมาหลังกู้"; docker logs ci-app; exit 1; }
+          echo "สำรองและกู้ไฟล์ผ่าน container OK · ไฟล์ที่กู้เป็นของ uid $owner · แอปกลับมาหลังกู้"
           docker rm -f ci-app ci-pg > /dev/null
-          sudo rm -rf ci-data
+          sudo rm -rf ci-data ci-backups
 
       - name: Smoke tests
         run: |
