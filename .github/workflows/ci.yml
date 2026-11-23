@@ -48,3 +48,18 @@ jobs:
           name: smoke-logs
           path: ci-logs/
           retention-days: 7
+
+  # Backup → damage → restore against the same Postgres image production runs (deploy/BACKUP.md).
+  backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Postgres
+        run: |
+          printf 'POSTGRES_PASSWORD=ci-only\n' > .env
+          docker compose up -d --wait geo-postgres
+
+      - name: Backup and restore round trip
+        run: bash deploy/backup_restore_test.sh

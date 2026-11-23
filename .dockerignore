@@ -15,3 +15,6 @@ geo.md
 uploads/
 app/static/gen/
 *.log
+
+# ชุดสำรองข้อมูล — ห้ามเข้า image
+backups/
