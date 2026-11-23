@@ -106,3 +106,11 @@ docker logs geo-postgres                    # log DB
 .venv/bin/pip install -r requirements.txt
 sudo systemctl restart geo-platform
 ```
+
+## Container รันแบบไม่ใช่ root
+`geo-app` รันด้วยผู้ใช้ `app` (uid 10001) ตอนเริ่ม `deploy/docker-entrypoint.sh` จะโอน `uploads/` และ `app/static/gen/`
+ให้ uid 10001 เองครั้งแรก ไม่ต้อง `chown` มือ ผลบนเครื่อง: ไฟล์ในสองโฟลเดอร์นี้เป็นของ uid 10001 —
+ผู้ใช้อื่นบนเครื่องยังอ่านได้ (สำรองได้ตามปกติ) แต่จะเขียน/ลบ/กู้คืนทับต้องใช้ `sudo`
+
+## เวอร์ชันไลบรารี
+`requirements.txt` ล็อกเวอร์ชันทุกตัว สร้างจาก `requirements.in` — วิธีอัปเดตอยู่ที่หัวไฟล์ `requirements.txt`

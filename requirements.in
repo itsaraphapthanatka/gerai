@@ -1,0 +1,13 @@
+# ไลบรารีที่แอปใช้ตรง ๆ (ไม่ล็อกเวอร์ชัน) — เพิ่ม/ลบที่นี่ แล้วสร้าง requirements.txt ใหม่ตามคำสั่งในหัวไฟล์นั้น
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+bcrypt
+cryptography
+httpx
+psycopg[binary]
+ddgs
+pillow
+qrcode
