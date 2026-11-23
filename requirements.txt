@@ -1,12 +1,107 @@
-fastapi
-uvicorn[standard]
-jinja2
-python-multipart
-itsdangerous
-bcrypt
-cryptography
-httpx
-psycopg[binary]
-ddgs
-pillow
-qrcode
+# ไฟล์นี้สร้างจาก requirements.in — อย่าแก้มือ
+# เวอร์ชันถูกล็อกทุกตัว (รวมไลบรารีที่ถูกดึงมาทางอ้อม) เพื่อให้ image ที่ build วันนี้กับเดือนหน้าได้ของชุดเดียวกัน
+# และ image ที่ CI ทดสอบผ่าน = image ที่เซิร์ฟเวอร์ build เอง
+# อัปเดต:  uv pip compile requirements.in -o requirements.txt --universal --python-version 3.12 --no-header --upgrade
+#          แล้วใส่หัวไฟล์นี้กลับ, รันสเมอก์เทสต์, commit ทั้งสองไฟล์
+annotated-doc==0.0.7
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.16.0
+    # via
+    #   fastapi
+    #   httpx
+    #   starlette
+    #   watchfiles
+bcrypt==5.0.0
+    # via -r requirements.in
+certifi==2026.11.20
+    # via
+    #   httpcore
+    #   httpx
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
+    # via cryptography
+click==8.5.1
+    # via
+    #   ddgs
+    #   uvicorn
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via qrcode
+cryptography==50.0.2
+    # via -r requirements.in
+ddgs==9.16.1
+    # via -r requirements.in
+fastapi==0.165.0
+    # via -r requirements.in
+h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.9
+    # via httpx
+httptools==0.9.0
+    # via uvicorn
+httpx==0.28.1
+    # via -r requirements.in
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+itsdangerous==2.2.0
+    # via -r requirements.in
+jinja2==3.1.6
+    # via -r requirements.in
+lxml==6.1.3
+    # via ddgs
+markupsafe==3.0.4
+    # via jinja2
+opentelemetry-api==1.45.2
+    # via fastapi
+pillow==13.0.0
+    # via -r requirements.in
+primp==2.0.1
+    # via ddgs
+psycopg==3.3.9
+    # via -r requirements.in
+psycopg-binary==3.3.9 ; implementation_name != 'pypy'
+    # via psycopg
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+    # via cffi
+pydantic==2.14.4
+    # via fastapi
+pydantic-core==2.50.5
+    # via pydantic
+python-dotenv==1.2.4
+    # via uvicorn
+python-multipart==0.0.34
+    # via -r requirements.in
+pyyaml==6.0.4
+    # via uvicorn
+qrcode==8.2
+    # via -r requirements.in
+starlette==1.10.0
+    # via fastapi
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   fastapi
+    #   opentelemetry-api
+    #   psycopg
+    #   pydantic
+    #   pydantic-core
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.5
+    # via
+    #   fastapi
+    #   pydantic
+tzdata==2026.6 ; sys_platform == 'win32'
+    # via psycopg
+uvicorn==0.54.0
+    # via -r requirements.in
+uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+    # via uvicorn
+watchfiles==1.3.0
+    # via uvicorn
+websockets==17.4
+    # via uvicorn
