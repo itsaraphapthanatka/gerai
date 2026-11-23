@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p ci-logs
           ls *_smoke.py | grep -vx 'pg_smoke.py' \
-            | xargs -P 4 -I{} sh -c 'docker run --rm -v "$PWD:/src" -w /src -e GEO_SESSION_SECRET=ci geo-platform:ci python {} > ci-logs/{}.log 2>&1 && echo "PASS {}" || echo "FAIL {}"' \
+            | xargs -P 4 -I{} sh -c 'docker run --rm -v "$PWD:/src" -w /src -e SESSION_SECRET=ci-only-not-a-real-secret geo-platform:ci python {} > ci-logs/{}.log 2>&1 && echo "PASS {}" || echo "FAIL {}"' \
             | sort > results.txt
           cat results.txt
           echo "passed $(grep -c '^PASS' results.txt) of $(wc -l < results.txt)"

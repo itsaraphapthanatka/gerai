@@ -1,6 +1,7 @@
 """OpenAI-compatible AI client สำหรับ generate คำถาม GEO"""
 import os, json, re
 from .redact import redact
+from . import netguard
 import urllib.request
 
 BASE_URL = os.getenv("AI_BASE_URL", "https://consoletoken.aunjai.org/api/v1")
@@ -126,7 +127,7 @@ def _fetch_text(url: str, timeout: int = 18) -> str:
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     req = urllib.request.Request(url, headers={"User-Agent": "curl/8.5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with netguard.urlopen(req, timeout=timeout) as r:
         html = r.read(500_000).decode("utf-8", "ignore")
 
     def _grp(pat):
@@ -201,7 +202,7 @@ def site_context(url: str, fetch=None, max_pages: int = 3, limit: int = 4000) ->
 
 def _fetch_page(url: str, timeout: int = 18) -> tuple[str, str]:
     req = urllib.request.Request(url, headers={"User-Agent": "curl/8.5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with netguard.urlopen(req, timeout=timeout) as r:
         return r.geturl(), r.read(500_000).decode("utf-8", "ignore")
 
 
