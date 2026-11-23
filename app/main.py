@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import bcrypt
 
-from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, staff, staff_audit, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n, security
+from . import db, geo_worker, geo_content, wp_client, billing, ai_client, image_finder, promptpay, site_health, ai_visibility, gsc, pagespeed, ai_serp, report, analytics_chat, mailer, campaigns, autopilot, staff, staff_audit, auto_content, leads, execs, pipeline, quotes, line_oa, prospecting, stripe_pay, marketing, skills, office, deep_audit, sms, hosted_theme, landing_i18n, netguard, config, security
 
 # ลิงก์ในอีเมล/งานเบื้องหลังที่ไม่มี request ให้อ่าน base_url
 BASE_URL = os.getenv("GEO_BASE_URL", "https://geo.appreview.cloud").rstrip("/")
@@ -83,7 +83,7 @@ _DOCS = os.getenv("API_DOCS", "") == "1"
 app = FastAPI(title="GEO Platform", dependencies=[Depends(_staff_guard)],
               docs_url="/docs" if _DOCS else None, redoc_url="/redoc" if _DOCS else None,
               openapi_url="/openapi.json" if _DOCS else None)
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"))
+app.add_middleware(SessionMiddleware, secret_key=config.session_secret())   # ไม่ได้ตั้ง/ยังเป็นค่าตัวอย่าง = ไม่เริ่มแอป
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -777,7 +777,7 @@ def audit_run(request: Request, url: str = Form(""), website: str = Form(""), sr
     if website.strip():                                   # honeypot: บอทกรอก → เงียบ
         return _redirect("/audit")
     site = leads.normalize_url(url)
-    if not site:
+    if not site or not netguard.url_public(site):         # ชื่อที่ชี้เข้า IP ภายใน = ไม่ตรวจ (กัน SSRF — ดู app/netguard.py)
         return templates.TemplateResponse(request, "audit.html", {"error": "กรอกที่อยู่เว็บให้ถูกต้อง เช่น example.co.th", "url": url, "src": src})
     import datetime as _dt
     ip = _client_ip(request)
@@ -1756,6 +1756,8 @@ def create_brand(request: Request, name: str = Form(...), domain: str = Form(...
     ok, msg = billing.check(db.get_tenant(tid), "brands")
     if not ok:
         return templates.TemplateResponse(request, "dashboard.html", _dashboard_ctx(request, error=msg))
+    if netguard.literal_blocked(site_health.host_of(domain)):      # เราจะไปดึงเว็บนี้เป็นประจำ — ต้องเป็นโดเมนสาธารณะ (กัน SSRF)
+        return templates.TemplateResponse(request, "dashboard.html", _dashboard_ctx(request, error="กรอกโดเมนเว็บไซต์ให้ถูกต้อง เช่น example.co.th"))
     bid = db.create_brand(tid, name, domain, market)
     return _redirect(f"/brands/{bid}")
 

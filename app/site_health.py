@@ -23,6 +23,7 @@ import json
 import datetime
 import xml.etree.ElementTree as ET
 from urllib.parse import urlparse
+from . import netguard
 
 UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
@@ -495,7 +496,7 @@ def summarize(checks: list) -> dict:
 # ---------- ดึงข้อมูลจริงแล้วเรียก judge ----------
 def _client():
     import httpx
-    return httpx.Client(follow_redirects=True, timeout=20,
+    return netguard.client(follow_redirects=True, timeout=20,
                         headers={"User-Agent": UA}, verify=True)
 
 
@@ -512,7 +513,7 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     def fetch(url, redirects=True):
         """คืน (status, headers, text, final_url) — final_url บอกว่าตามรีไดเรกต์ไปจบที่โดเมนไหน"""
         try:
-            with httpx.Client(follow_redirects=redirects, timeout=20,
+            with netguard.client(follow_redirects=redirects, timeout=20,
                               headers={"User-Agent": UA}) as c:
                 r = c.get(url)
                 return r.status_code, dict(r.headers), r.text, str(r.url)
@@ -521,7 +522,7 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
 
     def code(url, ua=UA):
         try:
-            with httpx.Client(follow_redirects=True, timeout=20, headers={"User-Agent": ua}) as c:
+            with netguard.client(follow_redirects=True, timeout=20, headers={"User-Agent": ua}) as c:
                 return c.get(url).status_code
         except Exception:
             return 0
@@ -534,7 +535,7 @@ def run_checks(site_url: str, last_published=None, n_published: int = 0, today=N
     checks += judge_soft404(code(f"{base}/zz-health-check-not-a-real-path"))
 
     try:
-        with httpx.Client(follow_redirects=False, timeout=20, headers={"User-Agent": UA}) as c:
+        with netguard.client(follow_redirects=False, timeout=20, headers={"User-Agent": UA}) as c:
             r = c.get(f"https://www.{apex}/")
             checks += judge_www(r.status_code, r.headers.get("location", ""), apex)
     except Exception:
@@ -648,7 +649,7 @@ def probe_uptime(site_url: str, attempts: int = 2, wait: float = UPTIME_RETRY_WA
         status = 0
         if dns_ok:
             try:
-                with httpx.Client(follow_redirects=True, timeout=15,
+                with netguard.client(follow_redirects=True, timeout=15,
                                   headers={"User-Agent": BROWSER_UA}) as c:
                     status = c.get(url).status_code
             except Exception:

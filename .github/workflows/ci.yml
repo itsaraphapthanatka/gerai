@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p ci-logs
           ls *_smoke.py | grep -vx 'pg_smoke.py' \
-            | xargs -P 4 -I{} sh -c 'docker run --rm -v "$PWD:/src" -w /src -e GEO_SESSION_SECRET=ci geo-platform:ci python {} > ci-logs/{}.log 2>&1 && echo "PASS {}" || echo "FAIL {}"' \
+            | xargs -P 4 -I{} sh -c 'docker run --rm -v "$PWD:/src" -w /src -e SESSION_SECRET=ci-only-not-a-real-secret geo-platform:ci python {} > ci-logs/{}.log 2>&1 && echo "PASS {}" || echo "FAIL {}"' \
             | sort > results.txt
           cat results.txt
           echo "passed $(grep -c '^PASS' results.txt) of $(wc -l < results.txt)"
@@ -48,3 +48,18 @@ jobs:
           name: smoke-logs
           path: ci-logs/
           retention-days: 7
+
+  # Backup → damage → restore against the same Postgres image production runs (deploy/BACKUP.md).
+  backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Postgres
+        run: |
+          printf 'POSTGRES_PASSWORD=ci-only\n' > .env
+          docker compose up -d --wait geo-postgres
+
+      - name: Backup and restore round trip
+        run: bash deploy/backup_restore_test.sh
