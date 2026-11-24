@@ -4,6 +4,8 @@
 #   deploy/backup.sh                 # สำรองลง ./backups/<วันเวลา>/
 #   KEEP_DAYS=30 deploy/backup.sh    # เก็บย้อนหลัง 30 วัน (ดีฟอลต์ 14)
 #   BACKUP_REMOTE=user@host:/path deploy/backup.sh   # สำรองเสร็จแล้ว rsync ออกนอกเครื่องด้วย
+#   BACKUP_RCLONE_REMOTE=r2:bucket/geo deploy/backup.sh   # หรือส่งขึ้นที่เก็บไฟล์บนคลาวด์ด้วย rclone (R2, S3, B2 ...)
+#                                    # ลบชุดที่ปลายทางเมื่อเก่าเกิน REMOTE_KEEP_DAYS วัน (ดีฟอลต์ 30, 0 = ไม่ลบ)
 #
 # ได้อะไรในหนึ่งชุด:
 #   db.dump        pg_dump รูปแบบ custom ของฐาน geo_platform (กู้ด้วย deploy/restore.sh)
@@ -24,6 +26,8 @@ PG_USER="${PG_USER:-geo}"
 PG_DB="${PG_DB:-geo_platform}"
 BACKUP_ENV="${BACKUP_ENV:-1}"
 BACKUP_REMOTE="${BACKUP_REMOTE:-}"
+BACKUP_RCLONE_REMOTE="${BACKUP_RCLONE_REMOTE:-}"
+REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-30}"
 # container ของแอป — ถ้ารันอยู่ จะอ่านไฟล์ผ่านมัน (ดูเหตุผลตรงส่วนไฟล์) · ตั้งเป็นค่าว่างเพื่ออ่านจากเครื่องตรง ๆ
 APP_CONTAINER="${APP_CONTAINER-geo-app}"
 
@@ -80,6 +84,18 @@ echo "[backup] เสร็จ: $out ($(du -sh "$out" | cut -f1))"
 if [ -n "$BACKUP_REMOTE" ]; then
   echo "[backup] ส่งออกนอกเครื่อง → $BACKUP_REMOTE"
   rsync -a "$out" "$BACKUP_REMOTE/"
+fi
+
+if [ -n "$BACKUP_RCLONE_REMOTE" ]; then
+  remote="${BACKUP_RCLONE_REMOTE%/}"
+  echo "[backup] ส่งออกนอกเครื่อง → $remote/$stamp"
+  rclone copy "$out" "$remote/$stamp"
+  # เทียบขนาดและ hash ของทุกไฟล์กับที่ปลายทาง — ส่งไม่ครบหรือไฟล์เพี้ยน = ออกด้วยรหัสผิดพลาด ไม่ปล่อยให้เข้าใจว่ามีสำเนา
+  rclone check "$out" "$remote/$stamp" --one-way
+  # ลบเฉพาะไฟล์ในโฟลเดอร์ชื่อรูปแบบวันเวลา — ของอื่นใน bucket ไม่แตะ
+  if [ "$REMOTE_KEEP_DAYS" -gt 0 ] 2> /dev/null; then
+    rclone delete "$remote" --min-age "${REMOTE_KEEP_DAYS}d" --include '/20[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]/**'
+  fi
 fi
 
 # ลบชุดเก่าเกิน KEEP_DAYS วัน — เฉพาะโฟลเดอร์ชื่อรูปแบบวันเวลาที่สคริปต์นี้สร้าง

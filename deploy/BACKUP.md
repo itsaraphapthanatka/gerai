@@ -48,7 +48,7 @@ container ชั่วคราวจาก image เดียวกัน (ใ�
 15 3 * * * cd /website/geo.appreview.cloud/geo-platform && deploy/backup.sh >> logs/backup.log 2>&1
 ```
 
-เมื่อมีปลายทางนอกเครื่องแล้ว ให้เติม `BACKUP_REMOTE=user@backup-host:/srv/geo-backups` หน้า `deploy/backup.sh` ในบรรทัดนี้
+เมื่อตั้งปลายทางนอกเครื่องเสร็จ (หัวข้อถัดไป) ให้เติมตัวแปรปลายทางหน้า `deploy/backup.sh` ในบรรทัดนี้
 
 สคริปต์ออกด้วยรหัสไม่ใช่ 0 เมื่อพัง และเขียนข้อผิดพลาดลง `logs/backup.log` ยังไม่มีตัวแจ้งเตือนเมื่อรอบสำรองล้มเหลวหรือไม่ได้รัน
 จนกว่าจะมี ให้เช็กเองว่า `ls backups/` มีชุดของเมื่อคืน
@@ -56,7 +56,48 @@ container ชั่วคราวจาก image เดียวกัน (ใ�
 ### ต้องมีสำเนานอกเครื่อง
 
 ชุดใน `backups/` อยู่บนดิสก์เดียวกับฐานข้อมูล ดิสก์พังหรือเซิร์ฟเวอร์หาย = หายพร้อมกัน
-ตั้ง `BACKUP_REMOTE` (ปลายทาง rsync ผ่าน SSH) ให้สคริปต์ส่งชุดใหม่ออกไปทุกครั้ง
+สคริปต์ส่งชุดใหม่ออกไปทุกครั้งเมื่อตั้งปลายทางอย่างใดอย่างหนึ่ง:
+
+| ตัวแปร | ปลายทาง | เครื่องมือ |
+|---|---|---|
+| `BACKUP_RCLONE_REMOTE=r2:<bucket>/geo-platform` | ที่เก็บไฟล์บนคลาวด์ (Cloudflare R2, S3, B2 ...) | `rclone` |
+| `BACKUP_REMOTE=user@backup-host:/srv/geo-backups` | เซิร์ฟเวอร์อีกเครื่องผ่าน SSH | `rsync` |
+
+แบบ rclone: ส่งเสร็จแล้วเทียบขนาดและ hash ของทุกไฟล์กับปลายทาง ไม่ตรง = สคริปต์ออกด้วยรหัสผิดพลาด
+และลบชุดที่ปลายทางเมื่อเก่าเกิน `REMOTE_KEEP_DAYS` วัน (ดีฟอลต์ 30, `0` = ไม่ลบ) เฉพาะโฟลเดอร์ชื่อรูปแบบวันเวลา
+แบบ rsync ไม่ลบชุดเก่าที่ปลายทาง ต้องตั้งการลบที่เครื่องนั้นเอง
+
+ตั้ง Cloudflare R2 ครั้งแรก:
+
+1. หน้า Cloudflare → R2 → สร้าง bucket (ไม่เปิด public access)
+2. R2 → Manage API Tokens → สร้าง token สิทธิ์ Object Read & Write จำกัดเฉพาะ bucket นั้น
+3. บนเซิร์ฟเวอร์ ใส่ค่าใน `~/.config/rclone/rclone.conf` (สิทธิ์ 600) ของผู้ใช้ที่รัน cron:
+
+   ```ini
+   [r2]
+   type = s3
+   provider = Cloudflare
+   access_key_id = <จาก token>
+   secret_access_key = <จาก token>
+   endpoint = https://<account id>.r2.cloudflarestorage.com
+   acl = private
+   no_check_bucket = true
+   ```
+
+4. ลองส่ง: `BACKUP_RCLONE_REMOTE=r2:<bucket>/geo-platform deploy/backup.sh` แล้ว `rclone lsf r2:<bucket>/geo-platform/`
+
+`rclone` ต้องอยู่ใน `PATH` ของ cron (ดีฟอลต์ `/usr/bin:/bin`) — ถ้าติดตั้งไว้ที่อื่น ให้ตั้ง `PATH` ในบรรทัด cron ด้วย
+
+ชุดสำรองถูกส่งไปแบบไม่เข้ารหัสเพิ่ม ใครถือ token ของ bucket หรือเข้าบัญชี Cloudflare ได้ก็อ่านข้อมูลลูกค้าและ `.env` ได้
+เก็บ token ไว้เฉพาะบนเซิร์ฟเวอร์ และอย่าเปิด bucket เป็น public
+
+กู้จากสำเนานอกเครื่อง (เซิร์ฟเวอร์ใหม่ หรือชุดในเครื่องหาย):
+
+```bash
+rclone lsf r2:<bucket>/geo-platform/                                          # เลือกชุด
+rclone copy r2:<bucket>/geo-platform/20261123-031500 backups/20261123-031500
+deploy/restore.sh backups/20261123-031500
+```
 
 ## กู้คืน
 
