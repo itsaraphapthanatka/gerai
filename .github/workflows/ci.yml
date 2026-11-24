@@ -49,6 +49,9 @@ jobs:
           docker exec -u app ci-app sh -c 'echo ok > /app/uploads/slips/ci-write && echo ok > /app/app/static/gen/ci-write' \
             || { echo "ผู้ใช้ app เขียนโฟลเดอร์ข้อมูลไม่ได้"; exit 1; }
           if docker exec -u app ci-app sh -c 'echo x >> /app/app/main.py' 2> /dev/null; then echo "ผู้ใช้ app ไม่ควรแก้โค้ดได้"; exit 1; fi
+          # cron บนเซิร์ฟเวอร์เรียก run_monitors.py ผ่าน docker exec ซึ่งเข้ามาเป็น root — ต้องลดสิทธิ์ตัวเองเป็นผู้ใช้ของแอป
+          cron_uid="$(docker exec ci-app python -c 'import run_monitors, os; print(os.getuid())' | tail -1)"
+          [ "$cron_uid" = "10001" ] || { echo "run_monitors.py ที่เรียกผ่าน docker exec ควรรันเป็น uid 10001 แต่เป็น $cron_uid"; exit 1; }
           echo "pg_smoke OK · แอปเริ่มได้บน Postgres · รันเป็น uid $uid · เขียนได้เฉพาะโฟลเดอร์ข้อมูล"
 
           # สำรองแล้วกู้ไฟล์เมื่อโฟลเดอร์ข้อมูลเป็นของ uid 10001: ผู้ใช้ที่รันสคริปต์ (runner) อ่านไฟล์ 600 และเขียนลงโฟลเดอร์ไม่ได้

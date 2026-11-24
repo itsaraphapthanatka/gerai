@@ -28,6 +28,35 @@ try:
 except Exception:
     pass
 
+
+
+def _drop_root() -> None:
+    """ถูกเรียกเป็น root → เปลี่ยนเป็นผู้ใช้เจ้าของโฟลเดอร์ uploads/ ก่อนทำอะไรต่อ
+
+    cron บนเซิร์ฟเวอร์เรียก `docker exec geo-app python run_monitors.py ...` — docker exec เข้า container เป็น root
+    ไม่ผ่าน entrypoint ที่ลดสิทธิ์ให้ตัวแอป ไฟล์ที่งานนี้เขียน (รูปโพสต์, uploads/archive) จึงเป็นของ root
+    แล้วแอปซึ่งรันเป็นผู้ใช้ app แก้หรือลบไม่ได้ และอ่านไม่ได้ถ้าไฟล์เป็นสิทธิ์ 600
+    ไม่ใช่ root, ไม่มี uploads/ หรือ uploads/ เป็นของ root เอง (ติดตั้งแบบเก่า) → ไม่ทำอะไร
+    """
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        return
+    try:
+        st = (Path(__file__).resolve().parent / "uploads").stat()
+    except OSError:
+        return
+    if st.st_uid == 0:
+        return
+    os.setgroups([])
+    os.setgid(st.st_gid)
+    os.setuid(st.st_uid)
+    try:
+        import pwd
+        os.environ["HOME"] = pwd.getpwuid(st.st_uid).pw_dir
+    except (ImportError, KeyError):
+        os.environ["HOME"] = "/tmp"
+
+
+_drop_root()          # ต้องมาก่อน import app: โมดูลของแอปเปิดไฟล์และสร้างโฟลเดอร์ตอน import
 load_dotenv(Path(__file__).resolve().parent / ".env")
 from app import db, geo_worker
 from app import office

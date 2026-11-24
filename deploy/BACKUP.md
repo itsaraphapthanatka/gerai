@@ -10,7 +10,7 @@
 | เรื่อง | ค่า |
 |---|---|
 | ปลายทางสำรองนอกเครื่อง (`BACKUP_REMOTE`) | _ยังไม่ได้กำหนด_ |
-| วิธีหยุด deploy อัตโนมัติชั่วคราว (สคริปต์/timer ที่ดึง `main` อยู่ที่ไหน) | _ยังไม่ได้กำหนด_ |
+| วิธีหยุด deploy อัตโนมัติชั่วคราว | `crontab -e` ของ `aistudiofebc` แล้วใส่ `#` หน้าบรรทัด `/website/edge-configs/autodeploy/autodeploy.sh` (รันทุก 5 นาที) เอา `#` ออกเมื่อแก้เสร็จ |
 | ผู้รับผิดชอบเมื่อระบบล่ม + ช่องทางติดต่อ | _ยังไม่ได้กำหนด_ |
 
 ## ข้อมูลที่ต้องรักษา
@@ -42,13 +42,16 @@ container ชั่วคราวจาก image เดียวกัน (ใ�
 
 ### ตั้งให้รันทุกคืน
 
-`crontab -e` ของผู้ใช้ที่สั่ง `docker` ได้ (แก้ path ให้ตรง):
+ตั้งไว้แล้วบน production (24 พ.ย. 2569) ใน crontab ของ `aistudiofebc` รันทุกคืน 03:15:
 
 ```cron
-15 3 * * * cd /opt/geo-platform && BACKUP_REMOTE=user@backup-host:/srv/geo-backups deploy/backup.sh >> /var/log/geo-backup.log 2>&1
+15 3 * * * cd /website/geo.appreview.cloud/geo-platform && deploy/backup.sh >> logs/backup.log 2>&1
 ```
 
-สคริปต์ออกด้วยรหัสไม่ใช่ 0 เมื่อพัง — ดู `/var/log/geo-backup.log` หรือให้ตัวเฝ้าเซิร์ฟเวอร์แจ้งเตือนเมื่อไม่มีชุดใหม่เกิน 26 ชั่วโมง
+เมื่อมีปลายทางนอกเครื่องแล้ว ให้เติม `BACKUP_REMOTE=user@backup-host:/srv/geo-backups` หน้า `deploy/backup.sh` ในบรรทัดนี้
+
+สคริปต์ออกด้วยรหัสไม่ใช่ 0 เมื่อพัง และเขียนข้อผิดพลาดลง `logs/backup.log` ยังไม่มีตัวแจ้งเตือนเมื่อรอบสำรองล้มเหลวหรือไม่ได้รัน
+จนกว่าจะมี ให้เช็กเองว่า `ls backups/` มีชุดของเมื่อคืน
 
 ### ต้องมีสำเนานอกเครื่อง
 
