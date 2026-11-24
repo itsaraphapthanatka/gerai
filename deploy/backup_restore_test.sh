@@ -90,6 +90,34 @@ KEEP_DAYS=7 bash "$T/deploy/backup.sh" > /dev/null 2>&1 || fail "backup รอ�
 [ -d "$BACKUP_DIR/keep-me" ] && [ -d "$B" ] && [ -d "$P" ] || fail "ลบเกิน: โฟลเดอร์อื่นหรือชุดใหม่หายไป"
 echo "ลบชุดเก่า OK"
 
+# ---- ส่งออกนอกเครื่องด้วย rclone (ใช้ rclone ปลอมที่คัดลอกลงโฟลเดอร์ — เช็กว่าเรียกถูกและล้มเหลวเมื่อสำเนาไม่ตรง) ----
+mkdir -p "$T/bin" "$T/remote"
+cat > "$T/bin/rclone" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$RCLONE_CALLS"
+case "$1" in
+  copy) mkdir -p "$3" && cp -R "$2"/. "$3"/ && { [ -z "${RCLONE_CORRUPT:-}" ] || printf 'x' >> "$3/db.dump"; } ;;
+  check) diff -r "$2" "$3" > /dev/null ;;
+  delete) ;;
+  *) exit 64 ;;
+esac
+STUB
+chmod +x "$T/bin/rclone"
+export RCLONE_CALLS="$T/rclone-calls"
+sleep 1
+PATH="$T/bin:$PATH" BACKUP_RCLONE_REMOTE="$T/remote/geo/" bash "$T/deploy/backup.sh" > "$T/backup.log" 2>&1 || { cat "$T/backup.log"; fail "backup พร้อมส่ง rclone ล้มเหลว"; }
+R="$(latest)"
+cmp -s "$R/MANIFEST" "$T/remote/geo/$(basename "$R")/MANIFEST" || fail "ชุดที่ปลายทางไม่ตรงกับชุดในเครื่อง"
+[ "$(cut -d' ' -f1 "$RCLONE_CALLS" | paste -sd, -)" = "copy,check,delete" ] || fail "ควรเรียก rclone copy, check, delete ตามลำดับ: $(cat "$RCLONE_CALLS")"
+grep -q -- '^delete .*--min-age 30d --include /20' "$RCLONE_CALLS" || fail "ลบที่ปลายทางต้องจำกัดอายุและรูปแบบชื่อโฟลเดอร์: $(grep '^delete' "$RCLONE_CALLS")"
+rm "$RCLONE_CALLS"; sleep 1
+PATH="$T/bin:$PATH" BACKUP_RCLONE_REMOTE="$T/remote/geo" REMOTE_KEEP_DAYS=0 bash "$T/deploy/backup.sh" > /dev/null 2>&1 || fail "backup กับ REMOTE_KEEP_DAYS=0 ล้มเหลว"
+! grep -q '^delete' "$RCLONE_CALLS" || fail "REMOTE_KEEP_DAYS=0 ไม่ควรลบที่ปลายทาง"
+sleep 1
+if PATH="$T/bin:$PATH" BACKUP_RCLONE_REMOTE="$T/remote/geo" RCLONE_CORRUPT=1 bash "$T/deploy/backup.sh" > /dev/null 2>&1; then fail "สำเนาที่ปลายทางไม่ตรงควรทำให้สำรองออกด้วยรหัสผิดพลาด"; fi
+[ -s "$(latest)/db.dump" ] || fail "ส่งออกล้มเหลวแล้วชุดในเครื่องต้องยังอยู่"
+echo "ส่งออกนอกเครื่องด้วย rclone OK"
+
 # ---- อ่านไฟล์ไม่ได้ = สำรองล้มเหลว ไม่ทิ้งชุดครึ่ง ๆ (root อ่านได้ทุกไฟล์ จึงข้ามเมื่อรันเป็น root) ----
 if [ "$(id -u)" != "0" ]; then
   n="$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l)"
